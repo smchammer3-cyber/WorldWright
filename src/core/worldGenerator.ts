@@ -4,9 +4,11 @@
 // ======================================================
 
 export interface GeneratorParams {
-  worldStyle: "Realistic" | "Fantasy";
-  landmass: number;        // 0–100
-  seaLevel: number;        // 0–100
+  // For now this is a numeric preset selector (0 = Realistic, 1 = Fantasy, etc.)
+  worldStyle: number;
+  // All slider values are expressed as 0–100 from the UI
+  landmass: number;        // 0–100 (more = more land)
+  seaLevel: number;        // 0–100 (higher = more ocean)
   climateVariance: number; // reserved for future
   plateActivity: number;   // reserved for future
   axisTilt: number;        // reserved for future
@@ -21,71 +23,134 @@ export interface GeneratedWorld {
   width: number;
   height: number;
   cells: WorldCell[];
-  seaLevel: number; // 0–1 value for threshold
+  // Normalized sea level threshold in 0–1 space
+  seaLevel: number;
 }
 
-function random(offset = 0) {
-  return Math.random() + offset;
+/**
+ * Create a reasonable starting set of generator parameters.
+ * This is what the GeneratorScreen uses for its initial state.
+ */
+export function createDefaultGeneratorParams(): GeneratorParams {
+  return {
+    worldStyle: 0,     // 0 = Realistic preset (future use)
+    landmass: 50,      // balanced land/sea
+    seaLevel: 50,      // mid sea level
+    climateVariance: 50,
+    plateActivity: 50,
+    axisTilt: 30,
+    planetAge: 60
+  };
 }
 
-// Basic fractal-ish layered noise
-function generateHeight(width: number, height: number): number[] {
-  const arr = new Array(width * height);
+// ---------- Internal helpers ----------
+
+function random(seedOffset = 0): number {
+  // Placeholder PRNG hook; currently just Math.random
+  return Math.random() + seedOffset * 0.000001;
+}
+
+// Simple layered noise: not physically perfect, but good enough for v1
+function generateHeightField(width: number, height: number): number[] {
+  const arr = new Array<number>(width * height);
+
   for (let i = 0; i < arr.length; i++) {
+    // Three layers of noise blended together
     let v = random(0);
-    v += random(0) * 0.5;
-    v += random(0) * 0.25;
+    v += random(1) * 0.5;
+    v += random(2) * 0.25;
     v /= 1.75;
     arr[i] = v;
   }
+
   return arr;
 }
 
-// Apply continent mask to shape landmasses
-function applyContinentMask(heights: number[], w: number, h: number): number[] {
-  const cx = w / 2;
-  const cy = h / 2;
+/**
+ * Apply a large-scale continent mask so that
+ * - The center of the map tends to be land
+ * - The edges tend to fall off into ocean
+ */
+function applyContinentMask(
+  heights: number[],
+  width: number,
+  height: number
+): number[] {
+  const result = new Array<number>(heights.length);
+  const cx = width / 2;
+  const cy = height / 2;
 
-  return heights.map((val, i) => {
-    const x = i % w;
-    const y = Math.floor(i / w);
+  for (let i = 0; i < heights.length; i++) {
+    const x = i % width;
+    const y = Math.floor(i / width);
 
-    const dx = (x - cx) / (w * 0.4);
-    const dy = (y - cy) / (h * 0.4);
-    const dist = dx * dx + dy * dy;
+    const dx = (x - cx) / (width * 0.35);
+    const dy = (y - cy) / (height * 0.35);
+    const distSq = dx * dx + dy * dy;
 
-    // Mask: stronger in center, weaker edges
-    const mask = Math.max(0, 1.2 - dist * 1.2);
+    // Stronger in the middle, fades to 0 near edges
+    const mask = Math.max(0, 1.15 - distSq * 1.2);
 
-    return Math.min(1, Math.max(0, val * mask));
-  });
+    let v = heights[i] * mask;
+    // Clamp to [0, 1]
+    if (v < 0) v = 0;
+    if (v > 1) v = 1;
+
+    result[i] = v;
+  }
+
+  return result;
 }
 
+/**
+ * Generate a basic world height field from the slider parameters.
+ * This is the "large continent shaping" pass described in the blueprint.
+ */
 export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld {
   const width = 128;
   const height = 128;
 
-  let heights = generateHeight(width, height);
+  // 1) Base noise
+  let heights = generateHeightField(width, height);
+
+  // 2) Shape into a rough continent layout
   heights = applyContinentMask(heights, width, height);
 
-  // Slider influence
-  const seaLevel = params.seaLevel / 100;
-  const landShift = (params.landmass - 50) / 200;
+  // 3) Apply slider influences
+  const baseSea = params.seaLevel / 100; // 0–1 sea level
+  const landmassShift = (params.landmass - 50) / 200; // -0.25..+0.25
 
-  heights = heights.map(v => {
-    let val = v + landShift;
-    val = Math.min(1, Math.max(0, val));
+  const seaLevel = Math.min(0.95, Math.max(0.05, baseSea - landmassShift));
+
+  heights = heights.map((v) => {
+    let val = v;
+
+    // Very young planets = sharper extremes, older = smoother
+    const ageFactor = params.planetAge / 100; // 0–1
+    if (ageFactor < 0.5) {
+      // Younger → exaggerate contrasts slightly
+      const k = 1 + (0.5 - ageFactor) * 0.7;
+      val = Math.pow(val, 1 / k);
+    } else {
+      // Older → smooth things out
+      const k = 1 + (ageFactor - 0.5) * 0.7;
+      val = Math.pow(val, k);
+    }
+
+    if (val < 0) val = 0;
+    if (val > 1) val = 1;
+
     return val;
   });
 
-  const cells: WorldCell[] = heights.map(v => ({
-    baseHeight: v,
+  const cells: WorldCell[] = heights.map((v) => ({
+    baseHeight: v
   }));
 
   return {
     width,
     height,
     cells,
-    seaLevel,
+    seaLevel
   };
 }
