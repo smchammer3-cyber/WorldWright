@@ -49,8 +49,11 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     const preview = generateWorldFromParams(params)
     const { width, height, cells, seaLevel } = preview
 
-    // Fixed preview resolution to keep globe clean
-    const size = 256
+    // Responsive preview resolution: scale to canvas display size
+    const deviceScale = window.devicePixelRatio || 1
+    const displaySize = canvas.clientWidth || 320
+    const size = Math.max(256, Math.floor(displaySize * deviceScale))
+
     canvas.width = size
     canvas.height = size
 
@@ -305,7 +308,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
               className="ww-preview-canvas"
               style={{
                 width: '100%',
-                maxWidth: '320px',
+                aspectRatio: '1 / 1',
                 border: '1px solid #333',
                 imageRendering: 'pixelated'
               }}
