@@ -37,7 +37,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     onWorldGenerated(world.id)
   }
 
-  // 🔁 Live preview: regenerate the image whenever params change
+  // Live preview: regenerate the image whenever params change
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -45,47 +45,57 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     if (!ctx) return
 
     const world = generateWorldFromParams(params)
-    const { width, height, cells } = world
+    const { width, height, cells, seaLevel } = world
+
     const pixels = new Uint8ClampedArray(width * height * 4)
 
     for (let i = 0; i < cells.length; i++) {
       const c = cells[i]
-      const h = Math.floor(c.baseHeight * 255)
-      let r = h
-      let g = h
-      let b = h
 
-      switch (c.baseBiomeId) {
-        case 0: // ocean
-          r = 0
-          g = 0
-          b = 180
-          break
-        case 1: // ice caps
-          r = 200
-          g = 240
-          b = 255
-          break
-        case 2: // mountains
-          r = 160
-          g = 160
-          b = 160
-          break
-        case 3: // tundra
-          r = 70
-          g = 100
-          b = 120
-          break
-        case 4: // forest / taiga
-          r = 50
-          g = 170
-          b = 50
-          break
-        case 5: // drylands / grass / desert
-          r = 200
-          g = 180
-          b = 80
-          break
+      const isOcean = c.baseHeight < seaLevel
+      let r = 0
+      let g = 0
+      let b = 0
+
+      if (isOcean) {
+        // Ocean: smooth blue, slightly lighter near "shore"
+        const depth = Math.max(0, seaLevel - c.baseHeight) // deeper → bigger value
+        const t = Math.max(0, Math.min(1, depth * 3)) // clamp
+        // Deep ocean = dark blue, shallow = lighter teal-ish
+        r = 5 + Math.floor(20 * (1 - t))
+        g = 40 + Math.floor(60 * (1 - t))
+        b = 120 + Math.floor(80 * (1 - t))
+      } else {
+        // Land: color by biome with a bit of height influence
+        const h = c.baseHeight
+        switch (c.baseBiomeId) {
+          case 1: // ice caps
+            r = 220
+            g = 240
+            b = 255
+            break
+          case 2: // mountains
+            r = 160 + Math.floor(h * 60)
+            g = 150 + Math.floor(h * 40)
+            b = 140 + Math.floor(h * 30)
+            break
+          case 3: // tundra
+            r = 130
+            g = 150 + Math.floor(h * 30)
+            b = 150 + Math.floor(h * 40)
+            break
+          case 4: // forest / taiga
+            r = 40
+            g = 140 + Math.floor(h * 80)
+            b = 40
+            break
+          case 5: // drylands / grass / desert-ish
+          default:
+            r = 180 + Math.floor(h * 40)
+            g = 160 + Math.floor(h * 40)
+            b = 80 + Math.floor(h * 40)
+            break
+        }
       }
 
       const idx = i * 4
