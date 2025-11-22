@@ -9,12 +9,12 @@ export type WorldStyle = 'realistic' | 'fantasy' | 'scifi'
 
 export interface GeneratorParams {
   worldStyle: WorldStyle
-  landmass: number       // 0–100
-  seaLevel: number       // 0–100
-  climateVariance: number// 0–100
-  plateActivity: number  // 0–100
-  axisTilt: number       // 0–100
-  planetAge: number      // 0–100
+  landmass: number // 0–100
+  seaLevel: number // 0–100
+  climateVariance: number // 0–100
+  plateActivity: number // 0–100
+  axisTilt: number // 0–100
+  planetAge: number // 0–100
 }
 
 /**
