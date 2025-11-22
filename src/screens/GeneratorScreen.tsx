@@ -39,7 +39,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     onWorldGenerated(world.id)
   }
 
-  // Live preview generation
+  // Live preview generation – spherical planet-style preview
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -49,31 +49,86 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     const preview = generateWorldFromParams(params)
     const { width, height, cells, seaLevel } = preview
 
-    canvas.width = width
-    canvas.height = height
+    const size = Math.min(width, height) || 256
+    canvas.width = size
+    canvas.height = size
 
-    const img = ctx.createImageData(width, height)
+    const img = ctx.createImageData(size, size)
+    const cx = size / 2
+    const cy = size / 2
+    const radius = size / 2
 
-    for (let i = 0; i < cells.length; i++) {
-      const v = cells[i].baseHeight
-      const idx = i * 4
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const dx = (x + 0.5 - cx) / radius
+        const dy = (y + 0.5 - cy) / radius
+        const r2 = dx * dx + dy * dy
+        const idx = (y * size + x) * 4
 
-      // Apply land/ocean shading
-      if (v < seaLevel) {
-        // Water shading
-        const depth = Math.abs(v - seaLevel)
-        img.data[idx] = 0
-        img.data[idx + 1] = Math.floor(80 + depth * 100)
-        img.data[idx + 2] = Math.floor(120 + depth * 80)
-      } else {
-        // Land shading
-        const h = v
-        img.data[idx] = Math.floor(80 + h * 100)
-        img.data[idx + 1] = Math.floor(120 + h * 80)
-        img.data[idx + 2] = Math.floor(60 + h * 60)
+        if (r2 > 1) {
+          // Outside the planet circle – transparent background
+          img.data[idx] = 0
+          img.data[idx + 1] = 0
+          img.data[idx + 2] = 0
+          img.data[idx + 3] = 0
+          continue
+        }
+
+        const z = Math.sqrt(1 - r2)
+
+        // Map point on sphere to latitude/longitude
+        const lon = Math.atan2(dx, z)
+        const lat = Math.asin(dy)
+
+        // Convert lat/lon to world-grid coordinates (equirectangular)
+        let sampleX = Math.floor(((lon + Math.PI) / (2 * Math.PI)) * width)
+        let sampleY = Math.floor(((lat + Math.PI / 2) / Math.PI) * height)
+
+        if (sampleX < 0) sampleX = 0
+        if (sampleX >= width) sampleX = width - 1
+        if (sampleY < 0) sampleY = 0
+        if (sampleY >= height) sampleY = height - 1
+
+        const cellIndex = sampleY * width + sampleX
+        const v = cells[cellIndex].baseHeight
+
+        // Simple diffuse lighting from top-right
+        const light = Math.max(0.2, (z + dx * 0.3 - dy * 0.2) / 1.3)
+
+        let r: number
+        let g: number
+        let b: number
+
+        if (v < seaLevel) {
+          const depth = Math.min(1, Math.abs(v - seaLevel) * 4)
+          r = 20 + depth * 20
+          g = 80 + depth * 80
+          b = 130 + depth * 100
+        } else {
+          const h = Math.min(1, (v - seaLevel) * 3)
+          if (h > 0.7) {
+            // Mountains
+            r = 200 + (h - 0.7) * 40
+            g = 200 + (h - 0.7) * 40
+            b = 200 + (h - 0.7) * 40
+          } else if (h > 0.3) {
+            // Highlands
+            r = 140 + h * 40
+            g = 160 + h * 40
+            b = 110 + h * 30
+          } else {
+            // Lowlands / plains
+            r = 60 + h * 80
+            g = 130 + h * 70
+            b = 60 + h * 50
+          }
+        }
+
+        img.data[idx] = Math.floor(r * light)
+        img.data[idx + 1] = Math.floor(g * light)
+        img.data[idx + 2] = Math.floor(b * light)
+        img.data[idx + 3] = 255
       }
-
-      img.data[idx + 3] = 255 // alpha
     }
 
     ctx.putImageData(img, 0, 0)
@@ -91,43 +146,62 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
         </button>
       </header>
 
-      <main className="ww-screen-body ww-generator-layout">
+      <main className="ww-main">
         <section className="ww-panel">
           <h2>World Settings</h2>
 
-          <label className="ww-field">
-            <span className="ww-field-label">World Name</span>
+          <div className="ww-field">
+            <label>World Name</label>
             <input
-              className="ww-text-input"
-              type="text"
+              className="ww-input"
               value={worldName}
               onChange={e => setWorldName(e.target.value)}
-              placeholder="Enter a name..."
             />
-          </label>
+          </div>
 
-          <h2>World Parameters</h2>
-
-          {Object.keys(params).map(key => (
-            <div key={key} className="ww-field">
-              <div className="ww-field-label">{key}</div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={(params as any)[key]}
+          <div className="ww-field-group">
+            <h3>Style</h3>
+            <div className="ww-field">
+              <label>World Style</label>
+              <select
+                className="ww-input"
+                value={params.worldStyle}
                 onChange={e =>
-                  updateParam(
-                    key as keyof GeneratorParams,
-                    Number(e.target.value) as any
-                  )
+                  updateParam('worldStyle', Number(e.target.value) as any)
                 }
-              />
-              <div className="ww-field-value">
-                {(params as any)[key]}
-              </div>
+              >
+                <option value={0}>Realistic</option>
+                <option value={1}>Fantasy</option>
+              </select>
             </div>
-          ))}
+          </div>
+
+          <div className="ww-field-group">
+            <h3>Shape Controls</h3>
+
+            {(['landmass', 'seaLevel'] as (keyof GeneratorParams)[]).map(
+              key => (
+                <div className="ww-field" key={key}>
+                  <label>{key}</label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={params[key] as number}
+                    onChange={e =>
+                      updateParam(
+                        key as keyof GeneratorParams,
+                        Number(e.target.value) as any
+                      )
+                    }
+                  />
+                  <div className="ww-field-value">
+                    {(params as any)[key]}
+                  </div>
+                </div>
+              )
+            )}
+          </div>
         </section>
 
         <section className="ww-panel">
@@ -137,7 +211,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
             style={{
               width: '100%',
               maxWidth: '320px',
-              border: '1px solid '#333',
+              border: '1px solid #333',
               imageRendering: 'pixelated'
             }}
           />
