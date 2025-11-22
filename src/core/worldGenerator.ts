@@ -131,8 +131,7 @@ export function generateWorldFromParams(
   name: string,
   params: GeneratorParams
 ): World {
-  // For V1 we use a moderate resolution; we can later bump this to the
-  // blueprint's "full" resolution once performance is confirmed.
+  // For V1 we use a moderate resolution; can be increased later.
   const width = 512
   const height = 256
 
@@ -141,15 +140,15 @@ export function generateWorldFromParams(
   const cells: WorldCell[] = []
 
   // Derived knobs
-  const ruggedness = 0.4 + (params.plateActivity / 100) * 0.4 // 0.4–0.8
+  const ruggedness = 0.4 + (params.plateActivity / 100) * 0.4
   const moistureVariance = 0.3 + (params.climateVariance / 100) * 0.5
-  const seaLevelBase = 0.45 + (params.seaLevel - 50) / 500 // 0.35–0.55
-  const landBias = (params.landmass - 50) / 100 // -0.5 – +0.5
-  const ageSmoothing = 0.3 + (params.planetAge / 100) * 0.5 // 0.3–0.8
+  const seaLevelBase = 0.45 + (params.seaLevel - 50) / 500
+  const landBias = (params.landmass - 50) / 100
+  const ageSmoothing = 0.3 + (params.planetAge / 100) * 0.5
 
   for (let y = 0; y < height; y++) {
-    const latNorm = y / (height - 1) // 0 at top, 1 at bottom
-    const latFromEquator = Math.abs(latNorm - 0.5) * 2 // 0 equator, 1 poles
+    const latNorm = y / (height - 1)
+    const latFromEquator = Math.abs(latNorm - 0.5) * 2
 
     // Axis tilt: stronger tilt = broader warm band
     const tilt = 0.3 + (params.axisTilt / 100) * 0.4
@@ -185,8 +184,7 @@ export function generateWorldFromParams(
       // "Age" smoothing – older planets are softer
       heightValue = ageSmoothing * heightValue + (1 - ageSmoothing) * 0.5
 
-      // Apply sea level
-      const seaLevel = seaLevelBase
+      // Sea level control (we keep sea level sanity for now)
       const heightNorm = heightValue
 
       // Temperature variation by noise
@@ -205,7 +203,7 @@ export function generateWorldFromParams(
       )
 
       const env: EnvSample = {
-        height: heightNorm - seaLevel + 0.5,
+        height: heightNorm - seaLevelBase + 0.5,
         temp: tempFinal,
         moisture: moistureFinal
       }

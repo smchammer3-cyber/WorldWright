@@ -31,7 +31,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
   }
 
   function handleSave() {
-    // Blueprint Step 5: use the real generator
+    // Use the real generator to create a world from the current params.
     const world = generateWorldFromParams('New World', params)
     saveWorld(world)
     onWorldGenerated(world.id)
