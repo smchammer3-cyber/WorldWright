@@ -32,7 +32,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
 
   function handleSave() {
     // Use the real generator to create a world from the current params.
-    const world = generateWorldFromParams('New World', params)
+    const world = generateWorldFromParams(params)
     saveWorld(world)
     onWorldGenerated(world.id)
   }
@@ -110,7 +110,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
           </div>
 
           <div className="ww-field">
-            <label>Plate Activity / Ruggedness</label>
+            <label>Plate Activity</label>
             <input
               type="range"
               min={0}
