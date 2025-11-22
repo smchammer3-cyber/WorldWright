@@ -39,7 +39,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     onWorldGenerated(world.id)
   }
 
-  // Live preview generation – spherical planet-style preview
+  // Live planet-style preview
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -49,7 +49,8 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     const preview = generateWorldFromParams(params)
     const { width, height, cells, seaLevel } = preview
 
-    const size = Math.min(width, height) || 256
+    // Fixed preview resolution to keep globe clean
+    const size = 256
     canvas.width = size
     canvas.height = size
 
@@ -58,15 +59,18 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     const cy = size / 2
     const radius = size / 2
 
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const dx = (x + 0.5 - cx) / radius
-        const dy = (y + 0.5 - cy) / radius
-        const r2 = dx * dx + dy * dy
-        const idx = (y * size + x) * 4
+    // Simple directional light for shading (blueprint style)
+    const lightDir = { x: 0.4, y: -0.3, z: 0.85 }
 
+    for (let py = 0; py < size; py++) {
+      for (let px = 0; px < size; px++) {
+        const dx = (px + 0.5 - cx) / radius
+        const dy = (py + 0.5 - cy) / radius
+        const r2 = dx * dx + dy * dy
+        const idx = (py * size + px) * 4
+
+        // Outside the sphere – transparent background
         if (r2 > 1) {
-          // Outside the planet circle – transparent background
           img.data[idx] = 0
           img.data[idx + 1] = 0
           img.data[idx + 2] = 0
@@ -74,55 +78,67 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
           continue
         }
 
+        // Point on unit sphere
         const z = Math.sqrt(1 - r2)
 
-        // Map point on sphere to latitude/longitude
-        const lon = Math.atan2(dx, z)
-        const lat = Math.asin(dy)
+        // Convert to spherical coordinates
+        const lon = Math.atan2(dx, z) // -PI..PI
+        const lat = Math.asin(dy) // -PI/2..PI/2
 
-        // Convert lat/lon to world-grid coordinates (equirectangular)
-        let sampleX = Math.floor(((lon + Math.PI) / (2 * Math.PI)) * width)
-        let sampleY = Math.floor(((lat + Math.PI / 2) / Math.PI) * height)
+        // Map to equirectangular world grid
+        let sx = Math.floor(((lon + Math.PI) / (2 * Math.PI)) * width)
+        let sy = Math.floor(((lat + Math.PI / 2) / Math.PI) * height)
 
-        if (sampleX < 0) sampleX = 0
-        if (sampleX >= width) sampleX = width - 1
-        if (sampleY < 0) sampleY = 0
-        if (sampleY >= height) sampleY = height - 1
+        if (sx < 0) sx = 0
+        if (sx >= width) sx = width - 1
+        if (sy < 0) sy = 0
+        if (sy >= height) sy = height - 1
 
-        const cellIndex = sampleY * width + sampleX
-        const v = cells[cellIndex].baseHeight
+        const cellIndex = sy * width + sx
+        const baseHeight = cells[cellIndex].baseHeight
 
-        // Simple diffuse lighting from top-right
-        const light = Math.max(0.2, (z + dx * 0.3 - dy * 0.2) / 1.3)
-
+        // Blueprint-style palette (dark oceans, muted land, pale mountains)
         let r: number
         let g: number
         let b: number
 
-        if (v < seaLevel) {
-          const depth = Math.min(1, Math.abs(v - seaLevel) * 4)
-          r = 20 + depth * 20
-          g = 80 + depth * 80
-          b = 130 + depth * 100
+        if (baseHeight < seaLevel) {
+          // Deep navy oceans
+          const depth = Math.min(1, (seaLevel - baseHeight) * 4)
+          r = 8 + depth * 10
+          g = 22 + depth * 20
+          b = 48 + depth * 40
         } else {
-          const h = Math.min(1, (v - seaLevel) * 3)
+          // Land and mountains
+          const h = Math.min(1, (baseHeight - seaLevel) * 3)
+
           if (h > 0.7) {
-            // Mountains
-            r = 200 + (h - 0.7) * 40
-            g = 200 + (h - 0.7) * 40
-            b = 200 + (h - 0.7) * 40
+            // High mountains – cold stone
+            const t = (h - 0.7) / 0.3
+            r = 190 + t * 40
+            g = 196 + t * 40
+            b = 210 + t * 45
           } else if (h > 0.3) {
-            // Highlands
-            r = 140 + h * 40
-            g = 160 + h * 40
-            b = 110 + h * 30
+            // Highlands – rocky / sparse vegetation
+            const t = (h - 0.3) / 0.4
+            r = 120 + t * 40
+            g = 130 + t * 35
+            b = 110 + t * 30
           } else {
-            // Lowlands / plains
-            r = 60 + h * 80
-            g = 130 + h * 70
-            b = 60 + h * 50
+            // Lowlands – muted green
+            const t = h / 0.3
+            r = 60 + t * 25
+            g = 110 + t * 35
+            b = 80 + t * 20
           }
         }
+
+        // Simple lambertian lighting
+        const nx = dx
+        const ny = dy
+        const nz = z
+        const ndotl = nx * lightDir.x + ny * lightDir.y + nz * lightDir.z
+        const light = Math.max(0.3, ndotl)
 
         img.data[idx] = Math.floor(r * light)
         img.data[idx + 1] = Math.floor(g * light)
@@ -140,83 +156,163 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
         <button className="ww-secondary-btn" onClick={onBack}>
           ← Worlds
         </button>
-        <h1 className="ww-title">World Generator</h1>
+        <div className="ww-title">World Generator</div>
         <button className="ww-primary-btn" onClick={handleSave}>
           Save World
         </button>
       </header>
 
-      <main className="ww-main">
-        <section className="ww-panel">
-          <h2>World Settings</h2>
+      <div className="ww-screen-body">
+        <div className="ww-generator-layout">
+          <section className="ww-panel ww-panel-grow">
+            <h2>World Settings</h2>
 
-          <div className="ww-field">
-            <label>World Name</label>
-            <input
-              className="ww-input"
-              value={worldName}
-              onChange={e => setWorldName(e.target.value)}
-            />
-          </div>
+            <div className="ww-field">
+              <label>World Name</label>
+              <input
+                className="ww-input"
+                value={worldName}
+                onChange={e => setWorldName(e.target.value)}
+              />
+            </div>
 
-          <div className="ww-field-group">
-            <h3>Style</h3>
             <div className="ww-field">
               <label>World Style</label>
               <select
                 className="ww-input"
                 value={params.worldStyle}
                 onChange={e =>
-                  updateParam('worldStyle', Number(e.target.value) as any)
+                  updateParam(
+                    'worldStyle',
+                    Number(e.target.value) as GeneratorParams['worldStyle']
+                  )
                 }
               >
-                <option value={0}>Realistic</option>
-                <option value={1}>Fantasy</option>
+                <option value={0}>Realistic (Preset)</option>
+                <option value={1}>Fantasy (Preset)</option>
               </select>
             </div>
-          </div>
 
-          <div className="ww-field-group">
-            <h3>Shape Controls</h3>
+            <div className="ww-field">
+              <label>Landmass</label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={params.landmass}
+                onChange={e =>
+                  updateParam(
+                    'landmass',
+                    Number(e.target.value) as GeneratorParams['landmass']
+                  )
+                }
+              />
+              <div className="ww-field-value">{params.landmass}</div>
+            </div>
 
-            {(['landmass', 'seaLevel'] as (keyof GeneratorParams)[]).map(
-              key => (
-                <div className="ww-field" key={key}>
-                  <label>{key}</label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={params[key] as number}
-                    onChange={e =>
-                      updateParam(
-                        key as keyof GeneratorParams,
-                        Number(e.target.value) as any
-                      )
-                    }
-                  />
-                  <div className="ww-field-value">
-                    {(params as any)[key]}
-                  </div>
-                </div>
-              )
-            )}
-          </div>
-        </section>
+            <div className="ww-field">
+              <label>Sea Level</label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={params.seaLevel}
+                onChange={e =>
+                  updateParam(
+                    'seaLevel',
+                    Number(e.target.value) as GeneratorParams['seaLevel']
+                  )
+                }
+              />
+              <div className="ww-field-value">{params.seaLevel}</div>
+            </div>
 
-        <section className="ww-panel">
-          <h2>Preview</h2>
-          <canvas
-            ref={canvasRef}
-            style={{
-              width: '100%',
-              maxWidth: '320px',
-              border: '1px solid #333',
-              imageRendering: 'pixelated'
-            }}
-          />
-        </section>
-      </main>
+            <h3>Advanced (coming online later)</h3>
+
+            <div className="ww-field">
+              <label>Climate Variance</label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={params.climateVariance}
+                onChange={e =>
+                  updateParam(
+                    'climateVariance',
+                    Number(e.target.value) as GeneratorParams['climateVariance']
+                  )
+                }
+              />
+              <div className="ww-field-value">{params.climateVariance}</div>
+            </div>
+
+            <div className="ww-field">
+              <label>Plate Activity</label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={params.plateActivity}
+                onChange={e =>
+                  updateParam(
+                    'plateActivity',
+                    Number(e.target.value) as GeneratorParams['plateActivity']
+                  )
+                }
+              />
+              <div className="ww-field-value">{params.plateActivity}</div>
+            </div>
+
+            <div className="ww-field">
+              <label>Axis Tilt</label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={params.axisTilt}
+                onChange={e =>
+                  updateParam(
+                    'axisTilt',
+                    Number(e.target.value) as GeneratorParams['axisTilt']
+                  )
+                }
+              />
+              <div className="ww-field-value">{params.axisTilt}</div>
+            </div>
+
+            <div className="ww-field">
+              <label>Planet Age</label>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={params.planetAge}
+                onChange={e =>
+                  updateParam(
+                    'planetAge',
+                    Number(e.target.value) as GeneratorParams['planetAge']
+                  )
+                }
+              />
+              <div className="ww-field-value">{params.planetAge}</div>
+            </div>
+          </section>
+
+          <section className="ww-panel">
+            <h2>Preview</h2>
+            <canvas
+              ref={canvasRef}
+              className="ww-preview-canvas"
+              style={{
+                width: '100%',
+                maxWidth: '320px',
+                border: '1px solid #333',
+                imageRendering: 'pixelated'
+              }}
+            />
+          </section>
+        </div>
+      </div>
     </div>
   )
 }
