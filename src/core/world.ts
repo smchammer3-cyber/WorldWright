@@ -1,6 +1,6 @@
 // ===============================
 // WorldWright WorldBrain Types
-// Step 2 of the blueprint
+// (Blueprint-compatible, simplified)
 // ===============================
 
 export type BiomeId = number
@@ -15,103 +15,58 @@ export type CityType = 'village' | 'town' | 'city' | 'capital'
  * Resolution is width × height (e.g. 1024 × 512).
  */
 export interface WorldCell {
-  /** X index in grid (0..width-1), wraps around longitude */
   x: number
-  /** Y index in grid (0..height-1), pole to pole */
   y: number
 
-  /** Generated base elevation (0–1) */
+  // Height layers
   baseHeight: number
-
-  /** Create Mode edits (stickers, brushes) */
   editHeightDelta: number
-
-  /** Sim Mode changes (erosion, flooding, etc.) */
   simHeightDelta: number
 
-  /** Generator-assigned biome */
+  // Biomes
   baseBiomeId: BiomeId
-
-  /** Player override biome (if any) */
   editBiomeId: BiomeId | null
 
-  /** Political + cultural ownership */
+  // Ownership / culture
   countryId: CountryId
   cultureId: CultureId
 
-  /** Optional city that occupies / references this cell */
+  // City reference (if part of a settlement)
   cityId: CityId
 }
 
-/**
- * A city or settlement pin on the map.
- */
 export interface City {
   id: string
   name: string
   type: CityType
-
-  /** Grid position for export + editor targeting */
   x: number
   y: number
-
-  /** Owning country + culture at placement time */
   countryId: CountryId
   cultureId: CultureId
-
-  /** Freeform lore notes */
   notes?: string
 }
 
-/**
- * A country / nation that owns land cells.
- */
 export interface Country {
   id: string
   name: string
-
-  /** Optional display color for maps */
-  colorHex?: string
-
-  /** Capital city, if defined */
-  capitalCityId?: CityId
 }
 
-/**
- * Broad culture regions painted over the map.
- */
 export interface Culture {
   id: string
   name: string
-  description?: string
 }
 
-/**
- * Core world object stored in saves and used by Create/Sim.
- */
 export interface World {
   id: string
   name: string
-
-  /** Random seed used by the generator */
   seed: number
-
-  /** Grid resolution */
   width: number
   height: number
-
-  /** Sea level threshold (0–1) for oceans */
   seaLevel: number
-
-  /** Flattened grid: index = y * width + x */
   cells: WorldCell[]
-
-  /** High-level entities */
   countries: Country[]
   cultures: Culture[]
   cities: City[]
-
-  /** Timestamps for future syncing/export */
   createdAt: string
   updatedAt: string
 }
