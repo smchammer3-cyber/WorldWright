@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
-import { createAndSavePlaceholderWorld } from '../core/worldStorage'
+import { saveWorld } from '../core/worldStorage'
 import {
   createDefaultGeneratorParams,
   GeneratorParams,
-  WorldStyle
+  WorldStyle,
+  generateWorldFromParams
 } from '../core/worldGenerator'
 
 interface GeneratorScreenProps {
@@ -14,7 +15,7 @@ interface GeneratorScreenProps {
 export function GeneratorScreen(props: GeneratorScreenProps) {
   const { onBack, onWorldGenerated } = props
 
-  // Blueprint Step 5A: generator parameter state
+  // Generator parameter state (blueprint Step 5A)
   const [params, setParams] = useState<GeneratorParams>(
     createDefaultGeneratorParams()
   )
@@ -30,10 +31,9 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
   }
 
   function handleSave() {
-    // For now, we still use the placeholder generator,
-    // ignoring params. In Step 5B–5E we'll call the real
-    // generateWorldFromParams(...) instead.
-    const world = createAndSavePlaceholderWorld('New World')
+    // Blueprint Step 5: use the real generator
+    const world = generateWorldFromParams('New World', params)
+    saveWorld(world)
     onWorldGenerated(world.id)
   }
 
@@ -149,8 +149,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
             <p>
               Globe / Map preview will appear here.
               <br />
-              (Next steps will use these parameters to generate and display a
-              real world.)
+              (You are already generating a full planet when you hit Save.)
             </p>
           </div>
         </section>
