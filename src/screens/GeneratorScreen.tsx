@@ -49,13 +49,11 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     const preview = generateWorldFromParams(params)
     const { width, height, cells, seaLevel } = preview
 
-    // Responsive preview resolution: scale to displayed size
-    // NOTE: avoid feedback loop where canvas grows every redraw.
-    // We base internal resolution on the current CSS width only,
-    // without multiplying by device pixel ratio.
-    const displaySize = canvas.clientWidth || 320
-    const size = Math.max(256, Math.floor(displaySize))
-
+    // Fixed internal resolution for stable preview.
+    // Canvas CSS size is controlled by layout; we keep the
+    // internal bitmap size constant so the globe never grows
+    // when sliders change.
+    const size = 512
     canvas.width = size
     canvas.height = size
 
