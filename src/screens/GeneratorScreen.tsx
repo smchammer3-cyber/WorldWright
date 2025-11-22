@@ -39,7 +39,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     onWorldGenerated(world.id)
   }
 
-  // Live planet-style preview
+  // Live planet-style preview (Step 5G + 5H polish)
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -49,7 +49,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     const preview = generateWorldFromParams(params)
     const { width, height, cells, seaLevel } = preview
 
-    // Responsive preview resolution: scale to canvas display size
+    // Responsive preview resolution: scale to displayed size
     const deviceScale = window.devicePixelRatio || 1
     const displaySize = canvas.clientWidth || 320
     const size = Math.max(256, Math.floor(displaySize * deviceScale))
@@ -167,6 +167,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
 
       <div className="ww-screen-body">
         <div className="ww-generator-layout">
+          {/* Left: Controls */}
           <section className="ww-panel ww-panel-grow">
             <h2>World Settings</h2>
 
@@ -179,128 +180,142 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
               />
             </div>
 
-            <div className="ww-field">
-              <label>World Style</label>
-              <select
-                className="ww-input"
-                value={params.worldStyle}
-                onChange={e =>
-                  updateParam(
-                    'worldStyle',
-                    Number(e.target.value) as GeneratorParams['worldStyle']
-                  )
-                }
-              >
-                <option value={0}>Realistic (Preset)</option>
-                <option value={1}>Fantasy (Preset)</option>
-              </select>
+            <div className="ww-field-group">
+              <h3>Style</h3>
+              <div className="ww-field">
+                <label>World Style</label>
+                <select
+                  className="ww-input"
+                  value={params.worldStyle}
+                  onChange={e =>
+                    updateParam(
+                      'worldStyle',
+                      Number(e.target.value) as GeneratorParams['worldStyle']
+                    )
+                  }
+                >
+                  <option value={0}>Realistic (Preset)</option>
+                  <option value={1}>Fantasy (Preset)</option>
+                </select>
+              </div>
             </div>
 
-            <div className="ww-field">
-              <label>Landmass</label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={params.landmass}
-                onChange={e =>
-                  updateParam(
-                    'landmass',
-                    Number(e.target.value) as GeneratorParams['landmass']
-                  )
-                }
-              />
-              <div className="ww-field-value">{params.landmass}</div>
+            <div className="ww-field-group">
+              <h3>Shape Controls</h3>
+
+              <div className="ww-field">
+                <label>Landmass</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={params.landmass}
+                  onChange={e =>
+                    updateParam(
+                      'landmass',
+                      Number(e.target.value) as GeneratorParams['landmass']
+                    )
+                  }
+                />
+                <div className="ww-field-value">{params.landmass}</div>
+              </div>
+
+              <div className="ww-field">
+                <label>Sea Level</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={params.seaLevel}
+                  onChange={e =>
+                    updateParam(
+                      'seaLevel',
+                      Number(e.target.value) as GeneratorParams['seaLevel']
+                    )
+                  }
+                />
+                <div className="ww-field-value">{params.seaLevel}</div>
+              </div>
             </div>
 
-            <div className="ww-field">
-              <label>Sea Level</label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={params.seaLevel}
-                onChange={e =>
-                  updateParam(
-                    'seaLevel',
-                    Number(e.target.value) as GeneratorParams['seaLevel']
-                  )
-                }
-              />
-              <div className="ww-field-value">{params.seaLevel}</div>
-            </div>
+            <div className="ww-field-group">
+              <h3>Advanced (Reserved for Later)</h3>
 
-            <h3>Advanced (coming online later)</h3>
+              <div className="ww-field">
+                <label>Climate Variance</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={params.climateVariance}
+                  onChange={e =>
+                    updateParam(
+                      'climateVariance',
+                      Number(
+                        e.target.value
+                      ) as GeneratorParams['climateVariance']
+                    )
+                  }
+                />
+                <div className="ww-field-value">
+                  {params.climateVariance}
+                </div>
+              </div>
 
-            <div className="ww-field">
-              <label>Climate Variance</label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={params.climateVariance}
-                onChange={e =>
-                  updateParam(
-                    'climateVariance',
-                    Number(e.target.value) as GeneratorParams['climateVariance']
-                  )
-                }
-              />
-              <div className="ww-field-value">{params.climateVariance}</div>
-            </div>
+              <div className="ww-field">
+                <label>Plate Activity</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={params.plateActivity}
+                  onChange={e =>
+                    updateParam(
+                      'plateActivity',
+                      Number(e.target.value) as GeneratorParams['plateActivity']
+                    )
+                  }
+                />
+                <div className="ww-field-value">{params.plateActivity}</div>
+              </div>
 
-            <div className="ww-field">
-              <label>Plate Activity</label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={params.plateActivity}
-                onChange={e =>
-                  updateParam(
-                    'plateActivity',
-                    Number(e.target.value) as GeneratorParams['plateActivity']
-                  )
-                }
-              />
-              <div className="ww-field-value">{params.plateActivity}</div>
-            </div>
+              <div className="ww-field">
+                <label>Axis Tilt</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={params.axisTilt}
+                  onChange={e =>
+                    updateParam(
+                      'axisTilt',
+                      Number(e.target.value) as GeneratorParams['axisTilt']
+                    )
+                  }
+                />
+                <div className="ww-field-value">{params.axisTilt}</div>
+              </div>
 
-            <div className="ww-field">
-              <label>Axis Tilt</label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={params.axisTilt}
-                onChange={e =>
-                  updateParam(
-                    'axisTilt',
-                    Number(e.target.value) as GeneratorParams['axisTilt']
-                  )
-                }
-              />
-              <div className="ww-field-value">{params.axisTilt}</div>
-            </div>
-
-            <div className="ww-field">
-              <label>Planet Age</label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={params.planetAge}
-                onChange={e =>
-                  updateParam(
-                    'planetAge',
-                    Number(e.target.value) as GeneratorParams['planetAge']
-                  )
-                }
-              />
-              <div className="ww-field-value">{params.planetAge}</div>
+              <div className="ww-field">
+                <label>Planet Age</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={params.planetAge}
+                  onChange={e =>
+                    updateParam(
+                      'planetAge',
+                      Number(e.target.value) as GeneratorParams['planetAge']
+                    )
+                  }
+                />
+                <div className="ww-field-value">{params.planetAge}</div>
+              </div>
             </div>
           </section>
 
+          {/* Right: Preview */}
           <section className="ww-panel">
             <h2>Preview</h2>
             <canvas
