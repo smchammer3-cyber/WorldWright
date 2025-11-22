@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { saveWorld } from '../core/worldStorage'
 import {
+  buildWorldFromParams,
   createDefaultGeneratorParams,
   GeneratorParams,
   generateWorldFromParams
@@ -17,6 +18,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
   const [params, setParams] = useState<GeneratorParams>(
     createDefaultGeneratorParams()
   )
+  const [worldName, setWorldName] = useState<string>('New World')
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
@@ -31,9 +33,10 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
   }
 
   function handleSave() {
-    const world = generateWorldFromParams(params)
+    const name = worldName.trim() || 'Untitled World'
+    const world = buildWorldFromParams(params, name)
     saveWorld(world)
-    onWorldGenerated(world.width + 'x' + world.height)
+    onWorldGenerated(world.id)
   }
 
   // Live preview generation
@@ -43,8 +46,8 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const world = generateWorldFromParams(params)
-    const { width, height, cells, seaLevel } = world
+    const preview = generateWorldFromParams(params)
+    const { width, height, cells, seaLevel } = preview
 
     canvas.width = width
     canvas.height = height
@@ -70,7 +73,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
         img.data[idx + 2] = Math.floor(60 + h * 60)
       }
 
-      img.data[idx + 3] = 255 /// alpha
+      img.data[idx + 3] = 255 // alpha
     }
 
     ctx.putImageData(img, 0, 0)
@@ -90,32 +93,51 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
 
       <main className="ww-screen-body ww-generator-layout">
         <section className="ww-panel">
+          <h2>World Settings</h2>
+
+          <label className="ww-field">
+            <span className="ww-field-label">World Name</span>
+            <input
+              className="ww-text-input"
+              type="text"
+              value={worldName}
+              onChange={e => setWorldName(e.target.value)}
+              placeholder="Enter a name..."
+            />
+          </label>
+
           <h2>World Parameters</h2>
 
           {Object.keys(params).map(key => (
-            <div className="ww-field" key={key}>
-              <label>{key}</label>
+            <div key={key} className="ww-field">
+              <div className="ww-field-label">{key}</div>
               <input
                 type="range"
                 min={0}
                 max={100}
                 value={(params as any)[key]}
                 onChange={e =>
-                  updateParam(key as any, Number(e.target.value))
+                  updateParam(
+                    key as keyof GeneratorParams,
+                    Number(e.target.value) as any
+                  )
                 }
               />
+              <div className="ww-field-value">
+                {(params as any)[key]}
+              </div>
             </div>
           ))}
         </section>
 
-        <section className="ww-panel ww-panel-grow">
+        <section className="ww-panel">
           <h2>Preview</h2>
           <canvas
             ref={canvasRef}
             style={{
               width: '100%',
               maxWidth: '320px',
-              border: '1px solid #333',
+              border: '1px solid '#333',
               imageRendering: 'pixelated'
             }}
           />
