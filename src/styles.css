@@ -1,5 +1,271 @@
+:root {
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
-  background: #0a0d14;
+  background: #040712;
+  color: #f5f5f5;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Generic screen layout */
+
+.ww-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.ww-screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid #202334;
+  background: #060918;
+}
+
+.ww-title {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.ww-screen-body {
+  flex: 1;
+  padding: 1rem;
+}
+
+/* Buttons */
+
+.ww-primary-btn,
+.ww-secondary-btn {
+  border-radius: 6px;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.ww-primary-btn {
+  background: #3b82f6;
   color: #ffffff;
+}
+
+.ww-primary-btn:hover {
+  background: #2563eb;
+}
+
+.ww-secondary-btn {
+  background: #111827;
+  color: #e5e7eb;
+  border: 1px solid #374151;
+}
+
+.ww-secondary-btn:hover {
+  background: #1f2933;
+}
+
+/* Home screen */
+
+.ww-world-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.ww-world-card {
+  background: #0b1020;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
+  padding: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ww-world-card:hover {
+  border-color: #3b82f6;
+}
+
+.ww-world-thumb {
+  background: radial-gradient(circle at 30% 30%, #3b82f6, #020617);
+  border-radius: 8px;
+  height: 80px;
+  margin-bottom: 0.5rem;
+}
+
+.ww-world-name {
+  font-size: 0.95rem;
+}
+
+.ww-empty {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+/* Generator layout */
+
+.ww-generator-layout {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ww-panel {
+  background: #050816;
+  border-radius: 10px;
+  border: 1px solid #1f2937;
+  padding: 0.75rem 1rem;
+  min-width: 260px;
+}
+
+.ww-panel-grow {
+  flex: 1;
+}
+
+.ww-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.75rem;
+}
+
+.ww-field label {
+  font-size: 0.85rem;
+  margin-bottom: 0.25rem;
+}
+
+.ww-preview-placeholder {
+  border-radius: 8px;
+  border: 1px dashed #374151;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+/* Editor layout */
+
+.ww-editor-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #020617;
+}
+
+.ww-editor-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.9rem;
+  border-bottom: 1px solid #111827;
+  background: #020617;
+}
+
+.ww-breadcrumb {
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.ww-topbar-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ww-editor-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  min-height: 0;
+}
+
+.ww-sidebar,
+.ww-right-panel {
+  background: #050816;
+  border-right: 1px solid #111827;
+  padding: 0.75rem;
+}
+
+.ww-right-panel {
+  border-right: none;
+  border-left: 1px solid #111827;
+}
+
+.ww-editor-canvas {
+  display: flex;
+  flex-direction: column;
+}
+
+.ww-canvas-header {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #111827;
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.ww-canvas-body {
+  flex: 1;
+  padding: 0.75rem;
+  font-size: 0.95rem;
+}
+
+/* Sidebar sections */
+
+.ww-sidebar-section {
+  margin-bottom: 1rem;
+}
+
+.ww-sidebar-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9ca3af;
+  margin-bottom: 0.4rem;
+}
+
+.ww-toggle-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ww-toggle,
+.ww-toggle-active {
+  flex: 1;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  border: 1px solid #374151;
+  background: #020617;
+  color: #e5e7eb;
+  cursor: pointer;
+}
+
+.ww-toggle-active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.ww-tool-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  font-size: 0.85rem;
+  color: #d1d5db;
+}
+
+.ww-tool-list li {
+  margin-bottom: 0.2rem;
+}
+
+/* Mobile tweaks */
+
+@media (max-width: 900px) {
+  .ww-editor-main {
+    grid-template-columns: 1fr;
+  }
+  .ww-sidebar,
+  .ww-right-panel {
+    display: none;
+  }
 }
