@@ -1,12 +1,20 @@
 import React from 'react'
+import { createAndSavePlaceholderWorld } from '../core/worldStorage'
 
 interface GeneratorScreenProps {
   onBack: () => void
-  onSaveWorld: () => void
+  onWorldGenerated: (worldId: string) => void
 }
 
 export function GeneratorScreen(props: GeneratorScreenProps) {
-  const { onBack, onSaveWorld } = props
+  const { onBack, onWorldGenerated } = props
+
+  function handleSave() {
+    // For now, use a simple default name.
+    // Later, this will come from user input + generator parameters.
+    const world = createAndSavePlaceholderWorld('New World')
+    onWorldGenerated(world.id)
+  }
 
   return (
     <div className="ww-screen">
@@ -15,7 +23,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
           ← Worlds
         </button>
         <h1 className="ww-title">World Generator</h1>
-        <button className="ww-primary-btn" onClick={onSaveWorld}>
+        <button className="ww-primary-btn" onClick={handleSave}>
           Save World
         </button>
       </header>
@@ -23,7 +31,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
       <main className="ww-screen-body ww-generator-layout">
         <section className="ww-panel">
           <h2>World Parameters</h2>
-          {/* These sliders map directly to the blueprint’s generator params */}
+
           <div className="ww-field">
             <label>World Style</label>
             <select>
@@ -67,7 +75,6 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
         <section className="ww-panel ww-panel-grow">
           <h2>Preview</h2>
           <div className="ww-preview-placeholder">
-            {/* Later: 3D globe + 2D map from the WorldBrain data */}
             <p>Globe / Map preview will appear here.</p>
           </div>
         </section>

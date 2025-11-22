@@ -18,7 +18,7 @@ export function EditorScreen(props: EditorScreenProps) {
         <button className="ww-secondary-btn" onClick={onBack}>
           ← Worlds
         </button>
-        <div className="ww-breadcrumb">World Editor – Eldoria (Demo)</div>
+        <div className="ww-breadcrumb">World Editor – (placeholder world)</div>
         <div className="ww-topbar-actions">
           <button className="ww-secondary-btn">Export</button>
           <button className="ww-secondary-btn">Save</button>

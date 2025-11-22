@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import {
   BrowserRouter,
   Routes,
@@ -9,6 +9,7 @@ import {
 import { HomeScreen } from './screens/HomeScreen'
 import { GeneratorScreen } from './screens/GeneratorScreen'
 import { EditorScreen } from './screens/EditorScreen'
+import { restoreFromLocalStorage } from './core/worldStorage'
 
 function AppRoutes() {
   const navigate = useNavigate()
@@ -29,8 +30,8 @@ function AppRoutes() {
         element={
           <GeneratorScreen
             onBack={() => navigate('/')}
-            onSaveWorld={() => {
-              // Later: actually create a world, then open its editor.
+            onWorldGenerated={() => {
+              // Later: navigate to /editor/:id and load that world.
               navigate('/editor')
             }}
           />
@@ -47,6 +48,10 @@ function AppRoutes() {
 }
 
 export default function App() {
+  useEffect(() => {
+    restoreFromLocalStorage()
+  }, [])
+
   return (
     <BrowserRouter>
       <AppRoutes />
