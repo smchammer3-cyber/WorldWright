@@ -14,6 +14,10 @@ import { restoreFromLocalStorage } from './core/worldStorage'
 function AppRoutes() {
   const navigate = useNavigate()
 
+  useEffect(() => {
+    restoreFromLocalStorage()
+  }, [])
+
   return (
     <Routes>
       <Route
@@ -21,7 +25,7 @@ function AppRoutes() {
         element={
           <HomeScreen
             onCreateNewWorld={() => navigate('/generate')}
-            onOpenWorld={() => navigate('/editor')}
+            onOpenWorld={id => navigate(`/edit/${id}`)}
           />
         }
       />
@@ -30,28 +34,20 @@ function AppRoutes() {
         element={
           <GeneratorScreen
             onBack={() => navigate('/')}
-            onWorldGenerated={() => {
-              // Later: navigate to /editor/:id and load that world.
-              navigate('/editor')
-            }}
+            onWorldGenerated={id => navigate(`/edit/${id}`)}
           />
         }
       />
       <Route
-        path="/editor"
+        path="/edit/:id"
         element={<EditorScreen onBack={() => navigate('/')} />}
       />
-      {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
 
 export default function App() {
-  useEffect(() => {
-    restoreFromLocalStorage()
-  }, [])
-
   return (
     <BrowserRouter>
       <AppRoutes />

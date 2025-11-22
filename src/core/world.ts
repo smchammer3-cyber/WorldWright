@@ -1,6 +1,6 @@
 // ===============================
 // WorldWright WorldBrain Types
-// (Blueprint-compatible, simplified)
+// (Blueprint-compatible, simplified for V1)
 // ===============================
 
 export type BiomeId = number
@@ -18,54 +18,64 @@ export interface WorldCell {
   x: number
   y: number
 
-  // Height layers
-  baseHeight: number
+  // Terrain
+  baseHeight: number // 0–1
   editHeightDelta: number
   simHeightDelta: number
 
   // Biomes
   baseBiomeId: BiomeId
   editBiomeId: BiomeId | null
+  simBiomeId: BiomeId | null
 
   // Ownership / culture
   countryId: CountryId
   cultureId: CultureId
-
-  // City reference (if part of a settlement)
   cityId: CityId
 }
 
+/**
+ * Basic city entity – enough for lists and map pins.
+ */
 export interface City {
   id: string
   name: string
   type: CityType
-  x: number
-  y: number
+  cellIndex: number
   countryId: CountryId
   cultureId: CultureId
   notes?: string
 }
 
+/**
+ * Simple country stub for V1.
+ */
 export interface Country {
   id: string
   name: string
 }
 
-export interface Culture {
+/**
+ * Simple culture stub for V1.
+ */
+export interface CultureRegion {
   id: string
   name: string
 }
 
+/**
+ * Full world state stored in memory / localStorage.
+ */
 export interface World {
   id: string
   name: string
-  seed: number
   width: number
   height: number
+  seed: number
   seaLevel: number
   cells: WorldCell[]
   countries: Country[]
-  cultures: Culture[]
+  cultures: CultureRegion[]
   cities: City[]
   createdAt: string
   updatedAt: string

@@ -14,30 +14,26 @@ export function EditorScreen(props: EditorScreenProps) {
 
   return (
     <div className="ww-editor-root">
-      <header className="ww-editor-topbar">
+      <header className="ww-screen-header">
         <button className="ww-secondary-btn" onClick={onBack}>
           ← Worlds
         </button>
-        <div className="ww-breadcrumb">World Editor – (placeholder world)</div>
-        <div className="ww-topbar-actions">
-          <button className="ww-secondary-btn">Export</button>
-          <button className="ww-secondary-btn">Save</button>
-        </div>
+        <div className="ww-breadcrumb">World Editor</div>
       </header>
 
       <div className="ww-editor-main">
         <aside className="ww-sidebar">
           <div className="ww-sidebar-section">
             <div className="ww-sidebar-label">Mode</div>
-            <div className="ww-toggle-group">
+            <div className="ww-segmented">
               <button
-                className={mode === 'create' ? 'ww-toggle-active' : 'ww-toggle'}
+                className={mode === 'create' ? 'active' : ''}
                 onClick={() => setMode('create')}
               >
                 Create
               </button>
               <button
-                className={mode === 'sim' ? 'ww-toggle-active' : 'ww-toggle'}
+                className={mode === 'sim' ? 'active' : ''}
                 onClick={() => setMode('sim')}
               >
                 Sim
@@ -47,56 +43,39 @@ export function EditorScreen(props: EditorScreenProps) {
 
           <div className="ww-sidebar-section">
             <div className="ww-sidebar-label">View</div>
-            <div className="ww-toggle-group">
+            <div className="ww-segmented">
               <button
-                className={view === 'globe' ? 'ww-toggle-active' : 'ww-toggle'}
-                onClick={() => setView('globe')}
-              >
-                Globe
-              </button>
-              <button
-                className={view === 'map' ? 'ww-toggle-active' : 'ww-toggle'}
+                className={view === 'map' ? 'active' : ''}
                 onClick={() => setView('map')}
               >
                 Map
               </button>
+              <button
+                className={view === 'globe' ? 'active' : ''}
+                onClick={() => setView('globe')}
+              >
+                Globe
+              </button>
             </div>
           </div>
 
-          {mode === 'create' ? (
-            <div className="ww-sidebar-section">
-              <div className="ww-sidebar-label">Create Tools</div>
-              <ul className="ww-tool-list">
-                <li>Terrain Stickers</li>
-                <li>Biome Brush</li>
-                <li>Lakes & Rivers</li>
-                <li>Countries & Borders</li>
-                <li>Cities & Cultures</li>
-              </ul>
-            </div>
-          ) : (
-            <div className="ww-sidebar-section">
-              <div className="ww-sidebar-label">Sim Tools</div>
-              <ul className="ww-tool-list">
-                <li>Time Controls</li>
-                <li>World Stats</li>
-                <li>Decision Inbox</li>
-              </ul>
-            </div>
-          )}
+          <div className="ww-sidebar-section">
+            <div className="ww-sidebar-label">Tools</div>
+            <ul className="ww-tool-list">
+              <li>Terrain</li>
+              <li>Biomes</li>
+              <li>Water</li>
+              <li>Nations</li>
+              <li>Cities &amp; Cultures</li>
+            </ul>
+          </div>
         </aside>
 
-        <main className="ww-editor-canvas">
-          <div className="ww-canvas-header">
-            <span>
-              {mode === 'create' ? 'Create Mode' : 'Sim Mode'} –{' '}
-              {view === 'map' ? 'Map View' : 'Globe View'}
-            </span>
-          </div>
-          <div className="ww-canvas-body">
+        <main className="ww-canvas-area">
+          <div className="ww-canvas-placeholder">
             <p>
-              The {view} canvas will render the world grid here. For now this is a
-              placeholder matching the blueprint layout.
+              {mode === 'create' ? 'Create Mode' : 'Sim Mode'} –{' '}
+              {view.toUpperCase()} view will appear here in later steps.
             </p>
           </div>
         </main>

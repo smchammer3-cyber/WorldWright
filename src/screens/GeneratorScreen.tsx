@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { saveWorld } from '../core/worldStorage'
 import {
   createDefaultGeneratorParams,
@@ -19,6 +19,8 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     createDefaultGeneratorParams()
   )
 
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+
   function updateParam<K extends keyof GeneratorParams>(
     key: K,
     value: GeneratorParams[K]
@@ -29,7 +31,19 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     }))
   }
 
-  function makePreviewData() {
+  function handleSave() {
+    const world = generateWorldFromParams(params)
+    saveWorld(world)
+    onWorldGenerated(world.id)
+  }
+
+  // Generate preview image whenever parameters change
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
     const world = generateWorldFromParams(params)
     const { width, height, cells } = world
     const pixels = new Uint8ClampedArray(width * height * 4)
@@ -37,14 +51,42 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     for (let i = 0; i < cells.length; i++) {
       const c = cells[i]
       const h = Math.floor(c.baseHeight * 255)
-      let r = h, g = h, b = h
+      let r = h
+      let g = h
+      let b = h
 
-      if (c.baseBiomeId === 0) { r = 0;   g = 0;   b = 180 } // ocean
-      if (c.baseBiomeId === 1) { r = 200; g = 240; b = 255 } // ice caps
-      if (c.baseBiomeId === 2) { r = 160; g = 160; b = 160 } // mountains
-      if (c.baseBiomeId === 3) { r = 70;  g = 100; b = 120 } // tundra
-      if (c.baseBiomeId === 4) { r = 50;  g = 170; b = 50  } // forest
-      if (c.baseBiomeId === 5) { r = 200; g = 180; b = 80  } // drylands
+      switch (c.baseBiomeId) {
+        case 0: // ocean
+          r = 0
+          g = 0
+          b = 180
+          break
+        case 1: // ice caps
+          r = 200
+          g = 240
+          b = 255
+          break
+        case 2: // mountains
+          r = 160
+          g = 160
+          b = 160
+          break
+        case 3: // tundra
+          r = 70
+          g = 100
+          b = 120
+          break
+        case 4: // forest / taiga
+          r = 50
+          g = 170
+          b = 50
+          break
+        case 5: // drylands
+          r = 200
+          g = 180
+          b = 80
+          break
+      }
 
       const idx = i * 4
       pixels[idx] = r
@@ -53,14 +95,11 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
       pixels[idx + 3] = 255
     }
 
-    return new ImageData(pixels, width, height)
-  }
-
-  function handleSave() {
-    const world = generateWorldFromParams(params)
-    saveWorld(world)
-    onWorldGenerated(world.id)
-  }
+    const imageData = new ImageData(pixels, width, height)
+    canvas.width = imageData.width
+    canvas.height = imageData.height
+    ctx.putImageData(imageData, 0, 0)
+  }, [params])
 
   return (
     <div className="ww-screen">
@@ -113,23 +152,66 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
               onChange={e => updateParam('seaLevel', Number(e.target.value))}
             />
           </div>
+
+          <div className="ww-field">
+            <label>Climate Variance</label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={params.climateVariance}
+              onChange={e =>
+                updateParam('climateVariance', Number(e.target.value))
+              }
+            />
+          </div>
+
+          <div className="ww-field">
+            <label>Plate Activity</label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={params.plateActivity}
+              onChange={e =>
+                updateParam('plateActivity', Number(e.target.value))
+              }
+            />
+          </div>
+
+          <div className="ww-field">
+            <label>Axis Tilt</label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={params.axisTilt}
+              onChange={e => updateParam('axisTilt', Number(e.target.value))}
+            />
+          </div>
+
+          <div className="ww-field">
+            <label>Planet Age</label>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={params.planetAge}
+              onChange={e => updateParam('planetAge', Number(e.target.value))}
+            />
+          </div>
         </section>
 
         <section className="ww-panel ww-panel-grow">
           <h2>Preview</h2>
           <canvas
+            ref={canvasRef}
+            className="ww-preview-canvas"
             style={{
               width: '100%',
               maxWidth: '320px',
-              border: '1px solid #333'
-            }}
-            ref={canvas => {
-              if (!canvas) return
-              const ctx = canvas.getContext('2d')
-              const imgData = makePreviewData()
-              canvas.width = imgData.width
-              canvas.height = imgData.height
-              ctx?.putImageData(imgData, 0, 0)
+              border: '1px solid #333',
+              imageRendering: 'pixelated'
             }}
           />
         </section>

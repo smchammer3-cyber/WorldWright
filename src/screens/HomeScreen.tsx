@@ -22,7 +22,7 @@ export function HomeScreen(props: HomeScreenProps) {
 
       <main className="ww-screen-body">
         {worlds.length === 0 ? (
-          <div className="ww-empty">
+          <div className="ww-empty-state">
             <p>You don&apos;t have any worlds yet.</p>
             <button className="ww-primary-btn" onClick={onCreateNewWorld}>
               Generate New World

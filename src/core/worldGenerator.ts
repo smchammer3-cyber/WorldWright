@@ -1,5 +1,5 @@
 // ============================================
-// WorldWright - World Generator (Blueprint Step 5B)
+// WorldWright - World Generator (Blueprint Step 5B + 5C)
 // ============================================
 
 import { World, WorldCell } from './world'
@@ -24,7 +24,6 @@ export interface GeneratorParams {
 
 /**
  * Default generator parameters for the UI.
- * (Blueprint Step 5A)
  */
 export function createDefaultGeneratorParams(): GeneratorParams {
   return {
@@ -33,7 +32,7 @@ export function createDefaultGeneratorParams(): GeneratorParams {
     seaLevel: 50,
     climateVariance: 50,
     plateActivity: 50,
-    axisTilt: 23, // earth-like tilt by default
+    axisTilt: 23,
     planetAge: 50,
     seed: Math.floor(Math.random() * 1_000_000_000)
   }
@@ -95,9 +94,6 @@ export function generateWorldFromParams(params: GeneratorParams): World {
     const lat = (y / height) * 2 - 1 // -1 south pole → 1 north pole
 
     for (let x = 0; x < width; x++) {
-      const nx = x / width
-      const ny = y / height
-
       // Base height from noise
       let h = randomNoise(x, y, params.seed)
 
