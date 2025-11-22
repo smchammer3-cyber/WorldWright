@@ -37,7 +37,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     onWorldGenerated(world.id)
   }
 
-  // Generate preview image whenever parameters change
+  // 🔁 Live preview: regenerate the image whenever params change
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -81,7 +81,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
           g = 170
           b = 50
           break
-        case 5: // drylands
+        case 5: // drylands / grass / desert
           r = 200
           g = 180
           b = 80
