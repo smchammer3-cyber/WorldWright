@@ -50,9 +50,11 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     const { width, height, cells, seaLevel } = preview
 
     // Responsive preview resolution: scale to displayed size
-    const deviceScale = window.devicePixelRatio || 1
+    // NOTE: avoid feedback loop where canvas grows every redraw.
+    // We base internal resolution on the current CSS width only,
+    // without multiplying by device pixel ratio.
     const displaySize = canvas.clientWidth || 320
-    const size = Math.max(256, Math.floor(displaySize * deviceScale))
+    const size = Math.max(256, Math.floor(displaySize))
 
     canvas.width = size
     canvas.height = size
