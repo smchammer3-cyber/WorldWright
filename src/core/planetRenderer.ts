@@ -1,6 +1,6 @@
 // ======================================================
-// WorldWright Planet Renderer -- Blueprint Step 6A
-// Spherical preview + camera rotation
+// WorldWright Planet Renderer -- Blueprint Step 6A / 6B
+// Spherical preview + camera rotation + smoother sampling
 // ======================================================
 
 export interface PlanetPreview {
@@ -15,8 +15,45 @@ export interface PlanetViewOptions {
 }
 
 /**
- * Render a simple shaded sphere from a heightmap-style preview.
- * This is the visual layer only; it does not own any world logic.
+ * Helper: bilinear sample of the baseHeight field.
+ * x, y are expressed in source grid coordinates.
+ */
+function sampleHeightBilinear(
+  cells: { baseHeight: number }[],
+  width: number,
+  height: number,
+  x: number,
+  y: number
+): number {
+  // Wrap in X so the world loops horizontally
+  const x0 = Math.floor(x)
+  const y0 = Math.floor(y)
+
+  const x1 = (x0 + 1) % width
+  const y1 = Math.min(height - 1, y0 + 1)
+
+  const fx = x - x0
+  const fy = y - y0
+
+  const i00 = y0 * width + x0
+  const i10 = y0 * width + x1
+  const i01 = y1 * width + x0
+  const i11 = y1 * width + x1
+
+  const h00 = cells[i00].baseHeight
+  const h10 = cells[i10].baseHeight
+  const h01 = cells[i01].baseHeight
+  const h11 = cells[i11].baseHeight
+
+  const h0 = h00 * (1 - fx) + h10 * fx
+  const h1 = h01 * (1 - fx) + h11 * fx
+
+  return h0 * (1 - fy) + h1 * fy
+}
+
+/**
+ * Render a shaded sphere from a heightmap-style preview.
+ * Visual layer only; world logic lives in worldGenerator.
  */
 export function renderPlanetToCanvas(
   canvas: HTMLCanvasElement,
@@ -29,11 +66,9 @@ export function renderPlanetToCanvas(
   const { width, height, cells, seaLevel } = preview
   const { rotation } = options
 
-  // Determine canvas internal resolution based on current CSS display size.
-  const displaySize = canvas.clientWidth || 320
-  const deviceScale = window.devicePixelRatio || 1
-  const size = Math.max(256, Math.floor(displaySize * deviceScale))
-
+  // Stable, high internal resolution so the globe never "grows"
+  // when sliders change, but still looks smooth.
+  const size = 512
   canvas.width = size
   canvas.height = size
 
@@ -72,17 +107,12 @@ export function renderPlanetToCanvas(
       if (lon < -Math.PI) lon += 2 * Math.PI
       if (lon > Math.PI) lon -= 2 * Math.PI
 
-      // Map to equirectangular grid
-      let sx = Math.floor(((lon + Math.PI) / (2 * Math.PI)) * width)
-      let sy = Math.floor(((lat + Math.PI / 2) / Math.PI) * height)
+      // Map to equirectangular grid in source space
+      const sx = ((lon + Math.PI) / (2 * Math.PI)) * width
+      const sy = ((lat + Math.PI / 2) / Math.PI) * height
 
-      if (sx < 0) sx = 0
-      if (sx >= width) sx = width - 1
-      if (sy < 0) sy = 0
-      if (sy >= height) sy = height - 1
-
-      const cellIndex = sy * width + sx
-      const baseHeight = cells[cellIndex].baseHeight
+      // Smooth sample instead of blocky nearest neighbor
+      const baseHeight = sampleHeightBilinear(cells, width, height, sx, sy)
 
       // Blueprint palette: dark oceans, muted land, pale mountains
       let r: number
