@@ -6,16 +6,11 @@ import {
   GeneratorParams,
   generateWorldFromParams
 } from '../core/worldGenerator'
-import { renderPlanetToCanvas } from '../core/planetRenderer'
 
 interface GeneratorScreenProps {
   onBack: () => void
   onWorldGenerated: (worldId: string) => void
 }
-
-type DragState =
-  | { dragging: false }
-  | { dragging: true; lastX: number }
 
 export function GeneratorScreen(props: GeneratorScreenProps) {
   const { onBack, onWorldGenerated } = props
@@ -25,11 +20,8 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
   )
   const [worldName, setWorldName] = useState<string>('New World')
 
-  // View / camera state for Step 6A
-  const [rotation, setRotation] = useState<number>(0)
-
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const dragStateRef = useRef<DragState>({ dragging: false })
+  const globeCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   function updateParam<K extends keyof GeneratorParams>(
     key: K,
@@ -48,34 +40,130 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     onWorldGenerated(world.id)
   }
 
-  // Mouse / touch interaction for rotating the globe
-  function beginDrag(clientX: number) {
-    dragStateRef.current = { dragging: true, lastX: clientX }
-  }
-
-  function updateDrag(clientX: number) {
-    const state = dragStateRef.current
-    if (!state.dragging) return
-
-    const deltaX = clientX - state.lastX
-    dragStateRef.current = { dragging: true, lastX: clientX }
-
-    // Horizontal drag rotates the globe. Scale factor keeps it comfortable.
-    setRotation(prev => prev + deltaX * 0.01)
-  }
-
-  function endDrag() {
-    dragStateRef.current = { dragging: false }
-  }
-
-  // Live planet-style preview using the dedicated renderer (Step 6A)
+  // Live preview: minimap + globe
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    const globeCanvas = globeCanvasRef.current
+    const minimapCanvas = minimapCanvasRef.current
+    if (!globeCanvas || !minimapCanvas) return
 
-    const preview = generateWorldFromParams(params)
-    renderPlanetToCanvas(canvas, preview, { rotation })
-  }, [params, rotation])
+    const globeCtx = globeCanvas.getContext('2d')
+    const minimapCtx = minimapCanvas.getContext('2d')
+    if (!globeCtx || !minimapCtx) return
+
+    const preview = generateWorldFromParams(params as GeneratorParams) as any
+
+    const width: number = preview.width
+    const height: number = preview.height
+    const cells: { baseHeight: number }[] = preview.cells
+    const seaLevel: number = preview.seaLevel
+
+    // -------- Minimap (bottom-left 2D map) --------
+    minimapCanvas.width = width
+    minimapCanvas.height = height
+
+    const miniImg = minimapCtx.createImageData(width, height)
+
+    for (let i = 0; i < cells.length; i++) {
+      const v = cells[i].baseHeight
+      const idx = i * 4
+
+      if (v < seaLevel) {
+        const depth = Math.abs(v - seaLevel)
+        miniImg.data[idx] = 0
+        miniImg.data[idx + 1] = Math.floor(90 + depth * 80)
+        miniImg.data[idx + 2] = Math.floor(140 + depth * 80)
+      } else {
+        const h = v
+        miniImg.data[idx] = Math.floor(90 + h * 90)
+        miniImg.data[idx + 1] = Math.floor(130 + h * 70)
+        miniImg.data[idx + 2] = Math.floor(70 + h * 60)
+      }
+
+      miniImg.data[idx + 3] = 255
+    }
+
+    minimapCtx.putImageData(miniImg, 0, 0)
+
+    // -------- Globe (center circular projection) --------
+    const globeSize = 320
+    globeCanvas.width = globeSize
+    globeCanvas.height = globeSize
+
+    const globeImg = globeCtx.createImageData(globeSize, globeSize)
+    const radius = globeSize / 2
+
+    function sampleHeight(lon: number, lat: number): number {
+      // lon in [-PI, PI], lat in [-PI/2, PI/2]
+      const u = (lon / (2 * Math.PI) + 0.5) * width
+      const v = (1 - (lat / Math.PI + 0.5)) * height
+
+      const x = Math.max(0, Math.min(width - 1, Math.floor(u)))
+      const y = Math.max(0, Math.min(height - 1, Math.floor(v)))
+      const index = y * width + x
+      return cells[index].baseHeight
+    }
+
+    // Simple directional light from upper-left
+    const lightDir = { x: -0.4, y: 0.6, z: 0.7 }
+
+    for (let y = 0; y < globeSize; y++) {
+      for (let x = 0; x < globeSize; x++) {
+        const dx = x - radius
+        const dy = y - radius
+        const dist2 = dx * dx + dy * dy
+        const idx = (y * globeSize + x) * 4
+
+        if (dist2 > radius * radius) {
+          globeImg.data[idx + 3] = 0
+          continue
+        }
+
+        const nx = dx / radius
+        const ny = dy / radius
+        const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny))
+
+        const lon = Math.atan2(nx, nz)
+        const lat = Math.asin(ny)
+
+        const h = sampleHeight(lon, lat)
+
+        const ndotl = nx * lightDir.x + ny * lightDir.y + nz * lightDir.z
+        const light = Math.max(0.3, ndotl)
+
+        let r: number
+        let g: number
+        let b: number
+
+        if (h < seaLevel) {
+          const depth = Math.abs(h - seaLevel)
+          r = 10
+          g = 100 + depth * 80
+          b = 150 + depth * 80
+        } else {
+          r = 100 + h * 80
+          g = 140 + h * 60
+          b = 80 + h * 50
+        }
+
+        globeImg.data[idx] = Math.min(255, r * light)
+        globeImg.data[idx + 1] = Math.min(255, g * light)
+        globeImg.data[idx + 2] = Math.min(255, b * light)
+        globeImg.data[idx + 3] = 255
+      }
+    }
+
+    globeCtx.putImageData(globeImg, 0, 0)
+  }, [params])
+
+  const orderedKeys: (keyof GeneratorParams)[] = [
+    'landmass',
+    'seaLevel',
+    'plateActivity',
+    'axisTilt',
+    'planetAge',
+    'climateVariance',
+    'worldStyle'
+  ]
 
   return (
     <div className="ww-screen">
@@ -83,212 +171,60 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
         <button className="ww-secondary-btn" onClick={onBack}>
           ← Worlds
         </button>
-        <div className="ww-title">World Generator</div>
+        <div className="ww-breadcrumb">World Generator</div>
         <button className="ww-primary-btn" onClick={handleSave}>
           Save World
         </button>
       </header>
 
-      <div className="ww-screen-body">
-        <div className="ww-generator-layout">
-          {/* Left: Controls (fixed width) */}
-          <section
-            className="ww-panel"
-            style={{ width: 280, flexShrink: 0 }}
-          >
-            <h2>World Settings</h2>
+      <main className="ww-screen-body ww-generator-layout">
+        <section className="ww-panel">
+          <h2>World Settings</h2>
 
-            <div className="ww-field">
-              <label>World Name</label>
+          <label className="ww-field">
+            <span className="ww-field-label">World Name</span>
+            <input
+              className="ww-text-input"
+              type="text"
+              value={worldName}
+              onChange={e => setWorldName(e.target.value)}
+              placeholder="Enter a name..."
+            />
+          </label>
+
+          <h2>World Parameters</h2>
+
+          {orderedKeys.map(key => (
+            <div key={key as string} className="ww-field">
+              <div className="ww-field-label">{key}</div>
               <input
-                className="ww-input"
-                value={worldName}
-                onChange={e => setWorldName(e.target.value)}
+                type="range"
+                min={0}
+                max={100}
+                value={params[key] as number}
+                onChange={e =>
+                  updateParam(
+                    key,
+                    Number(e.target.value) as GeneratorParams[typeof key]
+                  )
+                }
               />
+              <div className="ww-field-value">{params[key] as number}</div>
             </div>
+          ))}
+        </section>
 
-            <div className="ww-field-group">
-              <h3>Style</h3>
-              <div className="ww-field">
-                <label>World Style</label>
-                <select
-                  className="ww-input"
-                  value={params.worldStyle}
-                  onChange={e =>
-                    updateParam(
-                      'worldStyle',
-                      Number(e.target.value) as GeneratorParams['worldStyle']
-                    )
-                  }
-                >
-                  <option value={0}>Realistic (Preset)</option>
-                  <option value={1}>Fantasy (Preset)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="ww-field-group">
-              <h3>Shape Controls</h3>
-
-              <div className="ww-field">
-                <label>Landmass</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={params.landmass}
-                  onChange={e =>
-                    updateParam(
-                      'landmass',
-                      Number(e.target.value) as GeneratorParams['landmass']
-                    )
-                  }
-                />
-                <div className="ww-field-value">{params.landmass}</div>
-              </div>
-
-              <div className="ww-field">
-                <label>Sea Level</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={params.seaLevel}
-                  onChange={e =>
-                    updateParam(
-                      'seaLevel',
-                      Number(e.target.value) as GeneratorParams['seaLevel']
-                    )
-                  }
-                />
-                <div className="ww-field-value">{params.seaLevel}</div>
-              </div>
-            </div>
-
-            <div className="ww-field-group">
-              <h3>Advanced (Reserved)</h3>
-
-              <div className="ww-field">
-                <label>Climate Variance</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={params.climateVariance}
-                  onChange={e =>
-                    updateParam(
-                      'climateVariance',
-                      Number(
-                        e.target.value
-                      ) as GeneratorParams['climateVariance']
-                    )
-                  }
-                />
-                <div className="ww-field-value">
-                  {params.climateVariance}
-                </div>
-              </div>
-
-              <div className="ww-field">
-                <label>Plate Activity</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={params.plateActivity}
-                  onChange={e =>
-                    updateParam(
-                      'plateActivity',
-                      Number(e.target.value) as GeneratorParams['plateActivity']
-                    )
-                  }
-                />
-                <div className="ww-field-value">{params.plateActivity}</div>
-              </div>
-
-              <div className="ww-field">
-                <label>Axis Tilt</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={params.axisTilt}
-                  onChange={e =>
-                    updateParam(
-                      'axisTilt',
-                      Number(e.target.value) as GeneratorParams['axisTilt']
-                    )
-                  }
-                />
-                <div className="ww-field-value">{params.axisTilt}</div>
-              </div>
-
-              <div className="ww-field">
-                <label>Planet Age</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={params.planetAge}
-                  onChange={e =>
-                    updateParam(
-                      'planetAge',
-                      Number(e.target.value) as GeneratorParams['planetAge']
-                    )
-                  }
-                />
-                <div className="ww-field-value">{params.planetAge}</div>
-              </div>
-            </div>
-          </section>
-
-          {/* Right: Main globe view (dominant) */}
-          <section className="ww-panel ww-panel-grow">
-            <h2>Planet Preview</h2>
-            <div
-              style={{
-                width: '100%',
-                maxWidth: 720,
-                margin: '0 auto',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <canvas
-                ref={canvasRef}
-                className="ww-preview-canvas"
-                style={{
-                  width: '100%',
-                  aspectRatio: '1 / 1',
-                  border: '1px solid #333',
-                  imageRendering: 'pixelated',
-                  cursor: 'grab'
-                }}
-                onMouseDown={e => beginDrag(e.clientX)}
-                onMouseMove={e => updateDrag(e.clientX)}
-                onMouseUp={endDrag}
-                onMouseLeave={endDrag}
-                onTouchStart={e => {
-                  if (e.touches.length > 0) {
-                    beginDrag(e.touches[0].clientX)
-                  }
-                }}
-                onTouchMove={e => {
-                  if (e.touches.length > 0) {
-                    updateDrag(e.touches[0].clientX)
-                  }
-                }}
-                onTouchEnd={endDrag}
-              />
-            </div>
-            <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', opacity: 0.8 }}>
-              Drag to rotate the planet. Sliders adjust landmass and sea level;
-              future steps will bring climate, plates, and biomes online.
-            </p>
-          </section>
-        </div>
-      </div>
+        <section className="ww-panel ww-panel-grow">
+          <h2>Preview</h2>
+          <div className="ww-generator-preview">
+            <canvas ref={globeCanvasRef} className="ww-generator-globe" />
+            <canvas
+              ref={minimapCanvasRef}
+              className="ww-generator-minimap"
+            />
+          </div>
+        </section>
+      </main>
     </div>
   )
 }
