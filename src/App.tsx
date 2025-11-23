@@ -4,7 +4,7 @@ import {
   Routes,
   Route,
   Navigate,
-  useNavigate
+  useNavigate,
 } from 'react-router-dom'
 import { HomeScreen } from './screens/HomeScreen'
 import { GeneratorScreen } from './screens/GeneratorScreen'
@@ -15,6 +15,7 @@ function AppRoutes() {
   const navigate = useNavigate()
 
   useEffect(() => {
+    // Load any saved worlds once on app start
     restoreFromLocalStorage()
   }, [])
 
@@ -25,7 +26,7 @@ function AppRoutes() {
         element={
           <HomeScreen
             onCreateNewWorld={() => navigate('/generate')}
-            onOpenWorld={id => navigate(`/edit/${id}`)}
+            onOpenWorld={(id) => navigate(`/edit/${id}`)}
           />
         }
       />
@@ -34,7 +35,7 @@ function AppRoutes() {
         element={
           <GeneratorScreen
             onBack={() => navigate('/')}
-            onWorldGenerated={id => navigate(`/edit/${id}`)}
+            onWorldGenerated={(worldId) => navigate(`/edit/${worldId}`)}
           />
         }
       />

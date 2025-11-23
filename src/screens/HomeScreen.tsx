@@ -6,17 +6,20 @@ interface HomeScreenProps {
   onOpenWorld: (id: string) => void
 }
 
-export function HomeScreen(props: HomeScreenProps) {
-  const { onCreateNewWorld, onOpenWorld } = props
-
+export function HomeScreen({ onCreateNewWorld, onOpenWorld }: HomeScreenProps) {
   const worlds = listWorldSummaries()
 
   return (
     <div className="ww-screen">
       <header className="ww-screen-header">
-        <h1 className="ww-title">WorldWright</h1>
-        <button className="ww-primary-btn" onClick={onCreateNewWorld}>
-          + New World
+        <div>
+          <h1 className="ww-title">WorldWright</h1>
+          <p className="ww-subtitle">
+            Create believable worlds, then simulate and edit their history.
+          </p>
+        </div>
+        <button className="ww-primary-button" onClick={onCreateNewWorld}>
+          + Create New World
         </button>
       </header>
 
@@ -24,13 +27,13 @@ export function HomeScreen(props: HomeScreenProps) {
         {worlds.length === 0 ? (
           <div className="ww-empty-state">
             <p>You don&apos;t have any worlds yet.</p>
-            <button className="ww-primary-btn" onClick={onCreateNewWorld}>
-              Generate New World
+            <button className="ww-secondary-button" onClick={onCreateNewWorld}>
+              Start your first world
             </button>
           </div>
         ) : (
           <div className="ww-world-grid">
-            {worlds.map(world => (
+            {worlds.map((world) => (
               <button
                 key={world.id}
                 className="ww-world-card"
@@ -38,6 +41,12 @@ export function HomeScreen(props: HomeScreenProps) {
               >
                 <div className="ww-world-thumb" />
                 <div className="ww-world-name">{world.name}</div>
+                <div className="ww-world-meta">
+                  <span>
+                    Updated:{' '}
+                    {new Date(world.updatedAt).toLocaleDateString()}
+                  </span>
+                </div>
               </button>
             ))}
           </div>

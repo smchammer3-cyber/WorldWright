@@ -1,117 +1,141 @@
 // ==========================================================
-// WorldWright Generator Core (Blueprint Steps 7B → 8D)
-// New continent physics + sea level balance
+// WorldWright Generator Core (V1)
+// Simple continent + sea level generator
 // ==========================================================
 
 import { World, WorldCell } from './world'
+import type { PlanetPreview } from './planetRenderer'
 
-// Generator config type from UI sliders
 export interface GeneratorParams {
   name: string
   width: number
   height: number
   seed: string
-  landmass: number  // 0–1 controls continent size
-  seaLevel: number  // ~0.5 for Earth-like defaults
+  landmass: number // 0–1 controls continent size
+  seaLevel: number // 0..1 (0 = low oceans, 1 = high oceans)
 }
 
-// Basic seeded PRNG so results change with seed
-function makeRandom(seed: string) {
+export function createDefaultGeneratorParams(): GeneratorParams {
+  return {
+    name: 'New World',
+    width: 256,
+    height: 128,
+    seed: '',
+    landmass: 0.55,
+    seaLevel: 0.5,
+  }
+}
+
+function createRng(seed: string): () => number {
+  // Small deterministic PRNG (mulberry32-ish)
   let h = 2166136261 >>> 0
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i)
+  const s = seed || 'worldwright'
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
     h = Math.imul(h, 16777619)
   }
-  return () => {
-    h ^= h >>> 13
-    h ^= h << 17
-    h ^= h >>> 5
-    return (h >>> 0) / 4294967296
+
+  return function () {
+    h += 0x6d2b79f5
+    let t = h
+    t = Math.imul(t ^ (t >>> 15), 1 | t)
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t)
+    t = (t ^ (t >>> 14)) >>> 0
+    return t / 4294967296
   }
 }
 
-// Helper noise (no library yet)
-function noise(rand: () => number, x: number, y: number): number {
-  const r = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453
-  return (r - Math.floor(r)) * 2 - 1 // -1 to +1
-}
-
-// Main generator function
-export function generateWorldFromParams(params: GeneratorParams): World {
-  const { name, width, height, seed, landmass, seaLevel } = params
-  const rand = makeRandom(seed)
-
-  // --- CONFIG FOR CONTINENTS ---
-  const platesCount = Math.floor(3 + landmass * 4) // 3–7 plates
-  const plates = []
-  for (let p = 0; p < platesCount; p++) {
-    plates.push({
-      x: Math.floor(rand() * width),
-      y: Math.floor(rand() * height)
-    })
-  }
-
-  // Allocate cell container
+/**
+ * Core generation: fills a grid of WorldCell objects.
+ */
+function generateCells(params: GeneratorParams): WorldCell[] {
+  const { width, height, seed, landmass, seaLevel } = params
+  const rng = createRng(`${seed}|${width}x${height}|${landmass}|${seaLevel}`)
   const cells: WorldCell[] = []
-  const now = new Date().toISOString()
+
+  // Map seaLevel 0..1 to a threshold in -1..1 space
+  const seaThreshold = (seaLevel - 0.5) * 2 // center around 0
 
   for (let y = 0; y < height; y++) {
+    const v = y / (height - 1 || 1)
+    const equatorDist = Math.abs(v - 0.5) * 2 // 0 at equator, 1 at poles
+
     for (let x = 0; x < width; x++) {
+      const u = x / (width - 1 || 1)
 
-      // Distance to nearest plate center → builds continents
-      let minDist = Infinity
-      for (const plate of plates) {
-        const dx = x - plate.x
-        const dy = y - plate.y
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist < minDist) minDist = dist
-      }
+      // base roughness
+      const r1 = rng()
+      const r2 = rng()
+      const ridge = Math.sin(u * Math.PI * 2) * Math.cos(v * Math.PI * 2)
+      let h = ridge * 0.4 + (r1 * 2 - 1) * 0.6
 
-      // Normalize distances
-      const maxDist = Math.sqrt(width * width + height * height)
-      let base = 1 - minDist / maxDist // nearer plate center = higher land
+      // landmass control: pull heights toward land or sea
+      h *= 0.3 + landmass * 0.7
 
-      // Add noise for coast variation
-      base += noise(rand, x, y) * 0.15
+      // temperature & moisture
+      const moisture = r2
+      const temperature = Math.max(
+        0,
+        Math.min(1, 1 - equatorDist + (rng() - 0.5) * 0.1),
+      )
 
-      // Center elevation around landmass slider:
-      // landmass = 0.0 → most below sea
-      // landmass = 1.0 → most above sea
-      base = base * 0.5 + landmass * 0.5
-
-      // Clamp to [0, 1]
-      base = Math.max(0, Math.min(1, base))
+      const biomeId = h < seaThreshold ? 0 : 1
 
       cells.push({
-        x, y,
-        baseHeight: base,
-        editHeightDelta: 0,
-        simHeightDelta: 0,
-        baseBiomeId: null,
-        editBiomeId: null,
-        simBiomeId: null,
-        countryId: null,
-        cultureId: null,
-        cityId: null
+        x,
+        y,
+        baseHeight: h,
+        moisture,
+        temperature,
+        biomeId,
       })
     }
   }
 
-  // Final World object
+  return cells
+}
+
+/**
+ * Deterministically generate a full World from parameters.
+ */
+export function generateWorldFromParams(params: GeneratorParams): World {
+  const { name, width, height, seed, seaLevel } = params
+  const now = new Date().toISOString()
+  const cells = generateCells(params)
+
   const world: World = {
-    id: seed,
-    name,
+    id: '',
+    name: name || 'New World',
     width,
     height,
-    seed,
-    seaLevel,
+    seed: seed || 'seed',
+    seaLevel: (seaLevel - 0.5) * 2, // store in -1..1 space
     cells,
     countries: [],
     cultures: [],
     cities: [],
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   }
 
   return world
+}
+
+/**
+ * Alias kept for compatibility with earlier code.
+ */
+export function buildWorldFromParams(params: GeneratorParams): World {
+  return generateWorldFromParams(params)
+}
+
+/**
+ * Build a simple preview object from a world.
+ */
+export function buildPreviewFromWorld(world: World): PlanetPreview {
+  return {
+    width: world.width,
+    height: world.height,
+    seaLevel: world.seaLevel,
+    cells: world.cells.map((c) => ({ baseHeight: c.baseHeight })),
+  }
 }
