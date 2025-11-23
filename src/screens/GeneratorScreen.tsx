@@ -40,7 +40,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     onWorldGenerated(world.id)
   }
 
-  // Live preview rendering for both minimap and globe
+  // Live preview: minimap + globe
   useEffect(() => {
     const globeCanvas = globeCanvasRef.current
     const minimapCanvas = minimapCanvasRef.current
@@ -50,14 +50,18 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     const minimapCtx = minimapCanvas.getContext('2d')
     if (!globeCtx || !minimapCtx) return
 
-    const preview = generateWorldFromParams(params)
-    const { width, height, cells, seaLevel } = preview
+    const preview = generateWorldFromParams(params as GeneratorParams) as any
 
-    // ---- Minimap (bottom-left 2D map) ----
+    const width: number = preview.width
+    const height: number = preview.height
+    const cells: { baseHeight: number }[] = preview.cells
+    const seaLevel: number = preview.seaLevel
+
+    // -------- Minimap (bottom-left 2D map) --------
     minimapCanvas.width = width
     minimapCanvas.height = height
 
-    const minimapImg = minimapCtx.createImageData(width, height)
+    const miniImg = minimapCtx.createImageData(width, height)
 
     for (let i = 0; i < cells.length; i++) {
       const v = cells[i].baseHeight
@@ -65,33 +69,31 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
 
       if (v < seaLevel) {
         const depth = Math.abs(v - seaLevel)
-        minimapImg.data[idx] = 0
-        minimapImg.data[idx + 1] = Math.floor(90 + depth * 80)
-        minimapImg.data[idx + 2] = Math.floor(140 + depth * 80)
+        miniImg.data[idx] = 0
+        miniImg.data[idx + 1] = Math.floor(90 + depth * 80)
+        miniImg.data[idx + 2] = Math.floor(140 + depth * 80)
       } else {
         const h = v
-        minimapImg.data[idx] = Math.floor(90 + h * 90)
-        minimapImg.data[idx + 1] = Math.floor(130 + h * 70)
-        minimapImg.data[idx + 2] = Math.floor(70 + h * 60)
+        miniImg.data[idx] = Math.floor(90 + h * 90)
+        miniImg.data[idx + 1] = Math.floor(130 + h * 70)
+        miniImg.data[idx + 2] = Math.floor(70 + h * 60)
       }
 
-      minimapImg.data[idx + 3] = 255
+      miniImg.data[idx + 3] = 255
     }
 
-    minimapCtx.putImageData(minimapImg, 0, 0)
+    minimapCtx.putImageData(miniImg, 0, 0)
 
-    // ---- Globe (center) ----
+    // -------- Globe (center circular projection) --------
     const globeSize = 320
     globeCanvas.width = globeSize
     globeCanvas.height = globeSize
 
     const globeImg = globeCtx.createImageData(globeSize, globeSize)
-
     const radius = globeSize / 2
-    const sea = seaLevel
 
     function sampleHeight(lon: number, lat: number): number {
-      // lon in [-Math.PI, Math.PI], lat in [-Math.PI/2, Math.PI/2]
+      // lon in [-PI, PI], lat in [-PI/2, PI/2]
       const u = (lon / (2 * Math.PI) + 0.5) * width
       const v = (1 - (lat / Math.PI + 0.5)) * height
 
@@ -101,6 +103,9 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
       return cells[index].baseHeight
     }
 
+    // Simple directional light from upper-left
+    const lightDir = { x: -0.4, y: 0.6, z: 0.7 }
+
     for (let y = 0; y < globeSize; y++) {
       for (let x = 0; x < globeSize; x++) {
         const dx = x - radius
@@ -109,12 +114,10 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
         const idx = (y * globeSize + x) * 4
 
         if (dist2 > radius * radius) {
-          // Outside sphere = transparent
           globeImg.data[idx + 3] = 0
           continue
         }
 
-        // Project onto unit sphere
         const nx = dx / radius
         const ny = dy / radius
         const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny))
@@ -124,26 +127,27 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
 
         const h = sampleHeight(lon, lat)
 
-        // Simple Lambert-ish shading using nz as light factor
-        const light = 0.4 + 0.6 * nz
+        const ndotl = nx * lightDir.x + ny * lightDir.y + nz * lightDir.z
+        const light = Math.max(0.3, ndotl)
 
-        if (h < sea) {
-          const depth = Math.abs(h - sea)
-          const baseR = 10
-          const baseG = 100 + depth * 80
-          const baseB = 150 + depth * 80
-          globeImg.data[idx] = Math.min(255, baseR * light)
-          globeImg.data[idx + 1] = Math.min(255, baseG * light)
-          globeImg.data[idx + 2] = Math.min(255, baseB * light)
+        let r: number
+        let g: number
+        let b: number
+
+        if (h < seaLevel) {
+          const depth = Math.abs(h - seaLevel)
+          r = 10
+          g = 100 + depth * 80
+          b = 150 + depth * 80
         } else {
-          const baseR = 100 + h * 80
-          const baseG = 140 + h * 60
-          const baseB = 80 + h * 50
-          globeImg.data[idx] = Math.min(255, baseR * light)
-          globeImg.data[idx + 1] = Math.min(255, baseG * light)
-          globeImg.data[idx + 2] = Math.min(255, baseB * light)
+          r = 100 + h * 80
+          g = 140 + h * 60
+          b = 80 + h * 50
         }
 
+        globeImg.data[idx] = Math.min(255, r * light)
+        globeImg.data[idx + 1] = Math.min(255, g * light)
+        globeImg.data[idx + 2] = Math.min(255, b * light)
         globeImg.data[idx + 3] = 255
       }
     }
@@ -191,13 +195,13 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
           <h2>World Parameters</h2>
 
           {orderedKeys.map(key => (
-            <div key={key} className="ww-field">
+            <div key={key as string} className="ww-field">
               <div className="ww-field-label">{key}</div>
               <input
                 type="range"
                 min={0}
                 max={100}
-                value={(params as any)[key]}
+                value={params[key] as number}
                 onChange={e =>
                   updateParam(
                     key,
@@ -205,7 +209,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
                   )
                 }
               />
-              <div className="ww-field-value">{(params as any)[key]}</div>
+              <div className="ww-field-value">{params[key] as number}</div>
             </div>
           ))}
         </section>
@@ -217,7 +221,6 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
             <canvas
               ref={minimapCanvasRef}
               className="ww-generator-minimap"
-              style={{ imageRendering: 'pixelated' }}
             />
           </div>
         </section>
