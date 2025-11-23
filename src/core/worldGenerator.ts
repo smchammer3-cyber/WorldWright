@@ -1,5 +1,5 @@
 // ======================================================
-// WorldWright Generator Core -- Blueprint Step 5F
+// WorldWright Generator Core -- Blueprint Step 5F / 6C
 // Large Continent Shaping + World builder
 // ======================================================
 
@@ -35,29 +35,54 @@ export function createDefaultGeneratorParams(): GeneratorParams {
     seaLevel: 50, // mid sea level
     climateVariance: 50,
     plateActivity: 50,
-    axisTilt: 30,
-    planetAge: 60
+    axisTilt: 40,
+    planetAge: 50
   }
 }
 
-// ---------- Internal helpers ----------
+/**
+ * A tiny hash-based RNG so that terrain noise is stable
+ * for a given (x, y) but does not require storing a huge array.
+ */
+function makeNoise(width: number, height: number) {
+  function hash(x: number, y: number, octave: number): number {
+    let h = x * 374761393 + y * 668265263 + octave * 7000189
+    h = (h ^ (h >> 13)) | 0
+    h = Math.imul(h, 1274126177)
+    h = (h ^ (h >> 16)) >>> 0
+    // Convert to [0, 1)
+    return h / 4294967296
+  }
 
-// NOTE: For now this just uses Math.random(). A seeded PRNG can replace this later.
-function random(seedOffset = 0): number {
-  return Math.random() + seedOffset * 0.000001
+  return {
+    sample(x: number, y: number): number {
+      // 3–octave fBm noise
+      const s0 = hash(x, y, 0)
+      const s1 = hash(Math.floor(x / 2), Math.floor(y / 2), 1)
+      const s2 = hash(Math.floor(x / 4), Math.floor(y / 4), 2)
+
+      let v = s0
+      v += s1 * 0.5
+      v += s2 * 0.25
+      v /= 1.75
+
+      return v
+    }
+  }
 }
 
-// Simple layered noise: not physically perfect, but good enough for v1
+/**
+ * Generate a base height field in [0, 1] using simple fractal noise.
+ */
 function generateHeightField(width: number, height: number): number[] {
+  const noise = makeNoise(width, height)
   const arr = new Array<number>(width * height)
 
-  for (let i = 0; i < arr.length; i++) {
-    // Three layers of noise blended together
-    let v = random(0)
-    v += random(1) * 0.5
-    v += random(2) * 0.25
-    v /= 1.75
-    arr[i] = v
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x
+      arr[i] = noise.sample(x, y)
+    }
   }
 
   return arr
@@ -65,26 +90,40 @@ function generateHeightField(width: number, height: number): number[] {
 
 /**
  * Apply a large-scale continent mask so that
- * - The center of the map tends to be land
- * - The edges tend to fall off into ocean
+ * - There is more land near mid-latitudes
+ * - Continents can wrap all the way around the globe
+ *
+ * Step 6C update:
+ * Previously we pushed all the land into the center of the *map*, which
+ * works for a flat map but turns into "one super-continent on one side"
+ * once wrapped onto a sphere. Now we bias only by latitude so that
+ * land can appear on any longitude.
  */
-function applyContinentMask(heights: number[], width: number, height: number): number[] {
+function applyContinentMask(
+  heights: number[],
+  width: number,
+  height: number
+): number[] {
+  // Updated for Step 6C:
+  // Instead of concentrating land only in the center of the map,
+  // we bias gently toward the equator (horizontal bands) while
+  // allowing continents to wrap all the way around the globe.
   const result = new Array<number>(heights.length)
-  const cx = width / 2
   const cy = height / 2
 
   for (let i = 0; i < heights.length; i++) {
     const x = i % width
     const y = Math.floor(i / width)
 
-    const dx = (x - cx) / (width * 0.35)
-    const dy = (y - cy) / (height * 0.35)
-    const distSq = dx * dx + dy * dy
+    // Normalized latitude in [-1, 1] (0 = equator, ±1 = poles)
+    const ny = (y - cy) / cy
 
-    // Stronger in the middle, fades to 0 near edges
-    const mask = Math.max(0, 1.15 - distSq * 1.2)
+    // Soft equatorial bias: more land near the middle, but
+    // do NOT kill land at the poles completely.
+    const latBias = 1 - 0.4 * ny * ny // between ~0.6 and 1
 
-    let v = heights[i] * mask
+    let v = heights[i] * latBias
+
     // Clamp to [0, 1]
     if (v < 0) v = 0
     if (v > 1) v = 1
@@ -130,6 +169,8 @@ export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld
       val = Math.pow(val, k)
     }
 
+    // TODO: later steps will incorporate climateVariance, plateActivity, etc.
+
     if (val < 0) val = 0
     if (val > 1) val = 1
 
@@ -152,7 +193,10 @@ export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld
  * Build a full World object (WorldBrain type) from the generator parameters.
  * This is used when the player hits "Save World".
  */
-export function buildWorldFromParams(params: GeneratorParams, name: string): World {
+export function buildWorldFromParams(
+  params: GeneratorParams,
+  name: string
+): World {
   const generated = generateWorldFromParams(params)
   const { width, height, cells, seaLevel } = generated
 
