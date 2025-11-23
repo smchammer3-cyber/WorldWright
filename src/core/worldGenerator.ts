@@ -1,6 +1,6 @@
 // ======================================================
-// WorldWright Generator Core -- Blueprint Step 5F / 6C
-// Large Continent Shaping + World builder
+// WorldWright Generator Core -- Blueprint Step 5F / 7A
+// Large Continent Shaping + Plate/Erosion Approximation
 // ======================================================
 
 import { World, WorldCell as FullWorldCell } from './world'
@@ -12,7 +12,7 @@ export interface GeneratorParams {
   landmass: number // 0–100 (more = more land)
   seaLevel: number // 0–100 (higher = more ocean)
   climateVariance: number // reserved for future
-  plateActivity: number // reserved for future
+  plateActivity: number // used for continent roughness in Step 7
   axisTilt: number // reserved for future
   planetAge: number // reserved for future
 }
@@ -94,25 +94,17 @@ function generateHeightField(width: number, height: number): number[] {
  * - Continents can wrap all the way around the globe
  *
  * Step 6C update:
- * Previously we pushed all the land into the center of the *map*, which
- * works for a flat map but turns into "one super-continent on one side"
- * once wrapped onto a sphere. Now we bias only by latitude so that
- * land can appear on any longitude.
+ * We bias only by latitude so that land can appear on any longitude.
  */
 function applyContinentMask(
   heights: number[],
   width: number,
   height: number
 ): number[] {
-  // Updated for Step 6C:
-  // Instead of concentrating land only in the center of the map,
-  // we bias gently toward the equator (horizontal bands) while
-  // allowing continents to wrap all the way around the globe.
   const result = new Array<number>(heights.length)
   const cy = height / 2
 
   for (let i = 0; i < heights.length; i++) {
-    const x = i % width
     const y = Math.floor(i / width)
 
     // Normalized latitude in [-1, 1] (0 = equator, ±1 = poles)
@@ -135,8 +127,58 @@ function applyContinentMask(
 }
 
 /**
+ * Smooth the height field a bit to merge tiny islands into
+ * larger landmasses. This is a cheap approximation of
+ * erosion / plate adjustment for Step 7.
+ */
+function smoothHeightField(
+  heights: number[],
+  width: number,
+  height: number,
+  iterations: number,
+  strength: number
+): number[] {
+  let current = heights.slice()
+  let next = new Array<number>(heights.length)
+
+  const clampedIterations = Math.max(0, Math.min(12, iterations))
+  const s = Math.max(0, Math.min(1, strength))
+
+  for (let iter = 0; iter < clampedIterations; iter++) {
+    for (let y = 0; y < height; y++) {
+      const yN = Math.max(0, y - 1)
+      const yS = Math.min(height - 1, y + 1)
+
+      for (let x = 0; x < width; x++) {
+        const xW = (x - 1 + width) % width
+        const xE = (x + 1) % width
+
+        const i = y * width + x
+        const iN = yN * width + x
+        const iS = yS * width + x
+        const iW = y * width + xW
+        const iE = y * width + xE
+
+        const center = current[i]
+        const neighborAvg =
+          (current[iN] + current[iS] + current[iW] + current[iE]) / 4
+
+        const blended = center * (1 - s) + neighborAvg * s
+
+        next[i] = blended
+      }
+    }
+
+    const tmp = current
+    current = next
+    next = tmp
+  }
+
+  return current
+}
+
+/**
  * Core terrain generation used both for preview and for building real worlds.
- * This keeps the "large continent" shaping from the blueprint.
  */
 export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld {
   const width = 128
@@ -145,10 +187,23 @@ export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld
   // 1) Base noise
   let heights = generateHeightField(width, height)
 
-  // 2) Shape into a rough continent layout
+  // 2) Shape into a rough continent layout (latitudinal bias)
   heights = applyContinentMask(heights, width, height)
 
-  // 3) Apply slider influences
+  // 3) Step 7: cheap plate / erosion approximation.
+  // We smooth small-scale noise so we get fewer speckled islands
+  // and more coherent continent blobs. PlateActivity controls
+  // how "rough" the continents are:
+  //
+  //   low plateActivity  -> more smoothing (older, calmer world)
+  //   high plateActivity -> less smoothing (younger, more rugged)
+  const plateFactor = params.plateActivity / 100 // 0–1
+  const maxExtraIterations = 5
+  const iterations =
+    2 + Math.round((1 - plateFactor) * maxExtraIterations) // 2..7
+  heights = smoothHeightField(heights, width, height, iterations, 0.6)
+
+  // 4) Apply slider influences for sea level and planet age
   const baseSea = params.seaLevel / 100 // 0–1 sea level
   const landmassShift = (params.landmass - 50) / 200 // -0.25..+0.25
 
@@ -168,8 +223,6 @@ export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld
       const k = 1 + (ageFactor - 0.5) * 0.7
       val = Math.pow(val, k)
     }
-
-    // TODO: later steps will incorporate climateVariance, plateActivity, etc.
 
     if (val < 0) val = 0
     if (val > 1) val = 1
