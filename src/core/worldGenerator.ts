@@ -7,42 +7,73 @@
 import { World, WorldCell as FullWorldCell } from './world'
 
 export interface GeneratorParams {
+  // For now this is a numeric preset selector (0 = Realistic, 1 = Fantasy, etc.)
   worldStyle: number
-  landmass: number
-  seaLevel: number
-  climateVariance: number
-  plateActivity: number
-  axisTilt: number
-  planetAge: number
+  // All slider values are expressed as 0–100 from the UI
+  landmass: number // 0–100 (more = more land)
+  seaLevel: number // 0–100 (higher = more ocean)
+  climateVariance: number // reserved for future
+  plateActivity: number // used for continent roughness in Step 8
+  axisTilt: number // reserved for future biome/climate logic
+  planetAge: number // 0–100 (younger = rougher, older = smoother)
 }
 
 interface GeneratedWorld {
   width: number
   height: number
   cells: { baseHeight: number }[]
-  seaLevel: number
+  seaLevel: number // normalized 0–1 sea threshold used by renderer/sim
 }
 
-// ---------------- Noise Utilities ----------------
+/**
+ * Default generator params used by the GeneratorScreen.
+ */
+export function createDefaultGeneratorParams(): GeneratorParams {
+  return {
+    worldStyle: 0, // 0 = Realistic preset (future use)
+    landmass: 50, // balanced land/sea
+    seaLevel: 50, // mid sea level
+    climateVariance: 50,
+    plateActivity: 50,
+    axisTilt: 40, // Earth-like default tilt
+    planetAge: 50
+  }
+}
 
+/**
+ * Hash-based RNG so that terrain noise is stable
+ * for a given (x, y, octave) but does not require storing a huge array.
+ */
 function makeNoise(width: number, height: number) {
   function hash(x: number, y: number, octave: number): number {
     let h = x * 374761393 + y * 668265263 + octave * 7000189
     h = (h ^ (h >> 13)) | 0
     h = Math.imul(h, 1274126177)
     h = (h ^ (h >> 16)) >>> 0
+    // Convert to [0, 1)
     return h / 4294967296
   }
+
   return {
     sample(x: number, y: number): number {
+      // 3–octave fBm-style noise
       const s0 = hash(x, y, 0)
       const s1 = hash(Math.floor(x / 2), Math.floor(y / 2), 1)
       const s2 = hash(Math.floor(x / 4), Math.floor(y / 4), 2)
-      return (s0 + s1 * 0.5 + s2 * 0.25) / 1.75
+
+      let v = s0
+      v += s1 * 0.5
+      v += s2 * 0.25
+      v /= 1.75
+
+      return v
     }
   }
 }
 
+/**
+ * Simple one-dimensional hash for plate offsets.
+ */
 function hash1(i: number): number {
   let h = i * 374761393
   h = (h ^ (h >> 13)) | 0
@@ -51,170 +82,338 @@ function hash1(i: number): number {
   return h / 4294967296
 }
 
-// ---------------- Generation Steps ----------------
-
+/**
+ * Generate a base height field in [0, 1] using simple fractal noise.
+ */
 function generateHeightField(width: number, height: number): number[] {
   const noise = makeNoise(width, height)
-  return Array.from({ length: width * height }, (_, i) =>
-    noise.sample(i % width, Math.floor(i / width))
-  )
+  const arr = new Array<number>(width * height)
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x
+      arr[i] = noise.sample(x, y)
+    }
+  }
+
+  return arr
 }
 
-function applyContinentMask(heights: number[], width: number, height: number): number[] {
-  const cy = height / 2
-  return heights.map((v, i) => {
-    const y = Math.floor(i / width)
-    const ny = (y - cy) / cy
-    const latBias = 1 - 0.4 * ny * ny
-    const val = v * latBias
-    return Math.max(0, Math.min(1, val))
-  })
-}
-
-function applyPlateOffsets(
-  heights: number[], width: number, height: number,
-  plateActivity: number
+/**
+ * Apply a large-scale continent mask so that
+ * - There is more land near mid-latitudes
+ * - Continents can wrap all the way around the globe
+ */
+function applyContinentMask(
+  heights: number[],
+  width: number,
+  height: number
 ): number[] {
   const result = new Array<number>(heights.length)
-  const plateCols = 8, plateRows = 4
+  const cy = height / 2
+
+  for (let i = 0; i < heights.length; i++) {
+    const y = Math.floor(i / width)
+
+    // Normalized latitude in [-1, 1] (0 = equator, ±1 = poles)
+    const ny = (y - cy) / cy
+
+    // Soft equatorial bias: more land near the middle, but
+    // do NOT kill land at the poles completely.
+    const latBias = 1 - 0.4 * ny * ny // between ~0.6 and 1
+
+    let v = heights[i] * latBias
+
+    if (v < 0) v = 0
+    if (v > 1) v = 1
+
+    result[i] = v
+  }
+
+  return result
+}
+
+/**
+ * Apply coarse "plate" offsets: big regions of uplift vs deep ocean.
+ * This is a cheap tectonic approximation for Step 8A/8B.
+ */
+function applyPlateOffsets(
+  heights: number[],
+  width: number,
+  height: number,
+  plateActivity: number
+): number[] {
+  const plateCols = 8
+  const plateRows = 4
   const plateCount = plateCols * plateRows
   const offsets = new Array<number>(plateCount)
+
   const activity = Math.max(0, Math.min(1, plateActivity / 100))
-  const maxOffset = 0.25 + activity * 0.15
+  const maxOffset = 0.25 + activity * 0.15 // 0.25..0.4
 
   for (let p = 0; p < plateCount; p++) {
     const r = hash1(p + 12345)
     const isOceanic = r < 0.45
-    const base = isOceanic
-      ? -0.6 + r * 0.3
-      : 0.2 + ((r - 0.45) / 0.55) * 0.6
+
+    let base: number
+    if (isOceanic) {
+      base = -0.6 + r * 0.3 // deeper plates
+    } else {
+      const rr = (r - 0.45) / 0.55
+      base = 0.2 + rr * 0.6 // higher plates
+    }
+
     offsets[p] = base * maxOffset
   }
 
-  for (let i = 0; i < heights.length; i++) {
-    const y = Math.floor(i / width)
-    const x = i % width
-    const gx = Math.min(plateCols - 1, Math.floor((x / width) * plateCols))
+  const result = new Array<number>(heights.length)
+
+  for (let y = 0; y < height; y++) {
     const gy = Math.min(plateRows - 1, Math.floor((y / height) * plateRows))
-    const px = gy * plateCols + gx
-    const offset = offsets[px]
-    let v = heights[i]
-    v = v * 0.6 + (v + offset) * 0.4
-    result[i] = Math.max(0, Math.min(1, v))
+
+    for (let x = 0; x < width; x++) {
+      const gx = Math.min(plateCols - 1, Math.floor((x / width) * plateCols))
+      const plateIndex = gy * plateCols + gx
+      const offset = offsets[plateIndex]
+
+      const i = y * width + x
+      let v = heights[i]
+
+      v = v * 0.6 + (v + offset) * 0.4
+
+      if (v < 0) v = 0
+      if (v > 1) v = 1
+
+      result[i] = v
+    }
   }
 
   return result
 }
 
+/**
+ * Smooth the height field to merge tiny islands into
+ * larger landmasses. This is a cheap approximation of
+ * erosion / plate adjustment.
+ */
 function smoothHeightField(
-  heights: number[], width: number, height: number,
-  iterations: number, strength: number
+  heights: number[],
+  width: number,
+  height: number,
+  iterations: number,
+  strength: number
 ): number[] {
   let current = heights.slice()
-  const next = new Array<number>(heights.length)
-  const iter = Math.max(0, Math.min(12, iterations))
+  let next = new Array<number>(heights.length)
+
+  const clampedIterations = Math.max(0, Math.min(12, iterations))
   const s = Math.max(0, Math.min(1, strength))
 
-  for (let k = 0; k < iter; k++) {
-    for (let i = 0; i < current.length; i++) {
-      const y = Math.floor(i / width)
-      const x = i % width
-      const iN = Math.max(0, y - 1) * width + x
-      const iS = Math.min(height - 1, y + 1) * width + x
-      const iW = y * width + ((x - 1 + width) % width)
-      const iE = y * width + ((x + 1) % width)
-      const center = current[i]
-      const avg = (current[iN] + current[iS] + current[iW] + current[iE]) / 4
-      next[i] = center * (1 - s) + avg * s
+  for (let iter = 0; iter < clampedIterations; iter++) {
+    for (let y = 0; y < height; y++) {
+      const yN = Math.max(0, y - 1)
+      const yS = Math.min(height - 1, y + 1)
+
+      for (let x = 0; x < width; x++) {
+        const xW = (x - 1 + width) % width
+        const xE = (x + 1) % width
+
+        const i = y * width + x
+        const iN = yN * width + x
+        const iS = yS * width + x
+        const iW = y * width + xW
+        const iE = y * width + xE
+
+        const center = current[i]
+        const neighborAvg =
+          (current[iN] + current[iS] + current[iW] + current[iE]) / 4
+
+        const blended = center * (1 - s) + neighborAvg * s
+
+        next[i] = blended
+      }
     }
-    current = next.slice()
+
+    const tmp = current
+    current = next
+    next = tmp
   }
+
   return current
 }
 
-// NEW for 8C: Mountain Uplift at Plate Boundaries
-function addMountains(heights: number[], width: number, height: number): number[] {
+/**
+ * Emphasize deep ocean basins vs raised continents.
+ * Reduces the "lots of lakes" look by pushing
+ * low values lower and high values higher.
+ */
+function shapeBasinsAndContinents(
+  heights: number[],
+  seaLevelBias: number,
+  plateActivity: number
+): number[] {
   const result = new Array<number>(heights.length)
-  const noise = makeNoise(width, height)
+  const ruggedness = Math.max(0, Math.min(1, plateActivity / 100))
 
   for (let i = 0; i < heights.length; i++) {
-    const v = heights[i]
-    const y = Math.floor(i / width)
-    const x = i % width
+    let v = heights[i]
 
-    const n = noise.sample(Math.floor(x / 4), Math.floor(y / 4))
+    const mid = 0.5
+    if (v < mid) {
+      const d = v / mid
+      const exp = 1.2 + seaLevelBias * 0.8
+      v = mid * Math.pow(d, exp)
+    } else {
+      const d = (v - mid) / (1 - mid)
+      const exp = 0.9 - ruggedness * 0.3
+      const raised = Math.pow(d, exp)
+      v = mid + (1 - mid) * raised
+    }
 
-    let uplift = Math.pow(v, 1.6) * Math.pow(n + 0.2, 2.0)
+    if (v < 0) v = 0
+    if (v > 1) v = 1
 
-    result[i] = Math.min(1, Math.max(0, v + uplift * 0.18))
+    result[i] = v
   }
+
   return result
 }
 
-// Basin vs continent shaping retained from 8B
-function shapeBasinsAndContinents(
-  heights: number[], seaBias: number,
+/**
+ * Add mountain uplift along plate boundaries and in interiors.
+ */
+function addMountains(
+  heights: number[],
+  width: number,
+  height: number,
   plateActivity: number
 ): number[] {
-  const res = new Array<number>(heights.length)
-  const rugged = Math.min(1, plateActivity / 100)
-  for (let i = 0; i < heights.length; i++) {
-    const v = heights[i]
-    if (v < 0.5) {
-      const d = v / 0.5
-      res[i] = 0.5 * Math.pow(d, 1.4 + seaBias * 0.6)
-    } else {
-      const d = (v - 0.5) / 0.5
-      res[i] = 0.5 + 0.5 * Math.pow(d, 0.9 - rugged * 0.25)
+  const result = new Array<number>(heights.length)
+  const noise = makeNoise(width, height)
+  const ruggedness = Math.max(0, Math.min(1, plateActivity / 100))
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x
+      const base = heights[i]
+
+      // Sample a coarse noise to emulate plate boundaries.
+      const boundaryNoise = noise.sample(Math.floor(x / 4), Math.floor(y / 4))
+
+      // Mountains prefer mid-to-high elevations and boundaryNoise peaks.
+      const elevationFactor = Math.pow(Math.max(0, base - 0.35), 1.5)
+      const boundaryFactor = Math.pow(Math.max(0, boundaryNoise - 0.5), 2.0)
+
+      let uplift =
+        (elevationFactor * 0.6 + boundaryFactor * 1.4) *
+        (0.15 + ruggedness * 0.1)
+
+      let v = base + uplift
+      if (v < 0) v = 0
+      if (v > 1) v = 1
+
+      result[i] = v
     }
-    res[i] = Math.max(0, Math.min(1, res[i]))
   }
-  return res
+
+  return result
 }
 
-// ---------------- Main Generator ----------------
-
+/**
+ * Core terrain generation used both for preview and for building real worlds.
+ */
 export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld {
   const width = 128
   const height = 128
 
-  let h = generateHeightField(width, height)
-  h = applyContinentMask(h, width, height)
-  h = applyPlateOffsets(h, width, height, params.plateActivity)
-  h = smoothHeightField(h, width, height, 3, 0.6)
-  h = addMountains(h, width, height) // 🌋 8C!
-  const seaBias = (params.seaLevel - 50) / 100
-  h = shapeBasinsAndContinents(h, seaBias, params.plateActivity)
+  // 1) Base noise
+  let heights = generateHeightField(width, height)
 
-  // Land/sea calibration
+  // 2) Shape into rough continents with latitude bias
+  heights = applyContinentMask(heights, width, height)
+
+  // 3) Coarse plate offsets (Step 8A/8B)
+  heights = applyPlateOffsets(heights, width, height, params.plateActivity)
+
+  // 4) Erosion-style smoothing to merge tiny islands
+  const plateFactor = params.plateActivity / 100
+  const maxExtraIterations = 4
+  const iterations = 2 + Math.round((1 - plateFactor) * maxExtraIterations)
+  heights = smoothHeightField(heights, width, height, iterations, 0.6)
+
+  // 5) Planet age shaping (younger = rougher, older = smoother)
+  const ageFactor = params.planetAge / 100
+  heights = heights.map(v => {
+    let val = v
+    if (ageFactor < 0.5) {
+      const k = 1 + (0.5 - ageFactor) * 0.7
+      val = Math.pow(val, 1 / k)
+    } else {
+      const k = 1 + (ageFactor - 0.5) * 0.7
+      val = Math.pow(val, k)
+    }
+    if (val < 0) val = 0
+    if (val > 1) val = 1
+    return val
+  })
+
+  // 6) Mountain uplift (Step 8C)
+  heights = addMountains(heights, width, height, params.plateActivity)
+
+  // 7) Basin vs continent emphasis (keeps oceans deep)
+  const seaBias = (params.seaLevel - 50) / 100
+  heights = shapeBasinsAndContinents(heights, seaBias, params.plateActivity)
+
+  // 8) Land/sea calibration from sliders
   const landBias = (params.landmass - 50) / 100
-  let targetLand = 0.5 + landBias * 0.4 - seaBias * 0.3
-  targetLand = Math.max(0.15, Math.min(0.85, targetLand))
-  const sorted = h.slice().sort((a, b) => a - b)
-  const index = Math.floor(sorted.length * (1 - targetLand))
+  const seaSliderBias = (params.seaLevel - 50) / 100
+
+  let targetLandFraction = 0.5 + landBias * 0.4 - seaSliderBias * 0.4
+  if (targetLandFraction < 0.15) targetLandFraction = 0.15
+  if (targetLandFraction > 0.85) targetLandFraction = 0.85
+
+  const sorted = heights.slice().sort((a, b) => a - b)
+  const index = Math.floor(sorted.length * (1 - targetLandFraction))
   let seaLevel = sorted[index]
-  seaLevel = Math.max(0.05, Math.min(0.95, seaLevel))
+  if (seaLevel < 0.05) seaLevel = 0.05
+  if (seaLevel > 0.95) seaLevel = 0.95
+
+  const cells = heights.map(v => ({ baseHeight: v }))
 
   return {
     width,
     height,
-    cells: h.map(v => ({ baseHeight: v })),
+    cells,
     seaLevel
   }
 }
 
-// Build World Data Format
-export function buildWorldFromParams(params: GeneratorParams, name: string): World {
-  const g = generateWorldFromParams(params)
-  const now = new Date().toISOString()
-  const id = `world-${Math.floor(Math.random() * 1e9)}-${Date.now()}`
-  const fullCells: FullWorldCell[] = new Array(g.cells.length)
+/**
+ * Build a full World object (WorldBrain type) from the generator parameters.
+ * This is used when the player hits "Save World".
+ */
+export function buildWorldFromParams(
+  params: GeneratorParams,
+  name: string
+): World {
+  const generated = generateWorldFromParams(params)
+  const { width, height, cells, seaLevel } = generated
 
-  for (let i = 0; i < g.cells.length; i++) {
+  const now = new Date().toISOString()
+  const seed = Math.floor(Math.random() * 1_000_000_000)
+  const id = `world-${seed}-${Date.now()}`
+
+  const fullCells: FullWorldCell[] = new Array(width * height)
+
+  for (let i = 0; i < cells.length; i++) {
+    const x = i % width
+    const y = Math.floor(i / width)
+    const baseHeight = cells[i].baseHeight
+
     fullCells[i] = {
-      x: i % g.width,
-      y: Math.floor(i / g.width),
-      baseHeight: g.cells[i].baseHeight,
+      x,
+      y,
+      baseHeight,
       editHeightDelta: 0,
       simHeightDelta: 0,
       baseBiomeId: 0,
@@ -225,13 +424,13 @@ export function buildWorldFromParams(params: GeneratorParams, name: string): Wor
     }
   }
 
-  return {
+  const world: World = {
     id,
     name,
-    width: g.width,
-    height: g.height,
-    seed: Math.floor(Math.random() * 1e9),
-    seaLevel: g.seaLevel,
+    width,
+    height,
+    seed,
+    seaLevel,
     cells: fullCells,
     countries: [],
     cultures: [],
@@ -239,4 +438,6 @@ export function buildWorldFromParams(params: GeneratorParams, name: string): Wor
     createdAt: now,
     updatedAt: now
   }
+
+  return world
 }
