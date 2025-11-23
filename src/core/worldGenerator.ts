@@ -1,5 +1,5 @@
 // ======================================================
-// WorldWright Generator Core -- Steps 5F → 7C
+// WorldWright Generator Core -- Steps 5F → 8A
 // Continent Shaping + Plate/Erosion Approx + Land/Sea calibration
 // ======================================================
 
@@ -12,7 +12,7 @@ export interface GeneratorParams {
   landmass: number // 0–100 (more = more land)
   seaLevel: number // 0–100 (higher = more ocean)
   climateVariance: number // reserved for future
-  plateActivity: number // used for continent roughness in Step 7
+  plateActivity: number // used for continent roughness in Step 7/8
   axisTilt: number // reserved for future biome/climate logic
   planetAge: number // 0–100 (younger = rougher, older = smoother)
 }
@@ -71,6 +71,17 @@ function makeNoise(width: number, height: number) {
 }
 
 /**
+ * Simple one-dimensional hash for plate offsets.
+ */
+function hash1(i: number): number {
+  let h = i * 374761393
+  h = (h ^ (h >> 13)) | 0
+  h = Math.imul(h, 1274126177)
+  h = (h ^ (h >> 16)) >>> 0
+  return h / 4294967296
+}
+
+/**
  * Generate a base height field in [0, 1] using simple fractal noise.
  */
 function generateHeightField(width: number, height: number): number[] {
@@ -122,9 +133,80 @@ function applyContinentMask(
 }
 
 /**
+ * Apply coarse "plate" offsets: big regions of uplift vs deep ocean.
+ * This is a cheap tectonic approximation for Step 8A.
+ */
+function applyPlateOffsets(
+  heights: number[],
+  width: number,
+  height: number,
+  plateActivity: number
+): number[] {
+  const plateCols = 8
+  const plateRows = 4
+  const plateCount = plateCols * plateRows
+  const offsets = new Array<number>(plateCount)
+
+  const activity = Math.max(0, Math.min(1, plateActivity / 100))
+  // How strong plate contrasts are: higher activity -> more dramatic plates.
+  const maxOffset = 0.25 + activity * 0.15 // 0.25..0.4
+
+  for (let p = 0; p < plateCount; p++) {
+    const r = hash1(p + 12345)
+    const isOceanic = r < 0.45
+
+    // Basic pattern:
+    // - Oceanic plates sit lower
+    // - Continental plates sit higher
+    let base: number
+    if (isOceanic) {
+      // deeper than average
+      base = -0.6 + r * 0.3 // roughly -0.6..-0.3
+    } else {
+      // higher than average
+      const rr = (r - 0.45) / 0.55
+      base = 0.2 + rr * 0.6 // roughly 0.2..0.8
+    }
+
+    offsets[p] = base * maxOffset
+  }
+
+  const result = new Array<number>(heights.length)
+
+  for (let y = 0; y < height; y++) {
+    const gy = Math.min(
+      plateRows - 1,
+      Math.floor((y / height) * plateRows)
+    )
+
+    for (let x = 0; x < width; x++) {
+      const gx = Math.min(
+        plateCols - 1,
+        Math.floor((x / width) * plateCols)
+      )
+      const plateIndex = gy * plateCols + gx
+      const offset = offsets[plateIndex]
+
+      const i = y * width + x
+      let v = heights[i]
+
+      // Blend the offset so we don't just hard-step heights.
+      v = v * 0.6 + (v + offset) * 0.4
+
+      if (v < 0) v = 0
+      if (v > 1) v = 1
+
+      result[i] = v
+    }
+  }
+
+  return result
+}
+
+/**
  * Smooth the height field to merge tiny islands into
  * larger landmasses. This is a cheap approximation of
- * erosion / plate adjustment for Step 7.
+ * erosion / plate adjustment.
  */
 function smoothHeightField(
   heights: number[],
@@ -185,20 +267,17 @@ export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld
   // 2) Shape into a rough continent layout (latitudinal bias)
   heights = applyContinentMask(heights, width, height)
 
-  // 3) Step 7B: cheap plate / erosion approximation.
-  // We smooth small-scale noise so we get fewer speckled islands
-  // and more coherent continent blobs. PlateActivity controls
-  // how "rough" the continents are:
-  //
-  //   low plateActivity  -> more smoothing (older, calmer plates)
-  //   high plateActivity -> less smoothing (younger, fragmented plates)
+  // 3) Coarse plate offsets (Step 8A): big regions of uplift vs deep ocean.
+  heights = applyPlateOffsets(heights, width, height, params.plateActivity)
+
+  // 4) Erosion-style smoothing: merge tiny islands into coherent continents.
   const plateFactor = params.plateActivity / 100 // 0–1
-  const maxExtraIterations = 5
+  const maxExtraIterations = 4
   const iterations =
-    2 + Math.round((1 - plateFactor) * maxExtraIterations) // 2..7
+    2 + Math.round((1 - plateFactor) * maxExtraIterations) // 2..6
   heights = smoothHeightField(heights, width, height, iterations, 0.6)
 
-  // 4) Apply planet age curve (younger = rougher, older = smoother)
+  // 5) Apply planet age curve (younger = rougher, older = smoother)
   const ageFactor = params.planetAge / 100 // 0–1
 
   heights = heights.map(v => {
@@ -220,7 +299,7 @@ export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld
     return val
   })
 
-  // 5) Step 7C: land/sea calibration based on sliders.
+  // 6) Land/sea calibration based on sliders.
   // Instead of guessing a sea level formula, we decide how much
   // land we *want* and then pick a threshold so that roughly that
   // fraction of cells are land.
