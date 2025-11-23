@@ -162,6 +162,20 @@ export function GeneratorScreen({
 
         {/* Main center panel */}
         <main className="ww-main-panel">
+          {/* PREVIEW FIRST – dominates the top center */}
+          <section className="ww-panel ww-panel-grow">
+            <h2>Preview</h2>
+            <div className="ww-generator-preview">
+              <canvas ref={globeCanvasRef} className="ww-generator-globe" />
+              {/* Rectangular minimap in bottom-left */}
+              <canvas
+                ref={minimapCanvasRef}
+                className="ww-generator-minimap"
+              />
+            </div>
+          </section>
+
+          {/* SETTINGS BELOW – no longer sitting at the very top center */}
           <section className="ww-panel">
             <div className="ww-main-label-row">
               <h2>Generator Settings</h2>
@@ -254,18 +268,6 @@ export function GeneratorScreen({
               </div>
 
               {error && <div className="ww-error">{error}</div>}
-            </div>
-          </section>
-
-          <section className="ww-panel ww-panel-grow">
-            <h2>Preview</h2>
-            <div className="ww-generator-preview">
-              <canvas ref={globeCanvasRef} className="ww-generator-globe" />
-              {/* Rectangular minimap in bottom-left */}
-              <canvas
-                ref={minimapCanvasRef}
-                className="ww-generator-minimap"
-              />
             </div>
           </section>
         </main>
