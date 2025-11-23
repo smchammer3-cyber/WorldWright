@@ -1,6 +1,6 @@
 // ======================================================
-// WorldWright Generator Core -- Steps 5F → 7B
-// Large Continent Shaping + Plate/Erosion Approximation
+// WorldWright Generator Core -- Steps 5F → 7B (calibrated)
+// Large Continent Shaping + Plate/Erosion Approx + Sea Level tuning
 // ======================================================
 
 import { World, WorldCell as FullWorldCell } from './world'
@@ -9,12 +9,12 @@ export interface GeneratorParams {
   // For now this is a numeric preset selector (0 = Realistic, 1 = Fantasy, etc.)
   worldStyle: number
   // All slider values are expressed as 0–100 from the UI
-  landmass: number // 0-100 (more = more land)
-  seaLevel: number // 0-100 (higher = more ocean)
+  landmass: number // 0–100 (more = more land)
+  seaLevel: number // 0–100 (higher = more ocean)
   climateVariance: number // reserved for future
   plateActivity: number // used for continent roughness in Step 7
   axisTilt: number // reserved for future biome/climate logic
-  planetAge: number // 0-100 (younger = rougher, older = smoother)
+  planetAge: number // 0–100 (younger = rougher, older = smoother)
 }
 
 interface GeneratedWorld {
@@ -25,8 +25,7 @@ interface GeneratedWorld {
 }
 
 /**
- * Create a reasonable starting set of generator parameters.
- * This is what the GeneratorScreen uses for its initial state.
+ * Default generator params used by the GeneratorScreen.
  */
 export function createDefaultGeneratorParams(): GeneratorParams {
   return {
@@ -93,8 +92,8 @@ function generateHeightField(width: number, height: number): number[] {
  * - There is more land near mid-latitudes
  * - Continents can wrap all the way around the globe
  *
- * This replaces the old "radial blob in the center" mask which caused
- * all land to clump on one side of the sphere.
+ * Replaces the old "radial blob in the center" mask that
+ * caused land to clump on one side of the sphere.
  */
 function applyContinentMask(
   heights: number[],
@@ -116,7 +115,6 @@ function applyContinentMask(
 
     let v = heights[i] * latBias
 
-    // Clamp to [0, 1]
     if (v < 0) v = 0
     if (v > 1) v = 1
 
@@ -127,7 +125,7 @@ function applyContinentMask(
 }
 
 /**
- * Smooth the height field a bit to merge tiny islands into
+ * Smooth the height field to merge tiny islands into
  * larger landmasses. This is a cheap approximation of
  * erosion / plate adjustment for Step 7.
  */
@@ -204,17 +202,31 @@ export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld
   heights = smoothHeightField(heights, width, height, iterations, 0.6)
 
   // 4) Apply slider influences for sea level and planet age
+
   const baseSea = params.seaLevel / 100 // 0–1 sea level
   const landmassShift = (params.landmass - 50) / 200 // -0.25..+0.25
 
-  // Sea level calibration: slightly biased toward more visible land
-  const seaLevel = Math.min(0.9, Math.max(0.1, baseSea - landmassShift * 1.1))
+  // 🧮 Sea level calibration:
+  // Shift the effective sea level slightly downward so that
+  // Landmass = 50, SeaLevel = 50 produces a good mix of
+  // land and water instead of "almost all ocean".
+  //
+  // landmassShift still pushes sea level down/up, but we
+  // subtract an additional 0.08 to compensate for the
+  // actual height distribution produced by the noise+mask.
+  let seaLevel =
+    baseSea - landmassShift * 1.1 - 0.08 // <- key calibration offset
+
+  // Clamp to a safe range
+  if (seaLevel < 0.1) seaLevel = 0.1
+  if (seaLevel > 0.9) seaLevel = 0.9
+
+  // Apply planet age curve (younger = rougher, older = smoother)
+  const ageFactor = params.planetAge / 100 // 0–1
 
   heights = heights.map(v => {
     let val = v
 
-    // Very young planets = sharper extremes, older = smoother
-    const ageFactor = params.planetAge / 100 // 0–1
     if (ageFactor < 0.5) {
       // Younger → exaggerate contrasts slightly
       const k = 1 + (0.5 - ageFactor) * 0.7
