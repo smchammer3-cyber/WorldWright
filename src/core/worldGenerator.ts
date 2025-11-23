@@ -1,5 +1,5 @@
 // ======================================================
-// WorldWright Generator Core -- Blueprint Step 5F / 7A
+// WorldWright Generator Core -- Steps 5F → 7B
 // Large Continent Shaping + Plate/Erosion Approximation
 // ======================================================
 
@@ -9,12 +9,12 @@ export interface GeneratorParams {
   // For now this is a numeric preset selector (0 = Realistic, 1 = Fantasy, etc.)
   worldStyle: number
   // All slider values are expressed as 0–100 from the UI
-  landmass: number // 0–100 (more = more land)
-  seaLevel: number // 0–100 (higher = more ocean)
+  landmass: number // 0-100 (more = more land)
+  seaLevel: number // 0-100 (higher = more ocean)
   climateVariance: number // reserved for future
   plateActivity: number // used for continent roughness in Step 7
-  axisTilt: number // reserved for future
-  planetAge: number // reserved for future
+  axisTilt: number // reserved for future biome/climate logic
+  planetAge: number // 0-100 (younger = rougher, older = smoother)
 }
 
 interface GeneratedWorld {
@@ -35,14 +35,14 @@ export function createDefaultGeneratorParams(): GeneratorParams {
     seaLevel: 50, // mid sea level
     climateVariance: 50,
     plateActivity: 50,
-    axisTilt: 40,
+    axisTilt: 40, // Earth-like default tilt
     planetAge: 50
   }
 }
 
 /**
- * A tiny hash-based RNG so that terrain noise is stable
- * for a given (x, y) but does not require storing a huge array.
+ * Hash-based RNG so that terrain noise is stable
+ * for a given (x, y, octave) but does not require storing a huge array.
  */
 function makeNoise(width: number, height: number) {
   function hash(x: number, y: number, octave: number): number {
@@ -56,7 +56,7 @@ function makeNoise(width: number, height: number) {
 
   return {
     sample(x: number, y: number): number {
-      // 3–octave fBm noise
+      // 3–octave fBm-style noise
       const s0 = hash(x, y, 0)
       const s1 = hash(Math.floor(x / 2), Math.floor(y / 2), 1)
       const s2 = hash(Math.floor(x / 4), Math.floor(y / 4), 2)
@@ -93,8 +93,8 @@ function generateHeightField(width: number, height: number): number[] {
  * - There is more land near mid-latitudes
  * - Continents can wrap all the way around the globe
  *
- * Step 6C update:
- * We bias only by latitude so that land can appear on any longitude.
+ * This replaces the old "radial blob in the center" mask which caused
+ * all land to clump on one side of the sphere.
  */
 function applyContinentMask(
   heights: number[],
@@ -190,13 +190,13 @@ export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld
   // 2) Shape into a rough continent layout (latitudinal bias)
   heights = applyContinentMask(heights, width, height)
 
-  // 3) Step 7: cheap plate / erosion approximation.
+  // 3) Step 7B: cheap plate / erosion approximation.
   // We smooth small-scale noise so we get fewer speckled islands
   // and more coherent continent blobs. PlateActivity controls
   // how "rough" the continents are:
   //
-  //   low plateActivity  -> more smoothing (older, calmer world)
-  //   high plateActivity -> less smoothing (younger, more rugged)
+  //   low plateActivity  -> more smoothing (older, calmer plates)
+  //   high plateActivity -> less smoothing (younger, fragmented plates)
   const plateFactor = params.plateActivity / 100 // 0–1
   const maxExtraIterations = 5
   const iterations =
@@ -207,7 +207,8 @@ export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld
   const baseSea = params.seaLevel / 100 // 0–1 sea level
   const landmassShift = (params.landmass - 50) / 200 // -0.25..+0.25
 
-  const seaLevel = Math.min(0.95, Math.max(0.05, baseSea - landmassShift))
+  // Sea level calibration: slightly biased toward more visible land
+  const seaLevel = Math.min(0.9, Math.max(0.1, baseSea - landmassShift * 1.1))
 
   heights = heights.map(v => {
     let val = v
