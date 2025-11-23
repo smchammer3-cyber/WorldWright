@@ -1,6 +1,6 @@
 // ======================================================
-// WorldWright Generator Core -- Steps 5F → 7B (calibrated)
-// Large Continent Shaping + Plate/Erosion Approx + Sea Level tuning
+// WorldWright Generator Core -- Steps 5F → 7C
+// Continent Shaping + Plate/Erosion Approx + Land/Sea calibration
 // ======================================================
 
 import { World, WorldCell as FullWorldCell } from './world'
@@ -21,7 +21,7 @@ interface GeneratedWorld {
   width: number
   height: number
   cells: { baseHeight: number }[]
-  seaLevel: number // normalized 0–1 sea threshold
+  seaLevel: number // normalized 0–1 sea threshold used by renderer/sim
 }
 
 /**
@@ -91,9 +91,6 @@ function generateHeightField(width: number, height: number): number[] {
  * Apply a large-scale continent mask so that
  * - There is more land near mid-latitudes
  * - Continents can wrap all the way around the globe
- *
- * Replaces the old "radial blob in the center" mask that
- * caused land to clump on one side of the sphere.
  */
 function applyContinentMask(
   heights: number[],
@@ -201,27 +198,7 @@ export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld
     2 + Math.round((1 - plateFactor) * maxExtraIterations) // 2..7
   heights = smoothHeightField(heights, width, height, iterations, 0.6)
 
-  // 4) Apply slider influences for sea level and planet age
-
-  const baseSea = params.seaLevel / 100 // 0–1 sea level
-  const landmassShift = (params.landmass - 50) / 200 // -0.25..+0.25
-
-  // 🧮 Sea level calibration:
-  // Shift the effective sea level slightly downward so that
-  // Landmass = 50, SeaLevel = 50 produces a good mix of
-  // land and water instead of "almost all ocean".
-  //
-  // landmassShift still pushes sea level down/up, but we
-  // subtract an additional 0.08 to compensate for the
-  // actual height distribution produced by the noise+mask.
-  let seaLevel =
-    baseSea - landmassShift * 1.1 - 0.08 // <- key calibration offset
-
-  // Clamp to a safe range
-  if (seaLevel < 0.1) seaLevel = 0.1
-  if (seaLevel > 0.9) seaLevel = 0.9
-
-  // Apply planet age curve (younger = rougher, older = smoother)
+  // 4) Apply planet age curve (younger = rougher, older = smoother)
   const ageFactor = params.planetAge / 100 // 0–1
 
   heights = heights.map(v => {
@@ -242,6 +219,30 @@ export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld
 
     return val
   })
+
+  // 5) Step 7C: land/sea calibration based on sliders.
+  // Instead of guessing a sea level formula, we decide how much
+  // land we *want* and then pick a threshold so that roughly that
+  // fraction of cells are land.
+
+  // landBias: -0.5..+0.5, seaBias: -0.5..+0.5
+  const landBias = (params.landmass - 50) / 100
+  const seaBias = (params.seaLevel - 50) / 100
+
+  // Base target is 50% land, then landmass pushes it up/down
+  // and sea level pushes it the opposite way.
+  let targetLandFraction = 0.5 + landBias * 0.4 - seaBias * 0.4
+
+  // Clamp to something sane: avoid 100% land or 100% ocean.
+  if (targetLandFraction < 0.15) targetLandFraction = 0.15
+  if (targetLandFraction > 0.85) targetLandFraction = 0.85
+
+  const sorted = heights.slice().sort((a, b) => a - b)
+  const index = Math.floor(sorted.length * (1 - targetLandFraction))
+
+  let seaLevel = sorted[index]
+  if (seaLevel < 0.05) seaLevel = 0.05
+  if (seaLevel > 0.95) seaLevel = 0.95
 
   const cells = heights.map(v => ({
     baseHeight: v
