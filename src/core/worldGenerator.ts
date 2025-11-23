@@ -1,6 +1,7 @@
 // ======================================================
-// WorldWright Generator Core -- Steps 5F → 8A
+// WorldWright Generator Core -- Steps 5F → 8B
 // Continent Shaping + Plate/Erosion Approx + Land/Sea calibration
+// + Basin vs Continent emphasis
 // ======================================================
 
 import { World, WorldCell as FullWorldCell } from './world'
@@ -134,7 +135,7 @@ function applyContinentMask(
 
 /**
  * Apply coarse "plate" offsets: big regions of uplift vs deep ocean.
- * This is a cheap tectonic approximation for Step 8A.
+ * This is a cheap tectonic approximation.
  */
 function applyPlateOffsets(
   heights: number[],
@@ -255,6 +256,53 @@ function smoothHeightField(
 }
 
 /**
+ * Emphasize deep ocean basins vs raised continents.
+ * This reduces the "lots of lakes" look by pushing
+ * low values lower and high values higher, with a softer
+ * mid band around the would-be coastlines.
+ */
+function shapeBasinsAndContinents(
+  heights: number[],
+  seaLevelBias: number,
+  plateActivity: number
+): number[] {
+  const result = new Array<number>(heights.length)
+
+  // seaLevelBias: -0.5..+0.5 (from seaLevel slider)
+  // plateActivity: 0..1
+  const seaEmphasis = Math.max(0, Math.min(1, 0.5 + seaLevelBias))
+  const ruggedness = Math.max(0, Math.min(1, plateActivity / 100))
+
+  for (let i = 0; i < heights.length; i++) {
+    let v = heights[i]
+
+    // Base adjustment:
+    // - Below mid: deepen oceans more aggressively
+    // - Above mid: lift continents and compress near coast band
+    const mid = 0.5
+    if (v < mid) {
+      const d = v / mid // 0..1
+      // Exponent > 1 deepens basins; seaEmphasis controls how strong.
+      const exp = 1.2 + seaEmphasis * 0.8
+      v = mid * Math.pow(d, exp)
+    } else {
+      const d = (v - mid) / (1 - mid) // 0..1
+      // Exponent < 1 lifts highlands; ruggedness keeps it from being too smooth.
+      const exp = 0.9 - ruggedness * 0.3
+      const raised = Math.pow(d, exp)
+      v = mid + (1 - mid) * raised
+    }
+
+    if (v < 0) v = 0
+    if (v > 1) v = 1
+
+    result[i] = v
+  }
+
+  return result
+}
+
+/**
  * Core terrain generation used both for preview and for building real worlds.
  */
 export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld {
@@ -267,7 +315,7 @@ export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld
   // 2) Shape into a rough continent layout (latitudinal bias)
   heights = applyContinentMask(heights, width, height)
 
-  // 3) Coarse plate offsets (Step 8A): big regions of uplift vs deep ocean.
+  // 3) Coarse plate offsets: big regions of uplift vs deep ocean.
   heights = applyPlateOffsets(heights, width, height, params.plateActivity)
 
   // 4) Erosion-style smoothing: merge tiny islands into coherent continents.
@@ -299,18 +347,21 @@ export function generateWorldFromParams(params: GeneratorParams): GeneratedWorld
     return val
   })
 
-  // 6) Land/sea calibration based on sliders.
+  // 6) Basin vs continent emphasis (Step 8B).
+  const seaBias = (params.seaLevel - 50) / 100 // -0.5..+0.5
+  heights = shapeBasinsAndContinents(heights, seaBias, params.plateActivity)
+
+  // 7) Land/sea calibration based on sliders.
   // Instead of guessing a sea level formula, we decide how much
   // land we *want* and then pick a threshold so that roughly that
   // fraction of cells are land.
 
-  // landBias: -0.5..+0.5, seaBias: -0.5..+0.5
   const landBias = (params.landmass - 50) / 100
-  const seaBias = (params.seaLevel - 50) / 100
+  const seaSliderBias = (params.seaLevel - 50) / 100
 
   // Base target is 50% land, then landmass pushes it up/down
   // and sea level pushes it the opposite way.
-  let targetLandFraction = 0.5 + landBias * 0.4 - seaBias * 0.4
+  let targetLandFraction = 0.5 + landBias * 0.4 - seaSliderBias * 0.4
 
   // Clamp to something sane: avoid 100% land or 100% ocean.
   if (targetLandFraction < 0.15) targetLandFraction = 0.15
