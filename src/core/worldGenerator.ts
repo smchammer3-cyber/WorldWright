@@ -13,12 +13,16 @@ export interface GeneratorParams {
   height: number
   seed: string
   landmass: number        // 0–100, 0 = mostly ocean, 100 = lots of land
-  seaLevel: number        // 0–100, ~50 = Earth-like
-  plateActivity: number   // 0–100, reserved for future
-  axisTilt: number        // 0–100, reserved for future
-  planetAge: number       // 0–100, reserved for future
-  climateVariance: number // 0–100, reserved for future
+  seaLevel: number        // 0–100, 50 ~ balanced
+  plateActivity: number   // 0–100, reserved for future use
+  axisTilt: number        // 0–100, reserved for future use
+  planetAge: number       // 0–100, reserved for future use
+  climateVariance: number // 0–100, reserved for future use
   worldStyle: number      // 0–100, reserved for presets
+}
+
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v
 }
 
 // Small helper for seeded PRNG
@@ -36,9 +40,8 @@ function makeRandom(seed: string) {
   }
 }
 
-// Simple hash/noise helper
+// Very lightweight hash-based noise – used only to roughen coastlines
 function noise(rand: () => number, x: number, y: number): number {
-  // Lightweight hash-based noise – good enough for preview
   const r = Math.sin(x * 12.9898 + y * 78.233 + rand() * 43758.5453)
   return (r - Math.floor(r)) * 2 - 1 // -1..1
 }
@@ -60,7 +63,16 @@ export function createDefaultGeneratorParams(): GeneratorParams {
   }
 }
 
-// Main generator function – returns a full World object
+/**
+ * Main generator: builds a world with broad continents instead of speckled dots.
+ *
+ * Strategy:
+ *  - Place a few "continent centers" in UV space.
+ *  - Each cell's base height is how strongly it belongs to the nearest continent.
+ *  - Add a little low-amplitude noise to roughen coastlines.
+ *  - Use the landmass slider to decide roughly how much land exists.
+ *  - Use seaLevel slider as a gentle offset on top of that.
+ */
 export function generateWorldFromParams(params: GeneratorParams): World {
   const {
     name,
@@ -73,73 +85,98 @@ export function generateWorldFromParams(params: GeneratorParams): World {
 
   const rand = makeRandom(seed || 'worldwright')
 
-  // Normalize sliders to 0–1 ranges for math
-  const landmass = Math.max(0, Math.min(1, landmassSlider / 100))
-  const seaLevel = Math.max(0, Math.min(1, seaLevelSlider / 100))
+  // Normalize sliders
+  const landmass01 = clamp01(landmassSlider / 100) // target land fraction
+  const seaSlider01 = clamp01(seaLevelSlider / 100)
 
-  // --- CONFIG FOR CONTINENTS ---
-  const platesCount = Math.floor(3 + landmass * 4) // 3–7 plates
-  const plates: { x: number; y: number }[] = []
-  for (let p = 0; p < platesCount; p++) {
-    plates.push({
-      x: Math.floor(rand() * width),
-      y: Math.floor(rand() * height),
-    })
+  // Decide how many continents to place: 2–4 is usually enough
+  const baseContinentCount = 2 + Math.floor(landmass01 * 2) // 2, 3, or 4
+  const continentCount = Math.max(1, baseContinentCount)
+
+  type Continent = { cx: number; cy: number; radius: number }
+  const continents: Continent[] = []
+
+  for (let i = 0; i < continentCount; i++) {
+    const cx = rand()
+    const cy = rand()
+    // More landmass → slightly bigger continents, but they also overlap
+    const radius = 0.18 + (1 - landmass01) * 0.1 // ~0.18–0.28 of world size
+    continents.push({ cx, cy, radius })
   }
 
-  const cells: WorldCell[] = []
-  const now = new Date().toISOString()
-
-  const maxDist = Math.sqrt(width * width + height * height)
+  // First pass: build raw heights + climate fields (no seaLevel yet)
+  const draftCells: { x: number; y: number; baseHeight: number; moisture: number; temperature: number }[] = []
+  const heights: number[] = []
 
   for (let y = 0; y < height; y++) {
-    const v = y / (height - 1 || 1)
+    const v = height <= 1 ? 0 : y / (height - 1)
     const equatorDist = Math.abs(v - 0.5) * 2 // 0 at equator, 1 at poles
 
     for (let x = 0; x < width; x++) {
-      // Distance to nearest plate center → builds continents
-      let minDist = Infinity
-      for (const plate of plates) {
-        const dx = x - plate.x
-        const dy = y - plate.y
+      const u = width <= 1 ? 0 : x / (width - 1)
+
+      // --- Continent mask: max influence of any continent ---
+      let mask = 0
+      for (const c of continents) {
+        const dx = u - c.cx
+        const dy = v - c.cy
         const dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist < minDist) minDist = dist
+        const m = 1 - dist / c.radius
+        if (m > mask) mask = m
       }
 
-      let base = 1 - minDist / maxDist // nearer plate center = higher land
+      // Cut off outside blobs and clamp
+      mask = clamp01(mask)
 
-      // Add noise for coast variation
-      base += noise(rand, x, y) * 0.15
+      // Shape continents: exponent < 1 → fatter centers, smoother edges
+      const shaped = Math.pow(mask, 0.8 + landmass01 * 0.4) // ~0.8–1.2
 
-      // Center elevation around landmass slider:
-      // landmass = 0.0 → most below sea
-      // landmass = 1.0 → most above sea
-      base = base * 0.5 + landmass * 0.5
+      // Add some gentle multiscale noise for coastlines
+      let h = shaped
+      h += noise(rand, u * 4, v * 4) * 0.05
+      h += noise(rand, u * 8, v * 8) * 0.025
+      h = clamp01(h)
 
-      // Clamp to [0, 1]
-      base = Math.max(0, Math.min(1, base))
+      // Moisture / temperature (for future biome work)
+      const tempBase = 1 - equatorDist
+      const temperature = clamp01(tempBase + noise(rand, u * 2, v * 2) * 0.1)
 
-      // Temperature proxy (equator vs poles) – ready for future biomes
-      const temperature = 1 - equatorDist
-      void temperature
+      const moistureBase = 0.5 + noise(rand, u * 3.1, v * 2.7) * 0.25
+      const moisture = clamp01(moistureBase)
 
-      const cell: WorldCell = {
+      draftCells.push({
         x,
         y,
-        baseHeight: base,
-        editHeightDelta: 0,
-        simHeightDelta: 0,
-        baseBiomeId: null,
-        editBiomeId: null,
-        simBiomeId: null,
-        countryId: null,
-        cultureId: null,
-        cityId: null,
-      }
-
-      cells.push(cell)
+        baseHeight: h,
+        moisture,
+        temperature,
+      })
+      heights.push(h)
     }
   }
+
+  // Approximate a sea level that matches desired landmass fraction:
+  // sort heights and pick a quantile.
+  const sortedHeights = [...heights].sort((a, b) => a - b)
+  const targetWaterFraction = clamp01(1 - landmass01) // e.g., landmass=0.6 → 0.4 water
+  const idx = Math.floor(targetWaterFraction * (sortedHeights.length - 1))
+  const baseSeaLevel = sortedHeights[idx]
+
+  // Sea slider nudges that threshold up/down without being insane
+  const seaOffset = (seaSlider01 - 0.5) * 0.25 // move by at most ±0.25
+  const finalSeaLevel = clamp01(baseSeaLevel + seaOffset)
+
+  // Second pass: finalize cells with biome ids based on finalSeaLevel
+  const cells: WorldCell[] = draftCells.map((c) => ({
+    x: c.x,
+    y: c.y,
+    baseHeight: c.baseHeight,
+    moisture: c.moisture,
+    temperature: c.temperature,
+    biomeId: c.baseHeight < finalSeaLevel ? 0 : 1, // 0 = water, 1 = land (for now)
+  }))
+
+  const now = new Date().toISOString()
 
   const world: World = {
     id: '',
@@ -147,7 +184,7 @@ export function generateWorldFromParams(params: GeneratorParams): World {
     width,
     height,
     seed: seed || 'seed',
-    seaLevel,
+    seaLevel: finalSeaLevel,
     cells,
     countries: [],
     cultures: [],
