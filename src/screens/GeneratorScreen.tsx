@@ -6,11 +6,16 @@ import {
   GeneratorParams,
   generateWorldFromParams
 } from '../core/worldGenerator'
+import { renderPlanetToCanvas } from '../core/planetRenderer'
 
 interface GeneratorScreenProps {
   onBack: () => void
   onWorldGenerated: (worldId: string) => void
 }
+
+type DragState =
+  | { dragging: false }
+  | { dragging: true; lastX: number }
 
 export function GeneratorScreen(props: GeneratorScreenProps) {
   const { onBack, onWorldGenerated } = props
@@ -20,7 +25,11 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
   )
   const [worldName, setWorldName] = useState<string>('New World')
 
+  // View / camera state for Step 6A
+  const [rotation, setRotation] = useState<number>(0)
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const dragStateRef = useRef<DragState>({ dragging: false })
 
   function updateParam<K extends keyof GeneratorParams>(
     key: K,
@@ -39,119 +48,34 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     onWorldGenerated(world.id)
   }
 
-  // Live planet-style preview (Step 5G + 5H polish)
+  // Mouse / touch interaction for rotating the globe
+  function beginDrag(clientX: number) {
+    dragStateRef.current = { dragging: true, lastX: clientX }
+  }
+
+  function updateDrag(clientX: number) {
+    const state = dragStateRef.current
+    if (!state.dragging) return
+
+    const deltaX = clientX - state.lastX
+    dragStateRef.current = { dragging: true, lastX: clientX }
+
+    // Horizontal drag rotates the globe. Scale factor keeps it comfortable.
+    setRotation(prev => prev + deltaX * 0.01)
+  }
+
+  function endDrag() {
+    dragStateRef.current = { dragging: false }
+  }
+
+  // Live planet-style preview using the dedicated renderer (Step 6A)
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
 
     const preview = generateWorldFromParams(params)
-    const { width, height, cells, seaLevel } = preview
-
-    // Fixed internal resolution for stable preview.
-    // Canvas CSS size is controlled by layout; we keep the
-    // internal bitmap size constant so the globe never grows
-    // when sliders change.
-    const size = 512
-    canvas.width = size
-    canvas.height = size
-
-    const img = ctx.createImageData(size, size)
-    const cx = size / 2
-    const cy = size / 2
-    const radius = size / 2
-
-    // Simple directional light for shading (blueprint style)
-    const lightDir = { x: 0.4, y: -0.3, z: 0.85 }
-
-    for (let py = 0; py < size; py++) {
-      for (let px = 0; px < size; px++) {
-        const dx = (px + 0.5 - cx) / radius
-        const dy = (py + 0.5 - cy) / radius
-        const r2 = dx * dx + dy * dy
-        const idx = (py * size + px) * 4
-
-        // Outside the sphere – transparent background
-        if (r2 > 1) {
-          img.data[idx] = 0
-          img.data[idx + 1] = 0
-          img.data[idx + 2] = 0
-          img.data[idx + 3] = 0
-          continue
-        }
-
-        // Point on unit sphere
-        const z = Math.sqrt(1 - r2)
-
-        // Convert to spherical coordinates
-        const lon = Math.atan2(dx, z) // -PI..PI
-        const lat = Math.asin(dy) // -PI/2..PI/2
-
-        // Map to equirectangular world grid
-        let sx = Math.floor(((lon + Math.PI) / (2 * Math.PI)) * width)
-        let sy = Math.floor(((lat + Math.PI / 2) / Math.PI) * height)
-
-        if (sx < 0) sx = 0
-        if (sx >= width) sx = width - 1
-        if (sy < 0) sy = 0
-        if (sy >= height) sy = height - 1
-
-        const cellIndex = sy * width + sx
-        const baseHeight = cells[cellIndex].baseHeight
-
-        // Blueprint-style palette (dark oceans, muted land, pale mountains)
-        let r: number
-        let g: number
-        let b: number
-
-        if (baseHeight < seaLevel) {
-          // Deep navy oceans
-          const depth = Math.min(1, (seaLevel - baseHeight) * 4)
-          r = 8 + depth * 10
-          g = 22 + depth * 20
-          b = 48 + depth * 40
-        } else {
-          // Land and mountains
-          const h = Math.min(1, (baseHeight - seaLevel) * 3)
-
-          if (h > 0.7) {
-            // High mountains – cold stone
-            const t = (h - 0.7) / 0.3
-            r = 190 + t * 40
-            g = 196 + t * 40
-            b = 210 + t * 45
-          } else if (h > 0.3) {
-            // Highlands – rocky / sparse vegetation
-            const t = (h - 0.3) / 0.4
-            r = 120 + t * 40
-            g = 130 + t * 35
-            b = 110 + t * 30
-          } else {
-            // Lowlands – muted green
-            const t = h / 0.3
-            r = 60 + t * 25
-            g = 110 + t * 35
-            b = 80 + t * 20
-          }
-        }
-
-        // Simple lambertian lighting
-        const nx = dx
-        const ny = dy
-        const nz = z
-        const ndotl = nx * lightDir.x + ny * lightDir.y + nz * lightDir.z
-        const light = Math.max(0.3, ndotl)
-
-        img.data[idx] = Math.floor(r * light)
-        img.data[idx + 1] = Math.floor(g * light)
-        img.data[idx + 2] = Math.floor(b * light)
-        img.data[idx + 3] = 255
-      }
-    }
-
-    ctx.putImageData(img, 0, 0)
-  }, [params])
+    renderPlanetToCanvas(canvas, preview, { rotation })
+  }, [params, rotation])
 
   return (
     <div className="ww-screen">
@@ -167,8 +91,11 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
 
       <div className="ww-screen-body">
         <div className="ww-generator-layout">
-          {/* Left: Controls */}
-          <section className="ww-panel ww-panel-grow">
+          {/* Left: Controls (fixed width) */}
+          <section
+            className="ww-panel"
+            style={{ width: 280, flexShrink: 0 }}
+          >
             <h2>World Settings</h2>
 
             <div className="ww-field">
@@ -239,7 +166,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
             </div>
 
             <div className="ww-field-group">
-              <h3>Advanced (Reserved for Later)</h3>
+              <h3>Advanced (Reserved)</h3>
 
               <div className="ww-field">
                 <label>Climate Variance</label>
@@ -315,19 +242,50 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
             </div>
           </section>
 
-          {/* Right: Preview */}
-          <section className="ww-panel">
-            <h2>Preview</h2>
-            <canvas
-              ref={canvasRef}
-              className="ww-preview-canvas"
+          {/* Right: Main globe view (dominant) */}
+          <section className="ww-panel ww-panel-grow">
+            <h2>Planet Preview</h2>
+            <div
               style={{
                 width: '100%',
-                aspectRatio: '1 / 1',
-                border: '1px solid #333',
-                imageRendering: 'pixelated'
+                maxWidth: 720,
+                margin: '0 auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
               }}
-            />
+            >
+              <canvas
+                ref={canvasRef}
+                className="ww-preview-canvas"
+                style={{
+                  width: '100%',
+                  aspectRatio: '1 / 1',
+                  border: '1px solid #333',
+                  imageRendering: 'pixelated',
+                  cursor: 'grab'
+                }}
+                onMouseDown={e => beginDrag(e.clientX)}
+                onMouseMove={e => updateDrag(e.clientX)}
+                onMouseUp={endDrag}
+                onMouseLeave={endDrag}
+                onTouchStart={e => {
+                  if (e.touches.length > 0) {
+                    beginDrag(e.touches[0].clientX)
+                  }
+                }}
+                onTouchMove={e => {
+                  if (e.touches.length > 0) {
+                    updateDrag(e.touches[0].clientX)
+                  }
+                }}
+                onTouchEnd={endDrag}
+              />
+            </div>
+            <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', opacity: 0.8 }}>
+              Drag to rotate the planet. Sliders adjust landmass and sea level;
+              future steps will bring climate, plates, and biomes online.
+            </p>
           </section>
         </div>
       </div>
