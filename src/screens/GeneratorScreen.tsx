@@ -1,3 +1,7 @@
+// JARVIS_CHANGE
+// Date: 2025-12-02
+// Step: 5G-1 - Route minimap through shared planetRenderer for consistent map style.
+
 import React, { useEffect, useRef, useState } from 'react'
 import { saveWorld } from '../core/worldStorage'
 import {
@@ -6,6 +10,7 @@ import {
   GeneratorParams,
   generateWorldFromParams,
 } from '../core/worldGenerator'
+import { renderPlanetToCanvas } from '../core/planetRenderer'
 
 interface GeneratorScreenProps {
   onBack: () => void
@@ -18,7 +23,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
   const [params, setParams] = useState<GeneratorParams>(
     createDefaultGeneratorParams(),
   )
-  const [worldName, setWorldName] = useState<string>('New World')
+  const [worldName, setWorldName] = useState('')
 
   const globeCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -58,31 +63,13 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     const seaLevel: number = preview.seaLevel
 
     // -------- Minimap (bottom-left 2D map) --------
-    minimapCanvas.width = width
-    minimapCanvas.height = height
-
-    const miniImg = minimapCtx.createImageData(width, height)
-
-    for (let i = 0; i < cells.length; i++) {
-      const v = cells[i].baseHeight
-      const idx = i * 4
-
-      if (v < seaLevel) {
-        const depth = Math.abs(v - seaLevel)
-        miniImg.data[idx] = 0
-        miniImg.data[idx + 1] = Math.floor(90 + depth * 80)
-        miniImg.data[idx + 2] = Math.floor(140 + depth * 80)
-      } else {
-        const h = v
-        miniImg.data[idx] = Math.floor(90 + h * 90)
-        miniImg.data[idx + 1] = Math.floor(130 + h * 70)
-        miniImg.data[idx + 2] = Math.floor(70 + h * 60)
-      }
-
-      miniImg.data[idx + 3] = 255
-    }
-
-    minimapCtx.putImageData(miniImg, 0, 0)
+    // Use shared planet renderer so the flat map matches the globe colors.
+    renderPlanetToCanvas(minimapCtx, {
+      width,
+      height,
+      cells,
+      seaLevel,
+    })
 
     // -------- Globe (center circular projection) --------
     const globeSize = 320
@@ -130,19 +117,33 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
         const ndotl = nx * lightDir.x + ny * lightDir.y + nz * lightDir.z
         const light = Math.max(0.3, ndotl)
 
-        let r: number
-        let g: number
-        let b: number
+        let r = 0
+        let g = 0
+        let b = 0
 
         if (h < seaLevel) {
           const depth = Math.abs(h - seaLevel)
           r = 10
-          g = 100 + depth * 80
-          b = 150 + depth * 80
+          g = 50 + depth * 60
+          b = 120 + depth * 80
         } else {
-          r = 100 + h * 80
-          g = 140 + h * 60
-          b = 80 + h * 50
+          const t = (h + 1) / 2 // 0..1
+          if (t < 0.35) {
+            // beach
+            r = 210
+            g = 190
+            b = 140
+          } else if (t < 0.65) {
+            // greener land
+            r = 60
+            g = 140 + t * 40
+            b = 70
+          } else {
+            // highlands / snow
+            r = 200 + t * 30
+            g = 210 + t * 30
+            b = 220 + t * 20
+          }
         }
 
         globeImg.data[idx] = Math.min(255, r * light)
@@ -169,113 +170,92 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     <div className="ww-screen">
       <header className="ww-screen-header">
         <button className="ww-secondary-btn" onClick={onBack}>
-          ← Worlds
+          Back
         </button>
-        <div className="ww-breadcrumb">World Generator</div>
-        <button className="ww-primary-btn" onClick={handleSave}>
-          Save World
-        </button>
+        <h1 className="ww-screen-title">Generate World</h1>
       </header>
 
-      <main className="ww-screen-body ww-generator-layout">
-        {/* LEFT: sidebar with all generator controls */}
-        <aside className="ww-sidebar">
-          <section className="ww-sidebar-section">
-            <div className="ww-sidebar-label">World</div>
-
-            <div className="ww-field">
-              <div className="ww-field-label">World Name</div>
-              <input
-                className="ww-text-input"
-                type="text"
-                value={worldName}
-                onChange={e => setWorldName(e.target.value)}
-                placeholder="Enter a name..."
+      <main className="ww-layout">
+        <section className="ww-main-panel">
+          <div className="ww-preview-row">
+            <div className="ww-preview-column">
+              <div className="ww-preview-label">Globe Preview</div>
+              <canvas
+                ref={globeCanvasRef}
+                className="ww-preview-canvas ww-preview-canvas--globe"
               />
             </div>
-
-            <div className="ww-field">
-              <div className="ww-field-label">Width</div>
-              <input
-                className="ww-text-input"
-                type="number"
-                min={64}
-                max={1024}
-                value={params.width}
-                onChange={e =>
-                  updateParam('width', Number(e.target.value) || params.width)
-                }
+            <div className="ww-preview-column">
+              <div className="ww-preview-label">Map Preview</div>
+              <canvas
+                ref={minimapCanvasRef}
+                className="ww-preview-canvas ww-preview-canvas--map"
               />
             </div>
-
-            <div className="ww-field">
-              <div className="ww-field-label">Height</div>
-              <input
-                className="ww-text-input"
-                type="number"
-                min={32}
-                max={512}
-                value={params.height}
-                onChange={e =>
-                  updateParam(
-                    'height',
-                    Number(e.target.value) || params.height,
-                  )
-                }
-              />
-            </div>
-
-            <div className="ww-field">
-              <div className="ww-field-label">Seed</div>
-              <input
-                className="ww-text-input"
-                type="text"
-                value={params.seed}
-                onChange={e => updateParam('seed', e.target.value)}
-                placeholder="Random if empty"
-              />
-            </div>
-          </section>
-
-          <section className="ww-sidebar-section">
-            <div className="ww-sidebar-label">Shape</div>
-
-            {orderedKeys.map(key => (
-              <div key={key as string} className="ww-field">
-                <div className="ww-field-label">{key}</div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={params[key] as number}
-                  onChange={e =>
-                    updateParam(
-                      key,
-                      Number(e.target.value) as GeneratorParams[typeof key],
-                    )
-                  }
-                />
-                <div className="ww-field-value">{params[key] as number}</div>
-              </div>
-            ))}
-          </section>
-        </aside>
-
-        {/* CENTER: preview with globe + rectangular minimap bottom-left */}
-        <section className="ww-panel ww-panel-grow">
-          <h2>Preview</h2>
-          <div className="ww-generator-preview">
-            <canvas ref={globeCanvasRef} className="ww-generator-globe" />
-            <canvas
-              ref={minimapCanvasRef}
-              className="ww-generator-minimap"
-            />
           </div>
         </section>
 
-        {/* RIGHT: simple world info panel */}
-        <aside className="ww-right-panel">
+        <aside className="ww-sidebar">
           <section className="ww-sidebar-section">
+            <label className="ww-field">
+              <div className="ww-field-label">World Name</div>
+              <input
+                value={worldName}
+                onChange={e => setWorldName(e.target.value)}
+                placeholder="Enter a name..."
+                className="ww-text-input"
+              />
+            </label>
+          </section>
+
+          <section className="ww-sidebar-section">
+            <div className="ww-sidebar-label">World Parameters</div>
+            {orderedKeys.map(key => {
+              const value = params[key]
+              return (
+                <label key={key} className="ww-field">
+                  <div className="ww-field-label">
+                    {key === 'landmass'
+                      ? 'Landmass'
+                      : key === 'seaLevel'
+                      ? 'Sea Level'
+                      : key === 'plateActivity'
+                      ? 'Plate Activity'
+                      : key === 'axisTilt'
+                      ? 'Axis Tilt'
+                      : key === 'planetAge'
+                      ? 'Planet Age'
+                      : key === 'climateVariance'
+                      ? 'Climate Variance'
+                      : key === 'worldStyle'
+                      ? 'World Style'
+                      : key}
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={typeof value === 'number' ? value : 0}
+                    onChange={e =>
+                      updateParam(
+                        key,
+                        Number.parseInt(e.target.value, 10) as GeneratorParams[typeof key],
+                      )
+                    }
+                    className="ww-slider"
+                  />
+                  <div className="ww-field-value">
+                    {typeof value === 'number' ? value : ''}
+                  </div>
+                </label>
+              )
+            })}
+          </section>
+
+          <section className="ww-sidebar-section">
+            <button className="ww-primary-btn" onClick={handleSave}>
+              Save World
+            </button>
             <div className="ww-sidebar-label">World Info</div>
             <p className="ww-field-value">
               {params.width} × {params.height}
