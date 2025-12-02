@@ -1,6 +1,7 @@
 // JARVIS_CHANGE
 // Date: 2025-12-02
-// Step: 5G-1/5G-2/5G-3 - Shared minimap renderer, smoother globe sampling, and palette/lighting preview polish.
+// Step: 5G-1/5G-2/5G-3/5G-4 - Shared minimap renderer, smoother globe sampling,
+// palette/lighting polish, and preview-only coastline readability.
 
 import React, { useEffect, useRef, useState } from 'react'
 import { saveWorld } from '../core/worldStorage'
@@ -82,7 +83,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     const globeImg = globeCtx.createImageData(globeSize, globeSize)
     const radius = globeSize / 2
 
-    function sampleHeight(lon: number, lat: number): number {
+    function samplePreviewHeight(lon: number, lat: number): number {
       // lon in [-PI, PI], lat in [-PI/2, PI/2]
       // Map lon/lat into texture space [0, width) x [0, height)
       const uNorm = lon / (2 * Math.PI) + 0.5
@@ -108,9 +109,34 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
       const h10 = index(x1, y0)
       const h01 = index(x0, y1)
       const h11 = index(x1, y1)
+
+      // Bilinear interpolation
       const h0 = h00 * (1 - tx) + h10 * tx
       const h1 = h01 * (1 - tx) + h11 * tx
-      return h0 * (1 - ty) + h1 * ty
+      const h = h0 * (1 - ty) + h1 * ty
+
+      // Preview-only island suppression similar to minimap.
+      const neighbors = [h00, h10, h01, h11]
+      const landCount = neighbors.filter(v => v >= seaLevel).length
+      const landFraction = landCount / neighbors.length
+
+      let hPreview = h
+      const smallIslandThreshold = 0.25
+      const solidLandThreshold = 0.75
+
+      if (h >= seaLevel) {
+        if (landFraction < smallIslandThreshold) {
+          hPreview = seaLevel - 0.02
+        } else if (landFraction < 0.4 && h < seaLevel + 0.03) {
+          hPreview = seaLevel - 0.01
+        }
+      } else {
+        if (landFraction > solidLandThreshold) {
+          hPreview = seaLevel + 0.04
+        }
+      }
+
+      return hPreview
     }
 
     // Simple directional light from upper-left, softened for preview.
@@ -135,10 +161,10 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
         const lon = Math.atan2(nx, nz)
         const lat = Math.asin(ny)
 
-        const h = sampleHeight(lon, lat)
+        const hPreview = samplePreviewHeight(lon, lat)
 
         // Base color from shared palette so globe + minimap stay in sync.
-        const baseColor = sampleColorForHeight(h, seaLevel)
+        const baseColor = sampleColorForHeight(hPreview, seaLevel)
         let r = baseColor.r
         let g = baseColor.g
         let b = baseColor.b

@@ -1,8 +1,8 @@
 // JARVIS_CHANGE
 // Date: 2025-12-02
-// Step: 5G-3 - Preview palette + minimap smoothing (builds on 5G-2).
+// Step: 5G-4 - Coastline & landmass readability (preview-only).
 //
-// WorldWright Planet Renderer -- V1.2
+// WorldWright Planet Renderer -- V1.3
 // Simple 2D preview renderer for flat maps. This renderer operates only on preview data;
 // it does NOT modify the underlying world, so it is safe to adjust for visual clarity.
 
@@ -120,19 +120,47 @@ export function renderPlanetToCanvas(
     for (let x = 0; x < width; x++) {
       const idx = (y * width + x) * 4
 
-      // Simple 3x3 neighborhood average to knock down harsh pixel noise.
-      // This improves visual continuity without changing the underlying world data.
+      // 3x3 neighborhood average for base height + land coverage.
       let sum = 0
+      let landCount = 0
       let count = 0
       for (let oy = -1; oy <= 1; oy++) {
         for (let ox = -1; ox <= 1; ox++) {
-          sum += heightAt(x + ox, y + oy)
+          const h = heightAt(x + ox, y + oy)
+          sum += h
           count++
+          if (h >= seaLevel) {
+            landCount++
+          }
         }
       }
-      const h = sum / count
+      const hAvg = sum / count
+      const landFraction = landCount / count
 
-      const base = sampleColorForHeight(h, seaLevel)
+      // Preview-only height adjustment for readability.
+      // - Suppress tiny isolated islands (low landFraction but h above sea).
+      // - Fill tiny water holes inside big landmasses.
+      let hPreview = hAvg
+
+      const smallIslandThreshold = 0.2
+      const solidLandThreshold = 0.7
+
+      if (hAvg >= seaLevel) {
+        if (landFraction < smallIslandThreshold) {
+          // Very isolated land pixels → treat as water in preview.
+          hPreview = seaLevel - 0.02
+        } else if (landFraction < 0.35 && hAvg < seaLevel + 0.03) {
+          // Mostly water with a thin noisy edge → bias toward water.
+          hPreview = seaLevel - 0.01
+        }
+      } else {
+        if (landFraction > solidLandThreshold) {
+          // Tiny water gaps inside strong land area → bias to land.
+          hPreview = seaLevel + 0.04
+        }
+      }
+
+      const base = sampleColorForHeight(hPreview, seaLevel)
 
       const r = Math.max(0, Math.min(255, Math.round(base.r)))
       const g = Math.max(0, Math.min(255, Math.round(base.g)))
