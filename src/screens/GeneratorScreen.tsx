@@ -1,6 +1,6 @@
 // JARVIS_CHANGE
 // Date: 2025-12-02
-// Step: 5G-1/5G-2 - Shared minimap renderer + smoother globe sampling for less speckle.
+// Step: 5G-1/5G-2/5G-3 - Shared minimap renderer, smoother globe sampling, and palette/lighting preview polish.
 
 import React, { useEffect, useRef, useState } from 'react'
 import { saveWorld } from '../core/worldStorage'
@@ -10,7 +10,10 @@ import {
   GeneratorParams,
   generateWorldFromParams,
 } from '../core/worldGenerator'
-import { renderPlanetToCanvas } from '../core/planetRenderer'
+import {
+  renderPlanetToCanvas,
+  sampleColorForHeight,
+} from '../core/planetRenderer'
 
 interface GeneratorScreenProps {
   onBack: () => void
@@ -110,7 +113,7 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
       return h0 * (1 - ty) + h1 * ty
     }
 
-    // Simple directional light from upper-left
+    // Simple directional light from upper-left, softened for preview.
     const lightDir = { x: -0.4, y: 0.6, z: 0.7 }
 
     for (let y = 0; y < globeSize; y++) {
@@ -134,41 +137,24 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
 
         const h = sampleHeight(lon, lat)
 
+        // Base color from shared palette so globe + minimap stay in sync.
+        const baseColor = sampleColorForHeight(h, seaLevel)
+        let r = baseColor.r
+        let g = baseColor.g
+        let b = baseColor.b
+
+        // Preview lighting: soften contrast and avoid fully dark areas.
         const ndotl = nx * lightDir.x + ny * lightDir.y + nz * lightDir.z
-        const light = Math.max(0.3, ndotl)
+        const raw = Math.max(0, ndotl)
+        const light = 0.35 + Math.pow(raw, 0.9) * 0.65
 
-        let r = 0
-        let g = 0
-        let b = 0
+        r = Math.min(255, r * light)
+        g = Math.min(255, g * light)
+        b = Math.min(255, b * light)
 
-        if (h < seaLevel) {
-          const depth = Math.abs(h - seaLevel)
-          r = 10
-          g = 50 + depth * 60
-          b = 120 + depth * 80
-        } else {
-          const t = (h + 1) / 2 // 0..1
-          if (t < 0.35) {
-            // beach
-            r = 210
-            g = 190
-            b = 140
-          } else if (t < 0.65) {
-            // greener land
-            r = 60
-            g = 140 + t * 40
-            b = 70
-          } else {
-            // highlands / snow
-            r = 200 + t * 30
-            g = 210 + t * 30
-            b = 220 + t * 20
-          }
-        }
-
-        globeImg.data[idx] = Math.min(255, r * light)
-        globeImg.data[idx + 1] = Math.min(255, g * light)
-        globeImg.data[idx + 2] = Math.min(255, b * light)
+        globeImg.data[idx] = r
+        globeImg.data[idx + 1] = g
+        globeImg.data[idx + 2] = b
         globeImg.data[idx + 3] = 255
       }
     }
