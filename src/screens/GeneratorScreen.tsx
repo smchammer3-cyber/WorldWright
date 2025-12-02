@@ -1,6 +1,6 @@
 // JARVIS_CHANGE
 // Date: 2025-12-02
-// Step: 5G-1 - Route minimap through shared planetRenderer for consistent map style.
+// Step: 5G-1/5G-2 - Shared minimap renderer + smoother globe sampling for less speckle.
 
 import React, { useEffect, useRef, useState } from 'react'
 import { saveWorld } from '../core/worldStorage'
@@ -81,13 +81,33 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
 
     function sampleHeight(lon: number, lat: number): number {
       // lon in [-PI, PI], lat in [-PI/2, PI/2]
-      const u = (lon / (2 * Math.PI) + 0.5) * width
-      const v = (1 - (lat / Math.PI + 0.5)) * height
+      // Map lon/lat into texture space [0, width) x [0, height)
+      const uNorm = lon / (2 * Math.PI) + 0.5
+      const vNorm = 1 - (lat / Math.PI + 0.5)
+      const xf = Math.max(0, Math.min(width - 1, uNorm * width))
+      const yf = Math.max(0, Math.min(height - 1, vNorm * height))
 
-      const x = Math.max(0, Math.min(width - 1, Math.floor(u)))
-      const y = Math.max(0, Math.min(height - 1, Math.floor(v)))
-      const index = y * width + x
-      return cells[index].baseHeight
+      const x0 = Math.floor(xf)
+      const y0 = Math.floor(yf)
+      const x1 = Math.min(width - 1, x0 + 1)
+      const y1 = Math.min(height - 1, y0 + 1)
+      const tx = xf - x0
+      const ty = yf - y0
+
+      const index = (ix: number, iy: number) => {
+        const safeX = Math.max(0, Math.min(width - 1, ix))
+        const safeY = Math.max(0, Math.min(height - 1, iy))
+        const i = safeY * width + safeX
+        return cells[i].baseHeight
+      }
+
+      const h00 = index(x0, y0)
+      const h10 = index(x1, y0)
+      const h01 = index(x0, y1)
+      const h11 = index(x1, y1)
+      const h0 = h00 * (1 - tx) + h10 * tx
+      const h1 = h01 * (1 - tx) + h11 * tx
+      return h0 * (1 - ty) + h1 * ty
     }
 
     // Simple directional light from upper-left
@@ -239,7 +259,10 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
                     onChange={e =>
                       updateParam(
                         key,
-                        Number.parseInt(e.target.value, 10) as GeneratorParams[typeof key],
+                        Number.parseInt(
+                          e.target.value,
+                          10,
+                        ) as GeneratorParams[typeof key],
                       )
                     }
                     className="ww-slider"

@@ -7,33 +7,39 @@ Purpose: Track current/next blueprint steps and high-level progress.
 
 ## Current Blueprint Phase
 
-- **Phase:** Generator + Shell alignment
-- **Step:** 5G-0 — Workflow & Rules Integration  
-  - Introduce Pro Rules docs (PLACEHOLDERS, STATUS, KNOWN_ISSUES, ASSUMPTIONS).  
-  - Confirm app structure against the locked blueprint and ruleset.  
-  - Prepare for targeted 5G globe/minimap visual improvements.
+- **Phase:** Generator + Shell alignment  
+- **Step:** 5G-2 — Globe & minimap smoothing (preview-quality)  
+  - Route minimap through shared `planetRenderer` for consistent map style.  
+  - Add local smoothing to minimap and globe sampling to reduce speckle and improve continuity.  
+  - Keep underlying world data unchanged (visual-only improvements).
 
 ## Last Completed (Functional) Milestones
 
-- ✅ Basic Vite + React app boots and renders.  
-- ✅ World generator implemented with slider-based params (see `worldGenerator.ts`).  
+- ✅ Vite + React + TypeScript app boots and renders.  
+- ✅ World generator implemented with slider-based params (`worldGenerator.ts`).  
 - ✅ LocalStorage-based world saving and listing (`worldStorage.ts` + `HomeScreen`).  
-- ✅ Simple canvas-based “globe + minimap” preview in `GeneratorScreen`.  
-- ✅ EditorScreen stub exists as a placeholder for future Create/Sim mode UI.
-
-*(Exact numbering of earlier blueprint steps can be reconciled later; this document starts from the current ZIP state.)*
+- ✅ Simple canvas-based globe + map previews in `GeneratorScreen`.  
+- ✅ Project-level docs added: `PLACEHOLDERS.md`, `KNOWN_ISSUES.md`, `ASSUMPTIONS.md`, `WORLDWRIGHT_STATUS.md`.  
+- ✅ 5G-1: Minimap rendering routed through `core/planetRenderer.ts` so the flat map uses a shared renderer.  
+- ✅ 5G-2: Smoother minimap and globe preview sampling to reduce pixel speckle and improve continuity (preview-only polish).
 
 ## Next Planned Steps
 
-- **5G-1:**  
-  - Review and refine globe + minimap rendering to better match target visual style  
-    (smooth gradients, believable land tones, soft lighting), within current 2D canvas approach.
+- **5G-3 — Visual Palette & Lighting Polish (Preview Stage):**  
+  - Refine ocean and land color curves to better match the locked visual style  
+    (smooth gradients, believable tones).  
+  - Tweak simple directional lighting on the globe preview to soften harsh transitions
+    and better represent elevation.
 
-- **5G-2:**  
-  - Begin migration toward the locked AppShell + Mode mini-app structure  
-    while preserving existing generator functionality.
+- **6A — AppShell Introduction:**  
+  - Introduce the shared `AppShell` layout (left tools, right info panel, globe center, minimap bottom-left).  
+  - Move current screens into the shell without changing functionality.
+
+- **6B — Mode Mini-Apps:**  
+  - Split the app into `GenerateModeApp`, `CreateModeApp`, and `SimModeApp`, each mounted inside the shared shell.  
+  - Ensure mode isolation: no cross-import of mode-specific logic; communication only via world snapshots.
 
 - **Create/Sim Roadmap (High-Level):**  
   - Replace `EditorScreen` stub with real CreateModeApp and SimModeApp.  
   - Hook these modes into the WorldBrain + world snapshots.  
-  - Prepare data model for UE5 export (sectors, masks, cities, etc.).
+  - Prepare data model for UE5 export (sectors, masks, biome masks, cities, etc.).
