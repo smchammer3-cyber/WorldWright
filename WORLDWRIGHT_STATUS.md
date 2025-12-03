@@ -8,32 +8,33 @@ Purpose: Track current/next blueprint steps and high-level progress.
 ## Current Blueprint Phase
 
 - **Phase:** Generator + Shell alignment  
-- **Step:** 5G-4 — Coastline & Landmass Readability (Preview Stage)  
-  - Adjust preview-only height mapping and thresholds to make large landmasses feel less like noisy islands.  
-  - Suppress tiny isolated land specks and tiny water holes so continents look more continuous.  
-  - Keep the underlying world data unchanged (visual-only interpretation).
+- **Step:** 6A — AppShell + Mode Scaffolding (Partial)  
+  - Shared AppShell layout is implemented and used by the generator screen.  
+  - Dedicated `src/modes/generate|create|sim` folders exist with mode mini-apps.  
+  - `/generate` now routes through the Generate Mode mini-app rather than the legacy GeneratorScreen.
 
 ## Last Completed (Functional) Milestones
 
-- ✅ Vite + React + TypeScript app boots and renders.  
-- ✅ World generator implemented with slider-based params (`worldGenerator.ts`).  
-- ✅ LocalStorage-based world saving and listing (`worldStorage.ts` + `HomeScreen`).  
-- ✅ Simple canvas-based globe + map previews in `GeneratorScreen`.  
-- ✅ Project-level docs added: `PLACEHOLDERS.md`, `KNOWN_ISSUES.md`, `ASSUMPTIONS.md`, `WORLDWRIGHT_STATUS.md`.  
-- ✅ 5G-1: Minimap rendering routed through `core/planetRenderer.ts` so the flat map uses a shared renderer.  
-- ✅ 5G-2: Smoother minimap and globe preview sampling to reduce pixel speckle and improve continuity (preview-only polish).  
-- ✅ 5G-3: Shared color palette + softer lighting for the preview globe so visuals are closer to the locked target style (still preview-only).  
-- ✅ 5G-4: Preview-only coastline & landmass readability improvements so landmasses look more continuous and less like pure noise.
+- **5G-4 — Coastline & Landmass Readability (Preview Stage)**  
+  - Adjusted preview-only height mapping and thresholds to make large landmasses feel less like noisy islands.  
+  - Suppressed tiny isolated land specks and tiny water holes so continents look more continuous.  
+  - Kept the underlying world data unchanged (visual-only interpretation).
+
+- **5G-1 → 5G-3 — Generator + Minimap Pipeline**  
+  - Implemented continent-style heightfield generation based on sliders.  
+  - Wired a shared flat-map renderer for the minimap.  
+  - Added globe preview sampling and lighting pass.
 
 ## Next Planned Steps
 
-- **6A — AppShell Introduction:**  
-  - Introduce the shared `AppShell` layout (left tools, right info panel, globe center, minimap bottom-left).  
-  - Move current screens into the shell without changing functionality.
+- **6A (continued) — Full AppShell Adoption + Mode Routing**  
+  - Move Home and Editor flows fully into AppShell-backed modes.  
+  - Update navigation so world creation flows directly into CreateModeApp / SimModeApp routes.  
+  - Retire the legacy `GeneratorScreen` and `EditorScreen` once mode apps are fully functional.
 
-- **6B — Mode Mini-Apps:**  
-  - Split the app into `GenerateModeApp`, `CreateModeApp`, and `SimModeApp`, each mounted inside the shared shell.  
-  - Ensure mode isolation: no cross-import of mode-specific logic; communication only via world snapshots.
+- **6B — Mode Mini-Apps (Feature Pass)**  
+  - Flesh out `GenerateModeApp`, `CreateModeApp`, and `SimModeApp` with their full toolsets.  
+  - Ensure strict mode isolation: no cross-import of mode-specific logic; communication only via world snapshots in WorldBrain.
 
 - **Create/Sim Roadmap (High-Level):**  
   - Replace `EditorScreen` stub with real CreateModeApp and SimModeApp.  

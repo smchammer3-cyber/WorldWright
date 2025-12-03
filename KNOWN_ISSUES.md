@@ -36,4 +36,10 @@ instead of silently “also being fixed” at the same time.
 
 ## Closed Issues
 
+## Closed Issues
+
+- [x] Introduced dedicated modes folder structure (`src/modes/generate|create|sim`) and initial mode mini-apps.  
+  - Fixed In: Step 6A (AppShell + Modes Scaffolding).  
+  - Notes: Modes now exist as separate mini-apps mounted in the shared AppShell; screens remain temporarily for backward compatibility while Create/Sim are still placeholders.
+    
 *(None yet — this section will record issues resolved in specific steps.)*
