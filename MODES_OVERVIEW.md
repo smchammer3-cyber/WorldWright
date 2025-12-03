@@ -14,123 +14,137 @@ Purpose:
 - Adjust tectonics, water level, climate bias, and variation.
 
 Key behaviors:
-- Seed + parameters = deterministic world.
-- Preview updates instantly.
+- Seed and parameters determine the world deterministically.
+- Preview updates as sliders change.
 - Accepting creates a new world snapshot.
-- Does not overwrite edited worlds.
+- Generate Mode does not overwrite edited worlds.
 
 ===============================================================================
 2. CREATE MODE (PRIMARY EDITOR)
 ===============================================================================
 Create Mode provides both:
-- Globe View (3D, minimap enabled)
-- Map View (2D, minimap disabled)
+- Globe View (3D, minimap enabled).
+- Map View (2D, minimap disabled).
 
 Create Mode follows the core editing philosophy of the blueprint:
 
 -——————————————————————————
-A. THE STICKER SYSTEM (THE CORE EDITOR)
+A. STICKER SYSTEM — CORE CONTENT EDITOR
 -——————————————————————————
 Stickers are the primary mechanism for editing world content.
-They define:
-- Biomes (forest, desert, alpine, wetlands, etc.)
-- Cities (with metadata)
-- Regions / kingdoms / climate zones
-- Points of Interest
-- Terrain features (mountain regions, cliffs, symbolic props)
-- Any world-defining annotation or classification
+
+Stickers define:
+- Biomes (forest, desert, alpine, wetlands, etc.).
+- Cities (with metadata).
+- Regions and kingdoms.
+- Climate zones and special regions.
+- Points of interest (POIs).
+- Terrain features as classifications (mountain regions, cliffs, etc.).
+- Narrative and gameplay markers.
 
 Sticker rules:
-- Stickers define biome regions.
-- Stickers override generator biomes.
-- Stickers determine region boundaries.
-- Stickers react to height and climate:
-  • Mountain-region stickers adapt to underlying height  
-  • High-elevation placements behave differently  
-  • Cities can warn about slopes/ocean if rules are obeyed  
-- Stickers follow world rules unless “Ignore World Rules” toggle is enabled.
-- Stickers appear in viewport and minimap (Map View = no minimap).
-- Fully undo/redo supported.
+- Stickers define biome regions (not paint brushes).
+- Stickers override generator biomes where applied.
+- Stickers determine regions for Sim and Export.
+- Stickers react to the underlying world:
+  - Height (e.g., mountain regions on high terrain).
+  - Climate context, where applicable.
+  - Suitability for cities (warnings for extreme slopes or ocean).
+- Stickers follow world rules by default.
+- An “Ignore World Rules” toggle allows placing stickers anywhere.
+- Stickers appear in the viewport and, when applicable, on minimaps.
+- All sticker actions fully support undo and redo.
 
-Sticker Data Model:
-Each sticker is an object containing:
-id, type, iconId, location (map coords), worldPos (lat/lon), scale, rotation, metadata.
-
-The Sticker System is the foundation of content editing in WorldWright.
+Stickers are stored as structured data (id, type, icon, position, scale, rotation, metadata) in the world model.
 
 -——————————————————————————
-B. TERRAIN BRUSHES (HEIGHT ONLY)
+B. TERRAIN BRUSHES — HEIGHT-ONLY TOOLS
 -——————————————————————————
-Brushes are purely for sculpting terrain elevation:
-- Raise
-- Lower
-- Smooth (future)
-- Roughen (future)
+Brushes are purely for sculpting terrain elevation.
 
-Brush Rules:
-- Brushes do NOT assign biomes.
-- Brushes do NOT place cities or regions.
+Brush behavior:
+- Raise terrain.
+- Lower terrain.
+- Additional operations (smooth, roughen) may be added later.
+
+Brush rules:
+- Brushes only modify the terrain heightmap.
+- Brushes do NOT assign or change biomes.
+- Brushes do NOT place or modify cities, regions, or props.
 - Brushes never override sticker logic.
-- Brushes operate only on the heightmap.
+- All brush strokes support undo and redo.
+
+Current implementation:
+- 6B-2 provides a basic terrain brush with:
+  - Raise / Lower modes.
+  - Adjustable size.
+  - Adjustable strength.
+- This brush runs within the AppShell, acting on the 2D map canvas.
 
 -——————————————————————————
-C. THE EDITING PIPELINE
+C. EDITING PIPELINE IN CREATE MODE
 -——————————————————————————
-1. Sculpt land with brushes (terrain-only).
-2. Place stickers to define content and world meaning:
-   - biomes
-   - regions
-   - city markers
-   - mountain regions
-   - POIs and props
-3. Stickers read terrain and world rules to determine behavior.
+The intended workflow is:
+
+1. Shape terrain using brushes (height-only).
+2. Use stickers to define:
+   - Biomes.
+   - Cities.
+   - Regions and kingdoms.
+   - Mountain regions and special zones.
+   - POIs and narrative elements.
+3. Stickers read the existing terrain and world rules to determine behavior.
+4. Later simulations and exports consume the sticker-driven content and terrain.
 
 -——————————————————————————
-D. VIEW SPECIFIC RULES
+D. VIEW-SPECIFIC BEHAVIOR
 -——————————————————————————
 Globe View:
-- Minimaps shown
-- Raycast placement for stickers
-- Spatial context visualization
+- Uses the AppShell with minimap enabled.
+- Shows the world as a 3D planet.
+- Ideal for understanding large-scale layout and context.
 
 Map View:
-- Full map only
-- No minimap (Map View *is* the minimap)
-- Precise pixel-level editing
+- Uses the AppShell without a minimap.
+- Shows the world as a 2D map only.
+- Ideal for precise editing and tool use.
 
 ===============================================================================
 3. SIM MODE
 ===============================================================================
-Sim Mode runs deterministic simulations on FROZEN snapshots:
-- Climate preview
-- Erosion
-- Population/civilization spread
+Sim Mode runs deterministic simulations on frozen world snapshots.
 
-Rules:
-- Sim never modifies the live editing world.
-- Sim respects Sticker-defined biomes, regions, and cities.
-- Two modes:
-  • Preview Sim  
-  • Deep Sim (long, resumable)
+Sim types:
+- Climate previews.
+- Erosion.
+- Basic population and civilization spread.
 
-Results can be saved as new snapshots usable in Create Mode.
+Core rules:
+- Sim never modifies the live Create Mode world directly.
+- Sim respects sticker-based biomes, regions, and cities.
+- Two simulation levels:
+  - Preview Sim (short, fast).
+  - Deep Sim (longer, resumable).
+
+Simulation results can be saved as new snapshots that Create Mode can edit.
 
 ===============================================================================
 4. EXPORT MODE
 ===============================================================================
-Exports:
-- Heightmaps (PNG/EXR)
-- Biome masks (sticker-driven)
-- Water masks
-- City markers
-- Region boundaries
-- Metadata manifest
-- Engine-agnostic JSON package
+Export Mode outputs world data to external engines.
+
+Supports:
+- Heightmaps (PNG/EXR).
+- Biome masks (derived from stickers and terrain).
+- Water masks.
+- City and region data.
+- World metadata and manifests.
+- Engine-agnostic JSON world packages.
 
 Exports are:
-- Deterministic
-- Non-destructive
-- Schema-versioned
-- Engine-safe naming
+- Deterministic.
+- Non-destructive.
+- Versioned with schema information.
+- Named using engine-safe conventions.
 
 END OF MODES OVERVIEW

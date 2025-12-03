@@ -19,34 +19,46 @@ The current project state reflects the following:
 - STEP 6B-1 — Create Mode Inspect Tool  
   ✓ COMPLETE  
   CreateModeApp loads real worlds by ID using WorldStorage and AppShell.  
-  The first true tool (“Inspect”) is implemented:
-  - Click main canvas to inspect location  
-  - Inspector panel displays height, water/land, coords  
+  The first tool (“Inspect”) is implemented:
+  - Click the main canvas to inspect a location  
+  - Inspector panel displays height, land/water, and approximate coordinates  
   - Read-only, non-destructive  
   - Respects Create Mode layout rules (Map View = no minimap; Globe View = minimap)
+
+- STEP 6B-2 — Create Mode Terrain Brush (Height Sculpting)  
+  ✓ COMPLETE  
+  CreateModeApp now includes the first editing tool:
+  - Terrain brush tool  
+  - Raise / Lower height only  
+  - Affects the terrain heightmap (baseHeight) exclusively  
+  - Does NOT modify biomes, cities, regions, or stickers  
+  - Integrated into the AppShell layout and Create Mode toolbar
 
 -——————————————————————————
 NEXT STEP
 -——————————————————————————
-STEP 6B-2 — Create Mode Terrain Brush (Height Sculpting)
+STEP 6B-3A — Sticker System Foundation (Types + Engine Scaffolding)  
 STATUS: NOT STARTED
 
-This step will implement the first editing tool:
-- Terrain brush tool  
-- Raise / Lower height only  
-- Brushes affect terrain heightmap exclusively  
-- Brushes DO NOT modify biomes or content  
-- Follows the blueprint rule: **Stickers = content; Brushes = terrain only**
+This step will introduce the internal foundation for the Sticker System:
+- Define sticker types and interfaces  
+- Introduce a Sticker Engine module with pure logic:
+  - createSticker, updateSticker, removeSticker  
+  - world-rule obedience flag (follow world rules vs ignore)  
+- Prepare the system so that future 6B steps can:
+  - Attach stickers to worlds  
+  - Render stickers in Create Mode  
+  - Use stickers as the core content editor (biomes, cities, regions, features)
 
-Once 6B-2 is in place, subsequent 6B steps will introduce the Sticker System tools.
+Sticker tools will become the primary content editor in later 6B steps; terrain brushes will remain height-only.
 
 -——————————————————————————
 NOTES
 -——————————————————————————
-- Stickers are the primary world-content editing system (biomes, cities, regions, props, etc.).  
+- Stickers are the primary world-content editing system (biomes, cities, regions, props, POIs).  
 - Brushes are reserved for terrain sculpting and height modification only.  
-- Create Mode Map View shows no minimap; Globe View does.  
-- Stickers follow world rules unless the user toggles “Ignore World Rules.”
+- Create Mode Map View shows no minimap; Globe View shows a minimap.  
+- Stickers follow world rules (height, climate, suitability) unless the user toggles “Ignore World Rules”.
 
 -——————————————————————————
 END OF STATUS
