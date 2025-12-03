@@ -1,15 +1,18 @@
 // ========================================================
-// JARVIS_CHANGE (6B-1 – Create Mode Inspect Tool)
+// JARVIS_CHANGE (6B-1, 6B-2 – Create Mode Inspect Tool + Terrain Brush)
 // Date: 2025-12-03
 //
 // Purpose:
 // - Keep Create Mode loading a real world by id.
 // - Use AppShell with unified layout (left tools, main viewport,
 //   minimap bottom-left, right info panel).
-// - Add a first real tool: "Inspect".
+// - Add a first real tool: "Inspect" (6B-1).
 //   • Click on the main 2D map to inspect a location.
 //   • Show basic info (lat / lon / height / land vs water) in the right panel.
-// - NO editing yet (read-only), consistent with non-destructive rules.
+// - Add the first terrain editing tool: "Terrain brush" (6B-2).
+//   • Terrain brush ONLY edits baseHeight (heightmap), never biomes or stickers.
+//   • Click or drag on the map to gently raise/lower terrain.
+// - Still an early Create Mode: only Inspect + height brush are available.
 // ========================================================
 
 import React, { useEffect, useRef, useState } from 'react'
@@ -29,7 +32,8 @@ type SelectedCellInfo = {
   isLand: boolean
 }
 
-type ActiveTool = 'inspect'
+type ActiveTool = 'inspect' | 'terrain-brush'
+type BrushMode = 'raise' | 'lower'
 
 export default function CreateModeApp() {
   const navigate = useNavigate()
@@ -41,6 +45,11 @@ export default function CreateModeApp() {
   const [selectedCell, setSelectedCell] = useState<SelectedCellInfo | null>(
     null,
   )
+
+  const [brushMode, setBrushMode] = useState<BrushMode>('raise')
+  const [brushRadius, setBrushRadius] = useState<number>(6)
+  const [brushStrength, setBrushStrength] = useState<number>(0.05)
+  const [isBrushing, setIsBrushing] = useState(false)
 
   const mainCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -85,6 +94,10 @@ export default function CreateModeApp() {
     const cells: { baseHeight: number }[] = w.cells
     const seaLevel: number = w.seaLevel ?? 0
 
+    if (!width || !height || !Array.isArray(cells) || cells.length === 0) {
+      return
+    }
+
     const preview = { width, height, cells, seaLevel }
 
     // Main map: centered 2D view
@@ -101,11 +114,10 @@ export default function CreateModeApp() {
   // ------------------------
   // Inspect tool: click handler
   // ------------------------
-  function handleMainCanvasClick(
+  function handleInspectClick(
     event: React.MouseEvent<HTMLCanvasElement, MouseEvent>,
   ) {
     if (!world) return
-    if (activeTool !== 'inspect') return
 
     const w = world as any
     const width: number = w.width
@@ -154,6 +166,137 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
+  // Terrain brush helper
+  // ------------------------
+  function applyTerrainBrushAtEvent(
+    event: React.MouseEvent<HTMLCanvasElement, MouseEvent>,
+  ) {
+    if (!world) return
+
+    const w = world as any
+    const width: number = w.width
+    const height: number = w.height
+    const cells: { baseHeight: number }[] = w.cells
+    const seaLevel: number = w.seaLevel ?? 0
+
+    if (!width || !height || !Array.isArray(cells) || cells.length === 0) {
+      return
+    }
+
+    const canvas = mainCanvasRef.current
+    if (!canvas) return
+
+    const rect = canvas.getBoundingClientRect()
+    const px = event.clientX - rect.left
+    const py = event.clientY - rect.top
+
+    if (px < 0 || py < 0 || px >= rect.width || py >= rect.height) {
+      return
+    }
+
+    const u = px / rect.width
+    const v = py / rect.height
+
+    const centerX = Math.floor(u * width)
+    const centerY = Math.floor(v * height)
+
+    if (
+      centerX < 0 ||
+      centerY < 0 ||
+      centerX >= width ||
+      centerY >= height
+    ) {
+      return
+    }
+
+    const radius = Math.max(1, Math.round(brushRadius))
+    const radiusSq = radius * radius
+    const strength = brushStrength
+
+    const newCells = [...cells]
+
+    for (let y = centerY - radius; y <= centerY + radius; y++) {
+      if (y < 0 || y >= height) continue
+      for (let x = centerX - radius; x <= centerX + radius; x++) {
+        if (x < 0 || x >= width) continue
+        const dx = x - centerX
+        const dy = y - centerY
+        const distSq = dx * dx + dy * dy
+        if (distSq > radiusSq) continue
+
+        const index = y * width + x
+        const cell = cells[index]
+        if (!cell) continue
+
+        const dist = Math.sqrt(distSq)
+        const falloff = radius === 0 ? 1 : Math.max(0, 1 - dist / radius)
+
+        let delta = strength * falloff
+        if (brushMode === 'lower') {
+          delta = -delta
+        }
+
+        const nextHeight = Math.max(-1, Math.min(1, cell.baseHeight + delta))
+
+        newCells[index] = {
+          ...cell,
+          baseHeight: nextHeight,
+        }
+      }
+    }
+
+    const updatedWorld = {
+      ...w,
+      cells: newCells,
+      // We leave updatedAt persistence to explicit saves in higher-level flows.
+      seaLevel,
+    }
+
+    setWorld(updatedWorld)
+  }
+
+  // ------------------------
+  // Canvas mouse handlers (tool router)
+  // ------------------------
+  function handleCanvasMouseDown(
+    event: React.MouseEvent<HTMLCanvasElement, MouseEvent>,
+  ) {
+    if (!world) return
+
+    if (activeTool === 'inspect') {
+      handleInspectClick(event)
+      return
+    }
+
+    if (activeTool === 'terrain-brush') {
+      setIsBrushing(true)
+      applyTerrainBrushAtEvent(event)
+    }
+  }
+
+  function handleCanvasMouseMove(
+    event: React.MouseEvent<HTMLCanvasElement, MouseEvent>,
+  ) {
+    if (!world) return
+    if (!isBrushing) return
+    if (activeTool !== 'terrain-brush') return
+
+    applyTerrainBrushAtEvent(event)
+  }
+
+  function handleCanvasMouseUp() {
+    if (isBrushing) {
+      setIsBrushing(false)
+    }
+  }
+
+  function handleCanvasMouseLeave() {
+    if (isBrushing) {
+      setIsBrushing(false)
+    }
+  }
+
+  // ------------------------
   // Left toolbar (tools + world summary)
   // ------------------------
   const leftToolbar = (
@@ -185,7 +328,85 @@ export default function CreateModeApp() {
             >
               Inspect
             </button>
+            <button
+              type="button"
+              className={
+                activeTool === 'terrain-brush'
+                  ? 'ww-tool-button ww-tool-button--active'
+                  : 'ww-tool-button'
+              }
+              onClick={() => setActiveTool('terrain-brush')}
+            >
+              Terrain brush
+            </button>
           </div>
+
+          {activeTool === 'terrain-brush' && (
+            <div className="ww-panel-section">
+              <h4 className="ww-panel-subtitle">Terrain brush</h4>
+              <p className="ww-panel-text">
+                This brush gently adjusts terrain height. It never changes
+                biomes or city/region stickers.
+              </p>
+
+              <div className="ww-panel-field">
+                <span className="ww-panel-label">Mode</span>
+                <div className="ww-button-group">
+                  <button
+                    type="button"
+                    className={
+                      brushMode === 'raise'
+                        ? 'ww-chip-btn ww-chip-btn--active'
+                        : 'ww-chip-btn'
+                    }
+                    onClick={() => setBrushMode('raise')}
+                  >
+                    Raise
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      brushMode === 'lower'
+                        ? 'ww-chip-btn ww-chip-btn--active'
+                        : 'ww-chip-btn'
+                    }
+                    onClick={() => setBrushMode('lower')}
+                  >
+                    Lower
+                  </button>
+                </div>
+              </div>
+
+              <div className="ww-panel-field">
+                <label className="ww-panel-label">
+                  Size ({brushRadius.toFixed(0)})
+                </label>
+                <input
+                  type="range"
+                  min={1}
+                  max={24}
+                  value={brushRadius}
+                  onChange={event => setBrushRadius(Number(event.target.value))}
+                />
+              </div>
+
+              <div className="ww-panel-field">
+                <label className="ww-panel-label">
+                  Strength ({brushStrength.toFixed(2)})
+                </label>
+                <input
+                  type="range"
+                  min={0.01}
+                  max={0.2}
+                  step={0.01}
+                  value={brushStrength}
+                  onChange={event =>
+                    setBrushStrength(Number(event.target.value))
+                  }
+                />
+              </div>
+            </div>
+          )}
 
           <h3 className="ww-panel-title">World details</h3>
           <p className="ww-panel-text">
@@ -198,14 +419,6 @@ export default function CreateModeApp() {
               {(world as any).width} × {(world as any).height}
             </strong>
           </p>
-          <p className="ww-panel-text">
-            Seed:{' '}
-            <strong>{String((world as any).seed ?? 'n/a')}</strong>
-          </p>
-
-          <button className="ww-secondary-btn" onClick={() => navigate('/')}>
-            Back to worlds
-          </button>
         </>
       )}
     </div>
@@ -214,22 +427,27 @@ export default function CreateModeApp() {
   // ------------------------
   // Main viewport
   // ------------------------
-  let mainViewport: React.ReactNode
+  let mainViewport: React.ReactNode = null
 
   if (notFound) {
     mainViewport = (
       <div className="ww-mode-main">
         <h2 className="ww-panel-title">World not found</h2>
         <p className="ww-panel-text">
-          Use the Back button to return to your world list.
+          The world you tried to open does not exist or has been removed.
         </p>
+        <button className="ww-primary-btn" onClick={() => navigate('/')}>
+          Back to worlds
+        </button>
       </div>
     )
   } else if (!world) {
     mainViewport = (
       <div className="ww-mode-main">
-        <h2 className="ww-panel-title">Loading…</h2>
-        <p className="ww-panel-text">Fetching world data from storage.</p>
+        <h2 className="ww-panel-title">Loading world…</h2>
+        <p className="ww-panel-text">
+          Loading world data so you can inspect and edit terrain.
+        </p>
       </div>
     )
   } else {
@@ -239,13 +457,17 @@ export default function CreateModeApp() {
           {(world as any).name || 'Untitled world'}
         </h2>
         <p className="ww-panel-text">
-          Click on the map to inspect locations. This is a read-only view for
-          now; editing tools will arrive in later 6B steps.
+          Use Inspect to click on cells and see data, or switch to the Terrain
+          brush to gently sculpt the heightmap. Future 6B steps will introduce
+          sticker-based editing for biomes, cities, and regions.
         </p>
         <canvas
           ref={mainCanvasRef}
           className="ww-preview-canvas ww-preview-canvas--map"
-          onClick={handleMainCanvasClick}
+          onMouseDown={handleCanvasMouseDown}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseUp={handleCanvasMouseUp}
+          onMouseLeave={handleCanvasMouseLeave}
         />
       </div>
     )
@@ -284,36 +506,32 @@ export default function CreateModeApp() {
         <h2 className="ww-panel-title">Create Mode</h2>
         <p className="ww-panel-text">
           Loading world data. This panel will show information about the
-          selected location once the world is ready.
+          currently selected cell and world.
         </p>
       </>
     )
   } else if (!selectedCell) {
     rightPanelContent = (
       <>
-        <h2 className="ww-panel-title">Inspect Tool</h2>
+        <h2 className="ww-panel-title">Inspector</h2>
         <p className="ww-panel-text">
-          Click anywhere on the map to inspect a location. You&apos;ll see
-          approximate latitude/longitude, height, and whether the point is land
-          or water.
+          Click anywhere on the map while the Inspect tool is active to see
+          details about that cell.
         </p>
       </>
     )
   } else {
     rightPanelContent = (
       <>
-        <h2 className="ww-panel-title">Location details</h2>
+        <h2 className="ww-panel-title">Cell details</h2>
         <p className="ww-panel-text">
-          Grid position:{' '}
-          <strong>
-            ({selectedCell.x}, {selectedCell.y})
-          </strong>
+          Grid: <strong>{selectedCell.x}</strong>,{' '}
+          <strong>{selectedCell.y}</strong>
         </p>
         <p className="ww-panel-text">
-          Approx. lat / lon:{' '}
-          <strong>
-            {selectedCell.lat.toFixed(2)}°, {selectedCell.lon.toFixed(2)}°
-          </strong>
+          Lat/Lon:{' '}
+          <strong>{selectedCell.lat.toFixed(2)}°</strong>,{' '}
+          <strong>{selectedCell.lon.toFixed(2)}°</strong>
         </p>
         <p className="ww-panel-text">
           Base height:{' '}
