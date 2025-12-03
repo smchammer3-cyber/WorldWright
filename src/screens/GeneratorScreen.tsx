@@ -1,7 +1,10 @@
 // JARVIS_CHANGE
 // Date: 2025-12-02
-// Step: 5G-1/5G-2/5G-3/5G-4 - Shared minimap renderer, smoother globe sampling,
-// palette/lighting polish, and preview-only coastline readability.
+// Step: 5G-1/5G-2/5G-3/5G-4 + 6A-2
+// - Shared minimap renderer, smoother globe sampling,
+//   palette/lighting polish, preview-only coastline readability.
+// - 6A-2: Wrap GeneratorScreen in the shared AppShell layout
+//   (left tools, globe center, minimap bottom-left, right info panel).
 
 import React, { useEffect, useRef, useState } from 'react'
 import { saveWorld } from '../core/worldStorage'
@@ -15,6 +18,7 @@ import {
   renderPlanetToCanvas,
   sampleColorForHeight,
 } from '../core/planetRenderer'
+import { AppShell } from '../ui/AppShell'
 
 interface GeneratorScreenProps {
   onBack: () => void
@@ -198,111 +202,112 @@ export function GeneratorScreen(props: GeneratorScreenProps) {
     'worldStyle',
   ]
 
-  return (
-    <div className="ww-screen">
-      <header className="ww-screen-header">
-        <button className="ww-secondary-btn" onClick={onBack}>
-          Back
-        </button>
-        <h1 className="ww-screen-title">Generate World</h1>
-      </header>
+  // LEFT TOOLBAR CONTENT
+  const leftToolbar = (
+    <>
+      <label className="ww-field">
+        <div className="ww-field-label">World Name</div>
+        <input
+          value={worldName}
+          onChange={e => setWorldName(e.target.value)}
+          placeholder="Enter a name..."
+          className="ww-text-input"
+        />
+      </label>
 
-      <main className="ww-layout">
-        <section className="ww-main-panel">
-          <div className="ww-preview-row">
-            <div className="ww-preview-column">
-              <div className="ww-preview-label">Globe Preview</div>
-              <canvas
-                ref={globeCanvasRef}
-                className="ww-preview-canvas ww-preview-canvas--globe"
-              />
+      <div className="ww-sidebar-label">World Parameters</div>
+      {orderedKeys.map(key => {
+        const value = params[key]
+        return (
+          <label key={key} className="ww-field">
+            <div className="ww-field-label">
+              {key === 'landmass'
+                ? 'Landmass'
+                : key === 'seaLevel'
+                ? 'Sea Level'
+                : key === 'plateActivity'
+                ? 'Plate Activity'
+                : key === 'axisTilt'
+                ? 'Axis Tilt'
+                : key === 'planetAge'
+                ? 'Planet Age'
+                : key === 'climateVariance'
+                ? 'Climate Variance'
+                : key === 'worldStyle'
+                ? 'World Style'
+                : key}
             </div>
-            <div className="ww-preview-column">
-              <div className="ww-preview-label">Map Preview</div>
-              <canvas
-                ref={minimapCanvasRef}
-                className="ww-preview-canvas ww-preview-canvas--map"
-              />
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={typeof value === 'number' ? value : 0}
+              onChange={e =>
+                updateParam(
+                  key,
+                  Number.parseInt(
+                    e.target.value,
+                    10,
+                  ) as GeneratorParams[typeof key],
+                )
+              }
+              className="ww-slider"
+            />
+            <div className="ww-field-value">
+              {typeof value === 'number' ? value : ''}
             </div>
-          </div>
-        </section>
+          </label>
+        )
+      })}
 
-        <aside className="ww-sidebar">
-          <section className="ww-sidebar-section">
-            <label className="ww-field">
-              <div className="ww-field-label">World Name</div>
-              <input
-                value={worldName}
-                onChange={e => setWorldName(e.target.value)}
-                placeholder="Enter a name..."
-                className="ww-text-input"
-              />
-            </label>
-          </section>
+      <button className="ww-primary-btn" onClick={handleSave}>
+        Save World
+      </button>
+    </>
+  )
 
-          <section className="ww-sidebar-section">
-            <div className="ww-sidebar-label">World Parameters</div>
-            {orderedKeys.map(key => {
-              const value = params[key]
-              return (
-                <label key={key} className="ww-field">
-                  <div className="ww-field-label">
-                    {key === 'landmass'
-                      ? 'Landmass'
-                      : key === 'seaLevel'
-                      ? 'Sea Level'
-                      : key === 'plateActivity'
-                      ? 'Plate Activity'
-                      : key === 'axisTilt'
-                      ? 'Axis Tilt'
-                      : key === 'planetAge'
-                      ? 'Planet Age'
-                      : key === 'climateVariance'
-                      ? 'Climate Variance'
-                      : key === 'worldStyle'
-                      ? 'World Style'
-                      : key}
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={typeof value === 'number' ? value : 0}
-                    onChange={e =>
-                      updateParam(
-                        key,
-                        Number.parseInt(
-                          e.target.value,
-                          10,
-                        ) as GeneratorParams[typeof key],
-                      )
-                    }
-                    className="ww-slider"
-                  />
-                  <div className="ww-field-value">
-                    {typeof value === 'number' ? value : ''}
-                  </div>
-                </label>
-              )
-            })}
-          </section>
+  // MAIN GLOBE VIEW
+  const mainContent = (
+    <canvas
+      ref={globeCanvasRef}
+      className="ww-preview-canvas ww-preview-canvas--globe"
+    />
+  )
 
-          <section className="ww-sidebar-section">
-            <button className="ww-primary-btn" onClick={handleSave}>
-              Save World
-            </button>
-            <div className="ww-sidebar-label">World Info</div>
-            <p className="ww-field-value">
-              {params.width} × {params.height}
-            </p>
-            <p className="ww-field-value">Landmass: {params.landmass}</p>
-            <p className="ww-field-value">Sea level: {params.seaLevel}</p>
-            <p className="ww-field-value">
-              Seed: {params.seed || '(random)'}
-            </p>
-          </section>
-        </aside>
-      </main>
+  // MINIMAP CARD (BOTTOM-LEFT)
+  const minimapOverlay = (
+    <div className="ww-minimap-card">
+      <div className="ww-preview-label">Map Preview</div>
+      <canvas
+        ref={minimapCanvasRef}
+        className="ww-preview-canvas ww-preview-canvas--map"
+      />
     </div>
+  )
+
+  // RIGHT INFO PANEL
+  const rightPanel = (
+    <div className="ww-info-panel">
+      <div className="ww-info-title">World Info</div>
+      <p className="ww-field-value">
+        {params.width} × {params.height}
+      </p>
+      <p className="ww-field-value">Landmass: {params.landmass}</p>
+      <p className="ww-field-value">Sea level: {params.seaLevel}</p>
+      <p className="ww-field-value">
+        Seed: {params.seed || '(random)'}
+      </p>
+    </div>
+  )
+
+  return (
+    <AppShell
+      title="Generate World"
+      onBack={onBack}
+      leftToolbar={leftToolbar}
+      main={mainContent}
+      minimapOverlay={minimapOverlay}
+      rightPanel={rightPanel}
+    />
   )
 }
