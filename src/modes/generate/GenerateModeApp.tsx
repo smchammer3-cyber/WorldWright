@@ -1,7 +1,12 @@
 // ===============================================
-// JARVIS CHANGE HEADER (6A-2)
-// GenerateModeApp now contains the REAL generator.
-// Import fixed: AppShell is a NAMED export.
+// JARVIS CHANGE HEADER (6A-3)
+// File: src/modes/generate/GenerateModeApp.tsx
+//
+// - GenerateModeApp is the REAL generator mode.
+// - Uses AppShell (left tools, globe center, minimap bottom-left,
+//   right info panel).
+// - Shows ONLY the 7 generator sliders (no width/height/seed/etc.).
+// - Keeps globe + minimap preview pipeline.
 // ===============================================
 
 import React, { useEffect, useRef, useState } from 'react'
@@ -32,6 +37,8 @@ export default function GenerateModeApp() {
   const globeCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
+  // --- helpers for generator params / sliders ---
+
   function updateParam<K extends keyof GeneratorParams>(
     key: K,
     value: GeneratorParams[K],
@@ -39,15 +46,50 @@ export default function GenerateModeApp() {
     setParams((prev) => ({ ...prev, [key]: value }))
   }
 
+  const sliderOrder: (keyof GeneratorParams)[] = [
+    'landmass',
+    'seaLevel',
+    'plateActivity',
+    'axisTilt',
+    'planetAge',
+    'climateVariance',
+    'worldStyle',
+  ]
+
+  function getSliderLabel(key: keyof GeneratorParams): string {
+    switch (key) {
+      case 'landmass':
+        return 'Landmass'
+      case 'seaLevel':
+        return 'Sea level'
+      case 'plateActivity':
+        return 'Plate activity'
+      case 'axisTilt':
+        return 'Axis tilt'
+      case 'planetAge':
+        return 'Planet age'
+      case 'climateVariance':
+        return 'Climate variance'
+      case 'worldStyle':
+        return 'World style'
+      default:
+        return String(key)
+    }
+  }
+
+  // --- save handler ---
+
   function handleSave() {
     const world = buildWorldFromParams(
       params as GeneratorParams,
       worldName.trim() || undefined,
     )
-
     const id = saveWorld(world)
+    // For now we still go to the legacy Editor stub.
     navigate(`/edit/${id}`)
   }
+
+  // --- preview: minimap + globe ---
 
   useEffect(() => {
     const globeCanvas = globeCanvasRef.current
@@ -59,13 +101,12 @@ export default function GenerateModeApp() {
     if (!globeCtx || !minimapCtx) return
 
     const preview = generateWorldFromParams(params as GeneratorParams) as any
+    const width: number = preview.width
+    const height: number = preview.height
+    const cells: { baseHeight: number }[] = preview.cells
+    const seaLevel: number = preview.seaLevel
 
-    const width = preview.width
-    const height = preview.height
-    const cells = preview.cells
-    const seaLevel = preview.seaLevel
-
-    // Render minimap (flat projection)
+    // ---------- Minimap (flat equirectangular) ----------
     renderPlanetToCanvas(minimapCtx, {
       width,
       height,
@@ -73,7 +114,8 @@ export default function GenerateModeApp() {
       seaLevel,
     })
 
-    // Globe render
+    // ---------- Globe (circular projection) ----------
+
     const globeSize = 320
     globeCanvas.width = globeSize
     globeCanvas.height = globeSize
@@ -85,17 +127,22 @@ export default function GenerateModeApp() {
     const cx = radius
     const cy = radius
 
+    // Directional light from top-right
     const lightDir = { x: 0.4, y: -0.6, z: 0.7 }
-    const len = Math.sqrt(
-      lightDir.x * lightDir.x +
-        lightDir.y * lightDir.y +
-        lightDir.z * lightDir.z,
-    )
-    lightDir.x /= len
-    lightDir.y /= len
-    lightDir.z /= len
+    {
+      const len =
+        Math.sqrt(
+          lightDir.x * lightDir.x +
+            lightDir.y * lightDir.y +
+            lightDir.z * lightDir.z,
+        ) || 1
+      lightDir.x /= len
+      lightDir.y /= len
+      lightDir.z /= len
+    }
 
     function sampleHeight(u: number, v: number): number {
+      // bilinear sample of baseHeight at UV in [0,1]
       const x = u * width
       const y = v * height
 
@@ -122,51 +169,62 @@ export default function GenerateModeApp() {
       return h0 * (1 - ty) + h1 * ty
     }
 
+    // Preview-only coastline smoothing for readability (5G-4 flavor)
     function coastlineHeight(u: number, v: number): number {
-      const h = sampleHeight(u, v)
+      const base = sampleHeight(u, v)
 
       const samples: number[] = []
-      const steps = [-1, 0, 1]
-      for (const dy of steps) {
-        for (const dx of steps) {
+      const offsets = [-1, 0, 1]
+      for (const dy of offsets) {
+        for (const dx of offsets) {
           const uu = Math.min(0.999, Math.max(0, u + (dx / width) * 3))
           const vv = Math.min(0.999, Math.max(0, v + (dy / height) * 3))
           samples.push(sampleHeight(uu, vv))
         }
       }
 
-      const avg = samples.reduce((s, v) => s + v, 0) / samples.length
-      const landCount = samples.filter((v) => v >= seaLevel).length
+      const avg =
+        samples.reduce((sum, h) => sum + h, 0) /
+        Math.max(1, samples.length)
+      const landCount = samples.filter((h) => h >= seaLevel).length
       const landFraction = landCount / samples.length
 
-      let hPreview = h
+      let hPreview = base
 
-      if (h >= seaLevel) {
+      if (base >= seaLevel) {
         if (landFraction < 0.25) {
+          // Small isolated island → bias under water
           hPreview = seaLevel - 0.02
-        } else if (landFraction < 0.4 && h < seaLevel + 0.03) {
+        } else if (landFraction < 0.4 && base < seaLevel + 0.03) {
+          // Tiny coastal sliver → nudge toward sea
           hPreview = seaLevel - 0.01
         }
       } else {
-        if (landFraction > 0.75 && h > seaLevel - 0.04) {
+        // Tiny water pocket inside land
+        if (landFraction > 0.75 && base > seaLevel - 0.04) {
           hPreview = seaLevel + 0.04
         }
       }
 
-      return hPreview * 0.7 + avg * 0.3
+      // Blend toward neighborhood average so coasts feel smoother
+      hPreview = hPreview * 0.7 + avg * 0.3
+      return hPreview
     }
 
-    for (let y = 0; y < globeSize; y++) {
-      for (let x = 0; x < globeSize; x++) {
-        const dx = x - cx
-        const dy = y - cy
+    for (let py = 0; py < globeSize; py++) {
+      for (let px = 0; px < globeSize; px++) {
+        const dx = px - cx
+        const dy = py - cy
         const r2 = dx * dx + dy * dy
         const rMax = radius * radius
 
-        const index = (y * globeSize + x) * 4
+        const idx = (py * globeSize + px) * 4
 
         if (r2 > rMax) {
-          data[index + 3] = 0
+          data[idx] = 0
+          data[idx + 1] = 0
+          data[idx + 2] = 0
+          data[idx + 3] = 0
           continue
         }
 
@@ -174,46 +232,29 @@ export default function GenerateModeApp() {
         const ny = dy / radius
         const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny))
 
+        // Sphere normal for lighting
+        const nDotL =
+          nx * lightDir.x + ny * lightDir.y + nz * lightDir.z
+        const light = 0.25 + Math.max(0, nDotL) * 0.75
+
+        // Map sphere point to UV on the flat map
         const u = (Math.atan2(nx, nz) / (2 * Math.PI) + 0.5) % 1
         const v = ny * 0.5 + 0.5
 
         const hCoast = coastlineHeight(u, v)
-        const base = sampleColorForHeight(hCoast, seaLevel)
+        const baseColor = sampleColorForHeight(hCoast, seaLevel)
 
-        const eps = 1 / width
-        const hL = coastlineHeight(Math.max(0, u - eps), v)
-        const hR = coastlineHeight(Math.min(0.999, u + eps), v)
-        const hD = coastlineHeight(u, Math.min(0.999, v + eps))
-        const hU = coastlineHeight(u, Math.max(0, v - eps))
-
-        const sx = (hR - hL) * width
-        const sy = (hD - hU) * height
-        const sz = 1
-        let nxH = -sx,
-          nyH = -sy,
-          nzH = sz
-        const lenH = Math.sqrt(nxH * nxH + nyH * nyH + nzH * nzH) || 1
-        nxH /= lenH
-        nyH /= lenH
-        nzH /= lenH
-
-        const mix = 0.5
-        const nnx = nx * (1 - mix) + nxH * mix
-        const nny = ny * (1 - mix) + nyH * mix
-        const nnz = nz * (1 - mix) + nzH * mix
-
-        const dot = nnx * 0.4 + nny * -0.6 + nnz * 0.7
-        const light = 0.25 + Math.max(0, dot) * 0.75
-
-        data[index] = Math.round(base.r * light)
-        data[index + 1] = Math.round(base.g * light)
-        data[index + 2] = Math.round(base.b * light)
-        data[index + 3] = 255
+        data[idx] = Math.round(baseColor.r * light)
+        data[idx + 1] = Math.round(baseColor.g * light)
+        data[idx + 2] = Math.round(baseColor.b * light)
+        data[idx + 3] = 255
       }
     }
 
     globeCtx.putImageData(img, 0, 0)
   }, [params])
+
+  // --- UI layout pieces for AppShell ---
 
   const leftToolbar = (
     <>
@@ -225,17 +266,15 @@ export default function GenerateModeApp() {
         onChange={(e) => setWorldName(e.target.value)}
       />
 
-      {Object.keys(params).map((key) => (
+      {sliderOrder.map((key) => (
         <div key={key} className="ww-field-group">
-          <label className="ww-field-label">{key}</label>
+          <label className="ww-field-label">{getSliderLabel(key)}</label>
           <input
             type="range"
             min={0}
             max={100}
-            value={(params as any)[key]}
-            onChange={(e) =>
-              updateParam(key as keyof GeneratorParams, Number(e.target.value))
-            }
+            value={params[key]}
+            onChange={(e) => updateParam(key, Number(e.target.value))}
           />
         </div>
       ))}
@@ -265,7 +304,10 @@ export default function GenerateModeApp() {
   const rightPanel = (
     <div className="ww-right-panel-inner">
       <h2 className="ww-panel-title">Generator</h2>
-      <p className="ww-panel-text">Adjust sliders to shape your world.</p>
+      <p className="ww-panel-text">
+        Adjust landmass and sea level to shape the broad look of your world.
+        Other sliders are wired but will matter more as later systems come online.
+      </p>
     </div>
   )
 
