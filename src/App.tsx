@@ -1,10 +1,12 @@
 // JARVIS_CHANGE
 // Date: 2025-12-02
-// Step: 6A – AppShell + Mode routing scaffolding.
+// Step: 6A – Mode routing cleanup.
 // Purpose:
-// - Keep existing Home + Editor flows working.
-// - Route /generate through the new GenerateModeApp mini-app.
-// - Expose explicit routes for Create/Sim mode placeholders.
+// - Keep Home as the landing screen.
+// - Route /generate through GenerateModeApp.
+// - Route "open world" flows through CreateModeApp.
+// - Expose SimModeApp route for future use.
+// - Stop using legacy GeneratorScreen / EditorScreen.
 
 import React, { useEffect } from 'react'
 import {
@@ -16,7 +18,6 @@ import {
 } from 'react-router-dom'
 
 import { HomeScreen } from './screens/HomeScreen'
-import { EditorScreen } from './screens/EditorScreen'
 import { restoreFromLocalStorage } from './core/worldStorage'
 
 import GenerateModeApp from './modes/generate/GenerateModeApp'
@@ -27,38 +28,33 @@ function AppRoutes() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Restore any saved worlds from localStorage on startup so the
-    // Home screen and mode apps can see existing worlds immediately.
+    // Make sure saved worlds are available before any screen/mode renders.
     restoreFromLocalStorage()
   }, [])
 
   return (
     <Routes>
-      {/* Home screen */}
+      {/* Home: list of worlds + "New World" */}
       <Route
         path="/"
         element={
           <HomeScreen
             onCreateNewWorld={() => navigate('/generate')}
-            onOpenWorld={(id) => navigate(`/edit/${id}`)}
+            onOpenWorld={id => navigate(`/modes/create/${id}`)}
           />
         }
       />
 
-      {/* Generate Mode: main generator entry point */}
+      {/* Generate Mode: main generator mini-app */}
       <Route path="/generate" element={<GenerateModeApp />} />
 
-      {/* Create/Sim modes (currently placeholder shells) */}
+      {/* Create Mode: edit / paint a specific world */}
       <Route path="/modes/create/:id" element={<CreateModeApp />} />
+
+      {/* Sim Mode: simulate a specific world (placeholder for now) */}
       <Route path="/modes/sim/:id" element={<SimModeApp />} />
 
-      {/* Legacy Editor stub (still used after saving from generator for now) */}
-      <Route
-        path="/edit/:id"
-        element={<EditorScreen onBack={() => navigate('/')} />}
-      />
-
-      {/* Fallback */}
+      {/* Fallback: anything unknown goes home */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

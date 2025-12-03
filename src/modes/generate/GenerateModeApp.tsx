@@ -1,12 +1,13 @@
 // ===============================================
-// JARVIS CHANGE HEADER (6A-3)
+// JARVIS CHANGE HEADER (6A-4)
 // File: src/modes/generate/GenerateModeApp.tsx
 //
 // - GenerateModeApp is the REAL generator mode.
-// - Uses AppShell (left tools, globe center, minimap bottom-left,
-//   right info panel).
-// - Shows ONLY the 7 generator sliders (no width/height/seed/etc.).
-// - Keeps globe + minimap preview pipeline.
+// - Uses AppShell layout (left tools, globe center,
+//   minimap bottom-left, right info panel).
+// - Shows ONLY the 7 generator sliders.
+// - After saving, navigates to Create Mode
+//   at /modes/create/:id.
 // ===============================================
 
 import React, { useEffect, useRef, useState } from 'react'
@@ -37,13 +38,13 @@ export default function GenerateModeApp() {
   const globeCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  // --- helpers for generator params / sliders ---
+  // --- generator params & sliders ---
 
   function updateParam<K extends keyof GeneratorParams>(
     key: K,
     value: GeneratorParams[K],
   ) {
-    setParams((prev) => ({ ...prev, [key]: value }))
+    setParams(prev => ({ ...prev, [key]: value }))
   }
 
   const sliderOrder: (keyof GeneratorParams)[] = [
@@ -85,8 +86,8 @@ export default function GenerateModeApp() {
       worldName.trim() || undefined,
     )
     const id = saveWorld(world)
-    // For now we still go to the legacy Editor stub.
-    navigate(`/edit/${id}`)
+    // 6A-4: after generating, go directly to Create Mode for this world.
+    navigate(`/modes/create/${id}`)
   }
 
   // --- preview: minimap + globe ---
@@ -106,7 +107,7 @@ export default function GenerateModeApp() {
     const cells: { baseHeight: number }[] = preview.cells
     const seaLevel: number = preview.seaLevel
 
-    // ---------- Minimap (flat equirectangular) ----------
+    // ---------- Minimap (flat map) ----------
     renderPlanetToCanvas(minimapCtx, {
       width,
       height,
@@ -142,7 +143,6 @@ export default function GenerateModeApp() {
     }
 
     function sampleHeight(u: number, v: number): number {
-      // bilinear sample of baseHeight at UV in [0,1]
       const x = u * width
       const y = v * height
 
@@ -169,7 +169,6 @@ export default function GenerateModeApp() {
       return h0 * (1 - ty) + h1 * ty
     }
 
-    // Preview-only coastline smoothing for readability (5G-4 flavor)
     function coastlineHeight(u: number, v: number): number {
       const base = sampleHeight(u, v)
 
@@ -186,27 +185,24 @@ export default function GenerateModeApp() {
       const avg =
         samples.reduce((sum, h) => sum + h, 0) /
         Math.max(1, samples.length)
-      const landCount = samples.filter((h) => h >= seaLevel).length
+      const landCount = samples.filter(h => h >= seaLevel).length
       const landFraction = landCount / samples.length
 
       let hPreview = base
 
       if (base >= seaLevel) {
         if (landFraction < 0.25) {
-          // Small isolated island → bias under water
           hPreview = seaLevel - 0.02
         } else if (landFraction < 0.4 && base < seaLevel + 0.03) {
-          // Tiny coastal sliver → nudge toward sea
           hPreview = seaLevel - 0.01
         }
       } else {
-        // Tiny water pocket inside land
         if (landFraction > 0.75 && base > seaLevel - 0.04) {
           hPreview = seaLevel + 0.04
         }
       }
 
-      // Blend toward neighborhood average so coasts feel smoother
+      // Blend toward neighborhood average
       hPreview = hPreview * 0.7 + avg * 0.3
       return hPreview
     }
@@ -217,7 +213,6 @@ export default function GenerateModeApp() {
         const dy = py - cy
         const r2 = dx * dx + dy * dy
         const rMax = radius * radius
-
         const idx = (py * globeSize + px) * 4
 
         if (r2 > rMax) {
@@ -232,17 +227,15 @@ export default function GenerateModeApp() {
         const ny = dy / radius
         const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny))
 
-        // Sphere normal for lighting
-        const nDotL =
-          nx * lightDir.x + ny * lightDir.y + nz * lightDir.z
-        const light = 0.25 + Math.max(0, nDotL) * 0.75
-
-        // Map sphere point to UV on the flat map
         const u = (Math.atan2(nx, nz) / (2 * Math.PI) + 0.5) % 1
         const v = ny * 0.5 + 0.5
 
         const hCoast = coastlineHeight(u, v)
         const baseColor = sampleColorForHeight(hCoast, seaLevel)
+
+        const nDotL =
+          nx * lightDir.x + ny * lightDir.y + nz * lightDir.z
+        const light = 0.25 + Math.max(0, nDotL) * 0.75
 
         data[idx] = Math.round(baseColor.r * light)
         data[idx + 1] = Math.round(baseColor.g * light)
@@ -254,7 +247,7 @@ export default function GenerateModeApp() {
     globeCtx.putImageData(img, 0, 0)
   }, [params])
 
-  // --- UI layout pieces for AppShell ---
+  // --- AppShell layout pieces ---
 
   const leftToolbar = (
     <>
@@ -263,10 +256,10 @@ export default function GenerateModeApp() {
         className="ww-text-input"
         placeholder="World name"
         value={worldName}
-        onChange={(e) => setWorldName(e.target.value)}
+        onChange={e => setWorldName(e.target.value)}
       />
 
-      {sliderOrder.map((key) => (
+      {sliderOrder.map(key => (
         <div key={key} className="ww-field-group">
           <label className="ww-field-label">{getSliderLabel(key)}</label>
           <input
@@ -274,7 +267,7 @@ export default function GenerateModeApp() {
             min={0}
             max={100}
             value={params[key]}
-            onChange={(e) => updateParam(key, Number(e.target.value))}
+            onChange={e => updateParam(key, Number(e.target.value))}
           />
         </div>
       ))}
@@ -305,8 +298,9 @@ export default function GenerateModeApp() {
     <div className="ww-right-panel-inner">
       <h2 className="ww-panel-title">Generator</h2>
       <p className="ww-panel-text">
-        Adjust landmass and sea level to shape the broad look of your world.
-        Other sliders are wired but will matter more as later systems come online.
+        Adjust landmass and sea level to shape the broad outline of your world.
+        Other sliders are wired now and will matter more as later systems come
+        online.
       </p>
     </div>
   )
