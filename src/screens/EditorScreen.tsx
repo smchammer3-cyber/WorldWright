@@ -1,96 +1,38 @@
-import React, { useState } from 'react'
+// JARVIS_CHANGE
+// Date: 2025-12-03
+// Step: 6A-6 -- Legacy screen cleanup.
+//
+// This file is now a LEGACY STUB.
+// Editing flows have been moved to Create Mode at
+//   src/modes/create/CreateModeApp.tsx
+// and routed via /modes/create/:id.
+//
+// App.tsx no longer imports or uses EditorScreen.
+// You may safely delete this file once you no longer need it
+// as a reference.
 
-type EditorMode = 'create' | 'sim'
-type EditorView = 'globe' | 'map'
+import React from 'react'
 
-interface EditorScreenProps {
-  onBack: () => void
+export type EditorScreenProps = {
+  onBack?: () => void
 }
 
-export function EditorScreen({ onBack }: EditorScreenProps) {
-  const [mode, setMode] = useState<EditorMode>('create')
-  const [view, setView] = useState<EditorView>('map')
-
+export function EditorScreen(_props: EditorScreenProps) {
   return (
-    <div className="ww-screen">
-      <header className="ww-screen-header">
-        <button className="ww-secondary-button" onClick={onBack}>
-          ← Back
-        </button>
-        <div>
-          <h1 className="ww-title">World Editor</h1>
-          <p className="ww-subtitle">
-            Political borders, cultures, and history layers will live here.
-          </p>
-        </div>
-      </header>
-
-      <div className="ww-editor-layout">
-        <aside className="ww-left-toolbar">
-          <div className="ww-toolbar-group">
-            <div className="ww-toolbar-label">Mode</div>
-            <button
-              className={
-                'ww-toolbar-button' +
-                (mode === 'create' ? ' ww-toolbar-button--active' : '')
-              }
-              onClick={() => setMode('create')}
-            >
-              Create
-            </button>
-            <button
-              className={
-                'ww-toolbar-button' +
-                (mode === 'sim' ? ' ww-toolbar-button--active' : '')
-              }
-              onClick={() => setMode('sim')}
-            >
-              Sim
-            </button>
-          </div>
-
-          <div className="ww-toolbar-group">
-            <div className="ww-toolbar-label">View</div>
-            <button
-              className={
-                'ww-toolbar-button' +
-                (view === 'map' ? ' ww-toolbar-button--active' : '')
-              }
-              onClick={() => setView('map')}
-            >
-              Map
-            </button>
-            <button
-              className={
-                'ww-toolbar-button' +
-                (view === 'globe' ? ' ww-toolbar-button--active' : '')
-              }
-              onClick={() => setView('globe')}
-            >
-              Globe
-            </button>
-          </div>
-        </aside>
-
-        <main className="ww-main-panel">
-          <div className="ww-main-canvas-placeholder">
-            <p>
-              Editor tools for <strong>{mode}</strong> mode and{' '}
-              <strong>{view}</strong> view will appear here in the next steps.
-            </p>
-          </div>
-        </main>
-
-        <aside className="ww-right-panel">
-          <div className="ww-info-panel">
-            <div className="ww-info-title">Selection Info</div>
-            <p>
-              When you select countries, cities, or regions, detailed info will
-              appear here.
-            </p>
-          </div>
-        </aside>
-      </div>
+    <div style={{ padding: '1rem', fontFamily: 'system-ui' }}>
+      <h2>Legacy EditorScreen</h2>
+      <p>
+        This component has been replaced by
+        {' '}
+        <code>CreateModeApp</code>
+        {' '}
+        in
+        {' '}
+        <code>src/modes/create/CreateModeApp.tsx</code>.
+      </p>
+      <p>It is no longer used by App.tsx.</p>
     </div>
   )
 }
+
+export default EditorScreen

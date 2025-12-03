@@ -1,12 +1,13 @@
 // JARVIS_CHANGE
-// Date: 2025-12-02
-// Step: 6A – Mode routing cleanup.
+// Date: 2025-12-03
+// Step: 6A-6 -- Legacy screen cleanup, modes-first routing.
+//
 // Purpose:
 // - Keep Home as the landing screen.
 // - Route /generate through GenerateModeApp.
 // - Route "open world" flows through CreateModeApp.
 // - Expose SimModeApp route for future use.
-// - Stop using legacy GeneratorScreen / EditorScreen.
+// - Do NOT use GeneratorScreen or EditorScreen anymore.
 
 import React, { useEffect } from 'react'
 import {
@@ -28,13 +29,13 @@ function AppRoutes() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Make sure saved worlds are available before any screen/mode renders.
+    // Ensure saved worlds are loaded before UI relies on them.
     restoreFromLocalStorage()
   }, [])
 
   return (
     <Routes>
-      {/* Home: list of worlds + "New World" */}
+      {/* Home: world list + "New World" entry */}
       <Route
         path="/"
         element={
@@ -48,10 +49,10 @@ function AppRoutes() {
       {/* Generate Mode: main generator mini-app */}
       <Route path="/generate" element={<GenerateModeApp />} />
 
-      {/* Create Mode: edit / paint a specific world */}
+      {/* Create Mode: edit a specific world */}
       <Route path="/modes/create/:id" element={<CreateModeApp />} />
 
-      {/* Sim Mode: simulate a specific world (placeholder for now) */}
+      {/* Sim Mode: simulate a specific world (currently placeholder) */}
       <Route path="/modes/sim/:id" element={<SimModeApp />} />
 
       {/* Fallback: anything unknown goes home */}
