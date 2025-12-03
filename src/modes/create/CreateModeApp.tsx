@@ -1,12 +1,15 @@
 // ========================================================
-// JARVIS_CHANGE (6A-5 -- Unify Create Mode Layout)
+// JARVIS_CHANGE (6B-1 – Create Mode Inspect Tool)
 // Date: 2025-12-03
 //
 // Purpose:
-// - Make Create Mode visually match Generate Mode.
-// - Center the main map in the viewport.
-// - Place the minimap in the same bottom-left card position.
-// - Keep all existing behavior: world loading + 2D render.
+// - Keep Create Mode loading a real world by id.
+// - Use AppShell with unified layout (left tools, main viewport,
+//   minimap bottom-left, right info panel).
+// - Add a first real tool: "Inspect".
+//   • Click on the main 2D map to inspect a location.
+//   • Show basic info (lat / lon / height / land vs water) in the right panel.
+// - NO editing yet (read-only), consistent with non-destructive rules.
 // ========================================================
 
 import React, { useEffect, useRef, useState } from 'react'
@@ -15,7 +18,18 @@ import { AppShell } from '../../ui/AppShell'
 import { getWorld } from '../../core/worldStorage'
 import { renderPlanetToCanvas } from '../../core/planetRenderer'
 
-type LoadedWorld = any // we only read width/height/cells/seaLevel/name/seed
+type LoadedWorld = any
+
+type SelectedCellInfo = {
+  x: number
+  y: number
+  lat: number
+  lon: number
+  baseHeight: number
+  isLand: boolean
+}
+
+type ActiveTool = 'inspect'
 
 export default function CreateModeApp() {
   const navigate = useNavigate()
@@ -23,11 +37,17 @@ export default function CreateModeApp() {
 
   const [world, setWorld] = useState<LoadedWorld | null>(null)
   const [notFound, setNotFound] = useState(false)
+  const [activeTool, setActiveTool] = useState<ActiveTool>('inspect')
+  const [selectedCell, setSelectedCell] = useState<SelectedCellInfo | null>(
+    null,
+  )
 
-  const mainMapCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const mainCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  // Load the world by id
+  // ------------------------
+  // Load world
+  // ------------------------
   useEffect(() => {
     if (!id) {
       setWorld(null)
@@ -45,11 +65,13 @@ export default function CreateModeApp() {
     }
   }, [id])
 
-  // Render main map + minimap when world changes
+  // ------------------------
+  // Render map + minimap
+  // ------------------------
   useEffect(() => {
     if (!world) return
 
-    const mainCanvas = mainMapCanvasRef.current
+    const mainCanvas = mainCanvasRef.current
     const miniCanvas = minimapCanvasRef.current
     if (!mainCanvas || !miniCanvas) return
 
@@ -65,43 +87,110 @@ export default function CreateModeApp() {
 
     const preview = { width, height, cells, seaLevel }
 
-    // Main map viewport (larger)
+    // Main map: centered 2D view
     mainCanvas.width = 512
     mainCanvas.height = 256
     renderPlanetToCanvas(mainCtx, preview)
 
-    // Minimap overlay (smaller)
+    // Minimap overlay: smaller card using the same preview
     miniCanvas.width = 200
     miniCanvas.height = 100
     renderPlanetToCanvas(miniCtx, preview)
   }, [world])
 
-  // -------- Left toolbar (world info / navigation) --------
+  // ------------------------
+  // Inspect tool: click handler
+  // ------------------------
+  function handleMainCanvasClick(
+    event: React.MouseEvent<HTMLCanvasElement, MouseEvent>,
+  ) {
+    if (!world) return
+    if (activeTool !== 'inspect') return
 
+    const w = world as any
+    const width: number = w.width
+    const height: number = w.height
+    const cells: { baseHeight: number }[] = w.cells
+    const seaLevel: number = w.seaLevel ?? 0
+
+    const canvas = mainCanvasRef.current
+    if (!canvas) return
+
+    const rect = canvas.getBoundingClientRect()
+    const px = event.clientX - rect.left
+    const py = event.clientY - rect.top
+
+    if (px < 0 || py < 0 || px >= rect.width || py >= rect.height) {
+      return
+    }
+
+    const u = px / rect.width
+    const v = py / rect.height
+
+    const ix = Math.floor(u * width)
+    const iy = Math.floor(v * height)
+
+    if (ix < 0 || iy < 0 || ix >= width || iy >= height) {
+      return
+    }
+
+    const index = iy * width + ix
+    const cell = cells[index]
+    const baseHeight = cell?.baseHeight ?? 0
+    const isLand = baseHeight >= seaLevel
+
+    // Approximate lat/lon assuming equirectangular projection.
+    const lat = 90 - v * 180 // 90 (north) → -90 (south)
+    const lon = u * 360 - 180 // -180 → 180
+
+    setSelectedCell({
+      x: ix,
+      y: iy,
+      lat,
+      lon,
+      baseHeight,
+      isLand,
+    })
+  }
+
+  // ------------------------
+  // Left toolbar (tools + world summary)
+  // ------------------------
   const leftToolbar = (
-    <div className="ww-left-panel-inner">
+    <div className="ww-mode-toolbar">
       {notFound ? (
         <>
-          <h3 className="ww-panel-title">World not found</h3>
           <p className="ww-panel-text">
-            The requested world could not be loaded. It may have been deleted or
-            the link is invalid.
+            World could not be found. It may have been deleted or the id is
+            invalid.
           </p>
           <button className="ww-primary-btn" onClick={() => navigate('/')}>
             Back to worlds
           </button>
         </>
       ) : !world ? (
-        <>
-          <h3 className="ww-panel-title">Loading…</h3>
-          <p className="ww-panel-text">Fetching world data from storage.</p>
-        </>
+        <p className="ww-panel-text">Loading world…</p>
       ) : (
         <>
+          <h3 className="ww-panel-title">Tools</h3>
+          <div className="ww-tool-list">
+            <button
+              type="button"
+              className={
+                activeTool === 'inspect'
+                  ? 'ww-tool-button ww-tool-button--active'
+                  : 'ww-tool-button'
+              }
+              onClick={() => setActiveTool('inspect')}
+            >
+              Inspect
+            </button>
+          </div>
+
           <h3 className="ww-panel-title">World details</h3>
           <p className="ww-panel-text">
             Name:{' '}
-            <strong>{(world as any).name || 'Untitled world'}</strong>
+            <strong>{(world as any).name || '(unnamed world)'}</strong>
           </p>
           <p className="ww-panel-text">
             Size:{' '}
@@ -111,10 +200,10 @@ export default function CreateModeApp() {
           </p>
           <p className="ww-panel-text">
             Seed:{' '}
-            <strong>{String((world as any).seed ?? 'seed')}</strong>
+            <strong>{String((world as any).seed ?? 'n/a')}</strong>
           </p>
 
-          <button className="ww-primary-btn" onClick={() => navigate('/')}>
+          <button className="ww-secondary-btn" onClick={() => navigate('/')}>
             Back to worlds
           </button>
         </>
@@ -122,84 +211,137 @@ export default function CreateModeApp() {
     </div>
   )
 
-  // -------- Main viewport content (center) --------
-
+  // ------------------------
+  // Main viewport
+  // ------------------------
   let mainViewport: React.ReactNode
 
   if (notFound) {
     mainViewport = (
-      <div className="ww-main-viewport-empty">
+      <div className="ww-mode-main">
         <h2 className="ww-panel-title">World not found</h2>
         <p className="ww-panel-text">
-          Use the Back button on the left to return to your world list.
+          Use the Back button to return to your world list.
         </p>
       </div>
     )
   } else if (!world) {
     mainViewport = (
-      <div className="ww-main-viewport-empty">
-        <h2 className="ww-panel-title">Loading world…</h2>
-        <p className="ww-panel-text">
-          The world data is being loaded from storage.
-        </p>
+      <div className="ww-mode-main">
+        <h2 className="ww-panel-title">Loading…</h2>
+        <p className="ww-panel-text">Fetching world data from storage.</p>
       </div>
     )
   } else {
     mainViewport = (
-      <div className="ww-main-viewport-content">
-        <div className="ww-map-frame">
-          <canvas
-            ref={mainMapCanvasRef}
-            className="ww-preview-canvas ww-preview-canvas--map"
-          />
-        </div>
+      <div className="ww-mode-main">
+        <h2 className="ww-panel-title">
+          {(world as any).name || 'Untitled world'}
+        </h2>
+        <p className="ww-panel-text">
+          Click on the map to inspect locations. This is a read-only view for
+          now; editing tools will arrive in later 6B steps.
+        </p>
+        <canvas
+          ref={mainCanvasRef}
+          className="ww-preview-canvas ww-preview-canvas--map"
+          onClick={handleMainCanvasClick}
+        />
       </div>
     )
   }
 
-  // -------- Minimap overlay (bottom-left of viewport) --------
-
-  const minimapOverlay =
-    notFound || !world ? null : (
-      <div className="ww-minimap-card">
-        <canvas
-          ref={minimapCanvasRef}
-          className="ww-preview-canvas ww-preview-canvas--minimap"
-        />
-      </div>
-    )
-
-  // -------- Right panel (mode description) --------
-
-  const rightPanel = (
-    <div className="ww-right-panel-inner">
-      <h2 className="ww-panel-title">Create Mode</h2>
-      {notFound ? (
-        <p className="ww-panel-text">
-          This mode couldn&apos;t load a world. Once you select a valid world
-          from the home screen, this panel will show tips and details for
-          editing it.
-        </p>
-      ) : (
-        <p className="ww-panel-text">
-          This preview confirms the world is loaded using the same renderer as
-          the generator minimap. Painting, sculpting, and editing tools begin in
-          Step 6B.
-        </p>
-      )}
+  // ------------------------
+  // Minimap overlay
+  // ------------------------
+  const minimapOverlay = notFound ? null : (
+    <div className="ww-minimap-card">
+      <canvas
+        ref={minimapCanvasRef}
+        className="ww-preview-canvas ww-preview-canvas--minimap"
+      />
     </div>
   )
 
-  // -------- AppShell integration --------
+  // ------------------------
+  // Right info panel
+  // ------------------------
+  let rightPanelContent: React.ReactNode
 
+  if (notFound) {
+    rightPanelContent = (
+      <>
+        <h2 className="ww-panel-title">Create Mode</h2>
+        <p className="ww-panel-text">
+          The requested world could not be loaded. Check your world list on the
+          home screen.
+        </p>
+      </>
+    )
+  } else if (!world) {
+    rightPanelContent = (
+      <>
+        <h2 className="ww-panel-title">Create Mode</h2>
+        <p className="ww-panel-text">
+          Loading world data. This panel will show information about the
+          selected location once the world is ready.
+        </p>
+      </>
+    )
+  } else if (!selectedCell) {
+    rightPanelContent = (
+      <>
+        <h2 className="ww-panel-title">Inspect Tool</h2>
+        <p className="ww-panel-text">
+          Click anywhere on the map to inspect a location. You&apos;ll see
+          approximate latitude/longitude, height, and whether the point is land
+          or water.
+        </p>
+      </>
+    )
+  } else {
+    rightPanelContent = (
+      <>
+        <h2 className="ww-panel-title">Location details</h2>
+        <p className="ww-panel-text">
+          Grid position:{' '}
+          <strong>
+            ({selectedCell.x}, {selectedCell.y})
+          </strong>
+        </p>
+        <p className="ww-panel-text">
+          Approx. lat / lon:{' '}
+          <strong>
+            {selectedCell.lat.toFixed(2)}°, {selectedCell.lon.toFixed(2)}°
+          </strong>
+        </p>
+        <p className="ww-panel-text">
+          Base height:{' '}
+          <strong>{selectedCell.baseHeight.toFixed(3)}</strong>
+        </p>
+        <p className="ww-panel-text">
+          Surface:{' '}
+          <strong>{selectedCell.isLand ? 'Land' : 'Water'}</strong>
+        </p>
+      </>
+    )
+  }
+
+  const rightPanel = (
+    <div className="ww-right-panel-inner">{rightPanelContent}</div>
+  )
+
+  // ------------------------
+  // AppShell integration
+  // ------------------------
   return (
-      <AppShell
-        title="Create Mode"
-        onBack={() => navigate('/')}
-        leftToolbar={leftToolbar}
-        main={mainViewport}
-        minimapOverlay={minimapOverlay}
-        rightPanel={rightPanel}
-      />
+    <AppShell
+      title="Create Mode"
+      onBack={() => navigate('/')}
+      leftToolbar={leftToolbar}
+      main={mainViewport}
+      minimapOverlay={minimapOverlay}
+      rightPanel={rightPanel}
+    />
   )
 }
