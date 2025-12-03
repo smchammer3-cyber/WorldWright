@@ -1,84 +1,136 @@
-<!—
-JARVIS_CHANGE
-Date: 2025-12-03
+# MODES OVERVIEW
+
+WorldWright consists of three main interactive modes and one export mode. All modes share the unified AppShell layout:
+- Left: tool panel  
+- Center: main viewport  
+- Bottom-left: minimap (Globe View only in Create Mode)  
+- Top-right: info panel  
+
+===============================================================================
+1. GENERATE MODE
+===============================================================================
 Purpose:
-- Document purpose and behavior of each Mode
-- Clarify separation between screens and modes
-—>
+- Create seeded procedural worlds.
+- Adjust tectonics, water level, climate bias, and variation.
 
-# 🧩 WORLDWRIGHT — MODES OVERVIEW
+Key behaviors:
+- Seed + parameters = deterministic world.
+- Preview updates instantly.
+- Accepting creates a new world snapshot.
+- Does not overwrite edited worlds.
 
-WorldWright operates as three **mini-apps** mounted inside a shared AppShell:
+===============================================================================
+2. CREATE MODE (PRIMARY EDITOR)
+===============================================================================
+Create Mode provides both:
+- Globe View (3D, minimap enabled)
+- Map View (2D, minimap disabled)
 
-—
+Create Mode follows the core editing philosophy of the blueprint:
 
-# 1. Generate Mode (Primary Entry)
+-——————————————————————————
+A. THE STICKER SYSTEM (THE CORE EDITOR)
+-——————————————————————————
+Stickers are the primary mechanism for editing world content.
+They define:
+- Biomes (forest, desert, alpine, wetlands, etc.)
+- Cities (with metadata)
+- Regions / kingdoms / climate zones
+- Points of Interest
+- Terrain features (mountain regions, cliffs, symbolic props)
+- Any world-defining annotation or classification
 
-**Route:** `/generate`  
-**File:** `src/modes/generate/GenerateModeApp.tsx`
+Sticker rules:
+- Stickers define biome regions.
+- Stickers override generator biomes.
+- Stickers determine region boundaries.
+- Stickers react to height and climate:
+  • Mountain-region stickers adapt to underlying height  
+  • High-elevation placements behave differently  
+  • Cities can warn about slopes/ocean if rules are obeyed  
+- Stickers follow world rules unless “Ignore World Rules” toggle is enabled.
+- Stickers appear in viewport and minimap (Map View = no minimap).
+- Fully undo/redo supported.
 
-Purpose:
-- Create new worlds  
-- Adjust generator sliders  
-- Preview globe + minimap  
-- Save worlds to local storage
+Sticker Data Model:
+Each sticker is an object containing:
+id, type, iconId, location (map coords), worldPos (lat/lon), scale, rotation, metadata.
 
-Output:
-- A world snapshot passed into Create Mode
+The Sticker System is the foundation of content editing in WorldWright.
 
-—
+-——————————————————————————
+B. TERRAIN BRUSHES (HEIGHT ONLY)
+-——————————————————————————
+Brushes are purely for sculpting terrain elevation:
+- Raise
+- Lower
+- Smooth (future)
+- Roughen (future)
 
-# 2. Create Mode (Core Mode)
+Brush Rules:
+- Brushes do NOT assign biomes.
+- Brushes do NOT place cities or regions.
+- Brushes never override sticker logic.
+- Brushes operate only on the heightmap.
 
-**Route:** `/modes/create/:id`  
-**File:** `src/modes/create/CreateModeApp.tsx`
+-——————————————————————————
+C. THE EDITING PIPELINE
+-——————————————————————————
+1. Sculpt land with brushes (terrain-only).
+2. Place stickers to define content and world meaning:
+   - biomes
+   - regions
+   - city markers
+   - mountain regions
+   - POIs and props
+3. Stickers read terrain and world rules to determine behavior.
 
-Purpose:
-- Edit an existing world  
-- Paint terrain  
-- Sculpt heightmaps  
-- Define regions, biomes, cities  
-- Select props/zones  
-- Preview changes
+-——————————————————————————
+D. VIEW SPECIFIC RULES
+-——————————————————————————
+Globe View:
+- Minimaps shown
+- Raycast placement for stickers
+- Spatial context visualization
 
-Status:
-- Currently loads world + shows 2D map and minimap  
-- Tools added in Step 6B
+Map View:
+- Full map only
+- No minimap (Map View *is* the minimap)
+- Precise pixel-level editing
 
-—
+===============================================================================
+3. SIM MODE
+===============================================================================
+Sim Mode runs deterministic simulations on FROZEN snapshots:
+- Climate preview
+- Erosion
+- Population/civilization spread
 
-# 3. Sim Mode (Secondary Mode)
+Rules:
+- Sim never modifies the live editing world.
+- Sim respects Sticker-defined biomes, regions, and cities.
+- Two modes:
+  • Preview Sim  
+  • Deep Sim (long, resumable)
 
-**Route:** `/modes/sim/:id`  
-**File:** `src/modes/sim/SimModeApp.tsx`
+Results can be saved as new snapshots usable in Create Mode.
 
-Purpose:
-- Simulate climate  
-- Simulate civilizations  
-- Track terrain evolution  
-- Show historical timelines  
-- Playback world events
+===============================================================================
+4. EXPORT MODE
+===============================================================================
+Exports:
+- Heightmaps (PNG/EXR)
+- Biome masks (sticker-driven)
+- Water masks
+- City markers
+- Region boundaries
+- Metadata manifest
+- Engine-agnostic JSON package
 
-Status:
-- Placeholder (AppShell only)
+Exports are:
+- Deterministic
+- Non-destructive
+- Schema-versioned
+- Engine-safe naming
 
-—
-
-# 4. Home Screen
-
-**File:** `src/screens/HomeScreen.tsx`
-
-Purpose:
-- List saved worlds  
-- Start Generate Mode  
-- Open Create Mode for existing worlds
-
-—
-
-# 5. Legacy Screens
-
-Not used in routing:
-- GeneratorScreen  
-- EditorScreen
-
-These are safe to delete once 6A is complete.
+END OF MODES OVERVIEW
