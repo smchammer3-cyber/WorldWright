@@ -2,75 +2,80 @@
 JARVIS_CHANGE
 Date: 2025-12-03
 Purpose:
-- Fix formatting issues (no accidental code blocks)
-- Ensure seed example displays correctly
-- Ensure sections are continuous and not split
+- List real, current issues now that Step 6A is complete.
+- Avoid placeholder text and confusing formatting.
 —>
 
-# ❗ WORLDWRIGHT — KNOWN ISSUES (LIVE LIST)
+# ❗ WORLDWRIGHT — KNOWN ISSUES
 
-This file tracks *real*, *current*, and *reproducible* issues in the project.  
-It does **not** include placeholders or unfinished future features (those are listed in PLACEHOLDERS.md).
+This document lists **current, real issues** in the project.  
+Placeholders and planned-but-unimplemented features are listed separately in `PLACEHOLDERS.md`.
 
-—
-
-# 🟥 1. Layout / UI Issues
-
-### **1.1 Create Mode layout not yet unified with Generate Mode**
-Create Mode currently uses a temporary layout container for the main map preview, causing:
-- the map to appear left-shifted,
-- spacing to differ from Generate Mode,
-- the minimap to sit slightly off-position.
-
-**Scheduled fix:** Step 6A-5.
+At this stage, all issues below are **non-blocking** and expected while moving toward Step 6B.
 
 —
 
-# 🟧 2. Rendering Limitations
+## 1. Layout & Visual Consistency
 
-### **2.1 2D map preview lacks lighting**
-The flat map uses the basic color renderer.  
-The globe uses directional lighting.
+### 1.1 Minor spacing and alignment differences
 
-This visual mismatch is expected until the Create Mode tool suite is added.
+- While the core layout (AppShell) is unified, some small details such as padding, margins, and font sizes still need a polish pass.
+- This is especially noticeable in:
+  - Long world names.
+  - Very small or very large browser windows.
 
-—
-
-# 🟨 3. Legacy Files in Repo
-
-### **3.1 Old screens still present (not used in routing)**
-- `GeneratorScreen.tsx`  
-- `EditorScreen.tsx`
-
-These are safe and do not affect the app, but will be removed once Create/Sim Modes reach feature completeness.
+**Impact:** Cosmetic only.  
+**Planned fix:** As part of Create Mode and Sim Mode UX work in Step 6B.
 
 —
 
-# 🟦 4. Storage / Data Display Issues
+## 2. Rendering Limitations
 
-### **4.1 World seed display is raw text**
-Currently displayed as:
+### 2.1 Flat map vs globe lighting
 
-**Seed:** `seed`
+- The globe uses a directional lighting model to give more depth.
+- The flat 2D map in Create Mode uses a simpler render and does not currently apply the same lighting/shading logic.
+- This can make land/ocean balance feel slightly different between views, even though they come from the same underlying data.
 
-This is purely cosmetic and does not indicate a functional problem.  
-Final formatting will be handled in Step 6B when UI polishing begins.
-
-—
-
-# 🟩 5. Stability / Error Handling
-
-### **5.1 “World not found” message is functional but unstyled**
-The fallback state works correctly and safely, but the presentation is temporary.
+**Impact:** Visual inconsistency, but data is correct.  
+**Planned fix:** Optional enhancement once core tools are in place.
 
 —
 
-# 🟢 Summary
+## 3. Data Presentation
 
-All issues listed above are:
+### 3.1 Seed display is raw / unformatted
 
-- non-blocking,  
-- expected for this stage of Step 6A,  
-- planned for resolution in upcoming 6A and 6B substeps.
+- The world seed is currently shown as a raw value (string or number).
+- There is no dedicated formatting or explanation of what the seed represents.
 
-There are **no current blockers** in development.
+**Impact:** Slightly unpolished UI; functionality is unaffected.  
+**Planned fix:** Add a friendlier label or formatting in a later UX pass.
+
+—
+
+## 4. Error / Edge Cases
+
+### 4.1 “World not found” state is visually plain
+
+- When a world ID is invalid or missing, Create Mode shows a safe fallback message and a way back to Home.
+- The messaging is clear enough but visually minimal.
+
+**Impact:** Usable but not pretty.  
+**Planned fix:** Style alignment with the rest of the app during later UI refinement.
+
+—
+
+## Summary
+
+- There are **no critical blocking issues** in the current project state.
+- Existing issues are:
+  - Cosmetic,
+  - Related to UX polish,
+  - Or natural byproducts of being between Step 6A (structure) and Step 6B (features).
+
+As Step 6B progresses, this file should be updated to:
+
+- Remove resolved issues,
+- Add any new bugs discovered during feature development,
+- And keep a concise, honest picture of the project’s health.

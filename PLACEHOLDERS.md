@@ -2,114 +2,131 @@
 JARVIS_CHANGE
 Date: 2025-12-03
 Purpose:
-- Accurately document all placeholder components and logic still active
-- Remove outdated references to GeneratorScreen and EditorScreen
-- Clarify which placeholders belong to the new Mode architecture
+- Document active placeholders now that Step 6A is complete.
+- Clarify which parts are intentionally unfinished for Step 6B.
 —>
 
-# 📄 PLACEHOLDERS — ACTIVE TEMPORARY COMPONENTS
+# 📄 WORLDWRIGHT — PLACEHOLDERS
 
-This file tracks **temporary components**, **stub logic**, and **incomplete features** that are currently present in the project and awaiting final implementation. These are expected and normal during Step 6A.
+This document lists **deliberate placeholders** and **incomplete implementations** that are expected at the current stage of the project.
 
-WorldWright is transitioning from a *screen-based* architecture to a **mode-based mini-app architecture**. During this transition, some items remain placeholders until their full implementations arrive in Step 6B and Step 7.
-
-—
-
-# 🟦 1. Mode App Placeholders
-
-These mode apps exist, load correctly, and use AppShell — but still contain placeholder UI or incomplete logic.
-
-## **1.1 CreateModeApp.tsx**
-**Status:** First-pass implementation  
-**Location:** `src/modes/create/CreateModeApp.tsx`
-
-### What is done:
-- Loads worlds by ID  
-- Renders 2D map + minimap using shared renderer  
-- Displays world details (name, size, seed)  
-- Uses AppShell with left tools, main view, minimap, and right info panel  
-
-### What is placeholder:
-- No painting tools yet  
-- No biome editing  
-- No sculpting or terrain modification  
-- No selection tools  
-- No zoning masks or prop placement logic  
-- Right panel shows placeholder text  
-- Layout still needs final 6A unification pass
-
-Full tool suite comes in **Step 6B**.
+Step 6A (AppShell + Modes + basic Create) is complete. The items below are primarily targets for **Step 6B and beyond**.
 
 —
 
-## **1.2 SimModeApp.tsx**
-**Status:** Pure placeholder  
-**Location:** `src/modes/sim/SimModeApp.tsx`
+## 1. Mode-Level Placeholders
 
-### Placeholder behavior:
-- Uses AppShell  
-- Loads `id` from route  
-- Displays only placeholder text  
-- No simulation UI  
-- No climate/historical layers  
-- No time controls  
-- No rendering
+### 1.1 Create Mode (Tools Placeholder)
 
-Simulation tools begin after Create Mode is stable.
+**File:** `src/modes/create/CreateModeApp.tsx`  
+**Status:** Functional but bare-bones.
+
+What it already does:
+
+- Loads a specific world by ID from storage.
+- Renders a main 2D map using the shared renderer.
+- Shows a minimap overlay using the same renderer.
+- Displays basic metadata (name, size, seed).
+- Uses the unified AppShell layout.
+
+What is still placeholder / missing:
+
+- No painting tools (terrain, biome, temperature, etc.).
+- No brush/selection system.
+- No city marker placement or editing.
+- No zoning/exclusion mask editing.
+- No live link to a WorldBrain data model exposed in the UI.
+
+These tools are the core of **Step 6B (Create Mode feature passes)**.
 
 —
 
-# 🟦 2. Legacy Screens (NOT routed)
+### 1.2 Sim Mode (Full Placeholder)
 
-These files exist in the repo but are **no longer used** by routing:
+**File:** `src/modes/sim/SimModeApp.tsx`  
+**Status:** Shell only.
 
-- `src/screens/GeneratorScreen.tsx`  
+What it does now:
+
+- Accepts a world ID from the route.
+- Mounts inside AppShell with the standard layout.
+- Displays placeholder text that a simulation UI will live here.
+
+What is missing:
+
+- No climate or environment layers.
+- No population/society visualization.
+- No time controls or playback.
+- No simulation engine integration.
+
+This is intentional. Sim Mode will be fleshed out after Create Mode has core tools.
+
+—
+
+## 2. Legacy Screens
+
+These files exist but are **not used by the router** anymore:
+
+- `src/screens/GeneratorScreen.tsx`
 - `src/screens/EditorScreen.tsx`
 
-### Why they remain:
-- Kept temporarily as reference  
-- Safe to delete once Create/Sim reach feature parity  
-- Not harmful during 6A
+They serve as:
 
-**Generator logic has been fully migrated to GenerateModeApp.  
-Editor logic will be replaced entirely by Create Mode.**
+- Historical reference for how generator/editor were first implemented.
+- Backup while modes are still evolving.
 
-—
-
-# 🟦 3. UI Placeholders
-
-### 3.1 AppShell Non-Final Styles
-- Mode UI consistently uses AppShell  
-- Some spacing, width, and positioning values still require final pass  
-- Create Mode main viewport not yet aligned to Generate Mode proportions
-
-This will be finalized in **6A-5**.
+They can be safely removed once you are comfortable that GenerateModeApp and CreateModeApp fully replace them.
 
 —
 
-# 🟦 4. Data / System Placeholders
+## 3. System-Level Placeholders
 
-### 4.1 WorldBrain
-WorldBrain exists as a conceptual blueprint but does not yet have:
-- data binding to Create Mode  
-- exposure in UI  
-- live editing hooks  
-- biome/prop/city interfaces  
+### 3.1 WorldBrain (Concept Present, UI Absent)
 
-WorldBrain integration begins after 6A completion.
+WorldBrain is specified in the blueprint as the central world data model but is not yet:
 
-### 4.2 Export Systems
-UE5 / Houdini export stubs are not implemented yet.
+- Exposed in Create Mode tools.
+- Used to drive detailed UI (biomes, props, cities, etc.).
+- Integrated with export logic.
+
+At this stage, worlds are primarily stored and accessed through the simpler world storage system.
 
 —
 
-# 🟦 Summary
+### 3.2 Export Pipelines
 
-All placeholders listed above are expected for this stage of development.  
-None represent errors — they simply mark unfinished surfaces of Step 6A and Step 6B.
+UE5 / engine exports are not implemented yet. Placeholders for this concept exist in the blueprint but not in the current code:
 
-This document will be updated again when:
+- No heightmap export.
+- No biome mask export.
+- No prop/city export manifests.
 
-- Create Mode gains tools  
-- Sim Mode gains simulation layers  
-- Legacy screens are removed 
+These belong to a later phase, once world editing is more mature.
+
+—
+
+## 4. UI / Visual Placeholders
+
+Some parts of the UI are “good enough for 6A” but intentionally not final:
+
+- Create Mode’s informational text and panel content are simple and descriptive, not the final UX copy.
+- Some margins, fonts, and responsive behavior are basic or not fully tuned.
+- Sim Mode visuals are purely placeholder.
+
+These will be refined as Create and Sim gain real tools and user flows.
+
+—
+
+## Summary
+
+The items above are **not bugs** — they are **intentional placeholders** marking work reserved for:
+
+- Step 6B (Create Mode features),
+- Sim Mode feature passes,
+- and later export/integration phases.
+
+This document should be revisited whenever:
+
+- Create Mode gains its first editing tools,
+- Sim Mode becomes interactive,
+- WorldBrain and export pipelines start appearing in the code.
