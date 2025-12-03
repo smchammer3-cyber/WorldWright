@@ -1,14 +1,13 @@
-// ===============================================
-// JARVIS CHANGE HEADER (6A-5)
-// File: src/modes/create/CreateModeApp.tsx
+// ========================================================
+// JARVIS_CHANGE (6A-5 -- Unify Create Mode Layout)
+// Date: 2025-12-03
 //
 // Purpose:
-// - Make Create Mode use the same overall layout pattern
-//   as Generate Mode (AppShell main viewport + minimap).
-// - Load the world by id, render a 2D map as the main view,
-//   and show a smaller minimap in the bottom-left overlay.
-// - Keep tools and editing behavior as future work.
-// ===============================================
+// - Make Create Mode visually match Generate Mode
+// - Correct main viewport centering
+// - Correct minimap placement inside AppShell
+// - Maintain all functionality (world loading + 2D render)
+// ========================================================
 
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -16,7 +15,7 @@ import { AppShell } from '../../ui/AppShell'
 import { getWorld } from '../../core/worldStorage'
 import { renderPlanetToCanvas } from '../../core/planetRenderer'
 
-type LoadedWorld = any // flexible for now; we only read a few fields
+type LoadedWorld = any
 
 export default function CreateModeApp() {
   const navigate = useNavigate()
@@ -25,10 +24,12 @@ export default function CreateModeApp() {
   const [world, setWorld] = useState<LoadedWorld | null>(null)
   const [notFound, setNotFound] = useState(false)
 
-  const mainMapCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const mainCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  // Load world by id
+  // ------------------------
+  // Load world
+  // ------------------------
   useEffect(() => {
     if (!id) {
       setWorld(null)
@@ -36,21 +37,23 @@ export default function CreateModeApp() {
       return
     }
 
-    const loaded = getWorld(id)
-    if (!loaded) {
+    const w = getWorld(id)
+    if (!w) {
       setWorld(null)
       setNotFound(true)
     } else {
-      setWorld(loaded)
+      setWorld(w)
       setNotFound(false)
     }
   }, [id])
 
-  // Render main map and minimap when world is ready
+  // ------------------------
+  // Render map + minimap
+  // ------------------------
   useEffect(() => {
     if (!world) return
 
-    const mainCanvas = mainMapCanvasRef.current
+    const mainCanvas = mainCanvasRef.current
     const miniCanvas = minimapCanvasRef.current
     if (!mainCanvas || !miniCanvas) return
 
@@ -58,56 +61,51 @@ export default function CreateModeApp() {
     const miniCtx = miniCanvas.getContext('2d')
     if (!mainCtx || !miniCtx) return
 
-    const w = world as any
-    const width: number = w.width
-    const height: number = w.height
-    const cells: { baseHeight: number }[] = w.cells
-    const seaLevel: number = w.seaLevel ?? 0
+    const width = world.width
+    const height = world.height
+    const cells = world.cells
+    const seaLevel = world.seaLevel ?? 0
 
     const preview = { width, height, cells, seaLevel }
 
-    // Main map viewport (center of screen)
+    // Main map -- centered in viewport
     mainCanvas.width = 512
     mainCanvas.height = 256
     renderPlanetToCanvas(mainCtx, preview)
 
-    // Minimap overlay card (bottom-left)
+    // Minimap overlay
     miniCanvas.width = 200
     miniCanvas.height = 100
     renderPlanetToCanvas(miniCtx, preview)
   }, [world])
 
-  // ----- Left toolbar -----
-
+  // ------------------------
+  // Left Toolbar
+  // ------------------------
   const leftToolbar = (
-    <div className="ww-mode-placeholder-toolbar">
+    <div className="ww-mode-toolbar">
       {notFound ? (
         <>
           <p className="ww-panel-text">
-            World could not be found. It may have been deleted or the id is invalid.
+            World could not be found.
           </p>
           <button className="ww-primary-btn" onClick={() => navigate('/')}>
             Back to worlds
           </button>
         </>
       ) : !world ? (
-        <p className="ww-panel-text">Loading world</p>
+        <p className="ww-panel-text">Loading…</p>
       ) : (
         <>
           <h3 className="ww-panel-title">World details</h3>
           <p className="ww-panel-text">
-            Name:{' '}
-            <strong>{(world as any).name || 'Unnamed world'}</strong>
+            <strong>Name:</strong> {world.name || '(unnamed world)'}
           </p>
           <p className="ww-panel-text">
-            Size:{' '}
-            <strong>
-              {(world as any).width} × {(world as any).height}
-            </strong>
+            <strong>Size:</strong> {world.width} × {world.height}
           </p>
           <p className="ww-panel-text">
-            Seed:{' '}
-            <strong>{String((world as any).seed ?? 'none')}</strong>
+            <strong>Seed:</strong> {String(world.seed ?? 'n/a')}
           </p>
 
           <button className="ww-primary-btn" onClick={() => navigate('/')}>
@@ -118,36 +116,22 @@ export default function CreateModeApp() {
     </div>
   )
 
-  // ----- Main viewport -----
-
-  let mainContent: React.ReactNode
-
-  if (notFound) {
-    mainContent = (
-      <div className="ww-mode-placeholder-main">
-        <h2>World not found</h2>
-        <p>Use the Back button or the home screen to pick another world.</p>
-      </div>
-    )
-  } else if (!world) {
-    mainContent = (
-      <div className="ww-mode-placeholder-main">
-        <h2>Loading</h2>
-        <p>Fetching world data from storage.</p>
-      </div>
-    )
-  } else {
-    // Unified pattern: main viewport is a single canvas, like Generate Mode
-    mainContent = (
+  // ------------------------
+  // Main Viewport (Unified Layout)
+  // ------------------------
+  const mainViewport = (
+    <div className="ww-main-viewport">
+      {/* Center the map exactly like the globe in Generate Mode */}
       <canvas
-        ref={mainMapCanvasRef}
+        ref={mainCanvasRef}
         className="ww-preview-canvas ww-preview-canvas--map"
       />
-    )
-  }
+    </div>
+  )
 
-  // ----- Minimap overlay -----
-
+  // ------------------------
+  // Minimap Overlay (same position as Generate Mode)
+  // ------------------------
   const minimapOverlay =
     notFound || !world ? null : (
       <div className="ww-minimap-card">
@@ -158,25 +142,20 @@ export default function CreateModeApp() {
       </div>
     )
 
-  // ----- Right info panel -----
-
+  // ------------------------
+  // Right Panel
+  // ------------------------
   const rightPanel = (
     <div className="ww-right-panel-inner">
       <h2 className="ww-panel-title">Create Mode</h2>
       {notFound ? (
         <p className="ww-panel-text">
-          The requested world could not be loaded. This is a safe fallback state.
-        </p>
-      ) : !world ? (
-        <p className="ww-panel-text">
-          Waiting for world data to load. Once ready, the map will appear in the main view.
+          World not found. Return home and select another world.
         </p>
       ) : (
         <p className="ww-panel-text">
-          Create Mode is where you will paint, sculpt, and annotate this world.
-          Right now this view confirms that the correct world is loaded and shows
-          a flat map using the same renderer as the generator minimap. Tools and
-          editing controls will be added in later steps.
+          This preview confirms the world is loaded.  
+          Painting, sculpting, and editing tools begin in Step 6B.
         </p>
       )}
     </div>
@@ -187,7 +166,7 @@ export default function CreateModeApp() {
       title="Create Mode"
       onBack={() => navigate('/')}
       leftToolbar={leftToolbar}
-      main={mainContent}
+      main={mainViewport}
       minimapOverlay={minimapOverlay}
       rightPanel={rightPanel}
     />
