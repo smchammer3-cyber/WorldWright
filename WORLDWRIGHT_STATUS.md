@@ -1,42 +1,122 @@
-<!— JARVIS_CHANGE
-Date: 2025-12-02
-Purpose: Track current/next blueprint steps and high-level progress.
+<!—
+JARVIS_CHANGE
+Date: 2025-12-03
+Purpose:
+- Accurately reflect current project state after migrating Generator → Mode App
+- Document Create Mode first-pass implementation
+- Track remaining 6A substeps before moving to Step 6B
 —>
 
-# WORLDWRIGHT — STATUS
+# 🌍 WORLDWRIGHT — PROJECT STATUS (LIVE BLUEPRINT TRACKING)
 
-## Current Blueprint Phase
+## 🟦 CURRENT PHASE  
+**Step 6A — AppShell Integration + Mode Architecture (IN PROGRESS)**  
+WorldWright has officially transitioned from a “screen-based” app to a **mode-based mini-app architecture** wrapped inside a shared AppShell.
 
-- **Phase:** Generator + Shell alignment  
-- **Step:** 6A — AppShell + Mode Scaffolding (Partial)  
-  - Shared AppShell layout is implemented and used by the generator screen.  
-  - Dedicated `src/modes/generate|create|sim` folders exist with mode mini-apps.  
-  - `/generate` now routes through the Generate Mode mini-app rather than the legacy GeneratorScreen.
+This step is *partially complete* and currently stable.
 
-## Last Completed (Functional) Milestones
+—
 
-- **5G-4 — Coastline & Landmass Readability (Preview Stage)**  
-  - Adjusted preview-only height mapping and thresholds to make large landmasses feel less like noisy islands.  
-  - Suppressed tiny isolated land specks and tiny water holes so continents look more continuous.  
-  - Kept the underlying world data unchanged (visual-only interpretation).
+# 🟢 COMPLETED 6A CHECKPOINTS
 
-- **5G-1 → 5G-3 — Generator + Minimap Pipeline**  
-  - Implemented continent-style heightfield generation based on sliders.  
-  - Wired a shared flat-map renderer for the minimap.  
-  - Added globe preview sampling and lighting pass.
+### **✔ 6A-1 — Introduced AppShell**  
+- Shared layout now used by Generator, Create, and Sim modes.  
+- Consistent left tools, main viewport, minimap overlay, and right info panel.
 
-## Next Planned Steps
+### **✔ 6A-2 — Added Modes Directory Structure**  
+`src/modes/` now contains:  
+- `generate/GenerateModeApp.tsx`  
+- `create/CreateModeApp.tsx`  
+- `sim/SimModeApp.tsx`  
+Each is a real React component mounted inside the AppShell.
 
-- **6A (continued) — Full AppShell Adoption + Mode Routing**  
-  - Move Home and Editor flows fully into AppShell-backed modes.  
-  - Update navigation so world creation flows directly into CreateModeApp / SimModeApp routes.  
-  - Retire the legacy `GeneratorScreen` and `EditorScreen` once mode apps are fully functional.
+### **✔ 6A-3 — Migrated Generator to GenerateModeApp**  
+- Old `GeneratorScreen` is no longer routed.  
+- Generate Mode now contains the **full real generator** including:  
+  - 7 correct generator sliders  
+  - Globe preview  
+  - Minimap renderer  
+  - Coastline smoothing  
+- `/generate` now correctly routes to Generate Mode.
 
-- **6B — Mode Mini-Apps (Feature Pass)**  
-  - Flesh out `GenerateModeApp`, `CreateModeApp`, and `SimModeApp` with their full toolsets.  
-  - Ensure strict mode isolation: no cross-import of mode-specific logic; communication only via world snapshots in WorldBrain.
+### **✔ 6A-4 — Unified Navigation (Modes-First)**  
+- Home → “Create New World” → `/generate`  
+- Save World → `/modes/create/:id`  
+- Home → “Open World” → `/modes/create/:id`  
+- EditorScreen retired from routing (still present in repo but unused).  
+- App is now truly **modes-first**, matching blueprint architecture.
 
-- **Create/Sim Roadmap (High-Level):**  
-  - Replace `EditorScreen` stub with real CreateModeApp and SimModeApp.  
-  - Hook these modes into the WorldBrain + world snapshots.  
-  - Prepare data model for UE5 export (sectors, masks, biome masks, cities, etc.).
+### **✔ 6A-Create-1 — Create Mode Loads Real Worlds**  
+Create Mode now:  
+- Loads a saved world by ID  
+- Renders a **main 2D map** using the shared renderer  
+- Renders a **minimap overlay**  
+- Displays basic world details (name, size, seed)  
+- Handles “world not found” safely  
+This is the correct first implementation of Create Mode.
+
+—
+
+# 🟡 WHAT REMAINS IN 6A (NEXT MICRO-STEPS)
+
+### **➡ 6A-5 — Unify Create Mode Layout With Generate Mode**  
+- Center the map in the main viewport area  
+- Match padding, proportions, and minimap placement  
+- Remove placeholder spacing  
+(Visual refinement only, no new features)
+
+### **➡ 6A-6 — Clean Up Legacy Screens**  
+- Keep HomeScreen  
+- Remove or archive unused:  
+  - `GeneratorScreen.tsx`  
+  - `EditorScreen.tsx`  
+(Once Create/Sim fully replace them)
+
+### **➡ 6A-7 — Update Documentation for Mode Architecture**  
+- Update PLACEHOLDERS.md  
+- Update KNOWN_ISSUES.md  
+- Confirm AppShell rules across modes
+
+Once these are done, 6A is **officially complete**.
+
+—
+
+# 🔵 NEXT PHASE AFTER 6A  
+## **Step 6B — Feature Implementation in Create Mode and Sim Mode**
+
+Planned highlights:
+
+### **Create Mode (Primary Focus)**
+- Terrain painting tools  
+- Biome painting tools  
+- Selection tools  
+- Prop placement + zoning-masks integration  
+- City markers + footprint editing  
+- WorldBrain bindings
+
+### **Sim Mode (Secondary for now)**
+- Time controls  
+- Climate layers  
+- Civilization simulation previews  
+- Historical playback
+
+—
+
+# 🧩 HIGH-LEVEL SUMMARY
+
+WorldWright is now in a **stable, well-architected mode system**:
+
+- Generator → fully integrated into mode  
+- Create Mode → loads real worlds and renders maps  
+- AppShell → consistently used  
+- Routing → blueprint-correct  
+- Screens → effectively retired except Home
+
+The foundation is **solid** and the next steps are straightforward UI and tool implementation.
+
+—
+
+# 🟢 STATUS: On Track  
+Everything in this ZIP matches the blueprint.  
+No structural blockers.  
+6A is progressing exactly as intended.

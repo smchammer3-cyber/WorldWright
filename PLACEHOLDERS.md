@@ -1,54 +1,115 @@
-<!— JARVIS_CHANGE
-Date: 2025-12-02
-Purpose: Introduce centralized placeholder ledger per WorldWright Pro Rules.
+<!—
+JARVIS_CHANGE
+Date: 2025-12-03
+Purpose:
+- Accurately document all placeholder components and logic still active
+- Remove outdated references to GeneratorScreen and EditorScreen
+- Clarify which placeholders belong to the new Mode architecture
 —>
 
-# PLACEHOLDERS — WorldWright (Authoritative)
+# 📄 PLACEHOLDERS — ACTIVE TEMPORARY COMPONENTS
 
-This file tracks all **temporary / placeholder** pieces of the project so we never forget
-what is meant to be replaced later.
+This file tracks **temporary components**, **stub logic**, and **incomplete features** that are currently present in the project and awaiting final implementation. These are expected and normal during Step 6A.
 
-If something is not listed here and not tagged with `PLACEHOLDER` in code, it is treated
-as **final** (for V1) and not assumed temporary.
+WorldWright is transitioning from a *screen-based* architecture to a **mode-based mini-app architecture**. During this transition, some items remain placeholders until their full implementations arrive in Step 6B and Step 7.
 
 —
 
-## Active Placeholders
+# 🟦 1. Mode App Placeholders
 
-- [ ] `src/placeholder.txt`  
-  - **Purpose:** Empty marker file to prevent accidental deletion of the `src` directory in some tools.  
-  - **Replace/Remove By:** When the project structure is fully stable and no tooling requires it.  
-  - **Notes:** Safe to ignore during runtime; no impact on behavior.
+These mode apps exist, load correctly, and use AppShell — but still contain placeholder UI or incomplete logic.
 
-- [ ] `src/screens/EditorScreen.tsx`  
-  - **Purpose:** Minimal stub for future Create/Sim Mode combined UI.  
-  - **Replace/Refine By:** Dedicated CreateModeApp and SimModeApp mounted inside the shared AppShell.  
-  - **Notes:** Currently does not edit worlds; only toggles mode/view in the UI.
+## **1.1 CreateModeApp.tsx**
+**Status:** First-pass implementation  
+**Location:** `src/modes/create/CreateModeApp.tsx`
 
-- [ ] Generator + Globe rendering (2D canvas version inside `src/screens/GeneratorScreen.tsx`)  
-  - **Purpose:** First-pass generator preview; serves as early implementation for Step 5F/5G.  
-  - **Replace/Refine By:**  
-    - 5G series steps (globe visual polish, minimap projection rules, improved lighting).  
-    - Future integration with dedicated `planetRenderer` / 3D renderer as defined in the blueprint.  
-  - **Notes:** Functionally acceptable for early V1, but visuals and layout will be refined.
+### What is done:
+- Loads worlds by ID  
+- Renders 2D map + minimap using shared renderer  
+- Displays world details (name, size, seed)  
+- Uses AppShell with left tools, main view, minimap, and right info panel  
 
-—- [ ] Create Mode mini-app (`src/modes/create/CreateModeApp.tsx`)  
-  - **Purpose:** Temporary shell for Create Mode UI (painting, editing, detail tools).  
-  - **Replace/Refine By:** Fully-featured CreateModeApp that loads a selected world, exposes tools, and writes changes back to WorldBrain.  
-  - **Notes:** Uses AppShell layout but does not yet modify world data.
+### What is placeholder:
+- No painting tools yet  
+- No biome editing  
+- No sculpting or terrain modification  
+- No selection tools  
+- No zoning masks or prop placement logic  
+- Right panel shows placeholder text  
+- Layout still needs final 6A unification pass
 
-- [ ] Sim Mode mini-app (`src/modes/sim/SimModeApp.tsx`)  
-  - **Purpose:** Temporary shell for Sim Mode UI (time controls, layers, history playback).  
-  - **Replace/Refine By:** Fully-featured SimModeApp that runs simulations over time using the shared WorldBrain model.  
-  - **Notes:** Uses AppShell layout but displays only placeholder text for now.
+Full tool suite comes in **Step 6B**.
 
-- [ ] Generator + Globe rendering (2D canvas version inside `src/modes/generate/GenerateModeApp.tsx` + legacy `src/screens/GeneratorScreen.tsx`)  
-  - **Purpose:** First-pass generator preview; serves as early implementation for Step 5F/5G.  
-  - **Replace/Refine By:**  
-    - 5G series steps (globe visual polish, minimap projection rules, improved lighting).  
-    - Future integration with dedicated `planetRenderer` / 3D renderer as defined in the blueprint.  
-  - **Notes:** Functionally acceptable for early V1, but visuals and layout will be refined.
+—
 
-## Completed / Removed Placeholders
+## **1.2 SimModeApp.tsx**
+**Status:** Pure placeholder  
+**Location:** `src/modes/sim/SimModeApp.tsx`
 
-*(None yet — this section will be updated as temporary implementations are fully replaced.)*
+### Placeholder behavior:
+- Uses AppShell  
+- Loads `id` from route  
+- Displays only placeholder text  
+- No simulation UI  
+- No climate/historical layers  
+- No time controls  
+- No rendering
+
+Simulation tools begin after Create Mode is stable.
+
+—
+
+# 🟦 2. Legacy Screens (NOT routed)
+
+These files exist in the repo but are **no longer used** by routing:
+
+- `src/screens/GeneratorScreen.tsx`  
+- `src/screens/EditorScreen.tsx`
+
+### Why they remain:
+- Kept temporarily as reference  
+- Safe to delete once Create/Sim reach feature parity  
+- Not harmful during 6A
+
+**Generator logic has been fully migrated to GenerateModeApp.  
+Editor logic will be replaced entirely by Create Mode.**
+
+—
+
+# 🟦 3. UI Placeholders
+
+### 3.1 AppShell Non-Final Styles
+- Mode UI consistently uses AppShell  
+- Some spacing, width, and positioning values still require final pass  
+- Create Mode main viewport not yet aligned to Generate Mode proportions
+
+This will be finalized in **6A-5**.
+
+—
+
+# 🟦 4. Data / System Placeholders
+
+### 4.1 WorldBrain
+WorldBrain exists as a conceptual blueprint but does not yet have:
+- data binding to Create Mode  
+- exposure in UI  
+- live editing hooks  
+- biome/prop/city interfaces  
+
+WorldBrain integration begins after 6A completion.
+
+### 4.2 Export Systems
+UE5 / Houdini export stubs are not implemented yet.
+
+—
+
+# 🟦 Summary
+
+All placeholders listed above are expected for this stage of development.  
+None represent errors — they simply mark unfinished surfaces of Step 6A and Step 6B.
+
+This document will be updated again when:
+
+- Create Mode gains tools  
+- Sim Mode gains simulation layers  
+- Legacy screens are removed 
