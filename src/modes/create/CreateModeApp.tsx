@@ -1,5 +1,5 @@
 // ========================================================
-// JARVIS_CHANGE (6B-1, 6B-2 – Create Mode Inspect Tool + Terrain Brush)
+// JARVIS_CHANGE (6B-1, 6B-2, 6B-3B – Create Mode)
 // Date: 2025-12-05
 //
 // Purpose:
@@ -9,9 +9,11 @@
 // - Provide two tools:
 //   • "Inspect" – sample location info from the map.
 //   • "Terrain brush" – paint terrain height by click + drag.
-// - Updated to use the newer planetRenderer signature:
+// - Use the newer planetRenderer signature:
 //   renderPlanetToCanvas(ctx, preview)
-//   so Create Mode no longer crashes.
+// - (6B-3B) Begin integrating stickers at the world level:
+//   • Read `world.stickers` into a StickerState.
+//   • Do NOT yet render or edit stickers; this is data wiring only.
 // ========================================================
 
 import React, {
@@ -25,6 +27,7 @@ import { AppShell } from '../../ui/AppShell'
 import { renderPlanetToCanvas } from '../../core/planetRenderer'
 import { getWorld } from '../../core/worldStorage'
 import type { World, WorldCell } from '../../core/world'
+import { StickerState, emptyStickerState } from '../../core/stickerEngine'
 
 type LoadedWorld = World
 
@@ -58,6 +61,10 @@ export default function CreateModeApp() {
   const [brushStrength, setBrushStrength] = useState<number>(0.05)
   const [isBrushing, setIsBrushing] = useState(false)
 
+  // (6B-3B) Sticker state mirrored from world.stickers
+  const [stickerState, setStickerState] =
+    useState<StickerState>(emptyStickerState())
+
   const mainCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
@@ -76,7 +83,17 @@ export default function CreateModeApp() {
       setWorld(null)
       setNotFound(true)
     } else {
-      setWorld(w)
+      // Treat missing stickers as [] for editor purposes
+      const stickersRaw = (w as any).stickers
+      const stickers = Array.isArray(stickersRaw) ? stickersRaw : []
+
+      const normalizedWorld: World = {
+        ...w,
+        stickers: stickers as any,
+      }
+
+      setWorld(normalizedWorld)
+      setStickerState({ stickers } as StickerState)
       setNotFound(false)
     }
   }, [id])
@@ -104,7 +121,8 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // Render main/minimap when world changes
+  // Render main/minimap when world or stickers change
+  // (stickers not yet visual, but we include them in deps for later overlay work)
   // ------------------------
   useEffect(() => {
     if (!world) return
@@ -115,7 +133,10 @@ export default function CreateModeApp() {
 
     renderWorldToCanvas(mainCanvas, world)
     renderWorldToCanvas(minimapCanvas, world)
-  }, [world])
+
+    // Future 6B-3B substeps:
+    // - draw simple sticker markers using `stickerState.stickers`
+  }, [world, stickerState])
 
   // ------------------------
   // Coordinate helpers
@@ -239,7 +260,7 @@ export default function CreateModeApp() {
         ...prev,
         cells: newCells,
       }
-      // useEffect([world]) will re-render canvases
+      // useEffect([world, stickerState]) will re-render canvases
       return updated
     })
   }
