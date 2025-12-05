@@ -1,6 +1,11 @@
 // ============================================
 // WorldWright Storage System (Blueprint Step 3)
 // In-memory storage + LocalStorage persistence
+//
+// (6B-3B) Notes:
+// - World now has an optional `stickers` field.
+// - We normalize loaded worlds so `stickers` is always an array,
+//   even for older saves that never had this field.
 // ============================================
 
 import { World } from './world'
@@ -17,6 +22,32 @@ export interface WorldSummary {
 
 const STORAGE_KEY = 'worldwright_saves'
 
+function normalizeWorld(world: World): World {
+  // Ensure array fields are at least empty arrays
+  const countries = Array.isArray(world.countries) ? world.countries : []
+  const cultures = Array.isArray(world.cultures) ? world.cultures : []
+  const cities = Array.isArray(world.cities) ? world.cities : []
+
+  // Stickers may be missing on older saves; treat missing as []
+  const stickersRaw = (world as any).stickers
+  const stickers = Array.isArray(stickersRaw) ? stickersRaw : []
+
+  return {
+    ...world,
+    countries,
+    cultures,
+    cities,
+    stickers,
+  }
+}
+
+function setWorlds(next: World[]) {
+  worlds = next.map(normalizeWorld)
+}
+
+/**
+ * Ensure a world has a non-empty id.
+ */
 function ensureWorldHasId(world: World): World {
   const trimmedId = world.id?.trim()
   if (trimmedId && trimmedId.length > 0) {
@@ -32,12 +63,18 @@ function ensureWorldHasId(world: World): World {
  * Return a lightweight list of worlds for the home screen.
  */
 export function listWorldSummaries(): WorldSummary[] {
-  return worlds.map(w => ({
-    id: w.id,
-    name: w.name,
-    createdAt: w.createdAt,
-    updatedAt: w.updatedAt,
-  }))
+  return worlds
+    .map(w => {
+      const createdAt = w.createdAt || new Date().toISOString()
+      const updatedAt = w.updatedAt || createdAt
+      return {
+        id: w.id,
+        name: w.name || 'Untitled world',
+        createdAt,
+        updatedAt,
+      }
+    })
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
 }
 
 /**
@@ -56,18 +93,25 @@ export function saveWorld(world: World): string {
   const withId = ensureWorldHasId(world)
 
   const existingIndex = worlds.findIndex(w => w.id === withId.id)
+
   if (existingIndex >= 0) {
-    worlds[existingIndex] = {
-      ...withId,
-      updatedAt: now,
-    }
-  } else {
-    const createdAt = withId.createdAt || now
-    worlds.push({
+    const existing = worlds[existingIndex]
+    const createdAt = existing.createdAt || withId.createdAt || now
+    const updated: World = normalizeWorld({
+      ...existing,
       ...withId,
       createdAt,
       updatedAt: now,
     })
+    worlds[existingIndex] = updated
+  } else {
+    const createdAt = withId.createdAt || now
+    const created: World = normalizeWorld({
+      ...withId,
+      createdAt,
+      updatedAt: now,
+    })
+    worlds.push(created)
   }
 
   persistToLocalStorage()
@@ -75,26 +119,20 @@ export function saveWorld(world: World): string {
 }
 
 /**
- * Replace all worlds (used by restore).
- */
-function setWorlds(newWorlds: World[]) {
-  worlds = newWorlds
-}
-
-/**
- * Persist current worlds to LocalStorage.
+ * Persist the in-memory list of worlds to LocalStorage.
  */
 function persistToLocalStorage() {
   try {
     const data = JSON.stringify(worlds)
     localStorage.setItem(STORAGE_KEY, data)
   } catch (e) {
-    console.warn('Failed writing to LocalStorage:', e)
+    console.warn('Failed to write to LocalStorage:', e)
   }
 }
 
 /**
- * Load from LocalStorage on startup.
+ * Restore the in-memory list of worlds from LocalStorage.
+ * Safe to call multiple times; will overwrite the in-memory list.
  */
 export function restoreFromLocalStorage() {
   try {
