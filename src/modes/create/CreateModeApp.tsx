@@ -1,18 +1,17 @@
 // ========================================================
-// JARVIS_CHANGE (6B-1, 6B-2, 6B-3B – Create Mode)
+// JARVIS_CHANGE (6B-1, 6B-2 – Create Mode Inspect Tool + Terrain Brush)
 // Date: 2025-12-05
 //
 // Purpose:
-// - Keep Create Mode loading a real world by id.
+// - Load a real world by id.
 // - Use AppShell with unified layout (left tools, main viewport,
 //   minimap bottom-left, right info panel).
-// - Provide two core tools:
-//   • "Inspect" (6B-1)
-//   • "Terrain brush" (6B-2)
-// - (6B-3B) Begin integrating stickers at the world level:
-//   • Read `world.stickers` into `StickerState`.
-//   • Ensure future sticker tools have a stable data path.
-//   • No visible sticker UI yet; that comes in later substeps.
+// - Provide two tools:
+//   • "Inspect" – sample location info from the map.
+//   • "Terrain brush" – paint terrain height by click + drag.
+// - Updated to use the newer planetRenderer signature:
+//   renderPlanetToCanvas(ctx, preview)
+//   so Create Mode no longer crashes.
 // ========================================================
 
 import React, {
@@ -26,7 +25,6 @@ import { AppShell } from '../../ui/AppShell'
 import { renderPlanetToCanvas } from '../../core/planetRenderer'
 import { getWorld } from '../../core/worldStorage'
 import type { World, WorldCell } from '../../core/world'
-import { StickerState, emptyStickerState } from '../../core/stickerEngine'
 
 type LoadedWorld = World
 
@@ -60,15 +58,11 @@ export default function CreateModeApp() {
   const [brushStrength, setBrushStrength] = useState<number>(0.05)
   const [isBrushing, setIsBrushing] = useState(false)
 
-  // (6B-3B) Sticker state mirrored from world.stickers
-  const [stickerState, setStickerState] =
-    useState<StickerState>(emptyStickerState())
-
   const mainCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   // ------------------------
-  // Load world
+  // Load world by id
   // ------------------------
   useEffect(() => {
     if (!id) {
@@ -82,18 +76,35 @@ export default function CreateModeApp() {
       setWorld(null)
       setNotFound(true)
     } else {
-      // Treat missing stickers as []
-      const stickers =
-        Array.isArray((w as any).stickers) ? (w as any).stickers : []
-      setWorld({ ...w, stickers })
-      // Initialize StickerState from world.stickers
-      setStickerState({ stickers } as StickerState)
+      setWorld(w)
       setNotFound(false)
     }
   }, [id])
 
   // ------------------------
-  // Render map + minimap when world changes
+  // Helper: render world onto a canvas
+  // ------------------------
+  function renderWorldToCanvas(
+    canvas: HTMLCanvasElement,
+    currentWorld: LoadedWorld,
+  ) {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const preview = {
+      width: currentWorld.width,
+      height: currentWorld.height,
+      cells: currentWorld.cells.map((c: WorldCell) => ({
+        baseHeight: c.baseHeight,
+      })),
+      seaLevel: currentWorld.seaLevel,
+    }
+
+    renderPlanetToCanvas(ctx, preview)
+  }
+
+  // ------------------------
+  // Render main/minimap when world changes
   // ------------------------
   useEffect(() => {
     if (!world) return
@@ -102,23 +113,9 @@ export default function CreateModeApp() {
     const minimapCanvas = minimapCanvasRef.current
     if (!mainCanvas || !minimapCanvas) return
 
-    renderPlanetToCanvas({
-      canvas: mainCanvas,
-      world,
-      mode: 'map',
-    })
-
-    renderPlanetToCanvas({
-      canvas: minimapCanvas,
-      world,
-      mode: 'minimap',
-    })
-
-    // (6B-3B) Future hook: render sticker overlays here.
-    // For now, we keep stickers non-visual to avoid scope creep.
-    // In a later substep we can draw simple markers based on
-    // `stickerState.stickers` on top of the terrain.
-  }, [world, stickerState])
+    renderWorldToCanvas(mainCanvas, world)
+    renderWorldToCanvas(minimapCanvas, world)
+  }, [world])
 
   // ------------------------
   // Coordinate helpers
@@ -132,6 +129,10 @@ export default function CreateModeApp() {
     const rect = canvas.getBoundingClientRect()
     const px = ev.clientX - rect.left
     const py = ev.clientY - rect.top
+
+    if (px < 0 || py < 0 || px >= rect.width || py >= rect.height) {
+      return { cell: null, lat: 0, lon: 0 }
+    }
 
     const u = px / rect.width
     const v = py / rect.height
@@ -183,6 +184,10 @@ export default function CreateModeApp() {
     const px = ev.clientX - rect.left
     const py = ev.clientY - rect.top
 
+    if (px < 0 || py < 0 || px >= rect.width || py >= rect.height) {
+      return
+    }
+
     const u = px / rect.width
     const v = py / rect.height
 
@@ -190,14 +195,13 @@ export default function CreateModeApp() {
     const centerY = Math.floor(v * world.height)
 
     const radius = brushRadius
-
-    // Build new cells array with gentle height changes
-    const newCells = world.cells.slice()
     const width = world.width
     const height = world.height
 
     const strength = brushStrength // 0..1
     const isRaise = brushMode === 'raise'
+
+    const newCells = world.cells.slice()
 
     for (let dy = -radius; dy <= radius; dy++) {
       const yy = centerY + dy
@@ -212,7 +216,7 @@ export default function CreateModeApp() {
         if (distSq > maxDistSq) continue
 
         const index = yy * width + xx
-        const cell = newCells[index]
+        const cell = newCells[index] as WorldCell
         if (!cell) continue
 
         const falloff = 1 - distSq / (maxDistSq || 1)
@@ -231,10 +235,12 @@ export default function CreateModeApp() {
 
     setWorld(prev => {
       if (!prev) return prev
-      return {
+      const updated = {
         ...prev,
         cells: newCells,
       }
+      // useEffect([world]) will re-render canvases
+      return updated
     })
   }
 
