@@ -11,9 +11,10 @@
 //   • "Terrain brush" – paint terrain height by click + drag.
 // - Use the newer planetRenderer signature:
 //   renderPlanetToCanvas(ctx, preview)
-// - (6B-3B) Begin integrating stickers at the world level:
+// - (6B-3B) Stickers integration, phase 1:
 //   • Read `world.stickers` into a StickerState.
-//   • Do NOT yet render or edit stickers; this is data wiring only.
+//   • Render simple visual overlays for stickers on map + minimap.
+//   • No editing tools for stickers yet.
 // ========================================================
 
 import React, {
@@ -93,6 +94,8 @@ export default function CreateModeApp() {
       }
 
       setWorld(normalizedWorld)
+      // NOTE: For now we allow this to be a loose shape; future steps
+      // will adapt world stickers into the stricter engine Sticker type.
       setStickerState({ stickers } as StickerState)
       setNotFound(false)
     }
@@ -121,8 +124,70 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
+  // Helper: draw sticker overlays on a canvas
+  // ------------------------
+  function drawStickerOverlays(
+    canvas: HTMLCanvasElement,
+    currentWorld: LoadedWorld,
+    state: StickerState,
+  ) {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const stickers: any[] = (state.stickers ?? []) as any[]
+    if (!stickers.length) return
+
+    const canvasWidth = canvas.width
+    const canvasHeight = canvas.height
+
+    ctx.save()
+    ctx.lineWidth = 2
+
+    for (const s of stickers) {
+      const enabled = s.isEnabled !== false
+      if (!enabled) continue
+
+      // Support both WorldSticker shape (x,y,width,height)
+      // and future engine Sticker shape (transform.x, etc.)
+      const tx = typeof s.x === 'number' ? s.x : s.transform?.x
+      const ty = typeof s.y === 'number' ? s.y : s.transform?.y
+      const tw =
+        typeof s.width === 'number' ? s.width : s.transform?.width ?? 1
+      const th =
+        typeof s.height === 'number' ? s.height : s.transform?.height ?? 1
+
+      if (
+        typeof tx !== 'number' ||
+        typeof ty !== 'number' ||
+        typeof tw !== 'number' ||
+        typeof th !== 'number'
+      ) {
+        continue
+      }
+
+      const x0 = (tx / currentWorld.width) * canvasWidth
+      const y0 = (ty / currentWorld.height) * canvasHeight
+      const w = (tw / currentWorld.width) * canvasWidth
+      const h = (th / currentWorld.height) * canvasHeight
+
+      ctx.beginPath()
+      ctx.rect(x0, y0, w, h)
+
+      // Soft white outline + gentle fill, to keep with the clean style.
+      ctx.strokeStyle = '#ffffff'
+      ctx.globalAlpha = 0.9
+      ctx.stroke()
+
+      ctx.fillStyle = '#ffffff'
+      ctx.globalAlpha = 0.15
+      ctx.fill()
+    }
+
+    ctx.restore()
+  }
+
+  // ------------------------
   // Render main/minimap when world or stickers change
-  // (stickers not yet visual, but we include them in deps for later overlay work)
   // ------------------------
   useEffect(() => {
     if (!world) return
@@ -131,11 +196,13 @@ export default function CreateModeApp() {
     const minimapCanvas = minimapCanvasRef.current
     if (!mainCanvas || !minimapCanvas) return
 
+    // First, draw the terrain
     renderWorldToCanvas(mainCanvas, world)
     renderWorldToCanvas(minimapCanvas, world)
 
-    // Future 6B-3B substeps:
-    // - draw simple sticker markers using `stickerState.stickers`
+    // Then, overlay any stickers
+    drawStickerOverlays(mainCanvas, world, stickerState)
+    drawStickerOverlays(minimapCanvas, world, stickerState)
   }, [world, stickerState])
 
   // ------------------------
@@ -433,7 +500,7 @@ export default function CreateModeApp() {
           </div>
           <div>
             <strong>Surface</strong>
-            <div>{selectedCell.isLand ? 'Land' : 'Water'}</div>
+            <div>{selectedCell.isLand ? 'Land' : 'Water'} </div>
           </div>
         </div>
       )}
