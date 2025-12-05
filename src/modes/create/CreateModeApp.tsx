@@ -6,15 +6,16 @@
 // - Load a real world by id.
 // - Use AppShell with unified layout (left tools, main viewport,
 //   minimap bottom-left, right info panel).
-// - Provide two tools:
+// - Provide tools:
 //   • "Inspect" – sample location info from the map.
 //   • "Terrain brush" – paint terrain height by click + drag.
+//   • "Sticker" – place simple rectangular stickers on the map.
 // - Use the newer planetRenderer signature:
 //   renderPlanetToCanvas(ctx, preview)
-// - (6B-3B) Stickers integration, phase 1:
+// - Stickers integration:
 //   • Read `world.stickers` into a StickerState.
 //   • Render simple visual overlays for stickers on map + minimap.
-//   • No editing tools for stickers yet.
+//   • Allow placing new stickers (REGION type) via the Sticker tool.
 // ========================================================
 
 import React, {
@@ -41,7 +42,7 @@ type SelectedCellInfo = {
   isLand: boolean
 }
 
-type ActiveTool = 'inspect' | 'terrain-brush'
+type ActiveTool = 'inspect' | 'terrain-brush' | 'sticker'
 type BrushMode = 'raise' | 'lower'
 
 export default function CreateModeApp() {
@@ -62,7 +63,7 @@ export default function CreateModeApp() {
   const [brushStrength, setBrushStrength] = useState<number>(0.05)
   const [isBrushing, setIsBrushing] = useState(false)
 
-  // (6B-3B) Sticker state mirrored from world.stickers
+  // Stickers: editor state mirrored from world.stickers
   const [stickerState, setStickerState] =
     useState<StickerState>(emptyStickerState())
 
@@ -94,8 +95,7 @@ export default function CreateModeApp() {
       }
 
       setWorld(normalizedWorld)
-      // NOTE: For now we allow this to be a loose shape; future steps
-      // will adapt world stickers into the stricter engine Sticker type.
+      // For now we accept loose shapes and adapt in overlay logic.
       setStickerState({ stickers } as StickerState)
       setNotFound(false)
     }
@@ -147,8 +147,7 @@ export default function CreateModeApp() {
       const enabled = s.isEnabled !== false
       if (!enabled) continue
 
-      // Support both WorldSticker shape (x,y,width,height)
-      // and future engine Sticker shape (transform.x, etc.)
+      // Support both world-level and engine-level shapes.
       const tx = typeof s.x === 'number' ? s.x : s.transform?.x
       const ty = typeof s.y === 'number' ? s.y : s.transform?.y
       const tw =
@@ -173,7 +172,7 @@ export default function CreateModeApp() {
       ctx.beginPath()
       ctx.rect(x0, y0, w, h)
 
-      // Soft white outline + gentle fill, to keep with the clean style.
+      // Soft white outline + gentle fill.
       ctx.strokeStyle = '#ffffff'
       ctx.globalAlpha = 0.9
       ctx.stroke()
@@ -240,6 +239,90 @@ export default function CreateModeApp() {
     const lat = (0.5 - v) * 180
 
     return { cell, lat, lon }
+  }
+
+  // ------------------------
+  // Sticker placement
+  // ------------------------
+  function createStickerAt(ev: ReactMouseEvent<HTMLCanvasElement>) {
+    if (!world) return
+
+    const canvas = ev.currentTarget
+    const rect = canvas.getBoundingClientRect()
+    const px = ev.clientX - rect.left
+    const py = ev.clientY - rect.top
+
+    if (px < 0 || py < 0 || px >= rect.width || py >= rect.height) {
+      return
+    }
+
+    const u = px / rect.width
+    const v = py / rect.height
+
+    const centerX = Math.floor(u * world.width)
+    const centerY = Math.floor(v * world.height)
+
+    // Simple default size relative to world size
+    const baseSize = Math.max(
+      4,
+      Math.round(Math.min(world.width, world.height) / 16),
+    )
+    let widthCells = baseSize
+    let heightCells = baseSize
+
+    let x0 = centerX - Math.floor(widthCells / 2)
+    let y0 = centerY - Math.floor(heightCells / 2)
+
+    if (x0 < 0) x0 = 0
+    if (y0 < 0) y0 = 0
+    if (x0 + widthCells > world.width) {
+      widthCells = world.width - x0
+    }
+    if (y0 + heightCells > world.height) {
+      heightCells = world.height - y0
+    }
+    if (widthCells <= 0 || heightCells <= 0) return
+
+    const id = `sticker_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 8)}`
+    const type = 'REGION'
+
+    // Superset shape that satisfies both WorldSticker and Sticker
+    const newSticker: any = {
+      id,
+      worldId: world.id,
+      type,
+      x: x0,
+      y: y0,
+      width: widthCells,
+      height: heightCells,
+      transform: {
+        x: x0,
+        y: y0,
+        width: widthCells,
+        height: heightCells,
+      },
+      metadata: { kind: 'REGION' },
+      isEnabled: true,
+    }
+
+    // Update world.stickers
+    setWorld(prev => {
+      if (!prev) return prev
+      const existing = Array.isArray((prev as any).stickers)
+        ? (prev as any).stickers
+        : []
+      const updated = [...existing, newSticker]
+      return { ...prev, stickers: updated as any }
+    })
+
+    // Update editor sticker state
+    setStickerState(prev => {
+      const existing = Array.isArray(prev.stickers) ? prev.stickers : []
+      const updated = [...(existing as any[]), newSticker]
+      return { stickers: updated } as StickerState
+    })
   }
 
   // ------------------------
@@ -341,6 +424,12 @@ export default function CreateModeApp() {
     if (activeTool === 'terrain-brush') {
       setIsBrushing(true)
       applyBrushAt(ev)
+      return
+    }
+
+    if (activeTool === 'sticker') {
+      createStickerAt(ev)
+      return
     }
   }
 
@@ -411,6 +500,13 @@ export default function CreateModeApp() {
         onClick={() => setActiveTool('terrain-brush')}
       >
         Terrain brush
+      </button>
+
+      <button
+        className={activeTool === 'sticker' ? 'active' : ''}
+        onClick={() => setActiveTool('sticker')}
+      >
+        Sticker
       </button>
 
       {activeTool === 'terrain-brush' && (
@@ -500,7 +596,7 @@ export default function CreateModeApp() {
           </div>
           <div>
             <strong>Surface</strong>
-            <div>{selectedCell.isLand ? 'Land' : 'Water'} </div>
+            <div>{selectedCell.isLand ? 'Land' : 'Water'}</div>
           </div>
         </div>
       )}
