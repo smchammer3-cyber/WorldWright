@@ -9,13 +9,13 @@
 // - Provide tools:
 //   • "Inspect" – sample location info from the map.
 //   • "Terrain brush" – paint terrain height by click + drag.
-//   • "Sticker" – place simple rectangular stickers on the map.
-// - Use the newer planetRenderer signature:
-//   renderPlanetToCanvas(ctx, preview)
+//   • "Sticker" – place and manage simple rectangular stickers.
 // - Stickers integration:
 //   • Read `world.stickers` into a StickerState.
 //   • Render simple visual overlays for stickers on map + minimap.
-//   • Allow placing new stickers (REGION type) via the Sticker tool.
+//   • Allow placing new stickers (REGION type).
+//   • Allow selecting an existing sticker by clicking it.
+//   • Allow deleting the selected sticker.
 // ========================================================
 
 import React, {
@@ -67,6 +67,11 @@ export default function CreateModeApp() {
   const [stickerState, setStickerState] =
     useState<StickerState>(emptyStickerState())
 
+  // Id of currently selected sticker (if any)
+  const [selectedStickerId, setSelectedStickerId] = useState<string | null>(
+    null,
+  )
+
   const mainCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
@@ -85,7 +90,6 @@ export default function CreateModeApp() {
       setWorld(null)
       setNotFound(true)
     } else {
-      // Treat missing stickers as [] for editor purposes
       const stickersRaw = (w as any).stickers
       const stickers = Array.isArray(stickersRaw) ? stickersRaw : []
 
@@ -95,8 +99,8 @@ export default function CreateModeApp() {
       }
 
       setWorld(normalizedWorld)
-      // For now we accept loose shapes and adapt in overlay logic.
       setStickerState({ stickers } as StickerState)
+      setSelectedStickerId(null)
       setNotFound(false)
     }
   }, [id])
@@ -130,6 +134,7 @@ export default function CreateModeApp() {
     canvas: HTMLCanvasElement,
     currentWorld: LoadedWorld,
     state: StickerState,
+    selectedId: string | null,
   ) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
@@ -141,13 +146,11 @@ export default function CreateModeApp() {
     const canvasHeight = canvas.height
 
     ctx.save()
-    ctx.lineWidth = 2
 
     for (const s of stickers) {
       const enabled = s.isEnabled !== false
       if (!enabled) continue
 
-      // Support both world-level and engine-level shapes.
       const tx = typeof s.x === 'number' ? s.x : s.transform?.x
       const ty = typeof s.y === 'number' ? s.y : s.transform?.y
       const tw =
@@ -169,17 +172,32 @@ export default function CreateModeApp() {
       const w = (tw / currentWorld.width) * canvasWidth
       const h = (th / currentWorld.height) * canvasHeight
 
+      const isSelected = selectedId != null && s.id === selectedId
+
       ctx.beginPath()
       ctx.rect(x0, y0, w, h)
 
-      // Soft white outline + gentle fill.
-      ctx.strokeStyle = '#ffffff'
-      ctx.globalAlpha = 0.9
-      ctx.stroke()
+      if (isSelected) {
+        // Stronger, more visible outline + fill for selected sticker
+        ctx.strokeStyle = '#ffffff'
+        ctx.lineWidth = 3
+        ctx.globalAlpha = 1
+        ctx.stroke()
 
-      ctx.fillStyle = '#ffffff'
-      ctx.globalAlpha = 0.15
-      ctx.fill()
+        ctx.fillStyle = '#ffffff'
+        ctx.globalAlpha = 0.25
+        ctx.fill()
+      } else {
+        // Default soft style
+        ctx.strokeStyle = '#ffffff'
+        ctx.lineWidth = 2
+        ctx.globalAlpha = 0.9
+        ctx.stroke()
+
+        ctx.fillStyle = '#ffffff'
+        ctx.globalAlpha = 0.15
+        ctx.fill()
+      }
     }
 
     ctx.restore()
@@ -200,9 +218,9 @@ export default function CreateModeApp() {
     renderWorldToCanvas(minimapCanvas, world)
 
     // Then, overlay any stickers
-    drawStickerOverlays(mainCanvas, world, stickerState)
-    drawStickerOverlays(minimapCanvas, world, stickerState)
-  }, [world, stickerState])
+    drawStickerOverlays(mainCanvas, world, stickerState, selectedStickerId)
+    drawStickerOverlays(minimapCanvas, world, stickerState, selectedStickerId)
+  }, [world, stickerState, selectedStickerId])
 
   // ------------------------
   // Coordinate helpers
@@ -234,7 +252,6 @@ export default function CreateModeApp() {
     const index = y * world.width + x
     const cell = world.cells[index]
 
-    // Simple equirectangular mapping approximation
     const lon = (u - 0.5) * 360
     const lat = (0.5 - v) * 180
 
@@ -242,7 +259,65 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // Sticker placement
+  // Sticker hit testing
+  // ------------------------
+  function hitTestStickerAtEvent(
+    ev: ReactMouseEvent<HTMLCanvasElement>,
+  ): any | null {
+    if (!world) return null
+
+    const canvas = ev.currentTarget
+    const rect = canvas.getBoundingClientRect()
+    const px = ev.clientX - rect.left
+    const py = ev.clientY - rect.top
+
+    if (px < 0 || py < 0 || px >= rect.width || py >= rect.height) {
+      return null
+    }
+
+    const u = px / rect.width
+    const v = py / rect.height
+
+    const gx = Math.floor(u * world.width)
+    const gy = Math.floor(v * world.height)
+
+    const stickers: any[] = (stickerState.stickers ?? []) as any[]
+    if (!stickers.length) return null
+
+    // Check from top-most (last) to bottom-most
+    for (let i = stickers.length - 1; i >= 0; i--) {
+      const s = stickers[i]
+      const tx = typeof s.x === 'number' ? s.x : s.transform?.x
+      const ty = typeof s.y === 'number' ? s.y : s.transform?.y
+      const tw =
+        typeof s.width === 'number' ? s.width : s.transform?.width ?? 1
+      const th =
+        typeof s.height === 'number' ? s.height : s.transform?.height ?? 1
+
+      if (
+        typeof tx !== 'number' ||
+        typeof ty !== 'number' ||
+        typeof tw !== 'number' ||
+        typeof th !== 'number'
+      ) {
+        continue
+      }
+
+      if (
+        gx >= tx &&
+        gx < tx + tw &&
+        gy >= ty &&
+        gy < ty + th
+      ) {
+        return s
+      }
+    }
+
+    return null
+  }
+
+  // ------------------------
+  // Sticker creation
   // ------------------------
   function createStickerAt(ev: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
@@ -262,7 +337,6 @@ export default function CreateModeApp() {
     const centerX = Math.floor(u * world.width)
     const centerY = Math.floor(v * world.height)
 
-    // Simple default size relative to world size
     const baseSize = Math.max(
       4,
       Math.round(Math.min(world.width, world.height) / 16),
@@ -288,7 +362,6 @@ export default function CreateModeApp() {
       .slice(2, 8)}`
     const type = 'REGION'
 
-    // Superset shape that satisfies both WorldSticker and Sticker
     const newSticker: any = {
       id,
       worldId: world.id,
@@ -307,7 +380,6 @@ export default function CreateModeApp() {
       isEnabled: true,
     }
 
-    // Update world.stickers
     setWorld(prev => {
       if (!prev) return prev
       const existing = Array.isArray((prev as any).stickers)
@@ -317,12 +389,40 @@ export default function CreateModeApp() {
       return { ...prev, stickers: updated as any }
     })
 
-    // Update editor sticker state
     setStickerState(prev => {
       const existing = Array.isArray(prev.stickers) ? prev.stickers : []
       const updated = [...(existing as any[]), newSticker]
       return { stickers: updated } as StickerState
     })
+
+    setSelectedStickerId(id)
+  }
+
+  // ------------------------
+  // Sticker deletion
+  // ------------------------
+  function deleteSelectedSticker() {
+    if (!selectedStickerId) return
+    if (!world) return
+
+    const idToDelete = selectedStickerId
+
+    setWorld(prev => {
+      if (!prev) return prev
+      const existing = Array.isArray((prev as any).stickers)
+        ? (prev as any).stickers
+        : []
+      const updated = existing.filter((s: any) => s.id !== idToDelete)
+      return { ...prev, stickers: updated as any }
+    })
+
+    setStickerState(prev => {
+      const existing = Array.isArray(prev.stickers) ? prev.stickers : []
+      const updated = (existing as any[]).filter(s => s.id !== idToDelete)
+      return { stickers: updated } as StickerState
+    })
+
+    setSelectedStickerId(null)
   }
 
   // ------------------------
@@ -369,7 +469,7 @@ export default function CreateModeApp() {
     const width = world.width
     const height = world.height
 
-    const strength = brushStrength // 0..1
+    const strength = brushStrength
     const isRaise = brushMode === 'raise'
 
     const newCells = world.cells.slice()
@@ -410,11 +510,13 @@ export default function CreateModeApp() {
         ...prev,
         cells: newCells,
       }
-      // useEffect([world, stickerState]) will re-render canvases
       return updated
     })
   }
 
+  // ------------------------
+  // Main canvas mouse handlers
+  // ------------------------
   function handleMainCanvasMouseDown(ev: ReactMouseEvent<HTMLCanvasElement>) {
     if (activeTool === 'inspect') {
       handleInspectClick(ev)
@@ -428,7 +530,12 @@ export default function CreateModeApp() {
     }
 
     if (activeTool === 'sticker') {
-      createStickerAt(ev)
+      const hit = hitTestStickerAtEvent(ev)
+      if (hit) {
+        setSelectedStickerId(hit.id)
+      } else {
+        createStickerAt(ev)
+      }
       return
     }
   }
@@ -480,6 +587,17 @@ export default function CreateModeApp() {
       />
     )
   }
+
+  // ------------------------
+  // Helpers: find selected sticker details
+  // ------------------------
+  function getSelectedSticker(): any | null {
+    if (!selectedStickerId) return null
+    const arr: any[] = (stickerState.stickers ?? []) as any[]
+    return arr.find(s => s.id === selectedStickerId) || null
+  }
+
+  const selectedSticker = getSelectedSticker()
 
   // ------------------------
   // Render: main UI
@@ -598,6 +716,43 @@ export default function CreateModeApp() {
             <strong>Surface</strong>
             <div>{selectedCell.isLand ? 'Land' : 'Water'}</div>
           </div>
+        </div>
+      )}
+
+      {activeTool === 'sticker' && (
+        <div style={{ marginTop: '1rem' }}>
+          <h3>Sticker info</h3>
+          {!selectedSticker && (
+            <p>
+              Click on the map to create a sticker, or click an existing one to
+              select it.
+            </p>
+          )}
+          {selectedSticker && (
+            <>
+              <div className="ww-info-grid">
+                <div>
+                  <strong>Type</strong>
+                  <div>{selectedSticker.type ?? 'REGION'}</div>
+                </div>
+                <div>
+                  <strong>Grid region</strong>
+                  <div>
+                    x: {selectedSticker.x}, y: {selectedSticker.y}
+                  </div>
+                  <div>
+                    w: {selectedSticker.width}, h: {selectedSticker.height}
+                  </div>
+                </div>
+              </div>
+              <button
+                style={{ marginTop: '0.75rem' }}
+                onClick={deleteSelectedSticker}
+              >
+                Delete sticker
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
