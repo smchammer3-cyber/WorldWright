@@ -22,7 +22,7 @@ import React, {
   MouseEvent as ReactMouseEvent,
 } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import AppShell from '../../ui/AppShell'
+import { AppShell } from '../../ui/AppShell'
 import { renderPlanetToCanvas } from '../../core/planetRenderer'
 import { getWorld } from '../../core/worldStorage'
 import type { World, WorldCell } from '../../core/world'
