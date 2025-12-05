@@ -11,7 +11,7 @@
 //   • Show basic info (lat / lon / height / land vs water) in the right panel.
 // - Add the first terrain editing tool: "Terrain brush" (6B-2).
 //   • Terrain brush ONLY edits baseHeight (heightmap), never biomes or stickers.
-//   • Click or drag on the map to gently raise/lower terrain.
+//   • Click OR DRAG on the map to gently raise/lower terrain (paint-like).
 // - Still an early Create Mode: only Inspect + height brush are available.
 // ========================================================
 
@@ -158,21 +158,18 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // Terrain brush helpers
+  // Terrain brush helpers (heightmap-only brush)
   // ------------------------
-  function applyBrushAt(
-    event: React.MouseEvent<HTMLCanvasElement> | MouseEvent,
-  ) {
+  function applyBrushAtEvent(event: React.MouseEvent<HTMLCanvasElement>) {
     if (!world) return
 
     const { width, height, cells } = world
-
     const canvas = mainCanvasRef.current
     if (!canvas) return
 
     const rect = canvas.getBoundingClientRect()
-    const px = (event as MouseEvent).clientX - rect.left
-    const py = (event as MouseEvent).clientY - rect.top
+    const px = event.clientX - rect.left
+    const py = event.clientY - rect.top
 
     if (px < 0 || py < 0 || px >= rect.width || py >= rect.height) {
       return
@@ -232,34 +229,37 @@ export default function CreateModeApp() {
     setWorld(updatedWorld)
   }
 
-  function handleBrushMouseDown(event: React.MouseEvent<HTMLCanvasElement>) {
-    applyBrushAt(event)
-    setIsBrushing(true)
-
-    const handleMove = (moveEvent: MouseEvent) => {
-      applyBrushAt(moveEvent)
-    }
-
-    const handleUp = () => {
-      setIsBrushing(false)
-      window.removeEventListener('mousemove', handleMove)
-      window.removeEventListener('mouseup', handleUp)
-    }
-
-    window.addEventListener('mousemove', handleMove)
-    window.addEventListener('mouseup', handleUp)
-  }
-
   // ------------------------
-  // Event handler deciding which tool is active
+  // Main canvas event handlers
   // ------------------------
   function handleMainCanvasMouseDown(
     event: React.MouseEvent<HTMLCanvasElement>,
   ) {
     if (activeTool === 'terrain-brush') {
-      handleBrushMouseDown(event)
+      setIsBrushing(true)
+      applyBrushAtEvent(event)
     } else if (activeTool === 'inspect') {
       handleInspectClick(event)
+    }
+  }
+
+  function handleMainCanvasMouseMove(
+    event: React.MouseEvent<HTMLCanvasElement>,
+  ) {
+    if (!isBrushing) return
+    if (activeTool !== 'terrain-brush') return
+    applyBrushAtEvent(event)
+  }
+
+  function handleMainCanvasMouseUp() {
+    if (isBrushing) {
+      setIsBrushing(false)
+    }
+  }
+
+  function handleMainCanvasMouseLeave() {
+    if (isBrushing) {
+      setIsBrushing(false)
     }
   }
 
@@ -418,6 +418,9 @@ export default function CreateModeApp() {
             ref={mainCanvasRef}
             className="ww-main-canvas"
             onMouseDown={handleMainCanvasMouseDown}
+            onMouseMove={handleMainCanvasMouseMove}
+            onMouseUp={handleMainCanvasMouseUp}
+            onMouseLeave={handleMainCanvasMouseLeave}
           />
         </div>
       }
