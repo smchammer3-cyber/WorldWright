@@ -1,6 +1,6 @@
 // ========================================================
 // JARVIS_CHANGE (6B-1, 6B-2 – Create Mode Inspect Tool + Terrain Brush)
-// Date: 2025-12-03
+// Date: 2025-12-05
 //
 // Purpose:
 // - Keep Create Mode loading a real world by id.
@@ -21,8 +21,9 @@ import { AppShell } from '../../ui/AppShell'
 import { getWorld } from '../../core/worldStorage'
 import { renderPlanetToCanvas } from '../../core/planetRenderer'
 import { StickerState, emptyStickerState } from '../../core/stickerEngine'
+import type { World } from '../../core/world'
 
-type LoadedWorld = any
+type LoadedWorld = World
 
 type SelectedCellInfo = {
   x: number
@@ -52,14 +53,17 @@ export default function CreateModeApp() {
   const [brushStrength, setBrushStrength] = useState<number>(0.05)
   const [isBrushing, setIsBrushing] = useState(false)
 
+  // Stickers are wired in later steps; we keep state ready but unused for now.
   const [stickerState, setStickerState] =
     useState<StickerState>(emptyStickerState())
+  void stickerState
+  void setStickerState
 
   const mainCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   // ------------------------
-  // Load world
+  // Load world by id
   // ------------------------
   useEffect(() => {
     if (!id) {
@@ -73,7 +77,7 @@ export default function CreateModeApp() {
       setWorld(null)
       setNotFound(true)
     } else {
-      setWorld(w)
+      setWorld(w as LoadedWorld)
       setNotFound(false)
     }
   }, [id])
@@ -88,17 +92,22 @@ export default function CreateModeApp() {
     const minimapCanvas = minimapCanvasRef.current
     if (!mainCanvas || !minimapCanvas) return
 
-    renderPlanetToCanvas({
-      canvas: mainCanvas,
-      world,
-      mode: 'map',
-    })
+    const mainCtx = mainCanvas.getContext('2d')
+    const minimapCtx = minimapCanvas.getContext('2d')
+    if (!mainCtx || !minimapCtx) return
 
-    renderPlanetToCanvas({
-      canvas: minimapCanvas,
-      world,
-      mode: 'minimap',
-    })
+    const { width, height, cells, seaLevel } = world
+
+    const preview = {
+      width,
+      height,
+      cells: cells as { baseHeight: number }[],
+      seaLevel: seaLevel ?? 0.5,
+    }
+
+    // Use the same renderer as Generate Mode for both main view and minimap.
+    renderPlanetToCanvas(mainCtx, preview)
+    renderPlanetToCanvas(minimapCtx, preview)
   }, [world])
 
   // ------------------------
@@ -204,6 +213,10 @@ export default function CreateModeApp() {
           baseHeight -= delta
         }
 
+        // Clamp to a safe range for now (0..1, matching generator output).
+        if (baseHeight < 0) baseHeight = 0
+        if (baseHeight > 1) baseHeight = 1
+
         newCells[index] = {
           ...cell,
           baseHeight,
@@ -211,34 +224,17 @@ export default function CreateModeApp() {
       }
     }
 
-    const updatedWorld = {
+    const updatedWorld: LoadedWorld = {
       ...world,
       cells: newCells,
     }
 
     setWorld(updatedWorld)
-
-    // Re-render after brush change
-    const mainCanvas = mainCanvasRef.current
-    const minimapCanvas = minimapCanvasRef.current
-    if (!mainCanvas || !minimapCanvas) return
-
-    renderPlanetToCanvas({
-      canvas: mainCanvas,
-      world: updatedWorld,
-      mode: 'map',
-    })
-
-    renderPlanetToCanvas({
-      canvas: minimapCanvas,
-      world: updatedWorld,
-      mode: 'minimap',
-    })
   }
 
   function handleBrushMouseDown(event: React.MouseEvent<HTMLCanvasElement>) {
-    setIsBrushing(true)
     applyBrushAt(event)
+    setIsBrushing(true)
 
     const handleMove = (moveEvent: MouseEvent) => {
       applyBrushAt(moveEvent)
@@ -268,13 +264,14 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // UI render
+  // UI render branches: missing id / not found / normal
   // ------------------------
   if (!id) {
     return (
       <AppShell
         title="Create Mode"
-        leftPanel={
+        onBack={() => navigate('/')}
+        leftToolbar={
           <div className="ww-panel">
             <h2>No world selected</h2>
             <p>Select a world from the list to start editing.</p>
@@ -286,7 +283,9 @@ export default function CreateModeApp() {
             <p>No world loaded.</p>
           </div>
         }
-        minimap={<div className="ww-minimap-placeholder">No minimap</div>}
+        minimapOverlay={
+          <div className="ww-minimap-placeholder">No minimap</div>
+        }
         rightPanel={
           <div className="ww-panel">
             <h2>Info</h2>
@@ -301,7 +300,8 @@ export default function CreateModeApp() {
     return (
       <AppShell
         title="Create Mode"
-        leftPanel={
+        onBack={() => navigate('/')}
+        leftToolbar={
           <div className="ww-panel">
             <h2>World not found</h2>
             <p>The requested world could not be found.</p>
@@ -313,7 +313,9 @@ export default function CreateModeApp() {
             <p>Unable to load world.</p>
           </div>
         }
-        minimap={<div className="ww-minimap-placeholder">No minimap</div>}
+        minimapOverlay={
+          <div className="ww-minimap-placeholder">No minimap</div>
+        }
         rightPanel={
           <div className="ww-panel">
             <h2>Info</h2>
@@ -324,10 +326,14 @@ export default function CreateModeApp() {
     )
   }
 
+  // ------------------------
+  // Normal render with active world
+  // ------------------------
   return (
     <AppShell
       title="Create Mode"
-      leftPanel={
+      onBack={() => navigate('/')}
+      leftToolbar={
         <div className="ww-panel ww-panel--left">
           <h2>Tools</h2>
 
@@ -383,19 +389,23 @@ export default function CreateModeApp() {
                   min={1}
                   max={32}
                   value={brushRadius}
-                  onChange={(e) => setBrushRadius(Number(e.target.value))}
+                  onChange={(e) =>
+                    setBrushRadius(Number(e.target.value))
+                  }
                 />
               </label>
 
               <label className="ww-field">
-                <span>Strength: {brushStrength.toFixed(3)}</span>
+                <span>Strength: {brushStrength.toFixed(2)}</span>
                 <input
                   type="range"
                   min={0.01}
                   max={0.2}
-                  step={0.005}
+                  step={0.01}
                   value={brushStrength}
-                  onChange={(e) => setBrushStrength(Number(e.target.value))}
+                  onChange={(e) =>
+                    setBrushStrength(Number(e.target.value))
+                  }
                 />
               </label>
             </div>
@@ -411,9 +421,12 @@ export default function CreateModeApp() {
           />
         </div>
       }
-      minimap={
+      minimapOverlay={
         <div className="ww-minimap-container">
-          <canvas ref={minimapCanvasRef} className="ww-minimap-canvas" />
+          <canvas
+            ref={minimapCanvasRef}
+            className="ww-minimap-canvas"
+          />
         </div>
       }
       rightPanel={
@@ -422,14 +435,17 @@ export default function CreateModeApp() {
           {selectedCell ? (
             <div className="ww-inspect-info">
               <p>
-                <strong>Grid:</strong> ({selectedCell.x}, {selectedCell.y})
+                <strong>Grid:</strong> ({selectedCell.x},{' '}
+                {selectedCell.y})
               </p>
               <p>
                 <strong>Lat/Lon:</strong>{' '}
-                {selectedCell.lat.toFixed(2)}°, {selectedCell.lon.toFixed(2)}°
+                {selectedCell.lat.toFixed(2)}°,{' '}
+                {selectedCell.lon.toFixed(2)}°
               </p>
               <p>
-                <strong>Height:</strong> {selectedCell.baseHeight.toFixed(3)}
+                <strong>Height:</strong>{' '}
+                {selectedCell.baseHeight.toFixed(3)}
               </p>
               <p>
                 <strong>Type:</strong>{' '}
