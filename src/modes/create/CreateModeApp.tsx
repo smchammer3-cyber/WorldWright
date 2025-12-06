@@ -1,19 +1,27 @@
 // ========================================================
-// JARVIS_CHANGE (6B-1, 6B-2, 6B-3B – Create Mode)
-// Date: 2025-12-05
+// JARVIS_CHANGE (6B-1, 6B-2, 6B-3B, 6B-4 – Create Mode)
+// Date: 2025-12-06
 //
-// Purpose:
+// Purpose (current state):
 // - Load a real world by id.
-// - Use AppShell with unified layout (left tools, main viewport,
-//   minimap bottom-left, right info panel).
-// - Provide tools:
+// - Use AppShell with unified layout:
+//   • Left: tools + view mode toggle
+//   • Center: main viewport (map or globe)
+//   • Bottom-left: minimap (globe view only)
+//   • Right: info panel + save controls
+// - Provide tools (map view):
 //   • "Inspect" – sample location info from the map.
 //   • "Terrain brush" – paint terrain height by click + drag.
 //   • "Sticker" – place and manage simple rectangular stickers.
-// - Stickers integration:
+// - Stickers:
 //   • Read `world.stickers` into a StickerState.
-//   • Render simple visual overlays for stickers on map + minimap.
-//   • Allow placing new stickers (REGION type).
+//   • Render simple overlays on map + minimap (map view only for main,
+//     minimap in globe view).
+// - Persistence:
+//   • "Save world" button persists edited world via saveWorld(world).
+// - View modes (6B-4, part 1):
+//   • Map view: flat map, no minimap, full editing.
+//   • Globe view: shaded globe preview + minimap, view-only for now.
 // ========================================================
 
 import React, {
@@ -24,7 +32,10 @@ import React, {
 } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppShell } from '../../ui/AppShell'
-import { renderPlanetToCanvas } from '../../core/planetRenderer'
+import {
+  renderPlanetToCanvas,
+  sampleColorForHeight,
+} from '../../core/planetRenderer'
 import { getWorld, saveWorld } from '../../core/worldStorage'
 import type { World, WorldCell } from '../../core/world'
 import { StickerState, emptyStickerState } from '../../core/stickerEngine'
@@ -42,6 +53,7 @@ type SelectedCellInfo = {
 
 type ActiveTool = 'inspect' | 'terrain-brush' | 'sticker'
 type BrushMode = 'raise' | 'lower'
+type ViewMode = 'map' | 'globe'
 
 export default function CreateModeApp() {
   const navigate = useNavigate()
@@ -51,6 +63,7 @@ export default function CreateModeApp() {
   const [notFound, setNotFound] = useState(false)
 
   const [activeTool, setActiveTool] = useState<ActiveTool>('inspect')
+  const [viewMode, setViewMode] = useState<ViewMode>('map')
 
   const [selectedCell, setSelectedCell] = useState<SelectedCellInfo | null>(
     null,
@@ -110,18 +123,15 @@ export default function CreateModeApp() {
   }, [id])
 
   // ------------------------
-  // Helper: render world onto a canvas
+  // Helper: render world as flat map onto a canvas
   // ------------------------
-  function renderWorldToCanvas(
+  function renderWorldMapToCanvas(
     canvas: HTMLCanvasElement,
     currentWorld: LoadedWorld,
   ) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // IMPORTANT:
-    // renderPlanetToCanvas expects a PlanetPreview:
-    // { width, height, cells: { baseHeight }[], seaLevel }
     const preview = {
       width: currentWorld.width,
       height: currentWorld.height,
@@ -130,6 +140,136 @@ export default function CreateModeApp() {
     }
 
     renderPlanetToCanvas(ctx, preview)
+  }
+
+  // ------------------------
+  // Helper: render world as a shaded globe onto a canvas
+  // ------------------------
+  function renderWorldGlobeToCanvas(
+    canvas: HTMLCanvasElement,
+    currentWorld: LoadedWorld,
+  ) {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const width = currentWorld.width
+    const height = currentWorld.height
+    if (width <= 0 || height <= 0) return
+
+    const seaLevel = currentWorld.seaLevel
+    const cells = currentWorld.cells
+
+    // Make canvas square for the globe.
+    const baseSize = Math.min(canvas.width || 1, canvas.height || 1)
+    const globeSize = baseSize > 0 ? baseSize : 512
+    canvas.width = globeSize
+    canvas.height = globeSize
+
+    const imageData = ctx.createImageData(globeSize, globeSize)
+    const data = imageData.data
+
+    // Bilinear sampling of height on the flat map
+    function sampleHeight(u: number, v: number): number {
+      if (!Number.isFinite(u) || !Number.isFinite(v)) return seaLevel
+
+      // Wrap horizontally, clamp vertically
+      const uu = ((u % 1) + 1) % 1
+      const vv = Math.min(1, Math.max(0, v))
+
+      const x = uu * (width - 1)
+      const y = vv * (height - 1)
+
+      const x0 = Math.floor(x)
+      const y0 = Math.floor(y)
+      const x1 = Math.min(width - 1, x0 + 1)
+      const y1 = Math.min(height - 1, y0 + 1)
+
+      const tx = x - x0
+      const ty = y - y0
+
+      const idxAt = (ix: number, iy: number) => iy * width + ix
+
+      const h00 = cells[idxAt(x0, y0)]?.baseHeight ?? seaLevel
+      const h10 = cells[idxAt(x1, y0)]?.baseHeight ?? seaLevel
+      const h01 = cells[idxAt(x0, y1)]?.baseHeight ?? seaLevel
+      const h11 = cells[idxAt(x1, y1)]?.baseHeight ?? seaLevel
+
+      const hx0 = h00 * (1 - tx) + h10 * tx
+      const hx1 = h01 * (1 - tx) + h11 * tx
+      return hx0 * (1 - ty) + hx1 * ty
+    }
+
+    // Simple directional light
+    const lightDir = { x: 0.4, y: -0.6, z: 0.7 }
+    {
+      const len =
+        Math.sqrt(
+          lightDir.x * lightDir.x +
+            lightDir.y * lightDir.y +
+            lightDir.z * lightDir.z,
+        ) || 1
+      lightDir.x /= len
+      lightDir.y /= len
+      lightDir.z /= len
+    }
+
+    const radius = globeSize / 2
+    const cx = radius
+    const cy = radius
+    const rMax = radius * radius
+
+    for (let py = 0; py < globeSize; py++) {
+      for (let px = 0; px < globeSize; px++) {
+        const dx = px - cx
+        const dy = py - cy
+        const r2 = dx * dx + dy * dy
+        const idx = (py * globeSize + px) * 4
+
+        if (r2 > rMax) {
+          // Outside the globe circle → transparent
+          data[idx] = 0
+          data[idx + 1] = 0
+          data[idx + 2] = 0
+          data[idx + 3] = 0
+          continue
+        }
+
+        const nx = dx / radius
+        const ny = dy / radius
+        const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny))
+
+        // Convert sphere normal to UV (equirectangular-style)
+        const u = (Math.atan2(nx, nz) / (2 * Math.PI) + 0.5) % 1
+        const v = ny * 0.5 + 0.5
+
+        const h = sampleHeight(u, v)
+        const baseColor = sampleColorForHeight(h, seaLevel)
+
+        const nDotL =
+          nx * lightDir.x + ny * lightDir.y + nz * lightDir.z
+        const light = 0.25 + Math.max(0, nDotL) * 0.75
+
+        const r = Math.max(
+          0,
+          Math.min(255, Math.round(baseColor.r * light)),
+        )
+        const g = Math.max(
+          0,
+          Math.min(255, Math.round(baseColor.g * light)),
+        )
+        const b = Math.max(
+          0,
+          Math.min(255, Math.round(baseColor.b * light)),
+        )
+
+        data[idx] = r
+        data[idx + 1] = g
+        data[idx + 2] = b
+        data[idx + 3] = 255
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0)
   }
 
   // ------------------------
@@ -203,13 +343,37 @@ export default function CreateModeApp() {
 
     const mainCanvas = mainCanvasRef.current
     const minimapCanvas = minimapCanvasRef.current
-    if (!mainCanvas || !minimapCanvas) return
+    if (!mainCanvas) return
 
-    renderWorldToCanvas(mainCanvas, world)
-    renderWorldToCanvas(minimapCanvas, world)
-    drawStickerOverlays(mainCanvas, world, stickerState, selectedStickerId)
-    drawStickerOverlays(minimapCanvas, world, stickerState, selectedStickerId)
-  }, [world, stickerState, selectedStickerId])
+    // Main view:
+    if (viewMode === 'map') {
+      renderWorldMapToCanvas(mainCanvas, world)
+      drawStickerOverlays(mainCanvas, world, stickerState, selectedStickerId)
+    } else {
+      // Globe view: shaded globe, no sticker overlays for now.
+      renderWorldGlobeToCanvas(mainCanvas, world)
+    }
+
+    // Minimap:
+    if (minimapCanvas) {
+      const ctx = minimapCanvas.getContext('2d')
+      if (!ctx) return
+
+      if (viewMode === 'globe') {
+        // Minimap only visible in globe view, as full flat map.
+        renderWorldMapToCanvas(minimapCanvas, world)
+        drawStickerOverlays(
+          minimapCanvas,
+          world,
+          stickerState,
+          selectedStickerId,
+        )
+      } else {
+        // Map view: clear minimap canvas (not shown in UI anyway).
+        ctx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height)
+      }
+    }
+  }, [world, stickerState, selectedStickerId, viewMode])
 
   // ------------------------
   // Coordinate helpers
@@ -261,10 +425,16 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // Inspect tool logic
+  // Inspect tool logic (map view only)
   // ------------------------
   function handleInspectClick(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
+    if (viewMode !== 'map') {
+      // For now, inspection is only defined in flat map view.
+      setSelectedCell(null)
+      return
+    }
+
     const canvas = mainCanvasRef.current
     if (!canvas) return
 
@@ -288,10 +458,12 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // Terrain brush logic
+  // Terrain brush logic (map view only)
   // ------------------------
   function applyBrushAt(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
+    if (viewMode !== 'map') return
+
     const canvas = mainCanvasRef.current
     if (!canvas) return
 
@@ -344,10 +516,14 @@ export default function CreateModeApp() {
 
   function handleMainCanvasMouseDown(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
+
     if (activeTool === 'inspect') {
       handleInspectClick(evt)
       return
     }
+
+    // Editing tools only work in map view for now.
+    if (viewMode !== 'map') return
 
     if (activeTool === 'terrain-brush') {
       setIsBrushing(true)
@@ -356,7 +532,6 @@ export default function CreateModeApp() {
     }
 
     if (activeTool === 'sticker') {
-      // Sticker creation when clicking in sticker mode
       const canvas = mainCanvasRef.current
       if (!canvas) return
 
@@ -404,6 +579,7 @@ export default function CreateModeApp() {
   function handleMainCanvasMouseMove(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!isBrushing) return
     if (activeTool !== 'terrain-brush') return
+    if (viewMode !== 'map') return
     applyBrushAt(evt)
   }
 
@@ -420,10 +596,11 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // Sticker selection via click (minimap)
+  // Sticker selection via click (minimap, globe view)
   // ------------------------
   function handleMinimapClick(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
+    if (viewMode !== 'globe') return
 
     const canvas = minimapCanvasRef.current
     if (!canvas) return
@@ -511,7 +688,6 @@ export default function CreateModeApp() {
       setLastSavedMessage(null)
       saveWorld(world)
       setLastSavedMessage('Saved')
-      // Soft feedback only; no navigation needed here.
     } catch (error) {
       console.error('Failed to save world in Create Mode:', error)
       setLastSavedMessage('Save failed')
@@ -525,7 +701,23 @@ export default function CreateModeApp() {
   // ------------------------
   const leftToolbar = (
     <div className="ww-tools-panel">
-      <h3>Tools</h3>
+      <h3>View</h3>
+      <div className="ww-control-row">
+        <button
+          className={viewMode === 'map' ? 'active' : ''}
+          onClick={() => setViewMode('map')}
+        >
+          Map
+        </button>
+        <button
+          className={viewMode === 'globe' ? 'active' : ''}
+          onClick={() => setViewMode('globe')}
+        >
+          Globe
+        </button>
+      </div>
+
+      <h3 style={{ marginTop: '1rem' }}>Tools</h3>
 
       <button
         className={activeTool === 'inspect' ? 'active' : ''}
@@ -537,6 +729,7 @@ export default function CreateModeApp() {
       <button
         className={activeTool === 'terrain-brush' ? 'active' : ''}
         onClick={() => setActiveTool('terrain-brush')}
+        disabled={viewMode !== 'map'}
       >
         Terrain brush
       </button>
@@ -544,11 +737,12 @@ export default function CreateModeApp() {
       <button
         className={activeTool === 'sticker' ? 'active' : ''}
         onClick={() => setActiveTool('sticker')}
+        disabled={viewMode !== 'map'}
       >
         Sticker
       </button>
 
-      {activeTool === 'terrain-brush' && (
+      {activeTool === 'terrain-brush' && viewMode === 'map' && (
         <div style={{ marginTop: '1rem' }}>
           <h3>Brush settings</h3>
 
@@ -636,10 +830,15 @@ export default function CreateModeApp() {
       </div>
 
       <h3>Location info</h3>
-      {!selectedCell && (
+      {viewMode !== 'map' && (
+        <p style={{ fontSize: '0.8rem', opacity: 0.8 }}>
+          Switch to <strong>Map</strong> view to inspect and edit terrain.
+        </p>
+      )}
+      {viewMode === 'map' && !selectedCell && (
         <p>Use the Inspect tool, then click on the map to sample a location.</p>
       )}
-      {selectedCell && (
+      {viewMode === 'map' && selectedCell && (
         <div className="ww-info-grid">
           <div>
             <strong>Grid</strong>
@@ -669,8 +868,8 @@ export default function CreateModeApp() {
           <h3>Sticker info</h3>
           {!selectedSticker && (
             <p>
-              Click on the map to create a sticker, or click an existing one to
-              select it.
+              In Map view, click on the map to create a sticker. In Globe view,
+              click the minimap to select stickers visually.
             </p>
           )}
           {selectedSticker && (
@@ -741,7 +940,7 @@ export default function CreateModeApp() {
       onBack={() => navigate('/')}
       leftToolbar={leftToolbar}
       main={mainView}
-      minimapOverlay={minimapView}
+      minimapOverlay={viewMode === 'globe' ? minimapView : null}
       rightPanel={rightPanel}
     />
   )
