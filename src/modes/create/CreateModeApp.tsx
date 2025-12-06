@@ -14,7 +14,6 @@
 //   • Read `world.stickers` into a StickerState.
 //   • Render simple visual overlays for stickers on map + minimap.
 //   • Allow placing new stickers (REGION type).
-//   • Allow selecting an existing sticker by clicking it.
 // ========================================================
 
 import React, {
@@ -120,13 +119,14 @@ export default function CreateModeApp() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    // IMPORTANT:
+    // renderPlanetToCanvas expects a PlanetPreview:
+    // { width, height, cells: { baseHeight }[], seaLevel }
     const preview = {
       width: currentWorld.width,
       height: currentWorld.height,
-      baseHeight: currentWorld.cells.map(c => c.baseHeight),
+      cells: currentWorld.cells.map(c => ({ baseHeight: c.baseHeight })),
       seaLevel: currentWorld.seaLevel,
-      temperature: currentWorld.cells.map(c => c.temperature ?? 0.5),
-      moisture: currentWorld.cells.map(c => c.moisture ?? 0.5),
     }
 
     renderPlanetToCanvas(ctx, preview)
@@ -420,7 +420,7 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // Sticker selection via click
+  // Sticker selection via click (minimap)
   // ------------------------
   function handleMinimapClick(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
