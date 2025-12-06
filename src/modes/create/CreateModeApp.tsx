@@ -1,27 +1,33 @@
 // ========================================================
-// JARVIS_CHANGE (6B-1, 6B-2, 6B-3B, 6B-4 – Create Mode)
+// JARVIS_CHANGE (6B-1, 6B-2, 6B-3B, 6B-4-2 – Create Mode)
 // Date: 2025-12-06
 //
 // Purpose (current state):
 // - Load a real world by id.
 // - Use AppShell with unified layout:
-//   • Left: tools + view mode toggle
+//   • Left: view mode + tools
 //   • Center: main viewport (map or globe)
 //   • Bottom-left: minimap (globe view only)
 //   • Right: info panel + save controls
-// - Provide tools (map view):
+// - Provide tools (in Map view):
 //   • "Inspect" – sample location info from the map.
 //   • "Terrain brush" – paint terrain height by click + drag.
 //   • "Sticker" – place and manage simple rectangular stickers.
 // - Stickers:
 //   • Read `world.stickers` into a StickerState.
-//   • Render simple overlays on map + minimap (map view only for main,
-//     minimap in globe view).
+//   • Render simple overlays on map + minimap.
+//   • Allow creation on Map, selection via minimap in Globe, deletion.
 // - Persistence:
 //   • "Save world" button persists edited world via saveWorld(world).
 // - View modes (6B-4, part 1):
-//   • Map view: flat map, no minimap, full editing.
-//   • Globe view: shaded globe preview + minimap, view-only for now.
+//   • Map view: flat map editor, no minimap.
+//   • Globe view: shaded globe preview + minimap.
+// - Editor camera & viewport (6B-4-2):
+//   • Map view uses a camera (center + zoom) for the edit view.
+//   • Minimap (in Globe view) shows a viewport rectangle indicating
+//     the Map view camera region.
+//   • Clicking the minimap outside a sticker recenters the Map camera
+//     to that position.
 // ========================================================
 
 import React, {
@@ -29,6 +35,7 @@ import React, {
   useRef,
   useState,
   MouseEvent as ReactMouseEvent,
+  WheelEvent as ReactWheelEvent,
 } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppShell } from '../../ui/AppShell'
@@ -54,6 +61,12 @@ type SelectedCellInfo = {
 type ActiveTool = 'inspect' | 'terrain-brush' | 'sticker'
 type BrushMode = 'raise' | 'lower'
 type ViewMode = 'map' | 'globe'
+
+type MapCamera = {
+  centerX: number // in world grid coordinates
+  centerY: number
+  zoom: number // 1 = whole world, >1 = zoom in
+}
 
 export default function CreateModeApp() {
   const navigate = useNavigate()
@@ -89,6 +102,9 @@ export default function CreateModeApp() {
   const mainCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
+  // Editor camera for Map view
+  const [mapCamera, setMapCamera] = useState<MapCamera | null>(null)
+
   // ------------------------
   // Load world by id
   // ------------------------
@@ -122,28 +138,126 @@ export default function CreateModeApp() {
     }
   }, [id])
 
+  // Initialize camera when world loads
+  useEffect(() => {
+    if (!world) {
+      setMapCamera(null)
+      return
+    }
+
+    setMapCamera(prev => {
+      if (prev) return prev
+      return {
+        centerX: world.width / 2,
+        centerY: world.height / 2,
+        zoom: 1,
+      }
+    })
+  }, [world])
+
   // ------------------------
-  // Helper: render world as flat map onto a canvas
+  // Camera helpers
+  // ------------------------
+  function clampCamera(w: LoadedWorld, camera: MapCamera): MapCamera {
+    const minZoom = 1
+    const maxZoom = 8
+    const zoom = Math.max(minZoom, Math.min(maxZoom, camera.zoom))
+
+    const viewportWorldWidth = w.width / zoom
+    const viewportWorldHeight = w.height / zoom
+
+    const halfW = viewportWorldWidth / 2
+    const halfH = viewportWorldHeight / 2
+
+    const centerX = Math.max(halfW, Math.min(w.width - halfW, camera.centerX))
+    const centerY = Math.max(halfH, Math.min(w.height - halfH, camera.centerY))
+
+    return { centerX, centerY, zoom }
+  }
+
+  function getViewport(w: LoadedWorld, camera: MapCamera) {
+    const clamped = clampCamera(w, camera)
+    const viewportWorldWidth = w.width / clamped.zoom
+    const viewportWorldHeight = w.height / clamped.zoom
+    const vx0 = clamped.centerX - viewportWorldWidth / 2
+    const vy0 = clamped.centerY - viewportWorldHeight / 2
+
+    return {
+      ...clamped,
+      x: vx0,
+      y: vy0,
+      width: viewportWorldWidth,
+      height: viewportWorldHeight,
+    }
+  }
+
+  // ------------------------
+  // Helper: render world as flat map with camera (Map view)
   // ------------------------
   function renderWorldMapToCanvas(
     canvas: HTMLCanvasElement,
     currentWorld: LoadedWorld,
+    camera: MapCamera | null,
   ) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    const worldWidth = currentWorld.width
+    const worldHeight = currentWorld.height
+    if (worldWidth <= 0 || worldHeight <= 0) return
+
+    // Offscreen full-world render
+    const offscreen = document.createElement('canvas')
+    offscreen.width = worldWidth
+    offscreen.height = worldHeight
+    const offCtx = offscreen.getContext('2d')
+    if (!offCtx) return
+
     const preview = {
-      width: currentWorld.width,
-      height: currentWorld.height,
-      cells: currentWorld.cells.map(c => ({ baseHeight: c.baseHeight })),
+      width: worldWidth,
+      height: worldHeight,
+      cells: currentWorld.cells.map((c: WorldCell) => ({
+        baseHeight: c.baseHeight,
+      })),
       seaLevel: currentWorld.seaLevel,
     }
+    renderPlanetToCanvas(offCtx, preview)
 
-    renderPlanetToCanvas(ctx, preview)
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    // If camera isn't ready yet, just show whole world
+    if (!camera) {
+      ctx.drawImage(
+        offscreen,
+        0,
+        0,
+        worldWidth,
+        worldHeight,
+        0,
+        0,
+        canvas.width,
+        canvas.height,
+      )
+      return
+    }
+
+    const viewport = getViewport(currentWorld, camera)
+
+    ctx.drawImage(
+      offscreen,
+      viewport.x,
+      viewport.y,
+      viewport.width,
+      viewport.height,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    )
   }
 
   // ------------------------
-  // Helper: render world as a shaded globe onto a canvas
+  // Helper: render world as a shaded globe (Globe view)
   // ------------------------
   function renderWorldGlobeToCanvas(
     canvas: HTMLCanvasElement,
@@ -159,7 +273,6 @@ export default function CreateModeApp() {
     const seaLevel = currentWorld.seaLevel
     const cells = currentWorld.cells
 
-    // Make canvas square for the globe.
     const baseSize = Math.min(canvas.width || 1, canvas.height || 1)
     const globeSize = baseSize > 0 ? baseSize : 512
     canvas.width = globeSize
@@ -168,11 +281,9 @@ export default function CreateModeApp() {
     const imageData = ctx.createImageData(globeSize, globeSize)
     const data = imageData.data
 
-    // Bilinear sampling of height on the flat map
     function sampleHeight(u: number, v: number): number {
       if (!Number.isFinite(u) || !Number.isFinite(v)) return seaLevel
 
-      // Wrap horizontally, clamp vertically
       const uu = ((u % 1) + 1) % 1
       const vv = Math.min(1, Math.max(0, v))
 
@@ -199,7 +310,6 @@ export default function CreateModeApp() {
       return hx0 * (1 - ty) + hx1 * ty
     }
 
-    // Simple directional light
     const lightDir = { x: 0.4, y: -0.6, z: 0.7 }
     {
       const len =
@@ -226,7 +336,6 @@ export default function CreateModeApp() {
         const idx = (py * globeSize + px) * 4
 
         if (r2 > rMax) {
-          // Outside the globe circle → transparent
           data[idx] = 0
           data[idx + 1] = 0
           data[idx + 2] = 0
@@ -238,7 +347,6 @@ export default function CreateModeApp() {
         const ny = dy / radius
         const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny))
 
-        // Convert sphere normal to UV (equirectangular-style)
         const u = (Math.atan2(nx, nz) / (2 * Math.PI) + 0.5) % 1
         const v = ny * 0.5 + 0.5
 
@@ -273,13 +381,15 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // Helper: draw sticker overlays on a canvas
+  // Helper: draw sticker overlays on a canvas (with optional camera)
   // ------------------------
   function drawStickerOverlays(
     canvas: HTMLCanvasElement,
     currentWorld: LoadedWorld,
     state: StickerState,
     selectedId: string | null,
+    camera: MapCamera | null,
+    mode: 'full' | 'viewport',
   ) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
@@ -290,23 +400,43 @@ export default function CreateModeApp() {
     const canvasWidth = canvas.width
     const canvasHeight = canvas.height
 
+    const w = currentWorld.width
+    const h = currentWorld.height
+
+    let vx0 = 0
+    let vy0 = 0
+    let vw = w
+    let vh = h
+
+    if (camera && mode === 'viewport') {
+      const vp = getViewport(currentWorld, camera)
+      vx0 = vp.x
+      vy0 = vp.y
+      vw = vp.width
+      vh = vp.height
+    }
+
     ctx.save()
 
     for (const s of stickers) {
-      const x = s.x ?? 0
-      const y = s.y ?? 0
-      const width = s.width ?? 1
-      const height = s.height ?? 1
+      const sx = s.x ?? 0
+      const sy = s.y ?? 0
+      const sw = s.width ?? 1
+      const sh = s.height ?? 1
 
-      const nx = x / currentWorld.width
-      const ny = y / currentWorld.height
-      const nw = width / currentWorld.width
-      const nh = height / currentWorld.height
+      const nx0 = (sx - vx0) / vw
+      const ny0 = (sy - vy0) / vh
+      const nx1 = (sx + sw - vx0) / vw
+      const ny1 = (sy + sh - vy0) / vh
 
-      const px = nx * canvasWidth
-      const py = ny * canvasHeight
-      const pw = nw * canvasWidth
-      const ph = nh * canvasHeight
+      if (nx1 < 0 || ny1 < 0 || nx0 > 1 || ny0 > 1) {
+        continue
+      }
+
+      const px = nx0 * canvasWidth
+      const py = ny0 * canvasHeight
+      const pw = (nx1 - nx0) * canvasWidth
+      const ph = (ny1 - ny0) * canvasHeight
 
       ctx.beginPath()
       ctx.rect(px, py, pw, ph)
@@ -345,74 +475,113 @@ export default function CreateModeApp() {
     const minimapCanvas = minimapCanvasRef.current
     if (!mainCanvas) return
 
-    // Main view:
     if (viewMode === 'map') {
-      renderWorldMapToCanvas(mainCanvas, world)
-      drawStickerOverlays(mainCanvas, world, stickerState, selectedStickerId)
+      renderWorldMapToCanvas(mainCanvas, world, mapCamera)
+      drawStickerOverlays(
+        mainCanvas,
+        world,
+        stickerState,
+        selectedStickerId,
+        mapCamera,
+        'viewport',
+      )
     } else {
-      // Globe view: shaded globe, no sticker overlays for now.
       renderWorldGlobeToCanvas(mainCanvas, world)
     }
 
-    // Minimap:
     if (minimapCanvas) {
       const ctx = minimapCanvas.getContext('2d')
       if (!ctx) return
 
       if (viewMode === 'globe') {
-        // Minimap only visible in globe view, as full flat map.
-        renderWorldMapToCanvas(minimapCanvas, world)
+        renderWorldMapToCanvas(minimapCanvas, world, null)
         drawStickerOverlays(
           minimapCanvas,
           world,
           stickerState,
           selectedStickerId,
+          null,
+          'full',
         )
+
+        // Draw viewport rectangle for Map camera
+        if (mapCamera) {
+          const vp = getViewport(world, mapCamera)
+          const nx = vp.x / world.width
+          const ny = vp.y / world.height
+          const nw = vp.width / world.width
+          const nh = vp.height / world.height
+
+          const rx = nx * minimapCanvas.width
+          const ry = ny * minimapCanvas.height
+          const rw = nw * minimapCanvas.width
+          const rh = nh * minimapCanvas.height
+
+          ctx.save()
+          ctx.strokeStyle = '#00ffcc'
+          ctx.lineWidth = 2
+          ctx.globalAlpha = 0.9
+          ctx.strokeRect(rx, ry, rw, rh)
+          ctx.restore()
+        }
       } else {
-        // Map view: clear minimap canvas (not shown in UI anyway).
         ctx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height)
       }
     }
-  }, [world, stickerState, selectedStickerId, viewMode])
+  }, [world, stickerState, selectedStickerId, viewMode, mapCamera])
 
   // ------------------------
-  // Coordinate helpers
+  // Coordinate helpers: canvas → world (with camera)
   // ------------------------
   function canvasToWorldCoords(
     canvas: HTMLCanvasElement,
     evt: ReactMouseEvent<HTMLCanvasElement>,
+    w: LoadedWorld,
+    camera: MapCamera | null,
   ): { x: number; y: number } | null {
     const rect = canvas.getBoundingClientRect()
     const scaleX = canvas.width / rect.width
     const scaleY = canvas.height / rect.height
 
-    const x = (evt.clientX - rect.left) * scaleX
-    const y = (evt.clientY - rect.top) * scaleY
+    const px = (evt.clientX - rect.left) * scaleX
+    const py = (evt.clientY - rect.top) * scaleY
 
-    if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) {
+    if (px < 0 || py < 0 || px >= canvas.width || py >= canvas.height) {
       return null
     }
 
-    return { x, y }
+    if (!camera) {
+      const wx = (px / canvas.width) * w.width
+      const wy = (py / canvas.height) * w.height
+      return { x: wx, y: wy }
+    }
+
+    const vp = getViewport(w, camera)
+
+    const wx = vp.x + (px / canvas.width) * vp.width
+    const wy = vp.y + (py / canvas.height) * vp.height
+
+    return { x: wx, y: wy }
   }
 
   function pickCellFromCanvas(
     canvas: HTMLCanvasElement,
     evt: ReactMouseEvent<HTMLCanvasElement>,
+    w: LoadedWorld,
+    camera: MapCamera | null,
   ): { x: number; y: number; cell: WorldCell } | null {
-    if (!world) return null
-
-    const coords = canvasToWorldCoords(canvas, evt)
+    const coords = canvasToWorldCoords(canvas, evt, w, camera)
     if (!coords) return null
 
-    const gridX = Math.floor((coords.x / canvas.width) * world.width)
-    const gridY = Math.floor((coords.y / canvas.height) * world.height)
+    const gridX = Math.floor(coords.x)
+    const gridY = Math.floor(coords.y)
 
-    if (gridX < 0 || gridY < 0 || gridX >= world.width || gridY >= world.height)
+    if (gridX < 0 || gridY < 0 || gridX >= w.width || gridY >= w.height) {
       return null
+    }
 
-    const index = gridY * world.width + gridX
-    const cell = world.cells[index]
+    const index = gridY * w.width + gridX
+    const cell = w.cells[index]
     if (!cell) return null
 
     return { x: gridX, y: gridY, cell }
@@ -430,7 +599,6 @@ export default function CreateModeApp() {
   function handleInspectClick(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
     if (viewMode !== 'map') {
-      // For now, inspection is only defined in flat map view.
       setSelectedCell(null)
       return
     }
@@ -438,7 +606,7 @@ export default function CreateModeApp() {
     const canvas = mainCanvasRef.current
     if (!canvas) return
 
-    const result = pickCellFromCanvas(canvas, evt)
+    const result = pickCellFromCanvas(canvas, evt, world, mapCamera)
     if (!result) {
       setSelectedCell(null)
       return
@@ -467,11 +635,11 @@ export default function CreateModeApp() {
     const canvas = mainCanvasRef.current
     if (!canvas) return
 
-    const coords = canvasToWorldCoords(canvas, evt)
+    const coords = canvasToWorldCoords(canvas, evt, world, mapCamera)
     if (!coords) return
 
-    const cx = (coords.x / canvas.width) * world.width
-    const cy = (coords.y / canvas.height) * world.height
+    const cx = coords.x
+    const cy = coords.y
 
     const radius = brushRadius
     const strength = brushStrength * (brushMode === 'raise' ? 1 : -1)
@@ -522,7 +690,6 @@ export default function CreateModeApp() {
       return
     }
 
-    // Editing tools only work in map view for now.
     if (viewMode !== 'map') return
 
     if (activeTool === 'terrain-brush') {
@@ -535,11 +702,11 @@ export default function CreateModeApp() {
       const canvas = mainCanvasRef.current
       if (!canvas) return
 
-      const coords = canvasToWorldCoords(canvas, evt)
+      const coords = canvasToWorldCoords(canvas, evt, world, mapCamera)
       if (!coords) return
 
-      const gridX = Math.floor((coords.x / canvas.width) * world.width)
-      const gridY = Math.floor((coords.y / canvas.height) * world.height)
+      const gridX = Math.floor(coords.x)
+      const gridY = Math.floor(coords.y)
 
       const newId = `sticker-${Date.now().toString(36)}-${Math.random()
         .toString(36)
@@ -595,8 +762,24 @@ export default function CreateModeApp() {
     }
   }
 
+  // Zoom with mouse wheel in Map view
+  function handleMainCanvasWheel(evt: ReactWheelEvent<HTMLCanvasElement>) {
+    if (!world) return
+    if (viewMode !== 'map') return
+
+    evt.preventDefault()
+
+    setMapCamera(prev => {
+      if (!prev) return prev
+      const zoomDelta = evt.deltaY > 0 ? -0.5 : 0.5
+      const nextZoom = prev.zoom + zoomDelta
+      const clamped = clampCamera(world, { ...prev, zoom: nextZoom })
+      return clamped
+    })
+  }
+
   // ------------------------
-  // Sticker selection via click (minimap, globe view)
+  // Sticker selection & camera recentre via minimap (globe view)
   // ------------------------
   function handleMinimapClick(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
@@ -605,45 +788,73 @@ export default function CreateModeApp() {
     const canvas = minimapCanvasRef.current
     if (!canvas) return
 
-    const coords = canvasToWorldCoords(canvas, evt)
-    if (!coords) return
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+
+    const px = (evt.clientX - rect.left) * scaleX
+    const py = (evt.clientY - rect.top) * scaleY
+
+    if (px < 0 || py < 0 || px >= canvas.width || py >= canvas.height) {
+      return
+    }
 
     const stickers: any[] = (stickerState.stickers ?? []) as any[]
-    if (!stickers.length) return
-
     const canvasWidth = canvas.width
     const canvasHeight = canvas.height
 
     let clickedId: string | null = null
 
     for (const s of stickers) {
-      const x = s.x ?? 0
-      const y = s.y ?? 0
-      const width = s.width ?? 1
-      const height = s.height ?? 1
+      const sx = s.x ?? 0
+      const sy = s.y ?? 0
+      const sw = s.width ?? 1
+      const sh = s.height ?? 1
 
-      const nx = x / world.width
-      const ny = y / world.height
-      const nw = width / world.width
-      const nh = height / world.height
+      const nx = sx / world.width
+      const ny = sy / world.height
+      const nw = sw / world.width
+      const nh = sh / world.height
 
-      const px = nx * canvasWidth
-      const py = ny * canvasHeight
-      const pw = nw * canvasWidth
-      const ph = nh * canvasHeight
+      const rx = nx * canvasWidth
+      const ry = ny * canvasHeight
+      const rw = nw * canvasWidth
+      const rh = nh * canvasHeight
 
       if (
-        coords.x >= px &&
-        coords.x <= px + pw &&
-        coords.y >= py &&
-        coords.y <= py + ph
+        px >= rx &&
+        px <= rx + rw &&
+        py >= ry &&
+        py <= ry + rh
       ) {
         clickedId = s.id ?? null
         break
       }
     }
 
-    setSelectedStickerId(clickedId)
+    if (clickedId) {
+      setSelectedStickerId(clickedId)
+      return
+    }
+
+    // No sticker hit: recenter map camera to this minimap point.
+    setMapCamera(prev => {
+      if (!prev || !world) {
+        return {
+          centerX: (px / canvasWidth) * world.width,
+          centerY: (py / canvasHeight) * world.height,
+          zoom: 2,
+        }
+      }
+      const newCenterX = (px / canvasWidth) * world.width
+      const newCenterY = (py / canvasHeight) * world.height
+      const candidate: MapCamera = {
+        ...prev,
+        centerX: newCenterX,
+        centerY: newCenterY,
+      }
+      return clampCamera(world, candidate)
+    })
   }
 
   function deleteSelectedSticker() {
@@ -667,9 +878,6 @@ export default function CreateModeApp() {
     setSelectedStickerId(null)
   }
 
-  // ------------------------
-  // Helpers: find selected sticker details
-  // ------------------------
   function getSelectedSticker(): any | null {
     if (!selectedStickerId) return null
     const arr: any[] = (stickerState.stickers ?? []) as any[]
@@ -742,6 +950,48 @@ export default function CreateModeApp() {
         Sticker
       </button>
 
+      {viewMode === 'map' && (
+        <div style={{ marginTop: '1rem' }}>
+          <h3>Camera</h3>
+          <div className="ww-control-row">
+            <label>Zoom</label>
+            <input
+              type="range"
+              min={1}
+              max={8}
+              value={mapCamera?.zoom ?? 1}
+              onChange={e => {
+                if (!world) return
+                const nextZoom = Number(e.target.value)
+                setMapCamera(prev =>
+                  prev
+                    ? clampCamera(world, { ...prev, zoom: nextZoom })
+                    : {
+                        centerX: world.width / 2,
+                        centerY: world.height / 2,
+                        zoom: nextZoom,
+                      },
+                )
+              }}
+            />
+            <span>{mapCamera?.zoom.toFixed(1) ?? '1.0'}</span>
+          </div>
+          <button
+            style={{ marginTop: '0.25rem' }}
+            onClick={() => {
+              if (!world) return
+              setMapCamera({
+                centerX: world.width / 2,
+                centerY: world.height / 2,
+                zoom: 1,
+              })
+            }}
+          >
+            Reset view
+          </button>
+        </div>
+      )}
+
       {activeTool === 'terrain-brush' && viewMode === 'map' && (
         <div style={{ marginTop: '1rem' }}>
           <h3>Brush settings</h3>
@@ -795,6 +1045,7 @@ export default function CreateModeApp() {
         onMouseMove={handleMainCanvasMouseMove}
         onMouseUp={handleMainCanvasMouseUp}
         onMouseLeave={handleMainCanvasMouseLeave}
+        onWheel={handleMainCanvasWheel}
       />
     </div>
   )
@@ -869,7 +1120,7 @@ export default function CreateModeApp() {
           {!selectedSticker && (
             <p>
               In Map view, click on the map to create a sticker. In Globe view,
-              click the minimap to select stickers visually.
+              click the minimap to select stickers or recenter the editor view.
             </p>
           )}
           {selectedSticker && (
