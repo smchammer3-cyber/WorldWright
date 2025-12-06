@@ -15,7 +15,6 @@
 //   • Render simple visual overlays for stickers on map + minimap.
 //   • Allow placing new stickers (REGION type).
 //   • Allow selecting an existing sticker by clicking it.
-//   • Allow deleting the selected sticker.
 // ========================================================
 
 import React, {
@@ -27,7 +26,7 @@ import React, {
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppShell } from '../../ui/AppShell'
 import { renderPlanetToCanvas } from '../../core/planetRenderer'
-import { getWorld } from '../../core/worldStorage'
+import { getWorld, saveWorld } from '../../core/worldStorage'
 import type { World, WorldCell } from '../../core/world'
 import { StickerState, emptyStickerState } from '../../core/stickerEngine'
 
@@ -72,6 +71,9 @@ export default function CreateModeApp() {
     null,
   )
 
+  const [isSaving, setIsSaving] = useState(false)
+  const [lastSavedMessage, setLastSavedMessage] = useState<string | null>(null)
+
   const mainCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
@@ -95,12 +97,15 @@ export default function CreateModeApp() {
 
       const normalizedWorld: World = {
         ...w,
-        stickers: stickers as any,
+        stickers,
       }
 
       setWorld(normalizedWorld)
-      setStickerState({ stickers } as StickerState)
-      setSelectedStickerId(null)
+
+      setStickerState({
+        stickers,
+      })
+
       setNotFound(false)
     }
   }, [id])
@@ -118,10 +123,10 @@ export default function CreateModeApp() {
     const preview = {
       width: currentWorld.width,
       height: currentWorld.height,
-      cells: currentWorld.cells.map((c: WorldCell) => ({
-        baseHeight: c.baseHeight,
-      })),
+      baseHeight: currentWorld.cells.map(c => c.baseHeight),
       seaLevel: currentWorld.seaLevel,
+      temperature: currentWorld.cells.map(c => c.temperature ?? 0.5),
+      moisture: currentWorld.cells.map(c => c.moisture ?? 0.5),
     }
 
     renderPlanetToCanvas(ctx, preview)
@@ -148,47 +153,34 @@ export default function CreateModeApp() {
     ctx.save()
 
     for (const s of stickers) {
-      const enabled = s.isEnabled !== false
-      if (!enabled) continue
+      const x = s.x ?? 0
+      const y = s.y ?? 0
+      const width = s.width ?? 1
+      const height = s.height ?? 1
 
-      const tx = typeof s.x === 'number' ? s.x : s.transform?.x
-      const ty = typeof s.y === 'number' ? s.y : s.transform?.y
-      const tw =
-        typeof s.width === 'number' ? s.width : s.transform?.width ?? 1
-      const th =
-        typeof s.height === 'number' ? s.height : s.transform?.height ?? 1
+      const nx = x / currentWorld.width
+      const ny = y / currentWorld.height
+      const nw = width / currentWorld.width
+      const nh = height / currentWorld.height
 
-      if (
-        typeof tx !== 'number' ||
-        typeof ty !== 'number' ||
-        typeof tw !== 'number' ||
-        typeof th !== 'number'
-      ) {
-        continue
-      }
-
-      const x0 = (tx / currentWorld.width) * canvasWidth
-      const y0 = (ty / currentWorld.height) * canvasHeight
-      const w = (tw / currentWorld.width) * canvasWidth
-      const h = (th / currentWorld.height) * canvasHeight
-
-      const isSelected = selectedId != null && s.id === selectedId
+      const px = nx * canvasWidth
+      const py = ny * canvasHeight
+      const pw = nw * canvasWidth
+      const ph = nh * canvasHeight
 
       ctx.beginPath()
-      ctx.rect(x0, y0, w, h)
+      ctx.rect(px, py, pw, ph)
 
-      if (isSelected) {
-        // Stronger, more visible outline + fill for selected sticker
-        ctx.strokeStyle = '#ffffff'
-        ctx.lineWidth = 3
-        ctx.globalAlpha = 1
+      if (s.id === selectedId) {
+        ctx.strokeStyle = '#ffcc33'
+        ctx.lineWidth = 2
+        ctx.globalAlpha = 0.95
         ctx.stroke()
 
-        ctx.fillStyle = '#ffffff'
+        ctx.fillStyle = '#ffcc33'
         ctx.globalAlpha = 0.25
         ctx.fill()
       } else {
-        // Default soft style
         ctx.strokeStyle = '#ffffff'
         ctx.lineWidth = 2
         ctx.globalAlpha = 0.9
@@ -204,7 +196,7 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // Render main/minimap when world or stickers change
+  // Render world into canvases on change
   // ------------------------
   useEffect(() => {
     if (!world) return
@@ -213,11 +205,8 @@ export default function CreateModeApp() {
     const minimapCanvas = minimapCanvasRef.current
     if (!mainCanvas || !minimapCanvas) return
 
-    // First, draw the terrain
     renderWorldToCanvas(mainCanvas, world)
     renderWorldToCanvas(minimapCanvas, world)
-
-    // Then, overlay any stickers
     drawStickerOverlays(mainCanvas, world, stickerState, selectedStickerId)
     drawStickerOverlays(minimapCanvas, world, stickerState, selectedStickerId)
   }, [world, stickerState, selectedStickerId])
@@ -225,326 +214,197 @@ export default function CreateModeApp() {
   // ------------------------
   // Coordinate helpers
   // ------------------------
-  function getCellFromEvent(
-    ev: ReactMouseEvent<HTMLCanvasElement>,
-  ): { cell: WorldCell | null; lat: number; lon: number } {
-    if (!world) return { cell: null, lat: 0, lon: 0 }
-
-    const canvas = ev.currentTarget
+  function canvasToWorldCoords(
+    canvas: HTMLCanvasElement,
+    evt: ReactMouseEvent<HTMLCanvasElement>,
+  ): { x: number; y: number } | null {
     const rect = canvas.getBoundingClientRect()
-    const px = ev.clientX - rect.left
-    const py = ev.clientY - rect.top
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
 
-    if (px < 0 || py < 0 || px >= rect.width || py >= rect.height) {
-      return { cell: null, lat: 0, lon: 0 }
-    }
+    const x = (evt.clientX - rect.left) * scaleX
+    const y = (evt.clientY - rect.top) * scaleY
 
-    const u = px / rect.width
-    const v = py / rect.height
-
-    const x = Math.floor(u * world.width)
-    const y = Math.floor(v * world.height)
-
-    if (x < 0 || x >= world.width || y < 0 || y >= world.height) {
-      return { cell: null, lat: 0, lon: 0 }
-    }
-
-    const index = y * world.width + x
-    const cell = world.cells[index]
-
-    const lon = (u - 0.5) * 360
-    const lat = (0.5 - v) * 180
-
-    return { cell, lat, lon }
-  }
-
-  // ------------------------
-  // Sticker hit testing
-  // ------------------------
-  function hitTestStickerAtEvent(
-    ev: ReactMouseEvent<HTMLCanvasElement>,
-  ): any | null {
-    if (!world) return null
-
-    const canvas = ev.currentTarget
-    const rect = canvas.getBoundingClientRect()
-    const px = ev.clientX - rect.left
-    const py = ev.clientY - rect.top
-
-    if (px < 0 || py < 0 || px >= rect.width || py >= rect.height) {
+    if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) {
       return null
     }
 
-    const u = px / rect.width
-    const v = py / rect.height
+    return { x, y }
+  }
 
-    const gx = Math.floor(u * world.width)
-    const gy = Math.floor(v * world.height)
+  function pickCellFromCanvas(
+    canvas: HTMLCanvasElement,
+    evt: ReactMouseEvent<HTMLCanvasElement>,
+  ): { x: number; y: number; cell: WorldCell } | null {
+    if (!world) return null
 
-    const stickers: any[] = (stickerState.stickers ?? []) as any[]
-    if (!stickers.length) return null
+    const coords = canvasToWorldCoords(canvas, evt)
+    if (!coords) return null
 
-    // Check from top-most (last) to bottom-most
-    for (let i = stickers.length - 1; i >= 0; i--) {
-      const s = stickers[i]
-      const tx = typeof s.x === 'number' ? s.x : s.transform?.x
-      const ty = typeof s.y === 'number' ? s.y : s.transform?.y
-      const tw =
-        typeof s.width === 'number' ? s.width : s.transform?.width ?? 1
-      const th =
-        typeof s.height === 'number' ? s.height : s.transform?.height ?? 1
+    const gridX = Math.floor((coords.x / canvas.width) * world.width)
+    const gridY = Math.floor((coords.y / canvas.height) * world.height)
 
-      if (
-        typeof tx !== 'number' ||
-        typeof ty !== 'number' ||
-        typeof tw !== 'number' ||
-        typeof th !== 'number'
-      ) {
-        continue
-      }
+    if (gridX < 0 || gridY < 0 || gridX >= world.width || gridY >= world.height)
+      return null
 
-      if (
-        gx >= tx &&
-        gx < tx + tw &&
-        gy >= ty &&
-        gy < ty + th
-      ) {
-        return s
-      }
-    }
+    const index = gridY * world.width + gridX
+    const cell = world.cells[index]
+    if (!cell) return null
 
-    return null
+    return { x: gridX, y: gridY, cell }
+  }
+
+  function cellToLatLon(x: number, y: number, w: LoadedWorld) {
+    const lon = (x / (w.width - 1)) * 360 - 180
+    const lat = 90 - (y / (w.height - 1)) * 180
+    return { lat, lon }
   }
 
   // ------------------------
-  // Sticker creation
+  // Inspect tool logic
   // ------------------------
-  function createStickerAt(ev: ReactMouseEvent<HTMLCanvasElement>) {
+  function handleInspectClick(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
+    const canvas = mainCanvasRef.current
+    if (!canvas) return
 
-    const canvas = ev.currentTarget
-    const rect = canvas.getBoundingClientRect()
-    const px = ev.clientX - rect.left
-    const py = ev.clientY - rect.top
-
-    if (px < 0 || py < 0 || px >= rect.width || py >= rect.height) {
+    const result = pickCellFromCanvas(canvas, evt)
+    if (!result) {
+      setSelectedCell(null)
       return
     }
 
-    const u = px / rect.width
-    const v = py / rect.height
-
-    const centerX = Math.floor(u * world.width)
-    const centerY = Math.floor(v * world.height)
-
-    const baseSize = Math.max(
-      4,
-      Math.round(Math.min(world.width, world.height) / 16),
-    )
-    let widthCells = baseSize
-    let heightCells = baseSize
-
-    let x0 = centerX - Math.floor(widthCells / 2)
-    let y0 = centerY - Math.floor(heightCells / 2)
-
-    if (x0 < 0) x0 = 0
-    if (y0 < 0) y0 = 0
-    if (x0 + widthCells > world.width) {
-      widthCells = world.width - x0
-    }
-    if (y0 + heightCells > world.height) {
-      heightCells = world.height - y0
-    }
-    if (widthCells <= 0 || heightCells <= 0) return
-
-    const id = `sticker_${Date.now()}_${Math.random()
-      .toString(36)
-      .slice(2, 8)}`
-    const type = 'REGION'
-
-    const newSticker: any = {
-      id,
-      worldId: world.id,
-      type,
-      x: x0,
-      y: y0,
-      width: widthCells,
-      height: heightCells,
-      transform: {
-        x: x0,
-        y: y0,
-        width: widthCells,
-        height: heightCells,
-      },
-      metadata: { kind: 'REGION' },
-      isEnabled: true,
-    }
-
-    setWorld(prev => {
-      if (!prev) return prev
-      const existing = Array.isArray((prev as any).stickers)
-        ? (prev as any).stickers
-        : []
-      const updated = [...existing, newSticker]
-      return { ...prev, stickers: updated as any }
-    })
-
-    setStickerState(prev => {
-      const existing = Array.isArray(prev.stickers) ? prev.stickers : []
-      const updated = [...(existing as any[]), newSticker]
-      return { stickers: updated } as StickerState
-    })
-
-    setSelectedStickerId(id)
-  }
-
-  // ------------------------
-  // Sticker deletion
-  // ------------------------
-  function deleteSelectedSticker() {
-    if (!selectedStickerId) return
-    if (!world) return
-
-    const idToDelete = selectedStickerId
-
-    setWorld(prev => {
-      if (!prev) return prev
-      const existing = Array.isArray((prev as any).stickers)
-        ? (prev as any).stickers
-        : []
-      const updated = existing.filter((s: any) => s.id !== idToDelete)
-      return { ...prev, stickers: updated as any }
-    })
-
-    setStickerState(prev => {
-      const existing = Array.isArray(prev.stickers) ? prev.stickers : []
-      const updated = (existing as any[]).filter(s => s.id !== idToDelete)
-      return { stickers: updated } as StickerState
-    })
-
-    setSelectedStickerId(null)
-  }
-
-  // ------------------------
-  // Inspect tool
-  // ------------------------
-  function handleInspectClick(ev: ReactMouseEvent<HTMLCanvasElement>) {
-    const { cell, lat, lon } = getCellFromEvent(ev)
-    if (!world || !cell) return
-
-    const isLand = cell.baseHeight >= world.seaLevel
+    const { x, y, cell } = result
+    const { lat, lon } = cellToLatLon(x, y, world)
 
     setSelectedCell({
-      x: cell.x,
-      y: cell.y,
+      x,
+      y,
       lat,
       lon,
       baseHeight: cell.baseHeight,
-      isLand,
+      isLand: cell.baseHeight >= world.seaLevel,
     })
   }
 
   // ------------------------
-  // Terrain brush
+  // Terrain brush logic
   // ------------------------
-  function applyBrushAt(ev: ReactMouseEvent<HTMLCanvasElement>) {
+  function applyBrushAt(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
+    const canvas = mainCanvasRef.current
+    if (!canvas) return
 
-    const canvas = ev.currentTarget
-    const rect = canvas.getBoundingClientRect()
-    const px = ev.clientX - rect.left
-    const py = ev.clientY - rect.top
+    const coords = canvasToWorldCoords(canvas, evt)
+    if (!coords) return
 
-    if (px < 0 || py < 0 || px >= rect.width || py >= rect.height) {
-      return
-    }
-
-    const u = px / rect.width
-    const v = py / rect.height
-
-    const centerX = Math.floor(u * world.width)
-    const centerY = Math.floor(v * world.height)
+    const cx = (coords.x / canvas.width) * world.width
+    const cy = (coords.y / canvas.height) * world.height
 
     const radius = brushRadius
-    const width = world.width
-    const height = world.height
+    const strength = brushStrength * (brushMode === 'raise' ? 1 : -1)
 
-    const strength = brushStrength
-    const isRaise = brushMode === 'raise'
+    const newCells = [...world.cells]
 
-    const newCells = world.cells.slice()
+    const minX = Math.max(0, Math.floor(cx - radius))
+    const maxX = Math.min(world.width - 1, Math.ceil(cx + radius))
+    const minY = Math.max(0, Math.floor(cy - radius))
+    const maxY = Math.min(world.height - 1, Math.ceil(cy + radius))
 
-    for (let dy = -radius; dy <= radius; dy++) {
-      const yy = centerY + dy
-      if (yy < 0 || yy >= height) continue
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const dx = x - cx
+        const dy = y - cy
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        if (dist > radius) continue
 
-      for (let dx = -radius; dx <= radius; dx++) {
-        const xx = centerX + dx
-        if (xx < 0 || xx >= width) continue
+        const t = 1 - dist / radius
+        const falloff = t * t
 
-        const distSq = dx * dx + dy * dy
-        const maxDistSq = radius * radius
-        if (distSq > maxDistSq) continue
-
-        const index = yy * width + xx
-        const cell = newCells[index] as WorldCell
+        const idx = y * world.width + x
+        const cell = newCells[idx]
         if (!cell) continue
 
-        const falloff = 1 - distSq / (maxDistSq || 1)
-        const delta = strength * falloff * (isRaise ? 1 : -1)
-
-        let newHeight = cell.baseHeight + delta
-        if (newHeight < 0) newHeight = 0
-        if (newHeight > 1) newHeight = 1
-
-        newCells[index] = {
+        const updatedHeight = cell.baseHeight + strength * falloff
+        newCells[idx] = {
           ...cell,
-          baseHeight: newHeight,
+          baseHeight: Math.max(0, Math.min(1, updatedHeight)),
         }
       }
     }
 
     setWorld(prev => {
       if (!prev) return prev
-      const updated = {
+      return {
         ...prev,
         cells: newCells,
       }
-      return updated
     })
   }
 
-  // ------------------------
-  // Main canvas mouse handlers
-  // ------------------------
-  function handleMainCanvasMouseDown(ev: ReactMouseEvent<HTMLCanvasElement>) {
+  function handleMainCanvasMouseDown(evt: ReactMouseEvent<HTMLCanvasElement>) {
+    if (!world) return
     if (activeTool === 'inspect') {
-      handleInspectClick(ev)
+      handleInspectClick(evt)
       return
     }
 
     if (activeTool === 'terrain-brush') {
       setIsBrushing(true)
-      applyBrushAt(ev)
+      applyBrushAt(evt)
       return
     }
 
     if (activeTool === 'sticker') {
-      const hit = hitTestStickerAtEvent(ev)
-      if (hit) {
-        setSelectedStickerId(hit.id)
-      } else {
-        createStickerAt(ev)
+      // Sticker creation when clicking in sticker mode
+      const canvas = mainCanvasRef.current
+      if (!canvas) return
+
+      const coords = canvasToWorldCoords(canvas, evt)
+      if (!coords) return
+
+      const gridX = Math.floor((coords.x / canvas.width) * world.width)
+      const gridY = Math.floor((coords.y / canvas.height) * world.height)
+
+      const newId = `sticker-${Date.now().toString(36)}-${Math.random()
+        .toString(36)
+        .slice(2)}`
+
+      const sticker = {
+        id: newId,
+        worldId: world.id,
+        type: 'REGION',
+        x: gridX,
+        y: gridY,
+        width: 8,
+        height: 6,
+        metadata: {
+          kind: 'REGION',
+        },
       }
-      return
+
+      const nextStickers = [...(stickerState.stickers ?? []), sticker]
+
+      setStickerState({
+        stickers: nextStickers,
+      })
+
+      setWorld(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          stickers: nextStickers,
+        }
+      })
+
+      setSelectedStickerId(newId)
     }
   }
 
-  function handleMainCanvasMouseMove(ev: ReactMouseEvent<HTMLCanvasElement>) {
+  function handleMainCanvasMouseMove(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!isBrushing) return
-    if (activeTool === 'terrain-brush') {
-      applyBrushAt(ev)
-    }
+    if (activeTool !== 'terrain-brush') return
+    applyBrushAt(evt)
   }
 
   function handleMainCanvasMouseUp() {
@@ -560,32 +420,74 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // Render: loading / not found
+  // Sticker selection via click
   // ------------------------
-  if (notFound) {
-    return (
-      <AppShell
-        title="Create Mode"
-        onBack={() => navigate('/')}
-        leftToolbar={<div />}
-        main={<div style={{ padding: '1rem' }}>World not found.</div>}
-        minimapOverlay={null}
-        rightPanel={null}
-      />
-    )
+  function handleMinimapClick(evt: ReactMouseEvent<HTMLCanvasElement>) {
+    if (!world) return
+
+    const canvas = minimapCanvasRef.current
+    if (!canvas) return
+
+    const coords = canvasToWorldCoords(canvas, evt)
+    if (!coords) return
+
+    const stickers: any[] = (stickerState.stickers ?? []) as any[]
+    if (!stickers.length) return
+
+    const canvasWidth = canvas.width
+    const canvasHeight = canvas.height
+
+    let clickedId: string | null = null
+
+    for (const s of stickers) {
+      const x = s.x ?? 0
+      const y = s.y ?? 0
+      const width = s.width ?? 1
+      const height = s.height ?? 1
+
+      const nx = x / world.width
+      const ny = y / world.height
+      const nw = width / world.width
+      const nh = height / world.height
+
+      const px = nx * canvasWidth
+      const py = ny * canvasHeight
+      const pw = nw * canvasWidth
+      const ph = nh * canvasHeight
+
+      if (
+        coords.x >= px &&
+        coords.x <= px + pw &&
+        coords.y >= py &&
+        coords.y <= py + ph
+      ) {
+        clickedId = s.id ?? null
+        break
+      }
+    }
+
+    setSelectedStickerId(clickedId)
   }
 
-  if (!world) {
-    return (
-      <AppShell
-        title="Create Mode"
-        onBack={() => navigate('/')}
-        leftToolbar={<div />}
-        main={<div style={{ padding: '1rem' }}>Loading world…</div>}
-        minimapOverlay={null}
-        rightPanel={null}
-      />
-    )
+  function deleteSelectedSticker() {
+    if (!selectedStickerId) return
+
+    const stickers: any[] = (stickerState.stickers ?? []) as any[]
+    const remaining = stickers.filter(s => s.id !== selectedStickerId)
+
+    setStickerState({
+      stickers: remaining,
+    })
+
+    setWorld(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        stickers: remaining,
+      }
+    })
+
+    setSelectedStickerId(null)
   }
 
   // ------------------------
@@ -598,6 +500,25 @@ export default function CreateModeApp() {
   }
 
   const selectedSticker = getSelectedSticker()
+
+  // ------------------------
+  // Actions: save world
+  // ------------------------
+  function handleSaveWorld() {
+    if (!world) return
+    try {
+      setIsSaving(true)
+      setLastSavedMessage(null)
+      saveWorld(world)
+      setLastSavedMessage('Saved')
+      // Soft feedback only; no navigation needed here.
+    } catch (error) {
+      console.error('Failed to save world in Create Mode:', error)
+      setLastSavedMessage('Save failed')
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   // ------------------------
   // Render: main UI
@@ -628,8 +549,8 @@ export default function CreateModeApp() {
       </button>
 
       {activeTool === 'terrain-brush' && (
-        <div className="ww-tool-section">
-          <h4>Brush settings</h4>
+        <div style={{ marginTop: '1rem' }}>
+          <h3>Brush settings</h3>
 
           <div className="ww-control-row">
             <label>Mode</label>
@@ -685,11 +606,35 @@ export default function CreateModeApp() {
   )
 
   const minimapView = (
-    <canvas ref={minimapCanvasRef} width={256} height={128} />
+    <div className="ww-minimap-card">
+      <canvas
+        ref={minimapCanvasRef}
+        width={256}
+        height={128}
+        onClick={handleMinimapClick}
+      />
+    </div>
   )
 
   const rightPanel = (
     <div className="ww-info-panel">
+      <div className="ww-save-row" style={{ marginBottom: '0.75rem' }}>
+        <button
+          onClick={handleSaveWorld}
+          disabled={!world || isSaving}
+        >
+          {isSaving ? 'Saving…' : 'Save world'}
+        </button>
+        {lastSavedMessage && (
+          <span
+            className="ww-save-message"
+            style={{ marginLeft: '0.5rem', fontSize: '0.85rem' }}
+          >
+            {lastSavedMessage}
+          </span>
+        )}
+      </div>
+
       <h3>Location info</h3>
       {!selectedCell && (
         <p>Use the Inspect tool, then click on the map to sample a location.</p>
@@ -758,6 +703,38 @@ export default function CreateModeApp() {
     </div>
   )
 
+  // ------------------------
+  // Render: loading / not found
+  // ------------------------
+  if (notFound) {
+    return (
+      <AppShell
+        title="Create Mode"
+        onBack={() => navigate('/')}
+        leftToolbar={<div />}
+        main={<div style={{ padding: '1rem' }}>World not found.</div>}
+        minimapOverlay={null}
+        rightPanel={null}
+      />
+    )
+  }
+
+  if (!world) {
+    return (
+      <AppShell
+        title="Create Mode"
+        onBack={() => navigate('/')}
+        leftToolbar={<div />}
+        main={<div style={{ padding: '1rem' }}>Loading world…</div>}
+        minimapOverlay={null}
+        rightPanel={null}
+      />
+    )
+  }
+
+  // ------------------------
+  // Final shell
+  // ------------------------
   return (
     <AppShell
       title={`Create: ${world.name || 'World'}`}
