@@ -1,5 +1,5 @@
 // ========================================================
-// JARVIS_CHANGE (6B-1, 6B-2, 6B-3B, 6B-4-2 – Create Mode)
+// JARVIS_CHANGE (6B-1, 6B-2, 6B-3B, 6B-4-2 – Create Mode + Pan)
 // Date: 2025-12-06
 //
 // Purpose (current state):
@@ -10,6 +10,7 @@
 //   • Bottom-left: minimap (globe view only)
 //   • Right: info panel + save controls
 // - Provide tools (in Map view):
+//   • "Pan" – click + drag to move camera/zoom focus.
 //   • "Inspect" – sample location info from the map.
 //   • "Terrain brush" – paint terrain height by click + drag.
 //   • "Sticker" – place and manage simple rectangular stickers.
@@ -30,7 +31,8 @@
 //     to that position.
 // - This version also:
 //   • Does NOT resize the main canvas in globe view (prevents scrunched map).
-//   • Allows deeper zoom (max zoom increased).
+//   • Allows deeper zoom (max zoom 16).
+//   • Adds Pan tool: drag in Map view to move the camera.
 // ========================================================
 
 import React, {
@@ -61,7 +63,7 @@ type SelectedCellInfo = {
   isLand: boolean
 }
 
-type ActiveTool = 'inspect' | 'terrain-brush' | 'sticker'
+type ActiveTool = 'pan' | 'inspect' | 'terrain-brush' | 'sticker'
 type BrushMode = 'raise' | 'lower'
 type ViewMode = 'map' | 'globe'
 
@@ -78,7 +80,7 @@ export default function CreateModeApp() {
   const [world, setWorld] = useState<LoadedWorld | null>(null)
   const [notFound, setNotFound] = useState(false)
 
-  const [activeTool, setActiveTool] = useState<ActiveTool>('inspect')
+  const [activeTool, setActiveTool] = useState<ActiveTool>('pan')
   const [viewMode, setViewMode] = useState<ViewMode>('map')
 
   const [selectedCell, setSelectedCell] = useState<SelectedCellInfo | null>(
@@ -89,6 +91,11 @@ export default function CreateModeApp() {
   const [brushRadius, setBrushRadius] = useState<number>(3)
   const [brushStrength, setBrushStrength] = useState<number>(0.05)
   const [isBrushing, setIsBrushing] = useState(false)
+
+  const [isPanning, setIsPanning] = useState(false)
+  const lastPanPointRef = useRef<{ clientX: number; clientY: number } | null>(
+    null,
+  )
 
   const [stickerState, setStickerState] =
     useState<StickerState>(emptyStickerState())
@@ -377,7 +384,11 @@ export default function CreateModeApp() {
       }
     }
 
-    ctx.putImageData(imageData, (canvas.width - globeSize) / 2, (canvas.height - globeSize) / 2)
+    ctx.putImageData(
+      imageData,
+      (canvas.width - globeSize) / 2,
+      (canvas.height - globeSize) / 2,
+    )
   }
 
   // ------------------------
@@ -680,15 +691,29 @@ export default function CreateModeApp() {
     })
   }
 
+  // ------------------------
+  // Main canvas mouse handlers (pan, brush, stickers, inspect)
+  // ------------------------
   function handleMainCanvasMouseDown(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
+
+    if (viewMode !== 'map') {
+      return
+    }
+
+    if (activeTool === 'pan') {
+      setIsPanning(true)
+      lastPanPointRef.current = {
+        clientX: evt.clientX,
+        clientY: evt.clientY,
+      }
+      return
+    }
 
     if (activeTool === 'inspect') {
       handleInspectClick(evt)
       return
     }
-
-    if (viewMode !== 'map') return
 
     if (activeTool === 'terrain-brush') {
       setIsBrushing(true)
@@ -742,21 +767,75 @@ export default function CreateModeApp() {
   }
 
   function handleMainCanvasMouseMove(evt: ReactMouseEvent<HTMLCanvasElement>) {
-    if (!isBrushing) return
-    if (activeTool !== 'terrain-brush') return
+    if (!world) return
     if (viewMode !== 'map') return
-    applyBrushAt(evt)
+
+    if (activeTool === 'terrain-brush') {
+      if (!isBrushing) return
+      applyBrushAt(evt)
+      return
+    }
+
+    if (activeTool === 'pan') {
+      if (!isPanning || !mapCamera) return
+
+      const canvas = mainCanvasRef.current
+      if (!canvas) return
+
+      const last = lastPanPointRef.current
+      if (!last) {
+        lastPanPointRef.current = {
+          clientX: evt.clientX,
+          clientY: evt.clientY,
+        }
+        return
+      }
+
+      const dxClient = evt.clientX - last.clientX
+      const dyClient = evt.clientY - last.clientY
+
+      lastPanPointRef.current = {
+        clientX: evt.clientX,
+        clientY: evt.clientY,
+      }
+
+      const vp = getViewport(world, mapCamera)
+
+      const worldPerPixelX = vp.width / canvas.width
+      const worldPerPixelY = vp.height / canvas.height
+
+      const nextCenterX = mapCamera.centerX - dxClient * worldPerPixelX
+      const nextCenterY = mapCamera.centerY - dyClient * worldPerPixelY
+
+      setMapCamera(prev =>
+        prev
+          ? clampCamera(world, {
+              ...prev,
+              centerX: nextCenterX,
+              centerY: nextCenterY,
+            })
+          : prev,
+      )
+    }
   }
 
   function handleMainCanvasMouseUp() {
     if (isBrushing) {
       setIsBrushing(false)
     }
+    if (isPanning) {
+      setIsPanning(false)
+      lastPanPointRef.current = null
+    }
   }
 
   function handleMainCanvasMouseLeave() {
     if (isBrushing) {
       setIsBrushing(false)
+    }
+    if (isPanning) {
+      setIsPanning(false)
+      lastPanPointRef.current = null
     }
   }
 
@@ -916,8 +995,17 @@ export default function CreateModeApp() {
       <h3 style={{ marginTop: '1rem' }}>Tools</h3>
 
       <button
+        className={activeTool === 'pan' ? 'active' : ''}
+        onClick={() => setActiveTool('pan')}
+        disabled={viewMode !== 'map'}
+      >
+        Pan
+      </button>
+
+      <button
         className={activeTool === 'inspect' ? 'active' : ''}
         onClick={() => setActiveTool('inspect')}
+        disabled={viewMode !== 'map'}
       >
         Inspect
       </button>
@@ -1014,7 +1102,9 @@ export default function CreateModeApp() {
               min={1}
               max={100}
               value={Math.round(brushStrength * 100)}
-              onChange={e => setBrushStrength(Number(e.target.value) / 100)}
+              onChange={e =>
+                setBrushStrength(Number(e.target.value) / 100)
+              }
             />
             <span>{Math.round(brushStrength * 100)}%</span>
           </div>
@@ -1088,7 +1178,8 @@ export default function CreateModeApp() {
           <div>
             <strong>Lat / Lon</strong>
             <div>
-              {selectedCell.lat.toFixed(2)}°, {selectedCell.lon.toFixed(2)}°
+              {selectedCell.lat.toFixed(2)}°,{' '}
+              {selectedCell.lon.toFixed(2)}°
             </div>
           </div>
           <div>
@@ -1107,8 +1198,9 @@ export default function CreateModeApp() {
           <h3>Sticker info</h3>
           {!selectedSticker && (
             <p>
-              In Map view, click on the map to create a sticker. In Globe view,
-              click the minimap to select stickers or recenter the editor view.
+              In Map view, click on the map to create a sticker. In Globe
+              view, click the minimap to select stickers or recenter the
+              editor view.
             </p>
           )}
           {selectedSticker && (
@@ -1124,7 +1216,8 @@ export default function CreateModeApp() {
                     x: {selectedSticker.x}, y: {selectedSticker.y}
                   </div>
                   <div>
-                    w: {selectedSticker.width}, h: {selectedSticker.height}
+                    w: {selectedSticker.width}, h:{' '}
+                    {selectedSticker.height}
                   </div>
                 </div>
               </div>
