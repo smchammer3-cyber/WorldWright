@@ -28,6 +28,9 @@
 //     the Map view camera region.
 //   • Clicking the minimap outside a sticker recenters the Map camera
 //     to that position.
+// - This version also:
+//   • Does NOT resize the main canvas in globe view (prevents scrunched map).
+//   • Allows deeper zoom (max zoom increased).
 // ========================================================
 
 import React, {
@@ -63,9 +66,9 @@ type BrushMode = 'raise' | 'lower'
 type ViewMode = 'map' | 'globe'
 
 type MapCamera = {
-  centerX: number // in world grid coordinates
+  centerX: number
   centerY: number
-  zoom: number // 1 = whole world, >1 = zoom in
+  zoom: number
 }
 
 export default function CreateModeApp() {
@@ -87,11 +90,9 @@ export default function CreateModeApp() {
   const [brushStrength, setBrushStrength] = useState<number>(0.05)
   const [isBrushing, setIsBrushing] = useState(false)
 
-  // Stickers: editor state mirrored from world.stickers
   const [stickerState, setStickerState] =
     useState<StickerState>(emptyStickerState())
 
-  // Id of currently selected sticker (if any)
   const [selectedStickerId, setSelectedStickerId] = useState<string | null>(
     null,
   )
@@ -102,7 +103,6 @@ export default function CreateModeApp() {
   const mainCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  // Editor camera for Map view
   const [mapCamera, setMapCamera] = useState<MapCamera | null>(null)
 
   // ------------------------
@@ -160,7 +160,7 @@ export default function CreateModeApp() {
   // ------------------------
   function clampCamera(w: LoadedWorld, camera: MapCamera): MapCamera {
     const minZoom = 1
-    const maxZoom = 8
+    const maxZoom = 16
     const zoom = Math.max(minZoom, Math.min(maxZoom, camera.zoom))
 
     const viewportWorldWidth = w.width / zoom
@@ -206,7 +206,6 @@ export default function CreateModeApp() {
     const worldHeight = currentWorld.height
     if (worldWidth <= 0 || worldHeight <= 0) return
 
-    // Offscreen full-world render
     const offscreen = document.createElement('canvas')
     offscreen.width = worldWidth
     offscreen.height = worldHeight
@@ -225,7 +224,6 @@ export default function CreateModeApp() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // If camera isn't ready yet, just show whole world
     if (!camera) {
       ctx.drawImage(
         offscreen,
@@ -275,8 +273,8 @@ export default function CreateModeApp() {
 
     const baseSize = Math.min(canvas.width || 1, canvas.height || 1)
     const globeSize = baseSize > 0 ? baseSize : 512
-    canvas.width = globeSize
-    canvas.height = globeSize
+    // NOTE: We intentionally do NOT change canvas.width/height here.
+    // Map view owns the canvas size; globe just draws inside it.
 
     const imageData = ctx.createImageData(globeSize, globeSize)
     const data = imageData.data
@@ -328,6 +326,8 @@ export default function CreateModeApp() {
     const cy = radius
     const rMax = radius * radius
 
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
     for (let py = 0; py < globeSize; py++) {
       for (let px = 0; px < globeSize; px++) {
         const dx = px - cx
@@ -377,11 +377,11 @@ export default function CreateModeApp() {
       }
     }
 
-    ctx.putImageData(imageData, 0, 0)
+    ctx.putImageData(imageData, (canvas.width - globeSize) / 2, (canvas.height - globeSize) / 2)
   }
 
   // ------------------------
-  // Helper: draw sticker overlays on a canvas (with optional camera)
+  // Helper: draw sticker overlays (with optional camera)
   // ------------------------
   function drawStickerOverlays(
     canvas: HTMLCanvasElement,
@@ -504,7 +504,6 @@ export default function CreateModeApp() {
           'full',
         )
 
-        // Draw viewport rectangle for Map camera
         if (mapCamera) {
           const vp = getViewport(world, mapCamera)
           const nx = vp.x / world.width
@@ -531,7 +530,7 @@ export default function CreateModeApp() {
   }, [world, stickerState, selectedStickerId, viewMode, mapCamera])
 
   // ------------------------
-  // Coordinate helpers: canvas → world (with camera)
+  // Coordinate helpers
   // ------------------------
   function canvasToWorldCoords(
     canvas: HTMLCanvasElement,
@@ -557,7 +556,6 @@ export default function CreateModeApp() {
     }
 
     const vp = getViewport(w, camera)
-
     const wx = vp.x + (px / canvas.width) * vp.width
     const wy = vp.y + (py / canvas.height) * vp.height
 
@@ -594,7 +592,7 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // Inspect tool logic (map view only)
+  // Inspect tool logic
   // ------------------------
   function handleInspectClick(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
@@ -626,7 +624,7 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // Terrain brush logic (map view only)
+  // Terrain brush logic
   // ------------------------
   function applyBrushAt(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
@@ -762,7 +760,6 @@ export default function CreateModeApp() {
     }
   }
 
-  // Zoom with mouse wheel in Map view
   function handleMainCanvasWheel(evt: ReactWheelEvent<HTMLCanvasElement>) {
     if (!world) return
     if (viewMode !== 'map') return
@@ -779,7 +776,7 @@ export default function CreateModeApp() {
   }
 
   // ------------------------
-  // Sticker selection & camera recentre via minimap (globe view)
+  // Sticker selection & camera center from minimap (globe view)
   // ------------------------
   function handleMinimapClick(evt: ReactMouseEvent<HTMLCanvasElement>) {
     if (!world) return
@@ -821,12 +818,7 @@ export default function CreateModeApp() {
       const rw = nw * canvasWidth
       const rh = nh * canvasHeight
 
-      if (
-        px >= rx &&
-        px <= rx + rw &&
-        py >= ry &&
-        py <= ry + rh
-      ) {
+      if (px >= rx && px <= rx + rw && py >= ry && py <= ry + rh) {
         clickedId = s.id ?? null
         break
       }
@@ -837,7 +829,6 @@ export default function CreateModeApp() {
       return
     }
 
-    // No sticker hit: recenter map camera to this minimap point.
     setMapCamera(prev => {
       if (!prev || !world) {
         return {
@@ -904,9 +895,6 @@ export default function CreateModeApp() {
     }
   }
 
-  // ------------------------
-  // Render: main UI
-  // ------------------------
   const leftToolbar = (
     <div className="ww-tools-panel">
       <h3>View</h3>
@@ -958,7 +946,7 @@ export default function CreateModeApp() {
             <input
               type="range"
               min={1}
-              max={8}
+              max={16}
               value={mapCamera?.zoom ?? 1}
               onChange={e => {
                 if (!world) return
@@ -1153,9 +1141,6 @@ export default function CreateModeApp() {
     </div>
   )
 
-  // ------------------------
-  // Render: loading / not found
-  // ------------------------
   if (notFound) {
     return (
       <AppShell
@@ -1182,9 +1167,6 @@ export default function CreateModeApp() {
     )
   }
 
-  // ------------------------
-  // Final shell
-  // ------------------------
   return (
     <AppShell
       title={`Create: ${world.name || 'World'}`}
