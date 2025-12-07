@@ -1,6 +1,6 @@
 // ========================================================
 // WORLD STORAGE -- WORLDBRAIN STEP 1.1-B (SCHEMA-AWARE STORAGE)
-// Jarvis change: 1.1-B -- Update worldStorage.ts
+// Jarvis change: compact saves + quota-safe persistence
 //
 // Responsibilities:
 // - Persist World objects to localStorage.
@@ -15,6 +15,12 @@
 //   • getWorld(id)
 //   • saveWorld(world)
 //   • deleteWorld(id)
+//
+// Extra for this stage:
+// - Store a *compact* version of each world:
+//   • editLayer.heightDelta   -> always saved as [] (recreated on load)
+//   • simLayer.heightDelta    -> always saved as [] (recreated on load)
+// - Skip writing if JSON is still too large, instead of throwing quota errors.
 // ========================================================
 
 import {
@@ -29,7 +35,7 @@ import {
   createEmptySimLayer,
 } from './world'
 
-// NOTE: bumped key to avoid old oversized data hitting quota.
+// NOTE: bumped key to avoid old oversized data.
 const STORAGE_KEY = 'worldwright.v2.worlds'
 
 /**
@@ -61,7 +67,7 @@ function safeParseJSON<T>(value: string | null): T | null {
 }
 
 // --------------------------------------------------------
-// Normalization / Migration
+// Normalization / Migration helpers
 // --------------------------------------------------------
 
 /**
@@ -143,7 +149,7 @@ function normalizeCity(raw: any): City {
  * Normalize/migrate a raw world object from storage into a proper World.
  * This is where we:
  * - Add schemaVersion if missing.
- * - Create editLayer/simLayer if missing.
+ * - Create editLayer/simLayer if missing or empty.
  * - Normalize arrays.
  * - Ensure createdAt / updatedAt timestamps exist.
  */
@@ -170,23 +176,27 @@ function normalizeWorld(raw: any): World | null {
   const updatedAt: string =
     typeof raw.updatedAt === 'string' ? raw.updatedAt : createdAt
 
-  // editLayer / simLayer: if missing, create zeroed layers
+  // editLayer / simLayer: if missing or empty, create zeroed layers
   const rawEditLayer = raw.editLayer
   const rawSimLayer = raw.simLayer
 
-  const editLayer =
+  const hasValidEdit =
     rawEditLayer &&
     Array.isArray(rawEditLayer.heightDelta) &&
     rawEditLayer.heightDelta.length === cellCount
-      ? { heightDelta: [...rawEditLayer.heightDelta] }
-      : createEmptyEditLayer(cellCount)
 
-  const simLayer =
+  const hasValidSim =
     rawSimLayer &&
     Array.isArray(rawSimLayer.heightDelta) &&
     rawSimLayer.heightDelta.length === cellCount
-      ? { heightDelta: [...rawSimLayer.heightDelta] }
-      : createEmptySimLayer(cellCount)
+
+  const editLayer = hasValidEdit
+    ? { heightDelta: [...rawEditLayer.heightDelta] }
+    : createEmptyEditLayer(cellCount)
+
+  const simLayer = hasValidSim
+    ? { heightDelta: [...rawSimLayer.heightDelta] }
+    : createEmptySimLayer(cellCount)
 
   const countriesRaw = Array.isArray(raw.countries) ? raw.countries : []
   const culturesRaw = Array.isArray(raw.cultures) ? raw.cultures : []
@@ -243,12 +253,39 @@ function loadWorldsFromStorage(): World[] {
   return normalized
 }
 
+/**
+ * Create a smaller representation of a world for storage:
+ * - editLayer.heightDelta is stored as [] and recreated on load
+ * - simLayer.heightDelta is stored as [] and recreated on load
+ */
+function compactWorldForStorage(world: World): World {
+  return {
+    ...world,
+    editLayer: { heightDelta: [] },
+    simLayer: { heightDelta: [] },
+  }
+}
+
 function persistWorldsToStorage() {
   try {
-    const serialized = JSON.stringify(worlds)
+    const compact = worlds.map(compactWorldForStorage)
+    const serialized = JSON.stringify(compact)
+
+    // Basic safety guard: if it gets too large, skip saving instead of
+    // throwing quota errors during dev.
+    const approxBytes = serialized.length * 2 // UTF-16 chars ~2 bytes
+    const maxBytes = 4 * 1024 * 1024 // 4 MB safety threshold
+
+    if (approxBytes > maxBytes) {
+      console.warn(
+        '[WorldWright] World data too large for LocalStorage; skipping save.',
+      )
+      return
+    }
+
     localStorage.setItem(STORAGE_KEY, serialized)
   } catch (error) {
-    console.error('Failed to persist worlds to storage:', error)
+    console.warn('Failed to persist worlds to storage:', error)
   }
 }
 
@@ -297,7 +334,7 @@ export function saveWorld(world: World): void {
 
   const nowIso = new Date().toISOString()
 
-  const toStore: World = {
+  const normalized: World = {
     ...world,
     schemaVersion: CURRENT_WORLD_SCHEMA_VERSION,
     createdAt: world.createdAt || nowIso,
@@ -305,9 +342,9 @@ export function saveWorld(world: World): void {
   }
 
   if (index >= 0) {
-    worlds[index] = toStore
+    worlds[index] = normalized
   } else {
-    worlds.push(toStore)
+    worlds.push(normalized)
   }
 
   persistWorldsToStorage()
