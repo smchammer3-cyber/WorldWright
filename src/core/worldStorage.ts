@@ -1,154 +1,283 @@
-// ============================================
-// WorldWright Storage System (Blueprint Step 3)
-// In-memory storage + LocalStorage persistence
+// ========================================================
+// WORLD STORAGE -- WORLDBRAIN STEP 1.1-B (SCHEMA-AWARE STORAGE)
+// Jarvis change: 1.1-B -- Update worldStorage.ts
 //
-// (6B-3B) Notes:
-// - World now has an optional `stickers` field.
-// - We normalize loaded worlds so `stickers` is always an array,
-//   even for older saves that never had this field.
-// ============================================
+// Responsibilities:
+// - Persist World objects to localStorage.
+// - Normalize/migrate older saves to the current schema:
+//   • Add schemaVersion when missing.
+//   • Add editLayer / simLayer when missing.
+//   • Ensure arrays (countries, cultures, cities, stickers) exist.
+// - Provide a simple API used by the app:
+//   • listWorlds()
+//   • getWorld(id)
+//   • saveWorld(world)
+//   • deleteWorld(id)
+// ========================================================
 
-import { World } from './world'
+import {
+  World,
+  WorldCell,
+  WorldSticker,
+  Country,
+  Culture,
+  City,
+  CURRENT_WORLD_SCHEMA_VERSION,
+  createEmptyEditLayer,
+  createEmptySimLayer,
+} from './world'
 
-// In-memory saved worlds (runtime only)
+const STORAGE_KEY = 'worldwright.worlds'
+
+/**
+ * In-memory cache of worlds.
+ * Always normalized to the current schema.
+ */
 let worlds: World[] = []
 
-export interface WorldSummary {
-  id: string
-  name: string
-  createdAt: string
-  updatedAt: string
+// --------------------------------------------------------
+// Utility: safe JSON parse
+// --------------------------------------------------------
+
+function safeParseJSON<T>(value: string | null): T | null {
+  if (!value) return null
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return null
+  }
 }
 
-const STORAGE_KEY = 'worldwright_saves'
+// --------------------------------------------------------
+// Normalization / Migration
+// --------------------------------------------------------
 
-function normalizeWorld(world: World): World {
-  // Ensure array fields are at least empty arrays
-  const countries = Array.isArray(world.countries) ? world.countries : []
-  const cultures = Array.isArray(world.cultures) ? world.cultures : []
-  const cities = Array.isArray(world.cities) ? world.cities : []
-
-  // Stickers may be missing on older saves; treat missing as []
-  const stickersRaw = (world as any).stickers
-  const stickers = Array.isArray(stickersRaw) ? stickersRaw : []
-
+/**
+ * Normalize a raw cell from older saves into a WorldCell.
+ */
+function normalizeCell(raw: any): WorldCell {
   return {
-    ...world,
+    x: typeof raw?.x === 'number' ? raw.x : 0,
+    y: typeof raw?.y === 'number' ? raw.y : 0,
+    baseHeight:
+      typeof raw?.baseHeight === 'number'
+        ? raw.baseHeight
+        : 0,
+    temperature:
+      typeof raw?.temperature === 'number'
+        ? raw.temperature
+        : 0.5,
+    moisture:
+      typeof raw?.moisture === 'number'
+        ? raw.moisture
+        : 0.5,
+    biomeId:
+      typeof raw?.biomeId === 'string'
+        ? raw.biomeId
+        : 'unknown',
+  }
+}
+
+function normalizeSticker(raw: any, worldId: string): WorldSticker {
+  return {
+    id: String(raw?.id ?? `sticker-${Math.random().toString(36).slice(2)}`),
+    worldId,
+    type: String(raw?.type ?? 'REGION'),
+    x: typeof raw?.x === 'number' ? raw.x : 0,
+    y: typeof raw?.y === 'number' ? raw.y : 0,
+    width: typeof raw?.width === 'number' ? raw.width : 1,
+    height: typeof raw?.height === 'number' ? raw.height : 1,
+    metadata:
+      raw?.metadata && typeof raw.metadata === 'object'
+        ? raw.metadata
+        : {},
+  }
+}
+
+function normalizeCountry(raw: any): Country {
+  return {
+    id: String(raw?.id ?? `country-${Math.random().toString(36).slice(2)}`),
+    name: String(raw?.name ?? 'Unnamed country'),
+  }
+}
+
+function normalizeCulture(raw: any): Culture {
+  return {
+    id: String(raw?.id ?? `culture-${Math.random().toString(36).slice(2)}`),
+    name: String(raw?.name ?? 'Unnamed culture'),
+  }
+}
+
+function normalizeCity(raw: any): City {
+  return {
+    id: String(raw?.id ?? `city-${Math.random().toString(36).slice(2)}`),
+    name: String(raw?.name ?? 'Unnamed city'),
+    x: typeof raw?.x === 'number' ? raw.x : 0,
+    y: typeof raw?.y === 'number' ? raw.y : 0,
+    population:
+      typeof raw?.population === 'number'
+        ? raw.population
+        : undefined,
+  }
+}
+
+/**
+ * Normalize/migrate a raw world object from storage into a proper World.
+ * This is where we:
+ * - Add schemaVersion if missing.
+ * - Create editLayer/simLayer if missing.
+ * - Normalize arrays.
+ */
+function normalizeWorld(raw: any): World | null {
+  if (!raw) return null
+
+  const width = typeof raw.width === 'number' ? raw.width : 256
+  const height = typeof raw.height === 'number' ? raw.height : 128
+
+  const rawCells = Array.isArray(raw.cells) ? raw.cells : []
+  const cells: WorldCell[] = rawCells.map(normalizeCell)
+
+  const cellCount = cells.length || width * height
+
+  // schemaVersion: default to CURRENT if missing/invalid
+  const schemaVersion =
+    typeof raw.schemaVersion === 'number'
+      ? (raw.schemaVersion as typeof CURRENT_WORLD_SCHEMA_VERSION)
+      : CURRENT_WORLD_SCHEMA_VERSION
+
+  // editLayer / simLayer: if missing, create zeroed layers
+  const rawEditLayer = raw.editLayer
+  const rawSimLayer = raw.simLayer
+
+  const editLayer =
+    rawEditLayer &&
+    Array.isArray(rawEditLayer.heightDelta) &&
+    rawEditLayer.heightDelta.length === cellCount
+      ? { heightDelta: [...rawEditLayer.heightDelta] }
+      : createEmptyEditLayer(cellCount)
+
+  const simLayer =
+    rawSimLayer &&
+    Array.isArray(rawSimLayer.heightDelta) &&
+    rawSimLayer.heightDelta.length === cellCount
+      ? { heightDelta: [...rawSimLayer.heightDelta] }
+      : createEmptySimLayer(cellCount)
+
+  const countriesRaw = Array.isArray(raw.countries) ? raw.countries : []
+  const culturesRaw = Array.isArray(raw.cultures) ? raw.cultures : []
+  const citiesRaw = Array.isArray(raw.cities) ? raw.cities : []
+  const stickersRaw = Array.isArray(raw.stickers) ? raw.stickers : []
+
+  const countries: Country[] = countriesRaw.map(normalizeCountry)
+  const cultures: Culture[] = culturesRaw.map(normalizeCulture)
+  const cities: City[] = citiesRaw.map(normalizeCity)
+  const stickers: WorldSticker[] = stickersRaw.map((s: any) =>
+    normalizeSticker(s, String(raw.id ?? 'unknown')),
+  )
+
+  const world: World = {
+    id: String(raw.id ?? `world-${Math.random().toString(36).slice(2)}`),
+    name: String(raw.name ?? 'Untitled world'),
+    seed: String(raw.seed ?? '0'),
+    schemaVersion,
+    width,
+    height,
+    seaLevel:
+      typeof raw.seaLevel === 'number' ? raw.seaLevel : 0.5,
+    cells,
+    editLayer,
+    simLayer,
     countries,
     cultures,
     cities,
     stickers,
   }
+
+  return world
 }
 
-function setWorlds(next: World[]) {
-  worlds = next.map(normalizeWorld)
-}
+// --------------------------------------------------------
+// Load from and save to localStorage
+// --------------------------------------------------------
 
-/**
- * Ensure a world has a non-empty id.
- */
-function ensureWorldHasId(world: World): World {
-  const trimmedId = world.id?.trim()
-  if (trimmedId && trimmedId.length > 0) {
-    return world
+function loadWorldsFromStorage(): World[] {
+  const parsed = safeParseJSON<any[]>(localStorage.getItem(STORAGE_KEY))
+  if (!parsed || !Array.isArray(parsed)) {
+    return []
   }
-  const id = `world_${Date.now().toString(36)}_${Math.random()
-    .toString(36)
-    .slice(2, 8)}`
-  return { ...world, id }
+
+  const normalized: World[] = []
+  for (const raw of parsed) {
+    const w = normalizeWorld(raw)
+    if (w) normalized.push(w)
+  }
+  return normalized
 }
 
+function persistWorldsToStorage() {
+  try {
+    const serialized = JSON.stringify(worlds)
+    localStorage.setItem(STORAGE_KEY, serialized)
+  } catch (error) {
+    console.error('Failed to persist worlds to storage:', error)
+  }
+}
+
+// --------------------------------------------------------
+// Public API
+// --------------------------------------------------------
+
 /**
- * Return a lightweight list of worlds for the home screen.
+ * Return a snapshot of all worlds.
  */
-export function listWorldSummaries(): WorldSummary[] {
-  return worlds
-    .map(w => {
-      const createdAt = w.createdAt || new Date().toISOString()
-      const updatedAt = w.updatedAt || createdAt
-      return {
-        id: w.id,
-        name: w.name || 'Untitled world',
-        createdAt,
-        updatedAt,
-      }
-    })
-    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
+export function listWorlds(): World[] {
+  return worlds.slice()
 }
 
 /**
- * Get a full world by id.
+ * Find a world by id.
  */
 export function getWorld(id: string): World | undefined {
   return worlds.find(w => w.id === id)
 }
 
 /**
- * Save (or update) a world in memory and persist it.
- * Returns the world's id.
+ * Insert or replace a world, then persist to storage.
+ *
+ * Call this from:
+ * - Generate Mode when creating a new world.
+ * - Create Mode when saving edits.
  */
-export function saveWorld(world: World): string {
-  const now = new Date().toISOString()
-  const withId = ensureWorldHasId(world)
+export function saveWorld(world: World): void {
+  const index = worlds.findIndex(w => w.id === world.id)
 
-  const existingIndex = worlds.findIndex(w => w.id === withId.id)
+  const toStore: World = {
+    ...world,
+    schemaVersion: CURRENT_WORLD_SCHEMA_VERSION,
+  }
 
-  if (existingIndex >= 0) {
-    const existing = worlds[existingIndex]
-    const createdAt = existing.createdAt || withId.createdAt || now
-    const updated: World = normalizeWorld({
-      ...existing,
-      ...withId,
-      createdAt,
-      updatedAt: now,
-    })
-    worlds[existingIndex] = updated
+  if (index >= 0) {
+    worlds[index] = toStore
   } else {
-    const createdAt = withId.createdAt || now
-    const created: World = normalizeWorld({
-      ...withId,
-      createdAt,
-      updatedAt: now,
-    })
-    worlds.push(created)
+    worlds.push(toStore)
   }
 
-  persistToLocalStorage()
-  return withId.id
+  persistWorldsToStorage()
 }
 
 /**
- * Persist the in-memory list of worlds to LocalStorage.
+ * Delete a world by id.
  */
-function persistToLocalStorage() {
-  try {
-    const data = JSON.stringify(worlds)
-    localStorage.setItem(STORAGE_KEY, data)
-  } catch (e) {
-    console.warn('Failed to write to LocalStorage:', e)
-  }
+export function deleteWorld(id: string): void {
+  const next = worlds.filter(w => w.id !== id)
+  if (next.length === worlds.length) return
+  worlds = next
+  persistWorldsToStorage()
 }
 
-/**
- * Restore the in-memory list of worlds from LocalStorage.
- * Safe to call multiple times; will overwrite the in-memory list.
- */
-export function restoreFromLocalStorage() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY)
-    if (!data) {
-      worlds = []
-      return
-    }
-    const parsed = JSON.parse(data)
-    if (Array.isArray(parsed)) {
-      setWorlds(parsed as World[])
-    } else {
-      worlds = []
-    }
-  } catch (e) {
-    console.warn('Failed reading from LocalStorage:', e)
-    worlds = []
-  }
-}
+// --------------------------------------------------------
+// Initialization
+// --------------------------------------------------------
+
+// Initialize worlds on module load.
+worlds = loadWorldsFromStorage()
