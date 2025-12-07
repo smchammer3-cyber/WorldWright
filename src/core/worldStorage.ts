@@ -9,6 +9,7 @@
 //   • Add editLayer / simLayer when missing.
 //   • Ensure arrays (countries, cultures, cities, stickers) exist.
 // - Provide a simple API used by the app:
+//   • restoreFromLocalStorage() for App bootstrap
 //   • listWorldSummaries() for Home screen
 //   • listWorlds()
 //   • getWorld(id)
@@ -90,7 +91,9 @@ function normalizeCell(raw: any): WorldCell {
 
 function normalizeSticker(raw: any, worldId: string): WorldSticker {
   return {
-    id: String(raw?.id ?? `sticker-${Math.random().toString(36).slice(2)}`),
+    id: String(
+      raw?.id ?? `sticker-${Math.random().toString(36).slice(2)}`,
+    ),
     worldId,
     type: String(raw?.type ?? 'REGION'),
     x: typeof raw?.x === 'number' ? raw.x : 0,
@@ -106,14 +109,18 @@ function normalizeSticker(raw: any, worldId: string): WorldSticker {
 
 function normalizeCountry(raw: any): Country {
   return {
-    id: String(raw?.id ?? `country-${Math.random().toString(36).slice(2)}`),
+    id: String(
+      raw?.id ?? `country-${Math.random().toString(36).slice(2)}`,
+    ),
     name: String(raw?.name ?? 'Unnamed country'),
   }
 }
 
 function normalizeCulture(raw: any): Culture {
   return {
-    id: String(raw?.id ?? `culture-${Math.random().toString(36).slice(2)}`),
+    id: String(
+      raw?.id ?? `culture-${Math.random().toString(36).slice(2)}`,
+    ),
     name: String(raw?.name ?? 'Unnamed culture'),
   }
 }
@@ -193,7 +200,9 @@ function normalizeWorld(raw: any): World | null {
   )
 
   const world: World = {
-    id: String(raw.id ?? `world-${Math.random().toString(36).slice(2)}`),
+    id: String(
+      raw.id ?? `world-${Math.random().toString(36).slice(2)}`,
+    ),
     name: String(raw.name ?? 'Untitled world'),
     seed: String(raw.seed ?? '0'),
     schemaVersion,
@@ -260,7 +269,7 @@ export function listWorlds(): World[] {
 export function listWorldSummaries(): WorldSummary[] {
   return worlds
     .slice()
-    .map((w) => ({
+    .map(w => ({
       id: w.id,
       name: w.name,
       updatedAt: w.updatedAt,
@@ -272,7 +281,7 @@ export function listWorldSummaries(): WorldSummary[] {
  * Find a world by id.
  */
 export function getWorld(id: string): World | undefined {
-  return worlds.find((w) => w.id === id)
+  return worlds.find(w => w.id === id)
 }
 
 /**
@@ -283,7 +292,7 @@ export function getWorld(id: string): World | undefined {
  * - Create Mode when saving edits.
  */
 export function saveWorld(world: World): void {
-  const index = worlds.findIndex((w) => w.id === world.id)
+  const index = worlds.findIndex(w => w.id === world.id)
 
   const nowIso = new Date().toISOString()
 
@@ -307,10 +316,22 @@ export function saveWorld(world: World): void {
  * Delete a world by id.
  */
 export function deleteWorld(id: string): void {
-  const next = worlds.filter((w) => w.id !== id)
+  const next = worlds.filter(w => w.id !== id)
   if (next.length === worlds.length) return
   worlds = next
   persistWorldsToStorage()
+}
+
+/**
+ * Compatibility helper for App.tsx.
+ *
+ * Older versions explicitly called restoreFromLocalStorage() on startup.
+ * With the new design, worlds are already loaded at module init, but
+ * keeping this function avoids breaking the import and allows us to
+ * refresh the cache if we ever need to.
+ */
+export function restoreFromLocalStorage(): void {
+  worlds = loadWorldsFromStorage()
 }
 
 // --------------------------------------------------------
