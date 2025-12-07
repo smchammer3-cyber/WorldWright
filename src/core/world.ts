@@ -1,152 +1,200 @@
-// ===============================
-// WorldWright WorldBrain Types
-// ===============================
+// ========================================================
+// WORLD CORE TYPES -- WORLDBRAIN STEP 1.1 (SCHEMA STABILIZATION)
+// Jarvis change: 1.1-A -- Update world.ts
 //
-// NOTE (6B-3B):
-// - This file defines the core data structures for a saved world.
-// - We have introduced a `stickers` field on `World` in a
-//   backward-compatible way. Older worlds without `stickers` are still valid.
-
-export type BiomeId = number
-export type CountryId = string | null
-export type CultureId = string | null
-export type CityId = string | null
-
-export type CityType = 'village' | 'town' | 'city' | 'capital'
+// Goals:
+// - Provide a single, explicit, versioned World schema.
+// - Keep existing fields (cells, seaLevel, stickers, etc.) intact.
+// - Introduce edit/sim layers for non-destructive editing & simulation.
+// - Define basic Country / Culture / City / Sticker interfaces.
+// - Keep everything serializable and backwards-friendly.
+// ========================================================
 
 /**
- * Single cell in the world grid.
+ * Current schema version for World objects.
  *
- * Resolution is width × height (e.g. 256 × 128).
+ * This should be bumped (2, 3, …) only when we make a breaking change
+ * to the saved world shape. Storage code can use this to migrate older
+ * saves safely.
+ */
+export const CURRENT_WORLD_SCHEMA_VERSION = 1 as const
+export type WorldSchemaVersion = typeof CURRENT_WORLD_SCHEMA_VERSION
+
+// --------------------------------------------------------
+// Core cell data (authoring/base layer)
+// --------------------------------------------------------
+
+/**
+ * A single cell in the base world grid.
  *
- * For V1 we keep this intentionally focused on the core climate +
- * terrain fields that the generator and renderer understand.
+ * This represents the "authoring-time" terrain & climate -- the stable
+ * base that generation creates and the editor starts from.
+ *
+ * - baseHeight: normalized 0–1
+ * - temperature: normalized (0–1) for now
+ * - moisture: normalized (0–1) for now
+ * - biomeId: string id into a biome table (future)
  */
 export interface WorldCell {
-  // Grid location in the world map
   x: number
   y: number
 
-  /**
-   * Normalized terrain height.
-   * 0   = deepest ocean
-   * 0.5 = sea level (approx)
-   * 1   = highest peaks
-   */
   baseHeight: number
-
-  /**
-   * Simple moisture metric (0 = dry, 1 = very wet).
-   */
-  moisture: number
-
-  /**
-   * Simple temperature metric (0 = cold, 1 = hot).
-   */
   temperature: number
-
-  /**
-   * Simple biome classifier.
-   * For now:
-   * - 0 = water
-   * - 1 = land
-   * Future versions can expand this.
-   */
-  biomeId: BiomeId
+  moisture: number
+  biomeId: string
 }
 
+// --------------------------------------------------------
+// Edit & Simulation layers
+// --------------------------------------------------------
+
 /**
- * Lightweight representation of a sticker stored on a world.
+ * User-authored, non-destructive edits applied on top of the base data.
  *
- * IMPORTANT (6B-3B):
- * - This is intentionally generic and JSON-friendly.
- * - The more detailed editor/runtime types live in `stickerEngine.ts`.
- * - We keep this decoupled so world saves remain stable even if
- *   the editor’s internal sticker model evolves.
+ * For Step 1.1 this is mostly a placeholder. Future steps will:
+ * - Move Create Mode height painting to editLayer.heightDelta
+ * - Add biome overrides, paint masks, culture overrides, etc.
  */
-export interface WorldSticker {
-  /** Stable ID for this sticker instance. */
-  id: string
-  /** The world ID this sticker belongs to. */
-  worldId: string
-  /** Category/kind of sticker (biome region, city, etc.). */
-  type: string
+export interface WorldEditLayer {
   /**
-   * Spatial footprint in world grid coordinates.
-   * (Same coordinate system as WorldCell.x / .y)
+   * Per-cell height delta authored in the editor.
+   * Same length/order as the World.cells array.
+   *
+   * 0   => no change
+   * > 0 => raise terrain
+   * < 0 => lower terrain
    */
-  x: number
-  y: number
-  width: number
-  height: number
-  /**
-   * Optional metadata payload for type-specific details.
-   * This should always remain JSON-serializable.
-   */
-  metadata?: Record<string, unknown>
-  /**
-   * Whether this sticker is currently active/enabled.
-   * If omitted, treat as true.
-   */
-  isEnabled?: boolean
+  heightDelta: number[]
 }
 
 /**
- * Core world object saved/loaded in V1.
+ * Simulation-driven deltas applied on top of base + edit layers.
+ *
+ * For Step 1.1 this is also a placeholder; future steps will cover
+ * erosion, sediment, water depth, long-term climate drift, etc.
  */
-export interface World {
+export interface WorldSimLayer {
+  /**
+   * Per-cell height changes from simulation (erosion, uplift, etc).
+   * Same length/order as the World.cells array.
+   *
+   * 0   => no simulated change
+   * > 0 => raised by sim
+   * < 0 => lowered by sim
+   */
+  heightDelta: number[]
+}
+
+/**
+ * Helper to create a zeroed edit layer for a given number of cells.
+ */
+export function createEmptyEditLayer(cellCount: number): WorldEditLayer {
+  return {
+    heightDelta: new Array(cellCount).fill(0),
+  }
+}
+
+/**
+ * Helper to create a zeroed simulation layer for a given number of cells.
+ */
+export function createEmptySimLayer(cellCount: number): WorldSimLayer {
+  return {
+    heightDelta: new Array(cellCount).fill(0),
+  }
+}
+
+// --------------------------------------------------------
+// Higher-level world structures
+// --------------------------------------------------------
+
+export interface Country {
   id: string
   name: string
+
+  // Future: polygon region, government type, population, etc.
+  // regionPolygonId?: string
+}
+
+export interface Culture {
+  id: string
+  name: string
+
+  // Future: settlement-based influence regions, language, etc.
+  // primaryLanguageId?: string
+}
+
+export interface City {
+  id: string
+  name: string
+
+  // Grid-space location in the world map
+  x: number
+  y: number
+
+  population?: number
+}
+
+/**
+ * Stickers are generic editor overlays used for regions, notes, etc.
+ *
+ * They are kept deliberately flexible + JSON-friendly so they can be
+ * extended by metadata without schema breaks.
+ */
+export interface WorldSticker {
+  id: string
+  worldId: string
+  type: string
+
+  x: number
+  y: number
   width: number
   height: number
+
+  metadata: Record<string, unknown>
+}
+
+// --------------------------------------------------------
+// World root object
+// --------------------------------------------------------
+
+/**
+ * The canonical World object used by:
+ * - worldGenerator
+ * - worldStorage
+ * - Generate / Create / Sim modes
+ * - future export pipelines
+ */
+export interface World {
+  // identity & meta
+  id: string
+  name: string
   seed: string
-  /** Normalized sea level in [0, 1]. */
+
+  /**
+   * Explicit schema version for this world.
+   * New worlds should use CURRENT_WORLD_SCHEMA_VERSION.
+   * Older saves may omit this; storage should backfill.
+   */
+  schemaVersion: WorldSchemaVersion
+
+  // dimensions
+  width: number
+  height: number
+
+  // global settings
   seaLevel: number
-  /** World grid cells. Length = width × height. */
+
+  // base authoring data
   cells: WorldCell[]
 
-  /**
-   * High-level worldbuilding containers.
-   * For V1 these are mostly placeholders and remain `any[]` until
-   * their schemas are locked.
-   */
-  countries: any[]
-  cultures: any[]
-  cities: any[]
+  // layered deltas (non-destructive editing & sim)
+  editLayer: WorldEditLayer
+  simLayer: WorldSimLayer
 
-  /**
-   * (6B-3B) Stickers attached to this world.
-   *
-   * Stored as a generic JSON-friendly array so that:
-   * - older worlds without `stickers` remain valid (field may be missing),
-   * - editor/runtime sticker models can evolve separately.
-   *
-   * Callers should treat `undefined` the same as `[]`.
-   */
-  stickers?: WorldSticker[]
-
-  /**
-   * Timestamps (ISO 8601). Optional for backward compatibility.
-   */
-  createdAt?: string
-  updatedAt?: string
-}
-
-/**
- * Helper to compute flat index from (x, y).
- */
-export function cellIndex(x: number, y: number, width: number): number {
-  return y * width + x
-}
-
-/**
- * Helper to compute x/y from flat index.
- */
-export function indexToXY(
-  index: number,
-  width: number,
-): { x: number; y: number } {
-  const y = Math.floor(index / width)
-  const x = index - y * width
-  return { x, y }
+  // higher-level structures
+  countries: Country[]
+  cultures: Culture[]
+  cities: City[]
+  stickers: WorldSticker[]
 }
