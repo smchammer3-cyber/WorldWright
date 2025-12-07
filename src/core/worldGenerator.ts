@@ -1,6 +1,6 @@
 // ==========================================================
-// WorldWright Generator Core (V2 / Step 6B – realistic terrain)
-// Realistic heightfield with tectonics, climate & biomes
+// WorldWright Generator Core (V3 / Step 6B – realistic terrain)
+// Combines elliptical continent seeds, FBM noise and climate
 // ==========================================================
 
 import {
@@ -13,36 +13,27 @@ import {
 
 /**
  * Generator parameters exposed in the UI.
- * Sliders are 0–100; we normalize them internally.
  */
 export interface GeneratorParams {
   name: string
   width: number
   height: number
   seed: string
-
-  /** Fraction of land in the world: 0 = mostly ocean, 100 = mostly land */
   landmass: number
-  /** Adjusts the global sea level up or down (0–100, 50 = neutral) */
   seaLevel: number
-  /** Controls mountain roughness & height (0–100, higher = more mountains) */
   plateActivity: number
-  /** Tilt of the planet’s axis (0–100, affects temperature distribution) */
   axisTilt: number
-  /** Planet age: younger worlds have sharper terrain, older worlds are smoother */
   planetAge: number
-  /** Variability of climate (0 = uniform climate, 100 = extreme variation) */
   climateVariance: number
-  /** Style/theme slider reserved for future variants */
   worldStyle: number
 }
 
-/** Helper to clamp a value into the 0–1 range. */
+/** Clamp value into 0–1 range. */
 function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v
 }
 
-/** Pseudo-random PRNG generator based on seed (from previous code). */
+/** Seeded PRNG. */
 function makeRandom(seed: string) {
   let h = 2166136261 >>> 0
   for (let i = 0; i < seed.length; i++) {
@@ -57,17 +48,13 @@ function makeRandom(seed: string) {
   }
 }
 
-/** Simple base noise used for FBM. */
+/** Base noise using sine; returns value in [-1, 1]. */
 function baseNoise(rand: () => number, x: number, y: number): number {
-  // Lightly scrambled value using sine and a seeded random offset
   const r = Math.sin(x * 127.1 + y * 311.7 + rand() * 43758.5453)
-  return (r - Math.floor(r)) * 2 - 1 // in [-1, 1]
+  return (r - Math.floor(r)) * 2 - 1
 }
 
-/**
- * Fractal Brownian Motion (FBM) noise – combines multiple octaves of baseNoise.
- * freq: base frequency; octaves: number of layers; persistence: amplitude falloff per octave.
- */
+/** Fractal Brownian Motion (FBM) noise. */
 function fbmNoise(
   rand: () => number,
   x: number,
@@ -77,20 +64,19 @@ function fbmNoise(
   persistence: number,
 ): number {
   let amplitude = 1
-  let maxAmplitude = 0
-  let noiseSum = 0
+  let maxAmp = 0
+  let sum = 0
   let f = freq
-
   for (let i = 0; i < octaves; i++) {
-    noiseSum += baseNoise(rand, x * f, y * f) * amplitude
-    maxAmplitude += amplitude
+    sum += baseNoise(rand, x * f, y * f) * amplitude
+    maxAmp += amplitude
     amplitude *= persistence
     f *= 2
   }
-  return noiseSum / maxAmplitude
+  return sum / maxAmp
 }
 
-/** Create a default set of generator parameters. */
+/** Default parameters. */
 export function createDefaultGeneratorParams(): GeneratorParams {
   return {
     name: 'New World',
@@ -108,7 +94,66 @@ export function createDefaultGeneratorParams(): GeneratorParams {
 }
 
 /**
- * Primary world generator: builds a realistic world with continents, mountains, climate and biomes.
+ * Create an array of continent descriptors.  Each continent is an ellipse
+ * defined by its center (u,v), radii (rx, ry) and rotation angle (radians).
+ * Using a random ellipse as the starting shape gives a high degree of
+ * variability and produces shapes that look like islands or continents [oai_citation:1‡medium.com](https://medium.com/procedural-emotions/shorelines-and-continents-2c94c8cd862c#:~:text=Then%20we%E2%80%99ll%20define%20a%20basic,areas%20included%20in%20the%20shape).
+ */
+function createContinents(
+  rand: () => number,
+  count: number,
+): { u: number; v: number; rx: number; ry: number; angle: number }[] {
+  const continents = []
+  for (let i = 0; i < count; i++) {
+    const u = rand() * 0.8 + 0.1
+    const v = rand() * 0.8 + 0.1
+    // base radius between 0.15 and 0.35
+    const base = 0.15 + rand() * 0.2
+    // ellipticity factor: 1 means circle, lower values more squashed
+    const ellipticity = 0.6 + rand() * 0.4
+    const rx = base
+    const ry = base * ellipticity
+    const angle = rand() * Math.PI * 2
+    continents.push({ u, v, rx, ry, angle })
+  }
+  return continents
+}
+
+/**
+ * Compute the base land height at UV by taking the maximum contribution
+ * from all continents.  Each continent defines an ellipse; distance > 1 yields
+ * no contribution.  We warp the distance exponent to control falloff.
+ */
+function computeContinentHeight(
+  u: number,
+  v: number,
+  continents: { u: number; v: number; rx: number; ry: number; angle: number }[],
+): number {
+  let h = 0
+  for (const c of continents) {
+    // translate into continent space
+    const dx = u - c.u
+    const dy = v - c.v
+    // rotate coordinates by negative angle
+    const cos = Math.cos(c.angle)
+    const sin = Math.sin(c.angle)
+    const xr = dx * cos + dy * sin
+    const yr = -dx * sin + dy * cos
+    const dist = Math.sqrt(
+      (xr / c.rx) * (xr / c.rx) + (yr / c.ry) * (yr / c.ry),
+    )
+    if (dist < 1) {
+      // falloff exponent controls slope; 1.5 produces wide coasts
+      const val = Math.pow(1 - dist, 1.5)
+      if (val > h) h = val
+    }
+  }
+  return clamp01(h)
+}
+
+/**
+ * Main generator function.  Produces a World object with realistic landmass,
+ * continents, mountains, erosion smoothing and climate‑driven biomes.
  */
 export function generateWorldFromParams(params: GeneratorParams): World {
   const {
@@ -116,8 +161,8 @@ export function generateWorldFromParams(params: GeneratorParams): World {
     width,
     height,
     seed,
-    landmass: landmassSlider,
-    seaLevel: seaLevelSlider,
+    landmass,
+    seaLevel,
     plateActivity,
     axisTilt,
     planetAge,
@@ -126,129 +171,105 @@ export function generateWorldFromParams(params: GeneratorParams): World {
 
   const rand = makeRandom(seed || 'worldwright')
 
-  // Normalize sliders to 0–1
-  const landmass01 = clamp01(landmassSlider / 100)
-  const seaSlider01 = clamp01(seaLevelSlider / 100)
-  const plates01 = clamp01(plateActivity / 100)
+  // Normalize sliders
+  const landmass01 = clamp01(landmass / 100)
+  const sea01 = clamp01(seaLevel / 100)
+  const plate01 = clamp01(plateActivity / 100)
   const tilt01 = clamp01(axisTilt / 100)
   const age01 = clamp01(planetAge / 100)
   const climate01 = clamp01(climateVariance / 100)
 
-  // Determine number of continents (2–5) based on landmass & plate activity
-  const continentCount = Math.floor(2 + landmass01 * 3) // 2–5 continents
-  const continents: { u: number; v: number; radius: number }[] = []
-  for (let i = 0; i < continentCount; i++) {
-    const u = rand() * 0.9 + 0.05
-    const v = rand() * 0.9 + 0.05
-    const radius = 0.12 + rand() * 0.2 // 0.12–0.32
-    continents.push({ u, v, radius })
-  }
+  // Determine number of continents (3–6) influenced by landmass & plate activity
+  const continentCount = Math.floor(3 + landmass01 * 2 + plate01 * 1)
+  const continents = createContinents(rand, continentCount)
 
-  // Precompute FBM seeds for height, mountains, moisture & temperature
-  const heightRand = makeRandom(seed + '_height')
-  const mountainRand = makeRandom(seed + '_mount')
-  const moistureRand = makeRandom(seed + '_moist')
+  // Separate noise generators for coast, mountains, temperature, moisture
+  const coastRand = makeRandom(seed + '_coast')
+  const mountRand = makeRandom(seed + '_mount')
   const tempRand = makeRandom(seed + '_temp')
+  const moistRand = makeRandom(seed + '_moist')
 
   const cells: WorldCell[] = []
   const heights: number[] = []
 
-  // Generate base heights and collect for sea-level quantile
+  // Precompute heights & climate
   for (let y = 0; y < height; y++) {
-    const v = y / (height - 1 || 1)
-
-    // Compute base temperature by latitude and axis tilt
-    // tilt01 shifts the hot band up/down; we adjust by ±0.25 at most
+    const v = y / Math.max(height - 1, 1)
+    // Latitude band influences base temperature; tilt shifts hot band up/down
     const tiltOffset = (tilt01 - 0.5) * 0.5 // [-0.25, +0.25]
     const lat = clamp01(Math.abs(v - (0.5 + tiltOffset)) * 2)
     const baseTemp = 1 - lat // 1 at equator, 0 at poles
 
     for (let x = 0; x < width; x++) {
-      const u = x / (width - 1 || 1)
+      const u = x / Math.max(width - 1, 1)
 
-      // Find the strongest continent influence for this UV point
-      let continentInfluence = 0
-      for (const c of continents) {
-        const dx = u - c.u
-        const dy = v - c.v
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        const influence = clamp01(1 - dist / c.radius)
-        if (influence > continentInfluence) continentInfluence = influence
-      }
+      // Base continent height from ellipses
+      let h = computeContinentHeight(u, v, continents)
 
-      // Fractal noise for hills and valleys – coarse to fine
-      const baseFbm = fbmNoise(heightRand, u, v, 2.0, 4, 0.5) // [-1, 1]
-      const mountFbm = fbmNoise(mountainRand, u, v, 8.0, 3, 0.5) // [-1, 1]
+      // Coastline irregularity: multiply by coast noise (0.8–1.2)
+      const coastNoise =
+        (fbmNoise(coastRand, u, v, 1.5, 4, 0.5) + 1) * 0.5 // [0,1]
+      h *= 0.8 + coastNoise * 0.4
 
-      // Plate activity boosts mountains amplitude
-      const mountainHeight =
-        ((mountFbm + 1) / 2) ** (3 + plates01 * 3) // sharper peaks at higher plateActivity
-      const mountainFactor = plates01 * 0.4 + 0.1 // 0.1–0.5
+      // Mountains: high‑frequency FBM; raise to power to create ridges
+      const mountBase = (fbmNoise(mountRand, u, v, 8.0, 3, 0.5) + 1) * 0.5
+      const mountHeight = Math.pow(mountBase, 2 + plate01 * 4) // sharper peaks with higher plateActivity
+      h += mountHeight * (0.3 + plate01 * 0.5)
 
-      // Final base height combines continent influence, hills and mountains
-      let h =
-        continentInfluence +
-        baseFbm * 0.3 + // gentle hills
-        mountainHeight * mountainFactor // mountains
+      // Clamp height
       h = clamp01(h)
 
-      // Smooth world with erosion depending on planet age: older => smoother
-      // We simulate by interpolating towards average (0.5)
-      const erosion = age01 * 0.6 // up to 0.6 smoothing
+      // Erosion smoothing: older planets have smoother terrain
+      const erosion = age01 * 0.7 // up to 0.7 smoothing
       h = h * (1 - erosion) + 0.5 * erosion
       h = clamp01(h)
 
       heights.push(h)
 
-      // Climate: temperature & moisture vary with noise and climateVariance
-      const tempNoise = fbmNoise(tempRand, u, v, 4.0, 4, 0.5) // [-1, 1]
+      // Temperature & moisture noise
+      const tempNoise =
+        (fbmNoise(tempRand, u, v, 3.0, 4, 0.5) + 1) * 0.5 // [0,1]
       const temperature = clamp01(
-        baseTemp + tempNoise * 0.3 * climate01, // climate variability
+        baseTemp + (tempNoise - 0.5) * 0.4 * climate01,
       )
 
-      const moistNoise = fbmNoise(moistureRand, u, v, 3.0, 3, 0.5) // [-1, 1]
-      // Moisture base decreases near poles & equator; peaks at mid latitudes (band of rain)
-      const rainBand = 1 - Math.abs(v - 0.5) * 2 // 1 at equator, 0 at poles
+      const moistNoise =
+        (fbmNoise(moistRand, u, v, 3.5, 4, 0.5) + 1) * 0.5 // [0,1]
+      const rainBand = 1 - Math.abs(v - 0.5) * 2 // equator wetter
       const moisture = clamp01(
-        0.3 +
-          rainBand * 0.5 +
-          moistNoise * 0.4 * climate01, // climate variability
+        0.3 + rainBand * 0.5 + (moistNoise - 0.5) * 0.5 * climate01,
       )
 
-      const cell: WorldCell = {
+      cells.push({
         x,
         y,
         baseHeight: h,
         temperature,
         moisture,
-        biomeId: 'unknown', // will be assigned after sea-level & climate logic
-      }
-      cells.push(cell)
+        biomeId: 'unknown',
+      })
     }
   }
 
-  // Sea-level calculation: sort heights & pick quantile based on landmass slider
-  const sortedHeights = [...heights].sort((a, b) => a - b)
-  const targetWaterFraction = clamp01(1 - landmass01) // landmass=0.6 => 0.4 water
-  const idx = Math.floor(targetWaterFraction * (sortedHeights.length - 1))
-  let baseSeaLevel = sortedHeights[idx]
-  // Nudged by sea-level slider ±0.2
-  baseSeaLevel += (seaSlider01 - 0.5) * 0.4
-  baseSeaLevel = clamp01(baseSeaLevel)
+  // Compute sea‑level threshold by sorting heights and selecting quantile
+  const sorted = [...heights].sort((a, b) => a - b)
+  const targetWater = clamp01(1 - landmass01)
+  let seaThreshold = sorted[Math.floor(targetWater * (sorted.length - 1))]
+  // Adjust by slider ±0.3
+  seaThreshold += (sea01 - 0.5) * 0.6
+  seaThreshold = clamp01(seaThreshold)
 
-  // Assign biomes & finalize heights (land or water)
+  // Assign biomes and normalize land heights relative to sea level
   for (let i = 0; i < cells.length; i++) {
     const c = cells[i]
-    const h = c.baseHeight
-    // Land/water decision
-    if (h < baseSeaLevel) {
+    if (c.baseHeight < seaThreshold) {
       c.biomeId = 'water'
-      // Lower water cells slightly (for shading)
-      c.baseHeight = h - 0.05
+      c.baseHeight = c.baseHeight - seaThreshold // negative for ocean shading
     } else {
-      // Land: determine biome by temperature & moisture
+      const hRel = (c.baseHeight - seaThreshold) / (1 - seaThreshold)
+      c.baseHeight = hRel
+      // Simple biome assignment by temperature/moisture
       if (c.temperature < 0.2) {
-        // cold region
         c.biomeId = c.moisture < 0.3 ? 'tundra' : 'snow'
       } else if (c.temperature < 0.4) {
         c.biomeId = c.moisture < 0.4 ? 'steppe' : 'taiga'
@@ -257,11 +278,8 @@ export function generateWorldFromParams(params: GeneratorParams): World {
         else if (c.moisture < 0.5) c.biomeId = 'grassland'
         else c.biomeId = 'forest'
       } else {
-        // warm region
         c.biomeId = c.moisture < 0.4 ? 'savanna' : 'rainforest'
       }
-      // Raise land cells slightly (for shading)
-      c.baseHeight = (h - baseSeaLevel) / (1 - baseSeaLevel)
     }
   }
 
@@ -277,7 +295,7 @@ export function generateWorldFromParams(params: GeneratorParams): World {
     updatedAt: now,
     width,
     height,
-    seaLevel: baseSeaLevel,
+    seaLevel: seaThreshold,
     cells,
     editLayer: createEmptyEditLayer(cellCount),
     simLayer: createEmptySimLayer(cellCount),
@@ -291,17 +309,16 @@ export function generateWorldFromParams(params: GeneratorParams): World {
 }
 
 /**
- * Convenience wrapper used by UI when saving a named world.
- * If explicitName is provided and not blank, it overrides the name in params.
+ * Wrapper used when saving a named world.  Allows overriding the name.
  */
 export function buildWorldFromParams(
   params: GeneratorParams,
   explicitName?: string,
 ): World {
-  const base = generateWorldFromParams(params)
+  const world = generateWorldFromParams(params)
   const trimmed = explicitName?.trim()
   if (trimmed && trimmed.length > 0) {
-    return { ...base, name: trimmed }
+    return { ...world, name: trimmed }
   }
-  return base
+  return world
 }
