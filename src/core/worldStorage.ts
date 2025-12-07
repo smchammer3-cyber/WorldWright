@@ -9,6 +9,7 @@
 //   • Add editLayer / simLayer when missing.
 //   • Ensure arrays (countries, cultures, cities, stickers) exist.
 // - Provide a simple API used by the app:
+//   • listWorldSummaries() for Home screen
 //   • listWorlds()
 //   • getWorld(id)
 //   • saveWorld(world)
@@ -28,6 +29,15 @@ import {
 } from './world'
 
 const STORAGE_KEY = 'worldwright.worlds'
+
+/**
+ * Lightweight shape returned to the Home screen for listing worlds.
+ */
+export interface WorldSummary {
+  id: string
+  name: string
+  updatedAt: string
+}
 
 /**
  * In-memory cache of worlds.
@@ -127,6 +137,7 @@ function normalizeCity(raw: any): City {
  * - Add schemaVersion if missing.
  * - Create editLayer/simLayer if missing.
  * - Normalize arrays.
+ * - Ensure createdAt / updatedAt timestamps exist.
  */
 function normalizeWorld(raw: any): World | null {
   if (!raw) return null
@@ -144,6 +155,12 @@ function normalizeWorld(raw: any): World | null {
     typeof raw.schemaVersion === 'number'
       ? (raw.schemaVersion as typeof CURRENT_WORLD_SCHEMA_VERSION)
       : CURRENT_WORLD_SCHEMA_VERSION
+
+  const nowIso = new Date().toISOString()
+  const createdAt: string =
+    typeof raw.createdAt === 'string' ? raw.createdAt : nowIso
+  const updatedAt: string =
+    typeof raw.updatedAt === 'string' ? raw.updatedAt : createdAt
 
   // editLayer / simLayer: if missing, create zeroed layers
   const rawEditLayer = raw.editLayer
@@ -180,6 +197,8 @@ function normalizeWorld(raw: any): World | null {
     name: String(raw.name ?? 'Untitled world'),
     seed: String(raw.seed ?? '0'),
     schemaVersion,
+    createdAt,
+    updatedAt,
     width,
     height,
     seaLevel:
@@ -235,10 +254,25 @@ export function listWorlds(): World[] {
 }
 
 /**
+ * Return a lightweight, UI-friendly list of worlds for the Home screen.
+ * Sorted by updatedAt (newest first).
+ */
+export function listWorldSummaries(): WorldSummary[] {
+  return worlds
+    .slice()
+    .map((w) => ({
+      id: w.id,
+      name: w.name,
+      updatedAt: w.updatedAt,
+    }))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+/**
  * Find a world by id.
  */
 export function getWorld(id: string): World | undefined {
-  return worlds.find(w => w.id === id)
+  return worlds.find((w) => w.id === id)
 }
 
 /**
@@ -249,11 +283,15 @@ export function getWorld(id: string): World | undefined {
  * - Create Mode when saving edits.
  */
 export function saveWorld(world: World): void {
-  const index = worlds.findIndex(w => w.id === world.id)
+  const index = worlds.findIndex((w) => w.id === world.id)
+
+  const nowIso = new Date().toISOString()
 
   const toStore: World = {
     ...world,
     schemaVersion: CURRENT_WORLD_SCHEMA_VERSION,
+    createdAt: world.createdAt || nowIso,
+    updatedAt: nowIso,
   }
 
   if (index >= 0) {
@@ -269,7 +307,7 @@ export function saveWorld(world: World): void {
  * Delete a world by id.
  */
 export function deleteWorld(id: string): void {
-  const next = worlds.filter(w => w.id !== id)
+  const next = worlds.filter((w) => w.id !== id)
   if (next.length === worlds.length) return
   worlds = next
   persistWorldsToStorage()

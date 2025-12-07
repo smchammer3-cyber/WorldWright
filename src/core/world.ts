@@ -178,6 +178,13 @@ export interface World {
    */
   schemaVersion: WorldSchemaVersion
 
+  /**
+   * ISO timestamps for creation and last update.
+   * These are useful for sorting in the UI and for exports.
+   */
+  createdAt: string
+  updatedAt: string
+
   // dimensions
   width: number
   height: number

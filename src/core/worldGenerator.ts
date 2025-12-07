@@ -3,7 +3,13 @@
 // Continent-style heightfield + slider-friendly API
 // ==========================================================
 
-import { World, WorldCell } from './world'
+import {
+  World,
+  WorldCell,
+  CURRENT_WORLD_SCHEMA_VERSION,
+  createEmptyEditLayer,
+  createEmptySimLayer,
+} from './world'
 
 // Generator config type from UI sliders
 // NOTE: Sliders are 0–100 in the UI; we normalize inside the generator.
@@ -14,30 +20,11 @@ export interface GeneratorParams {
   seed: string
   landmass: number        // 0–100, 0 = mostly ocean, 100 = lots of land
   seaLevel: number        // 0–100, 50 ~ balanced
-  plateActivity: number   // 0–100, reserved for future use
-  axisTilt: number        // 0–100, reserved for future use
-  planetAge: number       // 0–100, reserved for future use
-  climateVariance: number // 0–100, reserved for future use
-  worldStyle: number      // 0–100, reserved for presets
 }
 
+// Clamp helper
 function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v
-}
-
-// Small helper for seeded PRNG
-function makeRandom(seed: string) {
-  let h = 2166136261 >>> 0
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return () => {
-    h ^= h >>> 13
-    h ^= h << 17
-    h ^= h >>> 5
-    return (h >>> 0) / 4294967296
-  }
 }
 
 // Very lightweight hash-based noise – used only to roughen coastlines
@@ -55,11 +42,6 @@ export function createDefaultGeneratorParams(): GeneratorParams {
     seed: '',
     landmass: 55,
     seaLevel: 50,
-    plateActivity: 50,
-    axisTilt: 23,
-    planetAge: 60,
-    climateVariance: 50,
-    worldStyle: 50,
   }
 }
 
@@ -90,54 +72,47 @@ export function generateWorldFromParams(params: GeneratorParams): World {
   const seaSlider01 = clamp01(seaLevelSlider / 100)
 
   // Decide how many continents to place: 2–4 is usually enough
-  const baseContinentCount = 2 + Math.floor(landmass01 * 2) // 2, 3, or 4
-  const continentCount = Math.max(1, baseContinentCount)
-
-  type Continent = { cx: number; cy: number; radius: number }
-  const continents: Continent[] = []
+  const continentCount = Math.floor(2 + landmass01 * 2) // 2–4
+  const continents: { u: number; v: number; radius: number }[] = []
 
   for (let i = 0; i < continentCount; i++) {
-    const cx = rand()
-    const cy = rand()
-    // More landmass → slightly bigger continents, but they also overlap
-    const radius = 0.18 + (1 - landmass01) * 0.1 // ~0.18–0.28 of world size
-    continents.push({ cx, cy, radius })
+    const u = rand() * 0.9 + 0.05       // avoid the very edge
+    const v = rand() * 0.9 + 0.05
+    const radius = 0.15 + rand() * 0.15 // 0.15–0.3
+    continents.push({ u, v, radius })
   }
 
-  // First pass: build raw heights + climate fields (no seaLevel yet)
-  const draftCells: { x: number; y: number; baseHeight: number; moisture: number; temperature: number }[] = []
+  const draftCells: WorldCell[] = []
   const heights: number[] = []
 
+  // First pass: build a raw heightfield & collect heights
   for (let y = 0; y < height; y++) {
-    const v = height <= 1 ? 0 : y / (height - 1)
-    const equatorDist = Math.abs(v - 0.5) * 2 // 0 at equator, 1 at poles
+    const v = y / (height - 1 || 1)
 
     for (let x = 0; x < width; x++) {
-      const u = width <= 1 ? 0 : x / (width - 1)
+      const u = x / (width - 1 || 1)
 
-      // --- Continent mask: max influence of any continent ---
-      let mask = 0
+      // Find the strongest continent influence for this point
+      let maxInfluence = 0
       for (const c of continents) {
-        const dx = u - c.cx
-        const dy = v - c.cy
+        const dx = u - c.u
+        const dy = v - c.v
         const dist = Math.sqrt(dx * dx + dy * dy)
-        const m = 1 - dist / c.radius
-        if (m > mask) mask = m
+        const influence = clamp01(1 - dist / c.radius)
+        if (influence > maxInfluence) {
+          maxInfluence = influence
+        }
       }
 
-      // Cut off outside blobs and clamp
-      mask = clamp01(mask)
+      // Base height from continent influence
+      let h = maxInfluence
 
-      // Shape continents: exponent < 1 → fatter centers, smoother edges
-      const shaped = Math.pow(mask, 0.8 + landmass01 * 0.4) // ~0.8–1.2
-
-      // Add some gentle multiscale noise for coastlines
-      let h = shaped
-      h += noise(rand, u * 4, v * 4) * 0.05
-      h += noise(rand, u * 8, v * 8) * 0.025
+      // Add a little noise to roughen coastlines – but keep amplitude small
+      h += noise(rand, u * 8, v * 8) * 0.12
       h = clamp01(h)
 
-      // Moisture / temperature (for future biome work)
+      // Simple climate approximation: cooler near poles, warmer near equator
+      const equatorDist = Math.abs(v - 0.5) * 2 // 0 at equator, 1 at poles
       const tempBase = 1 - equatorDist
       const temperature = clamp01(tempBase + noise(rand, u * 2, v * 2) * 0.1)
 
@@ -150,6 +125,7 @@ export function generateWorldFromParams(params: GeneratorParams): World {
         baseHeight: h,
         moisture,
         temperature,
+        biomeId: 'unknown', // will be finalized after sea level is chosen
       })
       heights.push(h)
     }
@@ -173,24 +149,29 @@ export function generateWorldFromParams(params: GeneratorParams): World {
     baseHeight: c.baseHeight,
     moisture: c.moisture,
     temperature: c.temperature,
-    biomeId: c.baseHeight < finalSeaLevel ? 0 : 1, // 0 = water, 1 = land (for now)
+    biomeId: c.baseHeight < finalSeaLevel ? 'water' : 'land',
   }))
 
   const now = new Date().toISOString()
+  const cellCount = cells.length
 
   const world: World = {
     id: '',
     name: name || 'New World',
+    seed: seed || 'seed',
+    schemaVersion: CURRENT_WORLD_SCHEMA_VERSION,
+    createdAt: now,
+    updatedAt: now,
     width,
     height,
-    seed: seed || 'seed',
     seaLevel: finalSeaLevel,
     cells,
+    editLayer: createEmptyEditLayer(cellCount),
+    simLayer: createEmptySimLayer(cellCount),
     countries: [],
     cultures: [],
     cities: [],
-    createdAt: now,
-    updatedAt: now,
+    stickers: [],
   }
 
   return world
@@ -207,4 +188,19 @@ export function buildWorldFromParams(
     return { ...base, name: trimmed }
   }
   return base
+}
+
+// Small helper for seeded PRNG
+function makeRandom(seed: string) {
+  let h = 2166136261 >>> 0
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return () => {
+    h ^= h >>> 13
+    h ^= h << 17
+    h ^= h >>> 5
+    return (h >>> 0) / 4294967296
+  }
 }
