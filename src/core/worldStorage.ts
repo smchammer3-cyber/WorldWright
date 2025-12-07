@@ -29,7 +29,8 @@ import {
   createEmptySimLayer,
 } from './world'
 
-const STORAGE_KEY = 'worldwright.worlds'
+// NOTE: bumped key to avoid old oversized data hitting quota.
+const STORAGE_KEY = 'worldwright.v2.worlds'
 
 /**
  * Lightweight shape returned to the Home screen for listing worlds.

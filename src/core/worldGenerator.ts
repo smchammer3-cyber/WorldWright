@@ -1,5 +1,5 @@
 // ==========================================================
-// WorldWright Generator Core (V1 / Step 5G)
+// WorldWright Generator Core (V1 / Step 5G + WorldBrain 1.1)
 // Continent-style heightfield + slider-friendly API
 // ==========================================================
 
@@ -18,8 +18,19 @@ export interface GeneratorParams {
   width: number
   height: number
   seed: string
+
+  // Core controls we currently use
   landmass: number        // 0–100, 0 = mostly ocean, 100 = lots of land
   seaLevel: number        // 0–100, 50 ~ balanced
+
+  // Extra sliders already present in the UI. For now they are
+  // placeholders for future logic but we keep them here so all
+  // inputs are fully controlled (no undefined values).
+  plateActivity: number
+  axisTilt: number
+  planetAge: number
+  climateVariance: number
+  worldStyle: number
 }
 
 // Clamp helper
@@ -42,7 +53,58 @@ export function createDefaultGeneratorParams(): GeneratorParams {
     seed: '',
     landmass: 55,
     seaLevel: 50,
+    plateActivity: 50,
+    axisTilt: 50,
+    planetAge: 50,
+    climateVariance: 50,
+    worldStyle: 50,
   }
+}
+
+/**
+ * Smooth a heightfield using a simple 3x3 box blur for a few passes.
+ * This removes the tiny speckled "salt and pepper" look and gives us
+ * large, smooth continents that better match the blueprint.
+ */
+function smoothHeights(
+  cells: WorldCell[],
+  width: number,
+  height: number,
+  passes: number,
+): Float32Array {
+  const size = width * height
+  let heights = new Float32Array(size)
+
+  for (let i = 0; i < size; i++) {
+    heights[i] = cells[i].baseHeight
+  }
+
+  for (let pass = 0; pass < passes; pass++) {
+    const next = new Float32Array(size)
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let sum = 0
+        let count = 0
+
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx
+            const ny = y + dy
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue
+            const idx = ny * width + nx
+            sum += heights[idx]
+            count++
+          }
+        }
+
+        const idx = y * width + x
+        next[idx] = count > 0 ? sum / count : heights[idx]
+      }
+    }
+    heights = next
+  }
+
+  return heights
 }
 
 /**
@@ -52,8 +114,13 @@ export function createDefaultGeneratorParams(): GeneratorParams {
  *  - Place a few "continent centers" in UV space.
  *  - Each cell's base height is how strongly it belongs to the nearest continent.
  *  - Add a little low-amplitude noise to roughen coastlines.
+ *  - Smooth the field so continents look like big, clean shapes.
  *  - Use the landmass slider to decide roughly how much land exists.
  *  - Use seaLevel slider as a gentle offset on top of that.
+ *
+ * NOTE: The extra sliders (plateActivity, axisTilt, planetAge, climateVariance,
+ * worldStyle) are wired through but unused for now; they will influence later
+ * passes (tectonics, climate, style variants) in future steps.
  */
 export function generateWorldFromParams(params: GeneratorParams): World {
   const {
@@ -83,7 +150,7 @@ export function generateWorldFromParams(params: GeneratorParams): World {
   }
 
   const draftCells: WorldCell[] = []
-  const heights: number[] = []
+  const heightsRaw: number[] = []
 
   // First pass: build a raw heightfield & collect heights
   for (let y = 0; y < height; y++) {
@@ -107,35 +174,46 @@ export function generateWorldFromParams(params: GeneratorParams): World {
       // Base height from continent influence
       let h = maxInfluence
 
-      // Add a little noise to roughen coastlines – but keep amplitude small
-      h += noise(rand, u * 8, v * 8) * 0.12
+      // Add a little noise primarily around coastlines so interiors stay smooth.
+      const edgeFactor = clamp01(1 - Math.abs(h - 0.5) * 3) // 1 near mid, 0 near extremes
+      const noiseAmp = 0.05 * edgeFactor
+      h += noise(rand, u * 8, v * 8) * noiseAmp
       h = clamp01(h)
 
       // Simple climate approximation: cooler near poles, warmer near equator
       const equatorDist = Math.abs(v - 0.5) * 2 // 0 at equator, 1 at poles
       const tempBase = 1 - equatorDist
-      const temperature = clamp01(tempBase + noise(rand, u * 2, v * 2) * 0.1)
+      const temperature = clamp01(
+        tempBase + noise(rand, u * 2, v * 2) * 0.1,
+      )
 
-      const moistureBase = 0.5 + noise(rand, u * 3.1, v * 2.7) * 0.25
+      const moistureBase =
+        0.5 + noise(rand, u * 3.1, v * 2.7) * 0.25
       const moisture = clamp01(moistureBase)
 
-      draftCells.push({
+      const cell: WorldCell = {
         x,
         y,
         baseHeight: h,
         moisture,
         temperature,
         biomeId: 'unknown', // will be finalized after sea level is chosen
-      })
-      heights.push(h)
+      }
+      draftCells.push(cell)
+      heightsRaw.push(h)
     }
   }
 
+  // Smooth the raw heightfield to remove "salt and pepper" noise.
+  const smoothedHeights = smoothHeights(draftCells, width, height, 2)
+
   // Approximate a sea level that matches desired landmass fraction:
   // sort heights and pick a quantile.
-  const sortedHeights = [...heights].sort((a, b) => a - b)
+  const sortedHeights = [...smoothedHeights].sort((a, b) => a - b)
   const targetWaterFraction = clamp01(1 - landmass01) // e.g., landmass=0.6 → 0.4 water
-  const idx = Math.floor(targetWaterFraction * (sortedHeights.length - 1))
+  const idx = Math.floor(
+    targetWaterFraction * (sortedHeights.length - 1),
+  )
   const baseSeaLevel = sortedHeights[idx]
 
   // Sea slider nudges that threshold up/down without being insane
@@ -143,14 +221,17 @@ export function generateWorldFromParams(params: GeneratorParams): World {
   const finalSeaLevel = clamp01(baseSeaLevel + seaOffset)
 
   // Second pass: finalize cells with biome ids based on finalSeaLevel
-  const cells: WorldCell[] = draftCells.map((c) => ({
-    x: c.x,
-    y: c.y,
-    baseHeight: c.baseHeight,
-    moisture: c.moisture,
-    temperature: c.temperature,
-    biomeId: c.baseHeight < finalSeaLevel ? 'water' : 'land',
-  }))
+  const cells: WorldCell[] = draftCells.map((c, i) => {
+    const h = smoothedHeights[i]
+    return {
+      x: c.x,
+      y: c.y,
+      baseHeight: h,
+      moisture: c.moisture,
+      temperature: c.temperature,
+      biomeId: h < finalSeaLevel ? 'water' : 'land',
+    }
+  })
 
   const now = new Date().toISOString()
   const cellCount = cells.length
