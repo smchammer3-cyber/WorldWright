@@ -1,7 +1,16 @@
 // ===============================================================
-// WorldWright Generator Core (V4 – warped continents & coastlines)
-// Uses domain warping to distort elliptical continents, producing
-// irregular shorelines without resorting to full plate simulations.
+// WorldWright Generator Core (Planet Spine V1.2)
+// Multi-continent height + climate generator for WorldWright.
+//
+// Goals for this version:
+// - Produce believable, non-"blob" continents with varied shapes.
+// - Keep the generator fully deterministic from (seed + params).
+// - Provide height, temperature, and moisture fields suitable for
+//   Create + Sim modes to read without knowing generator internals.
+// - Respect all existing sliders in GeneratorParams.
+//
+// This file is intentionally self-contained and pure. It only
+// depends on the World schema and helpers from world.ts.
 // ===============================================================
 
 import {
@@ -12,41 +21,118 @@ import {
   createEmptySimLayer,
 } from './world'
 
+// --------------------------------------------------------
+// Public parameters (UI → generator)
+// --------------------------------------------------------
+
 export interface GeneratorParams {
   name: string
   width: number
   height: number
   seed: string
+
+  // 0–100: more land vs water
   landmass: number
+
+  // 0–100: bias the final sea level a bit
   seaLevel: number
+
+  // 0–100: more tectonic activity → more mountains
   plateActivity: number
+
+  // 0–100: stronger axis tilt → more extreme poles/seasons
   axisTilt: number
+
+  // 0–100: older planet → more erosion / smoother terrain
   planetAge: number
+
+  // 0–100: how "wild" the climate patterns can be
   climateVariance: number
+
+  // 0–100: high = more fragmented / archipelago-like worlds
   worldStyle: number
 }
+
+// --------------------------------------------------------
+// Utility helpers
+// --------------------------------------------------------
 
 function clamp01(v: number): number {
   return v < 0 ? 0 : v > 1 ? 1 : v
 }
 
-function makeRandom(seed: string) {
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t
+}
+
+function hashString(seed: string): number {
   let h = 2166136261 >>> 0
   for (let i = 0; i < seed.length; i++) {
     h ^= seed.charCodeAt(i)
     h = Math.imul(h, 16777619)
   }
+  return h >>> 0
+}
+
+/**
+ * Simple deterministic RNG from a string seed.
+ */
+function makeRandom(seed: string) {
+  let h = hashString(seed || 'worldwright')
   return () => {
-    h ^= h >>> 13
-    h ^= h << 17
-    h ^= h >>> 5
-    return (h >>> 0) / 4294967296
+    // xorshift32
+    h ^= h << 13
+    h ^= h >>> 17
+    h ^= h << 5
+    return ((h >>> 0) & 0xffffffff) / 0xffffffff
   }
 }
 
+// --------------------------------------------------------
+// 2D noise helpers (value noise + FBM)
+// --------------------------------------------------------
+
 function baseNoise(rand: () => number, x: number, y: number): number {
-  const r = Math.sin(x * 127.1 + y * 311.7 + rand() * 43758.5453)
-  return (r - Math.floor(r)) * 2 - 1
+  // Hash lattice coordinates, then interpolate.
+  const x0 = Math.floor(x)
+  const y0 = Math.floor(y)
+  const x1 = x0 + 1
+  const y1 = y0 + 1
+
+  const sx = x - x0
+  const sy = y - y0
+
+  const n00 = lattice(rand, x0, y0)
+  const n10 = lattice(rand, x1, y0)
+  const n01 = lattice(rand, x0, y1)
+  const n11 = lattice(rand, x1, y1)
+
+  const ix0 = lerp(n00, n10, smoothStep(sx))
+  const ix1 = lerp(n01, n11, smoothStep(sx))
+  return lerp(ix0, ix1, smoothStep(sy))
+}
+
+function smoothStep(t: number): number {
+  return t * t * (3 - 2 * t)
+}
+
+function lattice(rand: () => number, x: number, y: number): number {
+  // Deterministic-ish cell value based on (x,y).
+  const key = `${x}|${y}`
+  const h = hashString(key)
+  const prev = Math.random
+  // Small local RNG to avoid changing global rand
+  let local = h
+  function localRand() {
+    local ^= local << 13
+    local ^= local >>> 17
+    local ^= local << 5
+    return ((local >>> 0) & 0xffffffff) / 0xffffffff
+  }
+  const val = localRand()
+  Math.random = prev
+  // map [0,1] → [-1,1]
+  return val * 2 - 1
 }
 
 function fbmNoise(
@@ -58,8 +144,8 @@ function fbmNoise(
   persistence: number,
 ): number {
   let amp = 1
-  let maxAmp = 0
   let sum = 0
+  let maxAmp = 0
   let f = freq
   for (let i = 0; i < octaves; i++) {
     sum += baseNoise(rand, x * f, y * f) * amp
@@ -67,102 +153,187 @@ function fbmNoise(
     amp *= persistence
     f *= 2
   }
-  return sum / maxAmp
+  return maxAmp > 0 ? sum / maxAmp : 0
 }
 
-// Create default parameters
-export function createDefaultGeneratorParams(): GeneratorParams {
-  return {
-    name: 'New World',
-    width: 256,
-    height: 128,
-    seed: '',
-    landmass: 55,
-    seaLevel: 50,
-    plateActivity: 50,
-    axisTilt: 50,
-    planetAge: 50,
-    climateVariance: 50,
-    worldStyle: 50,
-  }
-}
+// --------------------------------------------------------
+// Continent model
+// --------------------------------------------------------
 
-// Continent descriptor
 interface Continent {
   u: number
   v: number
-  rx: number
-  ry: number
+  radius: number
+  ellipticity: number
   angle: number
   warpX: number
   warpY: number
 }
 
 /**
- * Build an array of continents.  Each one has a random ellipse plus
- * its own warp directions so that each continent warps differently.
- * Random ellipses with eccentricity and rotation give variability and
- * produce island‑ or continent‑like shapes [oai_citation:2‡medium.com](https://medium.com/procedural-emotions/shorelines-and-continents-2c94c8cd862c#:~:text=Then%20we%E2%80%99ll%20define%20a%20basic,areas%20included%20in%20the%20shape).
+ * Default UI parameters.
  */
-function createContinents(rand: () => number, count: number): Continent[] {
+export function createDefaultGeneratorParams(): GeneratorParams {
+  return {
+    name: 'New World',
+    width: 256,
+    height: 128,
+    seed: 'WorldWright',
+    landmass: 55,
+    seaLevel: 50,
+    plateActivity: 50,
+    axisTilt: 35,
+    planetAge: 50,
+    climateVariance: 50,
+    worldStyle: 50,
+  }
+}
+
+/**
+ * Build an array of continents. We vary:
+ * - number of continents based on landmass + worldStyle
+ * - radius (some big, some small)
+ * - eccentricity & rotation
+ * - warp direction (for domain warping)
+ */
+function createContinents(
+  rand: () => number,
+  land01: number,
+  plate01: number,
+  style01: number,
+): Continent[] {
+  // Base count: 2–5. More for fragmented styles.
+  const baseCount = 2 + Math.floor(land01 * 2 + plate01)
+  const extraIslands = Math.floor(style01 * 3)
+  const total = clamp01(land01 * 1.25) > 0.6 ? baseCount + extraIslands : baseCount
+
   const continents: Continent[] = []
-  for (let i = 0; i < count; i++) {
-    const u = rand() * 0.8 + 0.1
-    const v = rand() * 0.8 + 0.1
-    const base = 0.15 + rand() * 0.25 // radius 0.15–0.40
-    const ellipticity = 0.5 + rand() * 0.5 // 0.5–1.0
-    const rx = base
-    const ry = base * ellipticity
+
+  for (let i = 0; i < total; i++) {
+    const u = rand() * 0.9 + 0.05
+    const v = rand() * 0.9 + 0.05
+
+    // Mix of larger plates and smaller island chains.
+    const isMicro = i >= baseCount
+    const baseRadius = isMicro
+      ? 0.06 + rand() * 0.06 // small islands
+      : 0.12 + rand() * 0.22 // main continents
+
+    const eccentricity = 0.4 + rand() * 0.6 // 0.4–1.0
     const angle = rand() * Math.PI * 2
-    // warp directions: random unit vector
+
     const theta = rand() * Math.PI * 2
     const warpX = Math.cos(theta)
     const warpY = Math.sin(theta)
-    continents.push({ u, v, rx, ry, angle, warpX, warpY })
+
+    continents.push({
+      u,
+      v,
+      radius: baseRadius,
+      ellipticity: eccentricity,
+      angle,
+      warpX,
+      warpY,
+    })
   }
+
   return continents
 }
 
 /**
  * Compute base continent height at (u,v) using domain warping.
- * We offset (u,v) by a low‑frequency noise along a continent’s warp
- * direction.  This distorts the ellipse, creating irregular coasts.
+ * We combine contributions from several nearby continents to avoid
+ * a single "round blob" dominating each plate.
  */
 function computeContinentHeight(
   u: number,
   v: number,
   continents: Continent[],
   warpNoise: (x: number, y: number) => number,
+  style01: number,
 ): number {
-  let h = 0
-  for (const c of continents) {
-    // domain warp: offset UV along warp vector by noise
-    const warpVal = warpNoise(u, v) // [-1,1]
-    const du = c.u - u + c.warpX * warpVal * 0.2
-    const dv = c.v - v + c.warpY * warpVal * 0.2
+  if (continents.length === 0) return 0
 
-    // rotate coordinates
+  let h = 0
+  let count = 0
+
+  for (const c of continents) {
+    const warpVal = warpNoise(u, v) // [-1,1]
+    const warpScale = lerp(0.12, 0.22, style01)
+    const du = u - (c.u + c.warpX * warpVal * warpScale)
+    const dv = v - (c.v + c.warpY * warpVal * warpScale)
+
+    // Rotate by continent angle
     const cos = Math.cos(c.angle)
     const sin = Math.sin(c.angle)
     const xr = du * cos + dv * sin
     const yr = -du * sin + dv * cos
 
-    const dist = Math.sqrt(
-      (xr / c.rx) * (xr / c.rx) + (yr / c.ry) * (yr / c.ry),
-    )
-    if (dist < 1) {
-      const val = Math.pow(1 - dist, 1.8) // steeper falloff
-      if (val > h) h = val
+    const rx = c.radius
+    const ry = c.radius * c.ellipticity
+
+    const dist = Math.sqrt((xr / rx) * (xr / rx) + (yr / ry) * (yr / ry))
+    if (dist < 1.2) {
+      // Softer edge; value falls off toward 0.
+      const t = clamp01(dist / 1.1)
+      const val = Math.pow(1 - t, 2.2)
+      h += val
+      count++
     }
   }
-  return clamp01(h)
+
+  if (count === 0) return 0
+  // Normalize combined continents -- multiple overlaps give stronger cores.
+  const base = h / count
+  return clamp01(base * 1.4)
+}
+
+// --------------------------------------------------------
+// Climate helpers
+// --------------------------------------------------------
+
+function computeLatitude(v: number, tilt01: number): number {
+  // 0 at equator, 1 at poles, with tilt shifting the equator band.
+  const tiltOffset = (tilt01 - 0.5) * 0.5
+  return clamp01(Math.abs(v - (0.5 + tiltOffset)) * 2)
 }
 
 /**
- * The main world generator using warped continents, mountains, erosion
- * and climate.  Domain warping distorts continent boundaries to avoid
- * perfectly round shapes and create peninsulas and bays.
+ * Temperature and moisture are intentionally simple but plausible.
  */
+function computeClimateForCell(
+  u: number,
+  v: number,
+  tilt01: number,
+  climate01: number,
+  tempRand: () => number,
+  moistRand: () => number,
+): { temperature: number; moisture: number } {
+  const lat = computeLatitude(v, tilt01)
+  const baseTemp = 1 - lat // equator = 1, poles = 0
+
+  const tempNoise =
+    (fbmNoise(tempRand, u * 2.0, v * 2.0, 2.0, 3, 0.5) + 1) * 0.5
+  const temperature = clamp01(
+    lerp(baseTemp, (baseTemp * 0.7 + tempNoise * 0.3), climate01),
+  )
+
+  const moistNoise =
+    (fbmNoise(moistRand, u * 3.0, v * 3.0, 2.5, 3, 0.5) + 1) * 0.5
+
+  const rainBand = 1 - Math.abs(v - 0.5) * 2 // equatoric rainy belt
+  const baseMoist = clamp01(0.25 + rainBand * 0.6)
+  const moisture = clamp01(
+    lerp(baseMoist, (baseMoist * 0.5 + moistNoise * 0.5), climate01),
+  )
+
+  return { temperature, moisture }
+}
+
+// --------------------------------------------------------
+// World generation
+// --------------------------------------------------------
+
 export function generateWorldFromParams(params: GeneratorParams): World {
   const {
     name,
@@ -175,6 +346,7 @@ export function generateWorldFromParams(params: GeneratorParams): World {
     axisTilt,
     planetAge,
     climateVariance,
+    worldStyle,
   } = params
 
   const rand = makeRandom(seed || 'worldwright')
@@ -185,69 +357,55 @@ export function generateWorldFromParams(params: GeneratorParams): World {
   const tilt01 = clamp01(axisTilt / 100)
   const age01 = clamp01(planetAge / 100)
   const climate01 = clamp01(climateVariance / 100)
+  const style01 = clamp01(worldStyle / 100)
 
-  // Number of continents: 3–6
-  const continentCount = Math.floor(3 + land01 * 2 + plate01)
-  const continents = createContinents(rand, continentCount)
+  const continents = createContinents(rand, land01, plate01, style01)
 
-  // Random generators for noise layers
   const coastRand = makeRandom(seed + '_coast')
   const mountainRand = makeRandom(seed + '_mount')
   const warpRand = makeRandom(seed + '_warp')
   const tempRand = makeRandom(seed + '_temp')
   const moistRand = makeRandom(seed + '_moist')
 
-  // Warp noise: low frequency & few octaves
-  function warpNoise(x: number, y: number): number {
-    return fbmNoise(warpRand, x * 1.5, y * 1.5, 1.5, 3, 0.5)
-  }
+  const warpNoise = (x: number, y: number) =>
+    fbmNoise(warpRand, x * 0.8, y * 0.8, 1.0, 2, 0.5)
 
   const cells: WorldCell[] = []
   const heights: number[] = []
 
   for (let y = 0; y < height; y++) {
     const v = y / Math.max(height - 1, 1)
-    // Temperature base from latitude & tilt
-    const tiltOffset = (tilt01 - 0.5) * 0.5
-    const lat = clamp01(Math.abs(v - (0.5 + tiltOffset)) * 2)
-    const baseTemp = 1 - lat
 
     for (let x = 0; x < width; x++) {
       const u = x / Math.max(width - 1, 1)
 
-      // Base height from warped continents
-      let h = computeContinentHeight(u, v, continents, warpNoise)
+      // Base height from continents
+      let h = computeContinentHeight(u, v, continents, warpNoise, style01)
 
-      // Irregular coastlines: multiply (not add) by coast noise
-      const coastVal =
-        (fbmNoise(coastRand, u * 2.0, v * 2.0, 2.0, 3, 0.5) + 1) * 0.5 // [0,1]
-      h *= 0.7 + coastVal * 0.6 // 0.7–1.3
+      // Coast detail
+      const coast = (fbmNoise(coastRand, u * 2.2, v * 2.2, 2.0, 3, 0.5) + 1) * 0.5
+      h *= lerp(0.7, 1.35, coast)
 
-      // Mountains: high‑frequency noise
-      const mountVal =
-        (fbmNoise(mountainRand, u * 8.0, v * 8.0, 3.0, 3, 0.5) + 1) * 0.5
-      const mountain = Math.pow(mountVal, 2.5 + plate01 * 3) // steeper peaks with more plate activity
-      h += mountain * (0.25 + plate01 * 0.45)
+      // Mountains
+      const mount = (fbmNoise(mountainRand, u * 7.5, v * 7.5, 2.8, 3, 0.5) + 1) * 0.5
+      const mountStrength = Math.pow(mount, 2.3 + plate01 * 3.0)
+      h += mountStrength * lerp(0.2, 0.7, plate01)
 
       h = clamp01(h)
 
-      // Age‑based erosion
-      const erosion = age01 * 0.7
+      // Age-based erosion: older → more mid-range heights.
+      const erosion = age01 * 0.75
       h = h * (1 - erosion) + 0.5 * erosion
-      h = clamp01(h)
 
       heights.push(h)
 
-      // Climate noise
-      const tempNoise =
-        (fbmNoise(tempRand, u * 3.5, v * 3.5, 3.5, 4, 0.5) + 1) * 0.5
-      const temperature = clamp01(baseTemp + (tempNoise - 0.5) * 0.4 * climate01)
-
-      const moistNoise =
-        (fbmNoise(moistRand, u * 3.5, v * 3.5, 3.5, 4, 0.5) + 1) * 0.5
-      const rainBand = 1 - Math.abs(v - 0.5) * 2
-      const moisture = clamp01(
-        0.3 + rainBand * 0.5 + (moistNoise - 0.5) * 0.5 * climate01,
+      const { temperature, moisture } = computeClimateForCell(
+        u,
+        v,
+        tilt01,
+        climate01,
+        tempRand,
+        moistRand,
       )
 
       cells.push({
@@ -261,52 +419,71 @@ export function generateWorldFromParams(params: GeneratorParams): World {
     }
   }
 
-  // Determine sea level by height quantile
+  // Decide sea level based on target water fraction and slider bias.
   const sorted = [...heights].sort((a, b) => a - b)
-  const waterFraction = clamp01(1 - land01)
-  let seaThreshold = sorted[Math.floor(waterFraction * (sorted.length - 1))]
+  const targetWater = clamp01(1 - land01)
+  let seaThreshold =
+    sorted[Math.floor(targetWater * (sorted.length - 1) || 0)]
+
   seaThreshold += (sea01 - 0.5) * 0.6
   seaThreshold = clamp01(seaThreshold)
 
-  // Assign biomes & normalize land heights
+  // Normalize land heights and tag water.
+  let landSum = 0
+  let landCount = 0
+  let tempSum = 0
+  let moistSum = 0
+
   for (let i = 0; i < cells.length; i++) {
     const c = cells[i]
+    tempSum += c.temperature
+    moistSum += c.moisture
+
     if (c.baseHeight < seaThreshold) {
       c.biomeId = 'water'
-      c.baseHeight = c.baseHeight - seaThreshold
+      c.baseHeight = clamp01((c.baseHeight - seaThreshold) * 2) // mostly negative or near 0
     } else {
-      const hRel = (c.baseHeight - seaThreshold) / (1 - seaThreshold)
-      c.baseHeight = hRel
-      if (c.temperature < 0.2) {
-        c.biomeId = c.moisture < 0.3 ? 'tundra' : 'snow'
-      } else if (c.temperature < 0.4) {
-        c.biomeId = c.moisture < 0.4 ? 'steppe' : 'taiga'
-      } else if (c.temperature < 0.7) {
-        if (c.moisture < 0.3) c.biomeId = 'desert'
-        else if (c.moisture < 0.5) c.biomeId = 'grassland'
-        else c.biomeId = 'forest'
-      } else {
-        c.biomeId = c.moisture < 0.4 ? 'savanna' : 'rainforest'
-      }
+      const hRel = (c.baseHeight - seaThreshold) / (1 - seaThreshold || 1)
+      const landHeight = clamp01(hRel)
+      c.baseHeight = landHeight
+      landSum += landHeight
+      landCount++
     }
   }
 
-  const now = new Date().toISOString()
+  const landFraction = landCount > 0 ? landCount / cells.length : 0
+  const avgTemperature = cells.length > 0 ? tempSum / cells.length : 0
+  const avgMoisture = cells.length > 0 ? moistSum / cells.length : 0
+
   const cellCount = cells.length
 
+  const editLayer = createEmptyEditLayer(cellCount)
+  const simLayer = createEmptySimLayer(cellCount)
+
+  const now = new Date().toISOString()
+  const finalName = (name || 'New World').trim() || 'New World'
+
   const world: World = {
-    id: '',
-    name: name || 'New World',
-    seed: seed || '',
+    id: `world-${hashString(seed).toString(36)}`,
+    name: finalName,
+    seed: seed || 'worldwright',
     schemaVersion: CURRENT_WORLD_SCHEMA_VERSION,
     createdAt: now,
     updatedAt: now,
+
     width,
     height,
+
+    landFraction,
+    avgTemperature,
+    avgMoisture,
+
     seaLevel: seaThreshold,
+
     cells,
-    editLayer: createEmptyEditLayer(cellCount),
-    simLayer: createEmptySimLayer(cellCount),
+    editLayer,
+    simLayer,
+
     countries: [],
     cultures: [],
     cities: [],
@@ -316,6 +493,7 @@ export function generateWorldFromParams(params: GeneratorParams): World {
   return world
 }
 
+// Convenience wrapper: allow explicit name override without changing params.
 export function buildWorldFromParams(
   params: GeneratorParams,
   explicitName?: string,
