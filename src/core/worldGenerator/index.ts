@@ -25,6 +25,61 @@ export interface GeneratorConfig {
   seed?: string; // optional seed string (stored in metadata; random used for now)
 }
 
+/**
+ * GeneratorParams (UI compatibility)
+ * This matches the slider-based API used by GenerateModeApp.
+ */
+export interface GeneratorParams {
+  name: string
+  width: number
+  height: number
+  seed: string
+
+  // 0–100: more land vs water (currently stored for future; not yet used)
+  landmass: number
+
+  // 0–100: bias the final sea level a bit
+  seaLevel: number
+
+  // 0–100: more tectonic activity → more mountains (future)
+  plateActivity: number
+
+  // 0–100: stronger axis tilt → more extreme poles/seasons (future)
+  axisTilt: number
+
+  // 0–100: older planet → more erosion / smoother terrain (future)
+  planetAge: number
+
+  // 0–100: how "wild" the climate patterns can be (future)
+  climateVariance: number
+
+  // 0–100: style selector
+  //  0–25  → earthlike
+  // 25–50  → fantasy
+  // 50–75  → stylized
+  // 75–100 → alien
+  worldStyle: number
+}
+
+/**
+ * Default params for the Generator UI.
+ */
+export function createDefaultGeneratorParams(): GeneratorParams {
+  return {
+    name: 'New World',
+    width: 256,
+    height: 128,
+    seed: 'WorldWright',
+    landmass: 55,
+    seaLevel: 50,
+    plateActivity: 50,
+    axisTilt: 35,
+    planetAge: 50,
+    climateVariance: 50,
+    worldStyle: 25, // default: earthlike band
+  }
+}
+
 function clamp01(v: number): number {
   return Math.max(0, Math.min(1, v));
 }
@@ -32,12 +87,18 @@ function clamp01(v: number): number {
 // Very small deterministic hash-ish noise from integers.
 // (We’ll swap to seeded PRNG later; for now this gives stable-ish variety.)
 function intNoise(x: number, y: number): number {
-  const n = x * 374761393 + y * 668265263; // large primes
-  let t = (n ^ (n >> 13)) * 1274126177;
-  t = (t ^ (t >> 16)) >>> 0;
-  return (t / 0xffffffff) * 2 - 1; // [-1, 1]
+  // simple reversible-ish integer mixing
+  let n = x * 374761393 + y * 668265263; // big primes
+  n = (n ^ (n >> 13)) * 1274126177;
+  n = n ^ (n >> 16);
+  // map to 0..1
+  return (n >>> 0) / 4294967295;
 }
 
+/**
+ * generateWorld (Spine generator)
+ * Produces a WorldBrain using the WorldSchema contract.
+ */
 export function generateWorld(config: GeneratorConfig = {}): WorldBrain {
   const gridWidth = config.width ?? 256;
   const gridHeight = config.height ?? 128;
@@ -66,7 +127,8 @@ export function generateWorld(config: GeneratorConfig = {}): WorldBrain {
       const micro = intNoise(col, row) * 0.15;
 
       // Encourage continents around mid-lats a bit
-      const continentalBias = (equatorFactor * 0.3) + (Math.sin((lat01) * Math.PI) * 0.2);
+      const continentalBias =
+        (equatorFactor * 0.3) + (Math.sin((lat01) * Math.PI) * 0.2);
 
       const height = waveA + waveB + micro + continentalBias - 0.25;
       cell.baseHeight = height;
@@ -84,15 +146,12 @@ export function generateWorld(config: GeneratorConfig = {}): WorldBrain {
 
       // Plate / boundary placeholders (real plate sim comes later)
       cell.plateId = 0;
-      cell.plateType = PlateType.CONTINENTAL;
       cell.boundaryType = BoundaryType.NONE;
-      cell.upliftRate = 0;
 
-      // Surface defaults
-      cell.surfaceType = SurfaceType.ROCK;
-      cell.snowCover = clamp01((1 - cell.temperature) * (cell.isWater ? 0.3 : 0.6));
+      // Surface type placeholder
+      cell.surfaceType = cell.isWater ? SurfaceType.OCEAN : SurfaceType.LAND;
 
-      // Ocean depth class (very rough)
+      // Ocean depth classes for water
       if (cell.isWater) {
         const depth = seaLevel - cell.baseHeight; // positive depth
         if (depth < 0.15) cell.oceanDepthClass = OceanDepthClass.SHELF;
@@ -110,64 +169,65 @@ export function generateWorld(config: GeneratorConfig = {}): WorldBrain {
       else if (cell.temperature > 0.32) cell.baseBiomeId = 2;
       else cell.baseBiomeId = 3;
 
+      // Keep edit biome initially same as base (Create Mode edits will diverge)
+      cell.editBiomeId = cell.baseBiomeId;
+
       cells[idx] = cell;
     }
   }
 
-  // --- Hydrology: route each land cell downhill to lowest neighbor (8-neighborhood)
-  const neighborOffsets: [number, number][] = [
-    [0, 1],[1, 0],[-1, 0],[0, -1],
-    [1, 1],[-1, -1],[1, -1],[-1, 1],
-  ];
+  // --- Hydrology pass: flow direction to lowest neighbor (8-neighborhood)
+  // NOTE: This is a placeholder; blueprint expects richer hydrology later.
+  const neighbors = (idx: number): number[] => {
+    const x = idx % gridWidth;
+    const y = Math.floor(idx / gridWidth);
 
-  const wrap = (r: number, c: number): number => {
-    // longitude wrap (x wraps), latitude clamp (poles clamp)
-    const rr = Math.max(0, Math.min(gridHeight - 1, r));
-    const cc = (c + gridWidth) % gridWidth;
-    return rr * gridWidth + cc;
+    const out: number[] = [];
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= gridWidth || ny < 0 || ny >= gridHeight) continue;
+        out.push(ny * gridWidth + nx);
+      }
+    }
+    return out;
   };
 
-  for (let row = 0; row < gridHeight; row++) {
-    for (let col = 0; col < gridWidth; col++) {
-      const idx = row * gridWidth + col;
-      const cell = cells[idx];
-
-      // Water cells don't route (they are sinks for now)
-      if (cell.isWater) {
-        cell.flowDirection = null;
-        continue;
-      }
-
-      let bestIdx: number | null = null;
-      let bestHeight = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
-
-      for (const [dr, dc] of neighborOffsets) {
-        const nIdx = wrap(row + dr, col + dc);
-        const n = cells[nIdx];
-        const nh = n.baseHeight + n.editHeightDelta + n.simHeightDelta;
-        if (nh < bestHeight) {
-          bestHeight = nh;
-          bestIdx = nIdx;
-        }
-      }
-
-      cell.flowDirection = bestIdx;
+  for (let i = 0; i < cells.length; i++) {
+    const cell = cells[i];
+    if (cell.isWater) {
+      cell.flowDirection = null;
+      cell.flowAccumulation = 0;
+      continue;
     }
+
+    let bestIdx: number | null = null;
+    let bestHeight = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
+
+    for (const nIdx of neighbors(i)) {
+      const n = cells[nIdx];
+      const nh = n.baseHeight + n.editHeightDelta + n.simHeightDelta;
+      if (nh < bestHeight) {
+        bestHeight = nh;
+        bestIdx = nIdx;
+      }
+    }
+
+    cell.flowDirection = bestIdx;
+    cell.flowAccumulation = 0;
   }
 
-  // Flow accumulation: count upstream contributors by walking flowDirection chains
-  const accum = new Array<number>(total).fill(0);
-  for (let i = 0; i < total; i++) {
+  // crude accumulation: walk downhill chains
+  for (let i = 0; i < cells.length; i++) {
+    let steps = 0;
     let cur: number | null = i;
-    const guard = new Set<number>();
-    while (cur !== null && !guard.has(cur)) {
-      guard.add(cur);
-      accum[cur] += 1;
+    while (cur !== null && steps < 200) {
+      cells[cur].flowAccumulation += 1;
       cur = cells[cur].flowDirection;
+      steps++;
     }
-  }
-  for (let i = 0; i < total; i++) {
-    cells[i].flowAccumulation = accum[i];
   }
 
   // --- Metadata + WorldBrain container
@@ -202,4 +262,44 @@ export function generateWorld(config: GeneratorConfig = {}): WorldBrain {
   };
 
   return world;
+}
+
+/**
+ * UI compatibility wrapper.
+ * Takes the 0–100 sliders and returns a WorldBrain.
+ */
+export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
+  const sea01 = clamp01(params.seaLevel / 100)
+  // Map 0..100 → sea threshold in generator height units.
+  // Lower threshold = more land; higher threshold = more flooding.
+  const seaLevelThreshold = (-0.55) + (0.25 - (-0.55)) * sea01
+
+  const style01 = clamp01(params.worldStyle / 100)
+  const style: GeneratorConfig['style'] =
+    style01 < 0.25 ? 'EARTHLIKE'
+      : style01 < 0.5 ? 'FANTASY'
+      : style01 < 0.75 ? 'STYLIZED'
+      : 'ALIEN'
+
+  const world = generateWorld({
+    width: params.width,
+    height: params.height,
+    seaLevel: seaLevelThreshold,
+    style,
+    seed: params.seed,
+  })
+
+  // Ensure metadata reflects UI choices
+  world.metadata.name = params.name || world.metadata.name
+  world.metadata.seed = params.seed || world.metadata.seed
+  world.metadata.styleMode = style
+  world.metadata.gridWidth = params.width
+  world.metadata.gridHeight = params.height
+  world.metadata.updatedAt = new Date().toISOString()
+
+  // NOTE: landmass/plateActivity/axisTilt/planetAge/climateVariance are accepted
+  // by the UI but not yet applied by this scaffold generator. They will be wired
+  // in during Phase 2 generator upgrades.
+
+  return world
 }
