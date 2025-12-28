@@ -50,7 +50,9 @@ export default function GenerateModeApp() {
       name: worldName.trim() || params.name,
     })
     const saved = await saveWorld(world)
-    navigate(`/create/${saved.id}`)
+
+    // ✅ FIX: route must match App.tsx: /modes/create/:id
+    navigate(`/modes/create/${saved.id}`)
   }
 
   // --- Derived description helpers ---
@@ -198,240 +200,147 @@ export default function GenerateModeApp() {
     }
 
     // Bilinear sampling over world cells
-    function sampleHeight(u: number, v: number): number {
-      const x = u * width
-      const y = v * height
-
+    const sample = (u: number, v: number) => {
+      const x = u * (width - 1)
+      const y = v * (height - 1)
       const x0 = Math.floor(x)
       const y0 = Math.floor(y)
-      const x1 = Math.min(width - 1, x0 + 1)
-      const y1 = Math.min(height - 1, y0 + 1)
+      const x1 = Math.min(x0 + 1, width - 1)
+      const y1 = Math.min(y0 + 1, height - 1)
       const tx = x - x0
       const ty = y - y0
 
-      const idx = (ix: number, iy: number) => {
-        const safeX = Math.max(0, Math.min(width - 1, ix))
-        const safeY = Math.max(0, Math.min(height - 1, iy))
-        return cells[safeY * width + safeX].baseHeight
-      }
+      const idx = (xx: number, yy: number) => yy * width + xx
 
-      const h00 = idx(x0, y0)
-      const h10 = idx(x1, y0)
-      const h01 = idx(x0, y1)
-      const h11 = idx(x1, y1)
+      const a = cells[idx(x0, y0)].baseHeight
+      const b = cells[idx(x1, y0)].baseHeight
+      const c = cells[idx(x0, y1)].baseHeight
+      const d = cells[idx(x1, y1)].baseHeight
 
-      const h0 = h00 * (1 - tx) + h10 * tx
-      const h1 = h01 * (1 - tx) + h11 * tx
-      return h0 * (1 - ty) + h1 * ty
+      const ab = a + (b - a) * tx
+      const cd = c + (d - c) * tx
+      return ab + (cd - ab) * ty
     }
 
-    function coastlineHeight(u: number, v: number): number {
-      const base = sampleHeight(u, v)
+    // Render shaded sphere
+    for (let y = 0; y < globeSize; y++) {
+      for (let x = 0; x < globeSize; x++) {
+        const dx = x + 0.5 - cx
+        const dy = y + 0.5 - cy
+        const dist = Math.sqrt(dx * dx + dy * dy)
 
-      const samples: number[] = []
-      const offsets = [-1, 0, 1]
-      for (const oy of offsets) {
-        for (const ox of offsets) {
-          const uu = u + (ox / width) * 3
-          const vv = v + (oy / height) * 3
-          if (uu < 0 || uu > 1 || vv < 0 || vv > 1) continue
-          samples.push(sampleHeight(uu, vv))
-        }
-      }
+        const i = (y * globeSize + x) * 4
 
-      if (samples.length === 0) return base
-      const avg =
-        samples.reduce((sum, h) => sum + h, 0) / samples.length
-
-      let hPreview = base
-
-      // If the world is mostly land, slightly push near-sea cells
-      // above water so we see coastlines at this zoom.
-      if (base >= seaLevel - 0.02 && base <= seaLevel + 0.02) {
-        if (landFraction > 0.75 && base > seaLevel - 0.04) {
-          hPreview = seaLevel + 0.04
-        }
-      }
-
-      // Blend toward neighborhood average
-      hPreview = hPreview * 0.7 + avg * 0.3
-      return hPreview
-    }
-
-    for (let py = 0; py < globeSize; py++) {
-      for (let px = 0; px < globeSize; px++) {
-        const dx = px - cx
-        const dy = py - cy
-        const r2 = dx * dx + dy * dy
-        const rMax = radius * radius
-
-        const idx = (py * globeSize + px) * 4
-
-        // Outside of globe circle → transparent
-        if (r2 > rMax) {
-          data[idx] = 0
-          data[idx + 1] = 0
-          data[idx + 2] = 0
-          data[idx + 3] = 0
+        if (dist > radius) {
+          data[i + 3] = 0
           continue
         }
 
+        // Normal on sphere
         const nx = dx / radius
         const ny = dy / radius
         const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny))
 
-        const u =
-          (Math.atan2(nx, nz) / (2 * Math.PI) + 0.5) % 1
-        const v = ny * 0.5 + 0.5
+        // Convert normal to lat/lon-ish sampling
+        const lon = Math.atan2(nx, nz) // -pi..pi
+        const lat = Math.asin(ny) // -pi/2..pi/2
 
-        const hCoast = coastlineHeight(u, v)
-        const baseColor = sampleColorForHeight(hCoast, seaLevel)
+        const u = (lon / (Math.PI * 2) + 0.5) % 1
+        const v = 0.5 - lat / Math.PI
 
-        const nDotL =
+        const h = sample(u, v)
+        const base = sampleColorForHeight(h, seaLevel)
+
+        // Lambert shading + small rim light
+        const ndotl =
           nx * lightDir.x + ny * lightDir.y + nz * lightDir.z
-        const light = 0.25 + Math.max(0, nDotL) * 0.75
+        const shade = Math.max(0.15, ndotl * 0.85 + 0.15)
 
-        data[idx] = Math.round(baseColor.r * light)
-        data[idx + 1] = Math.round(baseColor.g * light)
-        data[idx + 2] = Math.round(baseColor.b * light)
-        data[idx + 3] = 255
+        // Rim based on view angle (nz)
+        const rim = Math.pow(1 - nz, 2) * 0.25
+
+        const r = Math.min(255, base.r * shade + 255 * rim)
+        const g = Math.min(255, base.g * shade + 255 * rim)
+        const b = Math.min(255, base.b * shade + 255 * rim)
+
+        data[i + 0] = r
+        data[i + 1] = g
+        data[i + 2] = b
+        data[i + 3] = 255
       }
     }
 
     globeCtx.putImageData(img, 0, 0)
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _ = landFraction // keep variable for future UI readout
   }, [params, worldName])
 
-  // --- AppShell layout pieces ---
-
-  const leftToolbar = (
-    <>
-      <input
-        type="text"
-        className="ww-text-input"
-        placeholder="World name"
-        value={worldName}
-        onChange={e => setWorldName(e.target.value)}
-      />
-      <div className="ww-seed-row">
-        <span className="ww-seed-label">Seed</span>
-        <input
-          type="text"
-          className="ww-text-input ww-seed-input"
-          value={params.seed}
-          onChange={e =>
-            setParams(prev => ({ ...prev, seed: e.target.value }))
-          }
-        />
-      </div>
-      <div className="ww-size-row">
-        <label className="ww-size-label">
-          W
-          <input
-            type="number"
-            className="ww-size-input"
-            value={params.width}
-            min={32}
-            max={1024}
-            onChange={e =>
-              setParams(prev => ({
-                ...prev,
-                width: Math.max(
-                  32,
-                  Math.min(1024, Number(e.target.value) || 32),
-                ),
-              }))
-            }
-          />
-        </label>
-        <label className="ww-size-label">
-          H
-          <input
-            type="number"
-            className="ww-size-input"
-            value={params.height}
-            min={16}
-            max={512}
-            onChange={e =>
-              setParams(prev => ({
-                ...prev,
-                height: Math.max(
-                  16,
-                  Math.min(512, Number(e.target.value) || 16),
-                ),
-              }))
-            }
-          />
-        </label>
-      </div>
-    </>
-  )
-
-  const mainContent = (
-    <canvas
-      ref={globeCanvasRef}
-      className="ww-preview-canvas ww-preview-canvas--globe"
-    />
-  )
-
-  const minimapOverlay = (
-    <div className="ww-minimap-card">
-      <canvas
-        ref={minimapCanvasRef}
-        className="ww-preview-canvas ww-preview-canvas--minimap"
-      />
-    </div>
-  )
-
-  const rightPanel = (
-    <div className="ww-right-panel-inner">
-      <h2 className="ww-panel-title">Generator</h2>
-      <p className="ww-panel-text">
-        Adjust the sliders to shape the overall character of the planet.
-      </p>
-
-      <div className="ww-slider-list">
-        {sliderOrder.map(key => (
-          <div key={key} className="ww-slider-row">
-            <div className="ww-slider-header">
-              <span className="ww-slider-label">
-                {labelForParam(key)}
-              </span>
-              <span className="ww-slider-value">
-                {params[key as keyof GeneratorParams]}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={params[key] as number}
-              onChange={e =>
-                handleSliderChange(
-                  key,
-                  Number(e.target.value) || 0,
-                )
-              }
-            />
-            <div className="ww-slider-description">
-              {describeParam(key, params[key] as number)}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <button className="ww-primary-btn" onClick={handleSave}>
-        Save World
-      </button>
-    </div>
-  )
+  // --- UI shell ---
 
   return (
     <AppShell
-      mode="generate"
-      leftToolbar={leftToolbar}
-      mainContent={mainContent}
-      minimapOverlay={minimapOverlay}
-      rightPanel={rightPanel}
+      leftPanel={
+        <div>
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ display: 'block', marginBottom: 6 }}>World name</label>
+            <input
+              value={worldName}
+              onChange={e => setWorldName(e.target.value)}
+              placeholder="Name this world (optional)"
+              style={{ width: '100%', padding: 8 }}
+            />
+          </div>
+
+          {sliderOrder.map(key => {
+            const value = params[key] as unknown as number
+            return (
+              <div key={String(key)} style={{ marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <strong>{labelForParam(key)}</strong>
+                  <span style={{ opacity: 0.8 }}>{Math.round(value)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={value}
+                  onChange={e => handleSliderChange(key, Number(e.target.value))}
+                  style={{ width: '100%' }}
+                />
+                <div style={{ fontSize: 12, opacity: 0.8 }}>
+                  {describeParam(key, value)}
+                </div>
+              </div>
+            )
+          })}
+
+          <button
+            onClick={handleSave}
+            style={{ width: '100%', padding: 10, marginTop: 6 }}
+          >
+            Save &amp; Open in Create
+          </button>
+        </div>
+      }
+      center={
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <div style={{ marginBottom: 6, opacity: 0.85 }}>Globe preview</div>
+            <canvas ref={globeCanvasRef} />
+          </div>
+        </div>
+      }
+      minimap={<canvas ref={minimapCanvasRef} style={{ width: '100%' }} />}
+      rightPanel={
+        <div>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>Generator</div>
+          <div style={{ opacity: 0.85, fontSize: 13, lineHeight: 1.4 }}>
+            Adjust the sliders to shape the planet. When you save, you’ll enter
+            Create Mode to edit.
+          </div>
+        </div>
+      }
     />
   )
 }
