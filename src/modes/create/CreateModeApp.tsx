@@ -65,6 +65,37 @@ export default function CreateModeApp() {
         <div style={{ padding: 12 }}>
           {/* Example UI: raise terrain button, save, undo, redo */}
           <button onClick={handleRaiseCenter}>Raise Center</button>
+          <button
+  onClick={() => {
+    if (!world) return;
+    const action: TerrainStrokeAction = {
+      type: 'TERRAIN_STROKE',
+      tool: 'LOWER',
+      center: { row: world.gridHeight / 2, col: world.gridWidth / 2 },
+      radius: Math.min(world.gridWidth, world.gridHeight) / 8,
+      strength: 0.5,
+    };
+    worldSession.apply(action);
+  }}
+>
+  Lower Center
+</button>
+
+<button
+  onClick={() => {
+    if (!world) return;
+    const action: TerrainStrokeAction = {
+      type: 'TERRAIN_STROKE',
+      tool: 'FLATTEN',
+      center: { row: world.gridHeight / 2, col: world.gridWidth / 2 },
+      radius: Math.min(world.gridWidth, world.gridHeight) / 8,
+      strength: 0.5,
+    };
+    worldSession.apply(action);
+  }}
+>
+  Flatten Center
+</button>
           <button onClick={() => worldSession.undo()}>Undo</button>
           <button onClick={() => worldSession.redo()}>Redo</button>
           <button onClick={handleSave}>Save</button>
