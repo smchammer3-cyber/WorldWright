@@ -19,7 +19,11 @@ type WorldSummary = {
 };
 
 function formatDate(s: string) {
-  try { return new Date(s).toLocaleString(); } catch { return s; }
+  try {
+    return new Date(s).toLocaleString();
+  } catch {
+    return s;
+  }
 }
 
 export default function HomeScreen() {
@@ -41,7 +45,9 @@ export default function HomeScreen() {
     }
   };
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    refresh();
+  }, []);
 
   const onDelete = async (id: string) => {
     const ok = confirm("Delete this world? This cannot be undone.");
@@ -84,16 +90,32 @@ export default function HomeScreen() {
         ) : (
           <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 12 }}>
             {worlds.map((w) => (
-              <div key={w.id} style={{ padding: 14, borderRadius: 16, border: "1px solid rgba(0,0,0,0.12)", display: "flex", flexDirection: "column", gap: 10 }}>
+              <div
+                key={w.id}
+                style={{
+                  padding: 14,
+                  borderRadius: 16,
+                  border: "1px solid rgba(0,0,0,0.12)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                   <div style={{ fontWeight: 900, fontSize: 16, lineHeight: 1.15 }}>{w.name || "World"}</div>
                   <div style={{ opacity: 0.7, fontSize: 12 }}>v{w.version || "?"}</div>
                 </div>
 
                 <div style={{ opacity: 0.8, fontSize: 12, lineHeight: 1.35 }}>
-                  <div><b>Style:</b> {w.styleMode || "--"}</div>
-                  <div><b>Seed:</b> {w.seed || "--"}</div>
-                  <div><b>Updated:</b> {formatDate(w.updatedAt)}</div>
+                  <div>
+                    <b>Style:</b> {w.styleMode || "--"}
+                  </div>
+                  <div>
+                    <b>Seed:</b> {w.seed || "--"}
+                  </div>
+                  <div>
+                    <b>Updated:</b> {formatDate(w.updatedAt)}
+                  </div>
                 </div>
 
                 <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
@@ -109,9 +131,7 @@ export default function HomeScreen() {
                   Delete
                 </button>
 
-                <div style={{ opacity: 0.55, fontSize: 11, wordBreak: "break-all" }}>
-                  {w.id}
-                </div>
+                <div style={{ opacity: 0.55, fontSize: 11, wordBreak: "break-all" }}>{w.id}</div>
               </div>
             ))}
           </div>
