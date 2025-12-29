@@ -4,41 +4,44 @@
 // NOTE: This is the single source of truth for the world data contract.
 //
 // ========================================================
-// JARVIS CHANGE HEADER -- METADATA SCHEMA ALIGNMENT (V1.3)
+// JARVIS CHANGE HEADER -- V1.3 SCHEMA REALIGNMENT (GLOBAL SEA LEVEL)
 // File: src/core/worldSchema/index.ts
 //
 // Fixes:
-// - Add metadata.schemaVersion (required) to match worldStorage.ensureWorldMetadata().
-// - Add optional metadata.seaLevel (global sea level threshold) used by generator/renderer.
+// - Removed per-cell seaLevel; a single global seaLevel exists on the WorldBrain.
+// - Cells compute `isWater` from (baseHeight + editHeightDelta + simHeightDelta) vs the
+//   world’s global seaLevel.  Updated whenever terrain or seaLevel changes.
+// - Unified metadata: use `version` instead of `schemaVersion` (blueprint field).
+// - Updated Sticker interface to match blueprint V1.3 shape.
 // ========================================================
 
 export enum PlateType {
-  OCEANIC = 'OCEANIC',
-  CONTINENTAL = 'CONTINENTAL',
+  OCEANIC = "OCEANIC",
+  CONTINENTAL = "CONTINENTAL",
 }
 
 export enum BoundaryType {
-  NONE = 'NONE',
-  DIVERGENT = 'DIVERGENT',
-  CONVERGENT = 'CONVERGENT',
-  TRANSFORM = 'TRANSFORM',
+  NONE = "NONE",
+  DIVERGENT = "DIVERGENT",
+  CONVERGENT = "CONVERGENT",
+  TRANSFORM = "TRANSFORM",
 }
 
 export enum SurfaceType {
-  ROCK = 'ROCK',
-  VOLCANIC = 'VOLCANIC',
-  ALLUVIAL = 'ALLUVIAL',
-  SAND = 'SAND',
-  PEAT = 'PEAT',
-  SALT_FLATS = 'SALT_FLATS',
-  PERMAFROST = 'PERMAFROST',
+  ROCK = "ROCK",
+  VOLCANIC = "VOLCANIC",
+  ALLUVIAL = "ALLUVIAL",
+  SAND = "SAND",
+  PEAT = "PEAT",
+  SALT_FLATS = "SALT_FLATS",
+  PERMAFROST = "PERMAFROST",
 }
 
 export enum OceanDepthClass {
-  SHELF = 'SHELF',
-  SLOPE = 'SLOPE',
-  ABYSSAL = 'ABYSSAL',
-  TRENCH = 'TRENCH',
+  SHELF = "SHELF",
+  SLOPE = "SLOPE",
+  ABYSSAL = "ABYSSAL",
+  TRENCH = "TRENCH",
 }
 
 export interface Country {
@@ -57,7 +60,6 @@ export interface Culture {
 export interface CultureRegion {
   id: string;
   cultureId: string;
-  // radius-based influence OR polygon-based influence (future)
   polygon: [number, number][];
   opacity?: number;
 }
@@ -80,14 +82,22 @@ export interface Location {
   kind?: string;
 }
 
+/**
+ * Blueprint-aligned Sticker shape (V1.3).
+ *
+ * - type: what system it affects (BIOME / CULTURE / TERRAIN / etc.)
+ * - polygon: editable vertex list (no freehand)
+ * - falloff: soft edge in cell units
+ * - mode: WORLD_RULES (physics-aware) or OVERRIDE (freeform)
+ * - metadata: payload (e.g., biomeId, cultureId, heightDelta, etc.)
+ */
 export interface Sticker {
   id: string;
-  name: string;
-  kind: string; // biome / culture / terrain / prop / etc.
+  type: string;
   polygon: [number, number][];
-  falloff?: number;
-  overrideWorldRules?: boolean;
-  payload?: any;
+  falloff: number;
+  mode: "WORLD_RULES" | "OVERRIDE";
+  metadata?: Record<string, any>;
 }
 
 export interface Plate {
@@ -99,7 +109,6 @@ export interface Plate {
 export interface River {
   id: number;
   name?: string;
-  // derived polylines (future) – for now we store placeholder structure
   points?: [number, number][];
 }
 
@@ -108,14 +117,10 @@ export interface WorldMetadata {
   name: string;
   seed: string;
 
-  // REQUIRED: worldStorage expects this to exist and will default to "v3"
-  schemaVersion: string;
-
-  // global sea level threshold used by generator/renderer (V1.3)
-  seaLevel?: number;
-
+  // Blueprint field: version string used for schema/profile versioning
   version: string;
-  styleMode: 'EARTHLIKE' | 'FANTASY' | 'STYLIZED' | 'ALIEN';
+
+  styleMode: "EARTHLIKE" | "FANTASY" | "STYLIZED" | "ALIEN";
   gridWidth: number;
   gridHeight: number;
   createdAt: string;
@@ -127,41 +132,50 @@ export interface WorldMetadata {
 export interface Cell {
   index: number;
 
+  // Height layers (blueprint: base + editable + sim)
   baseHeight: number;
   editHeightDelta: number;
   simHeightDelta: number;
 
+  /**
+   * Derived land/water flag. This is computed from the global world.seaLevel and the
+   * height of each cell to derive `isWater`.  Per-cell seaLevel has been
+   * removed to keep a single source of truth.
+   */
   isWater: boolean;
-  seaLevel: number;
 
-  flowDirection: number | null;
-  flowAccumulation: number;
+  // Hydrology
+  flowDirection: number | null; // 0..7 (8-neighbor) or null
+  flowAccumulation: number; // number of upstream cells or normalized value
   basinId: number | null;
 
-  temperature: number;
-  rainfall: number;
-
+  // Climate
+  temperature: number; // 0..1
+  rainfall: number; // 0..1
   climateCellId: number;
   prevailingWind: [number, number];
 
+  // Tectonics / geology
   plateId: number;
   plateType: PlateType;
   boundaryType: BoundaryType;
-
   upliftRate: number;
-  surfaceAge: number;
-  volcanicActivity: number;
+  surfaceAge: number; // 0..1
+  volcanicActivity: number; // 0..1
 
+  // Biomes
   baseBiomeId: number;
   editBiomeId?: number;
 
+  // Surface classification
   surfaceType: SurfaceType;
 
-  snowCover: number;
+  // Snow / ice
+  snowCover: number; // 0..1
   oceanDepthClass: OceanDepthClass | null;
 
+  // Political / cultural
   countryId?: string;
-
   cultureId?: string;
   cultureMix?: { cultureId: string; weight: number }[];
 }
@@ -169,6 +183,13 @@ export interface Cell {
 export interface WorldBrain {
   gridWidth: number;
   gridHeight: number;
+
+  /**
+   * Global sea level scalar used across the entire world.  Water is determined by comparing
+   * (baseHeight + editHeightDelta + simHeightDelta) against this value.
+   */
+  seaLevel: number;
+
   cells: Cell[];
 
   plates: Plate[];
@@ -189,7 +210,7 @@ export interface WorldBrain {
 // Helpers
 // -----------------------------
 
-export function createEmptyCell(index: number, seaLevel: number): Cell {
+export function createEmptyCell(index: number): Cell {
   return {
     index,
 
@@ -197,8 +218,8 @@ export function createEmptyCell(index: number, seaLevel: number): Cell {
     editHeightDelta: 0,
     simHeightDelta: 0,
 
+    // isWater will be computed after generation based on global seaLevel
     isWater: false,
-    seaLevel,
 
     flowDirection: null,
     flowAccumulation: 0,

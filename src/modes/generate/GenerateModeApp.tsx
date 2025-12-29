@@ -3,193 +3,318 @@
 // File: src/modes/generate/GenerateModeApp.tsx
 //
 // Fixes:
-// - Align slider parameter names/ranges to src/core/worldGenerator (0–100).
-// - Keep async saveWorld() flow safe (await + error display).
-// - Proper canvas sizing to avoid stretched artifacts.
-//
-// Non-goals:
-// - Final GPU globe renderer (this is still CPU preview).
+// - UI sliders now map 1:1 to GeneratorParams used by generateWorldFromParams().
+// - Preview uses makePlanetPreviewFromWorldBrain(world).
+// - saveWorld() return value treated as string id.
+// - No archive usage; blueprint-aligned generate flow.
 // ========================================================
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { AppShell } from "../../ui/AppShell";
-import { createDefaultGeneratorParams, generateWorldFromParams } from "../../core/worldGenerator";
+import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
+import { generateWorldFromParams, GeneratorParams } from "../../core/worldGenerator";
 import { saveWorld } from "../../core/worldStorage";
-import { makePlanetPreviewFromWorld, renderMinimap, renderPlanetToCanvas } from "../../core/planetRenderer";
 
-export default function GenerateModeApp() {
-  const navigate = useNavigate();
+function clamp(v: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, v));
+}
 
-  const [params, setParams] = useState(() => createDefaultGeneratorParams());
-  const [world, setWorld] = useState<any>(null);
-  const [saveStatus, setSaveStatus] = useState<string>("");
+function int(v: number) {
+  return Math.round(v);
+}
 
-  const globeCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null);
+export function GenerateModeApp() {
+  const nav = useNavigate();
 
-  function setNum<K extends keyof typeof params>(key: K, value: number) {
-    setParams((p) => ({ ...p, [key]: value }));
-  }
+  const [seed, setSeed] = useState<number>(() => Math.floor(Math.random() * 1e9));
 
-  // Generate whenever params change (simple MVP behavior)
+  // "Safe knobs" (V1.3 starter set)
+  const [gridWidth, setGridWidth] = useState(128);
+  const [gridHeight, setGridHeight] = useState(128);
+
+  const [oceanCoverage, setOceanCoverage] = useState(0.55); // higher = more water
+  const [plateActivity, setPlateActivity] = useState(0.55);
+  const [axialTilt, setAxialTilt] = useState(23);
+  const [planetAge, setPlanetAge] = useState(0.55);
+
+  const [temperatureBias, setTemperatureBias] = useState(0.5);
+  const [humidityBias, setHumidityBias] = useState(0.55);
+
+  const [styleMode, setStyleMode] = useState<GeneratorParams["styleMode"]>("EARTHLIKE");
+
+  const [worldName, setWorldName] = useState("New World");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const params: GeneratorParams = useMemo(
+    () => ({
+      seed,
+      gridWidth: int(gridWidth),
+      gridHeight: int(gridHeight),
+      oceanCoverage: clamp(oceanCoverage, 0.05, 0.95),
+      plateActivity: clamp(plateActivity, 0, 1),
+      axialTilt: clamp(axialTilt, 0, 60),
+      planetAge: clamp(planetAge, 0, 1),
+      temperatureBias: clamp(temperatureBias, 0, 1),
+      humidityBias: clamp(humidityBias, 0, 1),
+      styleMode,
+    }),
+    [
+      seed,
+      gridWidth,
+      gridHeight,
+      oceanCoverage,
+      plateActivity,
+      axialTilt,
+      planetAge,
+      temperatureBias,
+      humidityBias,
+      styleMode,
+    ],
+  );
+
+  const [world, setWorld] = useState(() => generateWorldFromParams(params));
+
+  // Regenerate world when params change
   useEffect(() => {
-    try {
-      const w = generateWorldFromParams(params as any);
-      setWorld(w);
-      setSaveStatus("");
-    } catch (e: any) {
-      setWorld(null);
-      setSaveStatus(String(e?.message ?? e));
-    }
-  }, [params]);
+    const w = generateWorldFromParams(params);
+    w.metadata.name = worldName;
+    setWorld(w);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.seed, params.gridWidth, params.gridHeight, params.oceanCoverage, params.plateActivity, params.axialTilt, params.planetAge, params.temperatureBias, params.humidityBias, params.styleMode]);
 
-  const preview = useMemo(() => {
-    if (!world) return null;
-    try {
-      return makePlanetPreviewFromWorld(world);
-    } catch {
-      return null;
-    }
-  }, [world]);
-
-  // Render preview to canvases
+  // Keep name synced without regenerating
   useEffect(() => {
-    if (!preview) return;
+    setWorld((prev) => {
+      const next = structuredClone(prev);
+      next.metadata.name = worldName;
+      return next;
+    });
+  }, [worldName]);
 
-    const globe = globeCanvasRef.current;
-    if (!globe) return;
-    const gctx = globe.getContext("2d");
-    if (!gctx) return;
+  const preview = useMemo(() => makePlanetPreviewFromWorldBrain(world), [world]);
 
-    // Keep canvas square & sized to its CSS box
-    const rect = globe.getBoundingClientRect();
-    const sizePx = Math.max(1, Math.floor(Math.min(rect.width, rect.height) * window.devicePixelRatio));
-    if (globe.width !== sizePx) globe.width = sizePx;
-    if (globe.height !== sizePx) globe.height = sizePx;
+  const handleRandomizeSeed = () => {
+    setSeed(Math.floor(Math.random() * 1e9));
+  };
 
-    const size = Math.max(1, Math.min(globe.width, globe.height));
-    renderPlanetToCanvas(gctx, preview, size, preview.seaLevel);
+  const handleSave = async () => {
+    setSaveError(null);
+    setIsSaving(true);
 
-    const mini = minimapCanvasRef.current;
-    if (!mini) return;
-    const mctx = mini.getContext("2d");
-    if (!mctx) return;
-
-    // Minimap is a fixed resolution (overlay is scaled by CSS)
-    const mw = 180;
-    const mh = 120;
-    if (mini.width !== mw) mini.width = mw;
-    if (mini.height !== mh) mini.height = mh;
-    renderMinimap(mctx, preview, mw, mh);
-  }, [preview]);
-
-  async function handleSave() {
-    if (!world) return;
-
-    setSaveStatus("Saving…");
     try {
-      const id = await saveWorld(world);
-      if (!id) {
-        setSaveStatus("Save failed: no id returned.");
-        return;
-      }
-      setSaveStatus("Saved.");
-      navigate(`/modes/create/${id}`);
+      // ensure name
+      const w = structuredClone(world);
+      w.metadata.name = worldName;
+
+      const id = await saveWorld(w);
+      if (!id) throw new Error("Save failed: no id returned.");
+
+      nav(`/create/${id}`);
     } catch (e: any) {
-      setSaveStatus(`Save failed: ${String(e?.message ?? e)}`);
+      setSaveError(e?.message ?? "Save failed.");
+    } finally {
+      setIsSaving(false);
     }
-  }
+  };
 
   return (
     <AppShell
       mode="generate"
-      title="Generator"
-      onBack={() => navigate("/")}
-      leftToolbar={
-        <div className="ww-left-toolbar-inner">
-          <button className="ww-secondary-btn" onClick={() => navigate("/")}>
-            Back
-          </button>
-
-          <div style={{ height: 12 }} />
-
-          <div className="ww-muted" style={{ marginBottom: 8 }}>
-            Adjust sliders, then save to enter Create.
-          </div>
-
-          <label className="ww-slider">
-            Sea Level
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={params.seaLevel ?? 50}
-              onChange={(e) => setNum("seaLevel", Number(e.target.value))}
-            />
-          </label>
-
-          <label className="ww-slider">
-            Landmass
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={params.landmass ?? 50}
-              onChange={(e) => setNum("landmass", Number(e.target.value))}
-            />
-          </label>
-
-          <label className="ww-slider">
-            Plate Activity
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={params.plateActivity ?? 50}
-              onChange={(e) => setNum("plateActivity", Number(e.target.value))}
-            />
-          </label>
-
-          <div style={{ height: 12 }} />
-
-          <button className="ww-primary-btn" onClick={handleSave} disabled={!world}>
-            Save &amp; Open in Create
-          </button>
-
-          {saveStatus ? (
-            <div className="ww-muted" style={{ marginTop: 8 }}>
-              {saveStatus}
-            </div>
-          ) : null}
-        </div>
-      }
-      main={
-        <div className="ww-generate-main">
-          <div className="ww-generate-preview">
-            <canvas ref={globeCanvasRef} className="ww-globe-canvas" />
-          </div>
-
-          <div className="ww-generate-minimap">
-            <canvas ref={minimapCanvasRef} className="ww-minimap-canvas" />
-          </div>
-        </div>
-      }
+      title="Generate"
+      leftTools={[
+        { id: "seed", label: "Seed" },
+        { id: "size", label: "Size" },
+        { id: "ocean", label: "Ocean" },
+        { id: "plates", label: "Plates" },
+        { id: "climate", label: "Climate" },
+        { id: "style", label: "Style" },
+      ]}
       rightPanel={
-        <div className="ww-right-panel-inner">
-          <div className="ww-panel-title">Preview</div>
-          <div className="ww-muted">
-            Seed: <b>{params.seed}</b>
+        <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>World Name</div>
+            <input
+              value={worldName}
+              onChange={(e) => setWorldName(e.target.value)}
+              style={{ width: "100%", padding: 8, borderRadius: 8 }}
+            />
           </div>
-          <div className="ww-muted">
-            Size: <b>{params.width}</b> × <b>{params.height}</b>
+
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>Seed</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={seed}
+                onChange={(e) => setSeed(int(Number(e.target.value || 0)))}
+                style={{ flex: 1, padding: 8, borderRadius: 8 }}
+              />
+              <button onClick={handleRandomizeSeed} style={{ padding: "8px 10px", borderRadius: 8 }}>
+                Random
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+              Grid Size (W×H)
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="number"
+                value={gridWidth}
+                min={32}
+                max={512}
+                step={16}
+                onChange={(e) => setGridWidth(int(Number(e.target.value)))}
+                style={{ flex: 1, padding: 8, borderRadius: 8 }}
+              />
+              <input
+                type="number"
+                value={gridHeight}
+                min={32}
+                max={512}
+                step={16}
+                onChange={(e) => setGridHeight(int(Number(e.target.value)))}
+                style={{ flex: 1, padding: 8, borderRadius: 8 }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+              Ocean Coverage: {oceanCoverage.toFixed(2)}
+            </div>
+            <input
+              type="range"
+              min={0.05}
+              max={0.95}
+              step={0.01}
+              value={oceanCoverage}
+              onChange={(e) => setOceanCoverage(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+            <div style={{ opacity: 0.75, fontSize: 12 }}>
+              Higher means more water. Sea level is derived from this.
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+              Plate Activity: {plateActivity.toFixed(2)}
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={plateActivity}
+              onChange={(e) => setPlateActivity(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+              Axial Tilt: {axialTilt.toFixed(0)}°
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={60}
+              step={1}
+              value={axialTilt}
+              onChange={(e) => setAxialTilt(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+              Planet Age: {planetAge.toFixed(2)}
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={planetAge}
+              onChange={(e) => setPlanetAge(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+              Temperature Bias: {temperatureBias.toFixed(2)}
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={temperatureBias}
+              onChange={(e) => setTemperatureBias(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+              Humidity Bias: {humidityBias.toFixed(2)}
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={humidityBias}
+              onChange={(e) => setHumidityBias(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>Style Mode</div>
+            <select
+              value={styleMode}
+              onChange={(e) => setStyleMode(e.target.value as any)}
+              style={{ width: "100%", padding: 8, borderRadius: 8 }}
+            >
+              <option value="EARTHLIKE">Earthlike</option>
+              <option value="FANTASY">Fantasy</option>
+              <option value="STYLIZED">Stylized</option>
+              <option value="ALIEN">Alien</option>
+            </select>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              style={{ flex: 1, padding: 10, borderRadius: 10, fontWeight: 700 }}
+            >
+              {isSaving ? "Saving..." : "Save & Open in Create"}
+            </button>
+          </div>
+
+          {saveError && (
+            <div style={{ color: "#c33", fontSize: 13 }}>
+              {saveError}
+            </div>
+          )}
+
+          <div style={{ opacity: 0.75, fontSize: 12, marginTop: 6 }}>
+            Preview Sea Level: {preview.seaLevel.toFixed(3)}
           </div>
         </div>
       }
+      // The AppShell is responsible for rendering the globe/minimap using preview callbacks.
+      planetPreview={preview}
     />
   );
 }
+
+export default GenerateModeApp;

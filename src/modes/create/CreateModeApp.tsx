@@ -1,299 +1,259 @@
 // ========================================================
-// JARVIS CHANGE HEADER -- STEP 5 (Create Mode Spine Stub)
+// JARVIS CHANGE HEADER -- CREATE MODE SAVE/LOAD FIX (V1.3)
 // File: src/modes/create/CreateModeApp.tsx
 //
-// Purpose (cleanup milestone):
-// - Load WorldBrain by id from worldStorage.
-// - Validate WorldBrain using worldValidation.
-// - Display Globe or Map view inside AppShell.
-// - Show minimap ONLY in Globe view (bottom-left).
-// - Provide Save button (re-saves WorldBrain; no edits yet).
-//
-// Non-goals (intentionally deferred):
-// - No editing tools (terrain, stickers, borders, cultures, cities).
-// - No undo/redo.
-// - No edit-via-actions wiring.
+// Fixes:
+// - getWorld() returns normalized WorldBrain with global seaLevel.
+// - validateWorld() returns WorldValidationError[]; display cleanly.
+// - saveWorld() returns string id (not object).
+// - Preview uses makePlanetPreviewFromWorldBrain(world).
+// - No archive references; blueprint-aligned.
 // ========================================================
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
-import { AppShell } from '../../ui/AppShell'
-import { WorldBrain } from '../../core/worldSchema'
-import { getWorld, saveWorld } from '../../core/worldStorage'
-import { validateWorld } from '../../core/worldValidation'
-import {
-  makePlanetPreviewFromWorld,
-  renderMinimap,
-  samplePlanetColor,
-} from '../../core/planetRenderer'
+import { AppShell } from "../../ui/AppShell";
+import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
+import { getWorld, saveWorld } from "../../core/worldStorage";
+import { validateWorld, WorldValidationError } from "../../core/worldValidation";
 
-type ViewMode = 'GLOBE' | 'MAP'
+import type { WorldBrain } from "../../core/worldSchema";
 
-export default function CreateModeApp() {
-  const navigate = useNavigate()
-  const { id } = useParams<{ id: string }>()
+type ViewMode = "GLOBE" | "MAP";
 
-  const [world, setWorld] = useState<WorldBrain | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [validationErrors, setValidationErrors] = useState<string[]>([])
-  const [saveStatus, setSaveStatus] = useState<string>('')
+export function CreateModeApp() {
+  const nav = useNavigate();
+  const params = useParams();
+  const worldId = params.worldId || params.id || "";
 
-  const [viewMode, setViewMode] = useState<ViewMode>('GLOBE')
+  const [world, setWorld] = useState<WorldBrain | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const globeCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
-
-  // ----- Load world -----
+  const [viewMode, setViewMode] = useState<ViewMode>("GLOBE");
+  const [errors, setErrors] = useState<WorldValidationError[]>([]);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (!id) {
-      setWorld(null)
-      setLoadError('Missing world id in route.')
-      return
-    }
+    let alive = true;
 
-    const w = getWorld(id)
-    if (!w) {
-      setWorld(null)
-      setLoadError('World not found. It may have been deleted or failed to load.')
-      return
-    }
-
-    setWorld(w)
-    setLoadError(null)
-  }, [id])
-
-  // ----- Validate -----
-
-  const runValidation = useMemo(() => {
-    return (world: WorldBrain) => {
+    async function load() {
+      setLoading(true);
+      setSaveError(null);
       try {
-        return validateWorld(world)
-      } catch (err) {
-        console.error('Validation threw error:', err)
-        return ['Validation crashed (see console).']
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!world) {
-      setValidationErrors([])
-      return
-    }
-    const errs = runValidation(world)
-    setValidationErrors(errs)
-  }, [world, runValidation])
-
-  // ----- Save -----
-
-  const handleSave = async () => {
-    if (!world) return
-    try {
-      // worldStorage.saveWorld is async (even though it writes synchronously today).
-      const result = await saveWorld(world)
-      const idToReload = result?.id ?? world.metadata?.id ?? id
-      const refreshed = idToReload ? getWorld(idToReload) : null
-      if (refreshed) {
-        setWorld(refreshed)
-        const stamp = refreshed.metadata?.updatedAt
-          ? new Date(refreshed.metadata.updatedAt).toLocaleString()
-          : new Date().toLocaleString()
-        setSaveStatus(`Saved • ${stamp}`)
-      } else {
-        setSaveStatus(`Saved • ${new Date().toLocaleString()}`)
-      }
-    } catch (err) {
-      console.error('Save failed', err)
-      setSaveStatus('Save failed (see console).')
-    }
-  }
-
-  // ----- Rendering helpers -----
-
-  useEffect(() => {
-    if (!world) return
-    if (viewMode !== 'GLOBE') return
-
-    const canvas = globeCanvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const seaLevel = world.cells.length > 0 ? world.cells[0].seaLevel : 0
-
-    const size = 360
-    const radius = size * 0.45
-    const cx = size / 2
-    const cy = size / 2
-
-    canvas.width = size
-    canvas.height = size
-
-    const preview = makePlanetPreviewFromWorld(world)
-
-    const img = ctx.createImageData(size, size)
-    const data = img.data
-
-    // Simple directional light (matches Generate Mode style for now)
-    const L = { x: -0.35, y: 0.35, z: 0.87 }
-    const len = Math.sqrt(L.x * L.x + L.y * L.y + L.z * L.z) || 1
-    L.x /= len
-    L.y /= len
-    L.z /= len
-
-    const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
-
-    for (let py = 0; py < size; py++) {
-      for (let px = 0; px < size; px++) {
-        const dx = px - cx
-        const dy = py - cy
-        const d2 = dx * dx + dy * dy
-        const p = (py * size + px) * 4
-
-        if (d2 > radius * radius) {
-          data[p + 3] = 0
-          continue
+        const w = await getWorld(worldId);
+        if (!alive) return;
+        if (!w) {
+          setWorld(null);
+          setErrors([{ path: "world", message: "World not found." }]);
+          return;
         }
 
-        const nx = dx / radius
-        const ny = dy / radius
-        const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny))
-
-        const lon = Math.atan2(nx, nz)
-        const lat = Math.asin(ny)
-
-        const u = (lon + Math.PI) / (Math.PI * 2)
-        const v = 1 - (lat + Math.PI / 2) / Math.PI
-
-        const col = samplePlanetColor(preview, u, v, seaLevel)
-
-        const ndotl = clamp01(nx * L.x + ny * L.y + nz * L.z)
-        const rim = Math.pow(1 - nz, 2) * 0.35
-        const light = 0.62 + 0.48 * ndotl + rim
-
-        data[p + 0] = Math.max(0, Math.min(255, Math.round(col.r * light)))
-        data[p + 1] = Math.max(0, Math.min(255, Math.round(col.g * light)))
-        data[p + 2] = Math.max(0, Math.min(255, Math.round(col.b * light)))
-        data[p + 3] = 255
+        setWorld(w);
+        const v = validateWorld(w);
+        setErrors(v);
+      } catch (e: any) {
+        setWorld(null);
+        setErrors([{ path: "world", message: e?.message ?? "Failed to load world." }]);
+      } finally {
+        if (alive) setLoading(false);
       }
     }
 
-    ctx.putImageData(img, 0, 0)
-  }, [world, viewMode])
+    if (worldId) load();
+    else {
+      setLoading(false);
+      setWorld(null);
+      setErrors([{ path: "route", message: "No world id provided." }]);
+    }
 
-  useEffect(() => {
-    if (!world) return
-    if (viewMode !== 'GLOBE') return
+    return () => {
+      alive = false;
+    };
+  }, [worldId]);
 
-    const minimapCanvas = minimapCanvasRef.current
-    if (!minimapCanvas) return
-    const mctx = minimapCanvas.getContext('2d')
-    if (!mctx) return
+  // Preview is safe even if world is null (AppShell will show empty)
+  const preview = useMemo(() => {
+    if (!world) return null;
+    return makePlanetPreviewFromWorldBrain(world);
+  }, [world]);
 
-    const preview = makePlanetPreviewFromWorld(world)
-    renderMinimap(mctx, preview)
-  }, [world, viewMode])
+  const handleSave = async () => {
+    if (!world) return;
 
-  // ----- UI -----
+    setIsSaving(true);
+    setSaveError(null);
 
-  if (loadError) {
+    try {
+      const id = await saveWorld(world);
+      // Re-load fresh copy after save (ensures storage normalization stays true)
+      const refreshed = await getWorld(id);
+      if (refreshed) {
+        setWorld(refreshed);
+        setErrors(validateWorld(refreshed));
+      }
+    } catch (e: any) {
+      setSaveError(e?.message ?? "Save failed.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleBackHome = () => nav("/");
+
+  // Placeholder tool list for now (real Create tools come next steps)
+  const leftTools = useMemo(
+    () => [
+      { id: "view_globe", label: "Globe View" },
+      { id: "view_map", label: "Map View" },
+      { id: "terrain", label: "Terrain (soon)" },
+      { id: "stickers", label: "Stickers (soon)" },
+      { id: "cultures", label: "Cultures (soon)" },
+      { id: "countries", label: "Countries (soon)" },
+    ],
+    [],
+  );
+
+  const rightPanel = (
+    <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontWeight: 800, fontSize: 16 }}>
+          {world?.metadata?.name ?? "Create"}
+        </div>
+        <button onClick={handleBackHome} style={{ padding: "6px 10px", borderRadius: 10 }}>
+          Home
+        </button>
+      </div>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          onClick={() => setViewMode("GLOBE")}
+          style={{
+            flex: 1,
+            padding: 8,
+            borderRadius: 10,
+            fontWeight: 700,
+            opacity: viewMode === "GLOBE" ? 1 : 0.6,
+          }}
+        >
+          Globe
+        </button>
+        <button
+          onClick={() => setViewMode("MAP")}
+          style={{
+            flex: 1,
+            padding: 8,
+            borderRadius: 10,
+            fontWeight: 700,
+            opacity: viewMode === "MAP" ? 1 : 0.6,
+          }}
+        >
+          Map
+        </button>
+      </div>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          onClick={handleSave}
+          disabled={isSaving || !world}
+          style={{
+            flex: 1,
+            padding: 10,
+            borderRadius: 10,
+            fontWeight: 800,
+          }}
+        >
+          {isSaving ? "Saving…" : "Save"}
+        </button>
+      </div>
+
+      {saveError && (
+        <div style={{ color: "#c33", fontSize: 13 }}>
+          {saveError}
+        </div>
+      )}
+
+      <div style={{ opacity: 0.8, fontSize: 12 }}>
+        <div><b>ID:</b> {world?.metadata?.id ?? "--"}</div>
+        <div><b>Version:</b> {world?.metadata?.version ?? "--"}</div>
+        <div><b>Sea Level:</b> {world ? world.seaLevel.toFixed(3) : "--"}</div>
+        <div><b>Grid:</b> {world ? `${world.gridWidth}×${world.gridHeight}` : "--"}</div>
+      </div>
+
+      <div>
+        <div style={{ fontWeight: 800, marginBottom: 6 }}>
+          Validation
+        </div>
+        {errors.length === 0 ? (
+          <div style={{ color: "#2a7", fontSize: 13 }}>No structural errors.</div>
+        ) : (
+          <div style={{ fontSize: 12, lineHeight: 1.35 }}>
+            {errors.slice(0, 12).map((e, i) => (
+              <div key={i} style={{ color: "#c33" }}>
+                <b>{e.path}:</b> {e.message}
+              </div>
+            ))}
+            {errors.length > 12 && (
+              <div style={{ opacity: 0.7, marginTop: 6 }}>
+                (+{errors.length - 12} more)
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div style={{ opacity: 0.7, fontSize: 12 }}>
+        Editing tools are the next step (terrain brushes + sticker UI + undo/redo).
+        This file ensures Create loads/saves cleanly with the V1.3 world contract.
+      </div>
+    </div>
+  );
+
+  if (loading) {
     return (
       <AppShell
+        mode="create"
         title="Create"
-        onBack={() => navigate('/')}
-        leftToolbar={
-          <div className="ww-left-toolbar-inner">
-            <button className="ww-secondary-btn" onClick={() => navigate('/')}>
-              Back
+        leftTools={leftTools}
+        rightPanel={<div style={{ padding: 12 }}>Loading…</div>}
+      />
+    );
+  }
+
+  if (!world || !preview) {
+    return (
+      <AppShell
+        mode="create"
+        title="Create"
+        leftTools={leftTools}
+        rightPanel={
+          <div style={{ padding: 12 }}>
+            <div style={{ fontWeight: 800 }}>Create Mode</div>
+            <div style={{ marginTop: 8, color: "#c33" }}>
+              Failed to load world.
+            </div>
+            <button onClick={handleBackHome} style={{ marginTop: 12, padding: 10, borderRadius: 10 }}>
+              Back Home
             </button>
           </div>
         }
-        main={
-          <div className="ww-screen-body">
-            <p style={{ padding: 16 }}>{loadError}</p>
-          </div>
-        }
-        minimapOverlay={null}
-        rightPanel={null}
       />
-    )
+    );
   }
 
   return (
     <AppShell
+      mode="create"
       title="Create"
-      onBack={() => navigate('/')}
-      leftToolbar={
-        <div className="ww-left-toolbar-inner">
-          <button className="ww-secondary-btn" onClick={() => navigate('/')}>
-            Back
-          </button>
-
-          <div style={{ height: 12 }} />
-
-          <div className="ww-seg">
-            <button
-              className={viewMode === 'GLOBE' ? 'ww-seg-btn ww-seg-btn-active' : 'ww-seg-btn'}
-              onClick={() => setViewMode('GLOBE')}
-            >
-              Globe
-            </button>
-            <button
-              className={viewMode === 'MAP' ? 'ww-seg-btn ww-seg-btn-active' : 'ww-seg-btn'}
-              onClick={() => setViewMode('MAP')}
-            >
-              Map
-            </button>
-          </div>
-
-          <div style={{ height: 12 }} />
-
-          <button className="ww-primary-btn" onClick={handleSave} disabled={!world}>
-            Save
-          </button>
-
-          {saveStatus ? <div className="ww-muted" style={{ marginTop: 8 }}>{saveStatus}</div> : null}
-
-          {validationErrors.length > 0 ? (
-            <div style={{ marginTop: 12 }}>
-              <div className="ww-muted" style={{ marginBottom: 6 }}>
-                Validation issues:
-              </div>
-              <ul className="ww-list">
-                {validationErrors.slice(0, 6).map((e, idx) => (
-                  <li key={idx}>{e}</li>
-                ))}
-                {validationErrors.length > 6 ? <li>…and more</li> : null}
-              </ul>
-            </div>
-          ) : null}
-        </div>
-      }
-      main={
-        <div className="ww-generate-viewport">
-          {viewMode === 'GLOBE' ? (
-            <canvas
-              ref={globeCanvasRef}
-              style={{ width: '100%', height: '100%', display: 'block' }}
-            />
-          ) : (
-            <div style={{ padding: 16 }} className="ww-muted">
-              Map view is a stub (Globe view is canonical for now).
-            </div>
-          )}
-        </div>
-      }
-      minimapOverlay={
-        viewMode === 'GLOBE' ? (
-          <canvas
-            ref={minimapCanvasRef}
-            style={{ width: '100%', height: '100%', display: 'block' }}
-          />
-        ) : null
-      }
-      rightPanel={null}
+      leftTools={leftTools}
+      rightPanel={rightPanel}
+      planetPreview={preview}
+      // Let AppShell decide minimap visibility based on viewMode.
+      // If your AppShell expects a prop, wire it here:
+      viewMode={viewMode}
     />
-  )
+  );
 }
+
+export default CreateModeApp;
