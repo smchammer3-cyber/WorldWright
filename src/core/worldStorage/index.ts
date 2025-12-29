@@ -1,13 +1,11 @@
 // ========================================================
-// JARVIS CHANGE HEADER -- STORAGE REALIGNMENT (V1.3 METADATA + GLOBAL SEALEVEL)
+// WORLDWRIGHT -- WORLD STORAGE (IndexedDB, V1.3)
 // File: src/core/worldStorage/index.ts
 //
-// Fixes:
-// - Ensure metadata uses `version` (blueprint) not schemaVersion.
-// - Ensure global world.seaLevel exists. Migrate legacy worlds that stored seaLevel
-//   in metadata or per-cell fields.
-// - Keep IndexedDB persistence + localStorage index.
-// - Provides safe, minimal migration without refactors.
+// - Local-first persistence.
+// - Normalizes metadata to V1.3 (metadata.version).
+// - Ensures global world.seaLevel exists.
+// - Migrates legacy worlds that stored seaLevel per-cell or in metadata.
 // ========================================================
 
 import { WorldBrain } from "../worldSchema";
@@ -32,18 +30,16 @@ function nowISO() {
 }
 
 function safeUUID(): string {
-  // crypto.randomUUID exists in modern browsers; fallback just in case.
   try {
     // @ts-ignore
-    return crypto.randomUUID();
-  } catch {
-    return "ww_" + Math.floor(Math.random() * 1e15).toString(16);
-  }
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      // @ts-ignore
+      return crypto.randomUUID();
+    }
+  } catch {}
+  return "ww_" + Math.floor(Math.random() * 1e15).toString(16);
 }
 
-/* -------------------------------------------------------
-   IndexedDB helpers
-------------------------------------------------------- */
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -58,38 +54,6 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-async function withStore<T>(
-  mode: IDBTransactionMode,
-  fn: (store: IDBObjectStore) => void,
-): Promise<T> {
-  const db = await openDB();
-  return new Promise<T>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, mode);
-    const store = tx.objectStore(STORE_NAME);
-
-    let result: any = undefined;
-
-    try {
-      fn(store);
-    } catch (e) {
-      reject(e);
-      return;
-    }
-
-    tx.oncomplete = () => resolve(result as T);
-    tx.onerror = () => reject(tx.error);
-
-    // A tiny hack: allow fn to stash a return value on tx.
-    // (We avoid wrapping every request in another promise.)
-    (tx as any).__setResult = (v: any) => {
-      result = v;
-    };
-  });
-}
-
-/* -------------------------------------------------------
-   Index helpers (localStorage)
-------------------------------------------------------- */
 function readIndex(): string[] {
   try {
     const raw = localStorage.getItem(INDEX_KEY);
@@ -105,9 +69,7 @@ function readIndex(): string[] {
 function writeIndex(ids: string[]) {
   try {
     localStorage.setItem(INDEX_KEY, JSON.stringify(ids));
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
 function addToIndex(id: string) {
@@ -119,117 +81,86 @@ function addToIndex(id: string) {
 }
 
 function removeFromIndex(id: string) {
-  const ids = readIndex().filter((x) => x !== id);
-  writeIndex(ids);
+  writeIndex(readIndex().filter((x) => x !== id));
 }
 
-/* -------------------------------------------------------
-   Migration + normalization
-------------------------------------------------------- */
-function normalizeWorldInPlace(world: any): WorldBrain {
-  if (!world || typeof world !== "object") throw new Error("Invalid world object.");
+function normalizeWorldInPlace(raw: any): WorldBrain {
+  if (!raw || typeof raw !== "object") throw new Error("Invalid world");
 
-  // Ensure metadata exists
-  if (!world.metadata || typeof world.metadata !== "object") {
-    world.metadata = {};
+  if (!raw.metadata || typeof raw.metadata !== "object") raw.metadata = {};
+
+  if (typeof raw.metadata.id !== "string" || !raw.metadata.id) raw.metadata.id = safeUUID();
+  if (typeof raw.metadata.name !== "string" || !raw.metadata.name) raw.metadata.name = "World";
+  if (typeof raw.metadata.seed !== "string" || !raw.metadata.seed) raw.metadata.seed = String(raw.seed ?? Math.floor(Math.random() * 1e9));
+
+  // Force V1.3 metadata.version
+  raw.metadata.version = "1.3";
+
+  if (typeof raw.metadata.styleMode !== "string" || !raw.metadata.styleMode) raw.metadata.styleMode = "EARTHLIKE";
+
+  // Grid
+  if (!Number.isFinite(raw.gridWidth) || !Number.isFinite(raw.gridHeight)) {
+    const n = Array.isArray(raw.cells) ? raw.cells.length : 0;
+    const side = n > 0 ? Math.round(Math.sqrt(n)) : 128;
+    raw.gridWidth = side;
+    raw.gridHeight = side;
+  }
+  raw.metadata.gridWidth = raw.gridWidth;
+  raw.metadata.gridHeight = raw.gridHeight;
+
+  if (typeof raw.metadata.createdAt !== "string" || !raw.metadata.createdAt) raw.metadata.createdAt = nowISO();
+  if (typeof raw.metadata.updatedAt !== "string" || !raw.metadata.updatedAt) raw.metadata.updatedAt = nowISO();
+
+  // Sea level migration:
+  let sea = Number.isFinite(raw.seaLevel) ? raw.seaLevel : null;
+
+  if (!Number.isFinite(sea) && Number.isFinite(raw.metadata?.seaLevel)) sea = raw.metadata.seaLevel;
+
+  if (!Number.isFinite(sea) && Array.isArray(raw.cells) && raw.cells.length > 0) {
+    const c0 = raw.cells[0];
+    if (Number.isFinite(c0?.seaLevel)) sea = c0.seaLevel;
   }
 
-  // Ensure id/name/seed/version
-  if (typeof world.metadata.id !== "string" || !world.metadata.id) world.metadata.id = safeUUID();
-  if (typeof world.metadata.name !== "string" || !world.metadata.name) world.metadata.name = "World";
-  if (typeof world.metadata.seed !== "string" || !world.metadata.seed) {
-    const s = (world.metadata.seed ?? world.seed ?? world.parameters?.seed ?? Math.floor(Math.random() * 1e9));
-    world.metadata.seed = String(s);
-  }
+  if (!Number.isFinite(sea)) sea = 0.3;
+  raw.seaLevel = sea;
 
-  // Blueprint: version field lives on metadata
-  if (typeof world.metadata.version !== "string" || !world.metadata.version) world.metadata.version = "1.3";
+  if (raw.metadata && "seaLevel" in raw.metadata) delete raw.metadata.seaLevel;
 
-  // Style mode default
-  if (typeof world.metadata.styleMode !== "string" || !world.metadata.styleMode) world.metadata.styleMode = "EARTHLIKE";
+  // Remove per-cell seaLevel and recompute isWater
+  if (Array.isArray(raw.cells)) {
+    for (const c of raw.cells) {
+      if (!c || typeof c !== "object") continue;
+      if ("seaLevel" in c) delete c.seaLevel;
 
-  // Grid dims (prefer top-level, else metadata, else infer)
-  const gw =
-    Number.isFinite(world.gridWidth) ? world.gridWidth :
-    Number.isFinite(world.metadata.gridWidth) ? world.metadata.gridWidth :
-    0;
-
-  const gh =
-    Number.isFinite(world.gridHeight) ? world.gridHeight :
-    Number.isFinite(world.metadata.gridHeight) ? world.metadata.gridHeight :
-    0;
-
-  if (!gw || !gh) {
-    // Infer square-ish from cell count if needed
-    const n = Array.isArray(world.cells) ? world.cells.length : 0;
-    const side = n > 0 ? Math.round(Math.sqrt(n)) : 64;
-    world.gridWidth = side;
-    world.gridHeight = side;
-    world.metadata.gridWidth = side;
-    world.metadata.gridHeight = side;
-  } else {
-    world.gridWidth = gw;
-    world.gridHeight = gh;
-    world.metadata.gridWidth = gw;
-    world.metadata.gridHeight = gh;
-  }
-
-  // createdAt/updatedAt
-  if (typeof world.metadata.createdAt !== "string" || !world.metadata.createdAt) world.metadata.createdAt = nowISO();
-  if (typeof world.metadata.updatedAt !== "string" || !world.metadata.updatedAt) world.metadata.updatedAt = nowISO();
-
-  // ---- GLOBAL SEA LEVEL MIGRATION ----
-  // Priority:
-  // 1) world.seaLevel if valid
-  // 2) metadata.seaLevel (legacy)
-  // 3) first cell seaLevel (legacy per-cell)
-  // 4) default 0.3
-  let seaLevel: number | null = null;
-
-  if (Number.isFinite(world.seaLevel)) seaLevel = world.seaLevel;
-  else if (Number.isFinite(world.metadata.seaLevel)) seaLevel = world.metadata.seaLevel;
-  else if (Array.isArray(world.cells) && world.cells.length > 0 && Number.isFinite(world.cells[0]?.seaLevel)) {
-    seaLevel = world.cells[0].seaLevel;
-  }
-
-  if (!Number.isFinite(seaLevel)) seaLevel = 0.3;
-  world.seaLevel = seaLevel;
-
-  // Remove legacy metadata.seaLevel (optional, but keeps single source of truth)
-  if (world.metadata && "seaLevel" in world.metadata) {
-    delete world.metadata.seaLevel;
-  }
-
-  // Remove legacy per-cell seaLevel if present and recompute isWater consistently
-  if (Array.isArray(world.cells)) {
-    for (const c of world.cells) {
-      if (c && typeof c === "object" && "seaLevel" in c) {
-        delete c.seaLevel;
-      }
-      // Recompute water from canonical height fields if they exist
       const base = Number.isFinite(c.baseHeight) ? c.baseHeight : 0;
       const edit = Number.isFinite(c.editHeightDelta) ? c.editHeightDelta : 0;
       const sim = Number.isFinite(c.simHeightDelta) ? c.simHeightDelta : 0;
       const h = base + edit + sim;
-      c.isWater = h < world.seaLevel;
+      c.isWater = h < raw.seaLevel;
     }
   }
 
-  return world as WorldBrain;
-}
+  // Ensure arrays exist
+  if (!Array.isArray(raw.plates)) raw.plates = [];
+  if (!Array.isArray(raw.rivers)) raw.rivers = [];
+  if (!Array.isArray(raw.countries)) raw.countries = [];
+  if (!Array.isArray(raw.cultures)) raw.cultures = [];
+  if (!Array.isArray(raw.cultureRegions)) raw.cultureRegions = [];
+  if (!Array.isArray(raw.cities)) raw.cities = [];
+  if (!Array.isArray(raw.locations)) raw.locations = [];
+  if (!Array.isArray(raw.stickers)) raw.stickers = [];
 
-/* -------------------------------------------------------
-   Public API
-------------------------------------------------------- */
+  return raw as WorldBrain;
+}
 
 export async function listWorldSummaries(): Promise<WorldSummary[]> {
   const ids = readIndex();
-  const summaries: WorldSummary[] = [];
+  const out: WorldSummary[] = [];
 
   for (const id of ids) {
     const w = await getWorld(id);
     if (!w) continue;
-    summaries.push({
+    out.push({
       id: w.metadata.id,
       name: w.metadata.name,
       seed: w.metadata.seed,
@@ -240,15 +171,14 @@ export async function listWorldSummaries(): Promise<WorldSummary[]> {
     });
   }
 
-  // Newest first
-  summaries.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
-  return summaries;
+  out.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  return out;
 }
 
 export async function getWorld(id: string): Promise<WorldBrain | null> {
   if (!id) return null;
-
   const db = await openDB();
+
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readonly");
     const store = tx.objectStore(STORE_NAME);
@@ -261,30 +191,26 @@ export async function getWorld(id: string): Promise<WorldBrain | null> {
         return;
       }
       try {
-        const normalized = normalizeWorldInPlace(structuredClone(raw));
-        resolve(normalized);
-      } catch (e) {
-        // If normalization fails, still return raw (better than hard crash)
+        resolve(normalizeWorldInPlace(structuredClone(raw)));
+      } catch {
         resolve(raw as WorldBrain);
       }
     };
-
     req.onerror = () => reject(req.error);
   });
 }
 
 export async function saveWorld(world: WorldBrain): Promise<string> {
-  if (!world) throw new Error("saveWorld: world is required.");
-
+  const db = await openDB();
   const w = normalizeWorldInPlace(structuredClone(world));
   w.metadata.updatedAt = nowISO();
 
-  await withStore<void>("readwrite", (store) => {
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
     const req = store.put(w);
-    req.onsuccess = () => {
-      // @ts-ignore
-      (store.transaction as any).__setResult?.(undefined);
-    };
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
   });
 
   addToIndex(w.metadata.id);
@@ -293,52 +219,15 @@ export async function saveWorld(world: WorldBrain): Promise<string> {
 
 export async function deleteWorld(id: string): Promise<void> {
   if (!id) return;
+  const db = await openDB();
 
-  await withStore<void>("readwrite", (store) => {
-    store.delete(id);
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
   });
 
   removeFromIndex(id);
-}
-
-/**
- * Optional legacy migration hook: if you previously stored JSON worlds in localStorage,
- * you can import them once into IndexedDB.
- *
- * This is safe no-op if nothing is present.
- */
-export async function migrateLegacyLocalStorageWorlds(legacyKey = "worldwright_worlds"): Promise<number> {
-  let raw: any = null;
-
-  try {
-    const s = localStorage.getItem(legacyKey);
-    if (!s) return 0;
-    raw = JSON.parse(s);
-  } catch {
-    return 0;
-  }
-
-  if (!raw || typeof raw !== "object") return 0;
-
-  let count = 0;
-  const worlds: any[] = Array.isArray(raw) ? raw : Object.values(raw);
-
-  for (const candidate of worlds) {
-    try {
-      const normalized = normalizeWorldInPlace(candidate);
-      await saveWorld(normalized);
-      count++;
-    } catch {
-      // skip bad legacy world
-    }
-  }
-
-  // Optionally clear legacy key after successful migration
-  try {
-    localStorage.removeItem(legacyKey);
-  } catch {
-    // ignore
-  }
-
-  return count;
 }
