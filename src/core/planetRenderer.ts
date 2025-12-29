@@ -5,6 +5,11 @@
 // Contract:
 // - global seaLevel = world.seaLevel (metadata fallback only for legacy loads)
 // - renderer is read-only
+//
+// NOTE:
+// - AppShell currently expects preview.colorAt(...) returning [r,g,b]
+// - We keep sampleGlobeColor/sampleMinimapColor as the "new" API
+//   and provide compatibility aliases (colorAt/minimapColorAt).
 // ========================================================
 
 import type { WorldBrain } from './worldSchema';
@@ -14,8 +19,13 @@ export type PlanetPreview = {
   height: number;
   seaLevel: number;
 
+  // New API (explicit)
   sampleMinimapColor: (cellIndex: number) => [number, number, number];
   sampleGlobeColor: (cellIndex: number) => [number, number, number];
+
+  // Compatibility API (older AppShell usage)
+  colorAt: (cellIndex: number) => [number, number, number];
+  minimapColorAt: (cellIndex: number) => [number, number, number];
 };
 
 export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
@@ -70,13 +80,19 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     width,
     height,
     seaLevel,
+
+    // new API
     sampleMinimapColor: sampleColor,
     sampleGlobeColor: sampleColor,
+
+    // compat API expected by AppShell right now
+    colorAt: sampleColor,
+    minimapColorAt: sampleColor,
   };
 }
 
 /**
- * Compatibility export for the new session wiring.
+ * Compatibility export for the session wiring.
  * Generate/Create/Sim can import:
  *   makePlanetPreviewFromWorldBrain(world)
  */
