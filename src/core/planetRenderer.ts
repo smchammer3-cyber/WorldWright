@@ -25,7 +25,9 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
   const seaLevel =
     typeof world.seaLevel === 'number'
       ? world.seaLevel
-      : (typeof world.metadata?.seaLevel === 'number' ? world.metadata.seaLevel : 0.0);
+      : typeof world.metadata?.seaLevel === 'number'
+        ? world.metadata.seaLevel
+        : 0.0;
 
   function sampleColor(cellIndex: number): [number, number, number] {
     const cell = world.cells[cellIndex];
@@ -50,8 +52,8 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     const dry = clamp01(1 - r);
 
     const baseR = clamp01(0.25 + dry * 0.35 + elev * 0.15);
-    const baseG = clamp01(0.25 + green * 0.45 - dry * 0.10);
-    const baseB = clamp01(0.18 + elev * 0.10);
+    const baseG = clamp01(0.25 + green * 0.45 - dry * 0.1);
+    const baseB = clamp01(0.18 + elev * 0.1);
 
     // Snow overlay
     const snow = clamp01(cell.snowCover);
@@ -71,6 +73,15 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     sampleMinimapColor: sampleColor,
     sampleGlobeColor: sampleColor,
   };
+}
+
+/**
+ * Compatibility export for the new session wiring.
+ * Generate/Create/Sim can import:
+ *   makePlanetPreviewFromWorldBrain(world)
+ */
+export function makePlanetPreviewFromWorldBrain(world: WorldBrain): PlanetPreview {
+  return buildPlanetPreview(world);
 }
 
 // Compatibility exports (older imports)
