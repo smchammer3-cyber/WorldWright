@@ -1,214 +1,191 @@
-// ===============================================
-// JARVIS CHANGE HEADER
+// ========================================================
+// JARVIS CHANGE HEADER -- STORAGE SPINE FIX (IndexedDB)
 // File: src/core/worldStorage/index.ts
-// Date: 2025-12-28
-// Purpose:
-// - Provide local-first persistence for the V1.3 Spine WorldBrain schema.
-// - Single source of truth for saving/loading worlds in localStorage.
-// - Implements: list/get/save/delete/duplicate/rename + restore.
-// ===============================================
+//
+// Why:
+// - localStorage quota is too small for real WorldBrain worlds.
+// - IndexedDB supports much larger payloads and structured cloning.
+//
+// API:
+// - listWorlds, listWorldSummaries, getWorld
+// - saveWorld (async), deleteWorld
+// - renameWorld, duplicateWorld
+// ========================================================
 
-import { WorldBrain, WorldMetadata } from '../worldSchema'
+import { WorldBrain } from '../worldSchema'
 
-export interface WorldSummary {
+export type WorldSummary = {
   id: string
   name: string
-  createdAt: string
-  updatedAt: string
-  styleMode?: WorldMetadata['styleMode']
-  gridWidth?: number
-  gridHeight?: number
+  createdAt: number
+  updatedAt: number
+  width?: number
+  height?: number
 }
 
-const STORAGE_NS = 'worldwright.v3'
-const INDEX_KEY = `${STORAGE_NS}.world_index`
-const WORLD_KEY_PREFIX = `${STORAGE_NS}.world.`
+const DB_NAME = 'worldwright-db'
+const DB_VERSION = 1
+const STORE_WORLDS = 'worlds'
 
-type IndexState = { ids: string[] }
-
-function safeJSONParse<T>(raw: string | null): T | null {
-  if (!raw) return null
-  try {
-    return JSON.parse(raw) as T
-  } catch {
-    return null
-  }
+function nowMs() {
+  return Date.now()
 }
 
-function loadIndex(): IndexState {
-  const parsed = safeJSONParse<IndexState>(localStorage.getItem(INDEX_KEY))
-  if (!parsed || !Array.isArray(parsed.ids)) {
-    const fresh: IndexState = { ids: [] }
-    localStorage.setItem(INDEX_KEY, JSON.stringify(fresh))
-    return fresh
-  }
+function ensureWorldMetadata(world: WorldBrain): WorldBrain {
+  const meta: any = (world as any).metadata ?? {}
+  const createdAt = Number.isFinite(meta.createdAt) ? meta.createdAt : nowMs()
+  const updatedAt = nowMs()
+  const id = typeof meta.id === 'string' && meta.id.length > 0 ? meta.id : `w_${createdAt}_${Math.floor(Math.random() * 1e9)}`
+  const name = typeof meta.name === 'string' && meta.name.length > 0 ? meta.name : 'Untitled World'
 
-  const seen = new Set<string>()
-  const ids = parsed.ids.filter(id => {
-    if (typeof id !== 'string' || !id) return false
-    if (seen.has(id)) return false
-    seen.add(id)
-    return true
-  })
-
-  if (ids.length !== parsed.ids.length) {
-    const repaired: IndexState = { ids }
-    localStorage.setItem(INDEX_KEY, JSON.stringify(repaired))
-    return repaired
+  ;(world as any).metadata = {
+    ...meta,
+    id,
+    name,
+    createdAt,
+    updatedAt,
   }
 
-  return { ids }
+  return world
 }
 
-function saveIndex(index: IndexState) {
-  localStorage.setItem(INDEX_KEY, JSON.stringify(index))
-}
-
-function worldKey(id: string) {
-  return `${WORLD_KEY_PREFIX}${id}`
-}
-
-function nowISO() {
-  return new Date().toISOString()
-}
-
-function deepClone<T>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj)) as T
-}
-
-function isWorldBrain(candidate: any): candidate is WorldBrain {
-  return (
-    candidate &&
-    typeof candidate === 'object' &&
-    candidate.metadata &&
-    typeof candidate.metadata.id === 'string' &&
-    typeof candidate.metadata.name === 'string' &&
-    Array.isArray(candidate.cells)
-  )
-}
-
-function toSummary(world: WorldBrain): WorldSummary {
+function worldToSummary(world: WorldBrain): WorldSummary {
+  const meta: any = (world as any).metadata ?? {}
   return {
-    id: world.metadata.id,
-    name: world.metadata.name,
-    createdAt: world.metadata.createdAt,
-    updatedAt: world.metadata.updatedAt,
-    styleMode: world.metadata.styleMode,
-    gridWidth: world.metadata.gridWidth,
-    gridHeight: world.metadata.gridHeight,
+    id: String(meta.id ?? ''),
+    name: String(meta.name ?? 'Untitled World'),
+    createdAt: Number(meta.createdAt ?? 0),
+    updatedAt: Number(meta.updatedAt ?? 0),
+    width: Number.isFinite(meta.width) ? meta.width : undefined,
+    height: Number.isFinite(meta.height) ? meta.height : undefined,
   }
 }
 
-/**
- * Call once on app boot.
- * Ensures the index exists and removes dangling ids that have no world record.
- */
-export function restoreFromLocalStorage() {
-  const index = loadIndex()
-  const kept: string[] = []
+// -------------------------------
+// IndexedDB helper
+// -------------------------------
 
-  for (const id of index.ids) {
-    const raw = localStorage.getItem(worldKey(id))
-    if (!raw) continue
-    const parsed = safeJSONParse<any>(raw)
-    if (!isWorldBrain(parsed)) continue
-    kept.push(id)
-  }
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION)
 
-  if (kept.length !== index.ids.length) {
-    saveIndex({ ids: kept })
-  }
+    req.onupgradeneeded = () => {
+      const db = req.result
+      if (!db.objectStoreNames.contains(STORE_WORLDS)) {
+        db.createObjectStore(STORE_WORLDS, { keyPath: 'id' })
+      }
+    }
+
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error ?? new Error('Failed to open IndexedDB'))
+  })
 }
 
-export function listWorldSummaries(): WorldSummary[] {
-  const index = loadIndex()
-  const out: WorldSummary[] = []
+async function withStore<T>(
+  mode: IDBTransactionMode,
+  fn: (store: IDBObjectStore) => IDBRequest<T> | void
+): Promise<T | void> {
+  const db = await openDb()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_WORLDS, mode)
+    const store = tx.objectStore(STORE_WORLDS)
 
-  for (const id of index.ids) {
-    const w = getWorld(id)
-    if (!w) continue
-    out.push(toSummary(w))
-  }
+    let request: IDBRequest<T> | void
 
-  out.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
-  return out
+    try {
+      request = fn(store)
+    } catch (e) {
+      reject(e)
+      return
+    }
+
+    tx.oncomplete = () => resolve(undefined)
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction failed'))
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted'))
+
+    if (request) {
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error ?? new Error('IndexedDB request failed'))
+    }
+  })
 }
 
-export function listWorlds(): WorldBrain[] {
-  const index = loadIndex()
-  const out: WorldBrain[] = []
-  for (const id of index.ids) {
-    const w = getWorld(id)
-    if (w) out.push(w)
-  }
-  out.sort((a, b) => b.metadata.updatedAt.localeCompare(a.metadata.updatedAt))
-  return out
+// Store record shape
+type WorldRecord = {
+  id: string
+  summary: WorldSummary
+  world: WorldBrain
 }
 
-export function getWorld(id: string): WorldBrain | null {
-  const raw = localStorage.getItem(worldKey(id))
-  if (!raw) return null
-  const parsed = safeJSONParse<any>(raw)
-  if (!isWorldBrain(parsed)) return null
-  return parsed as WorldBrain
-}
+// -------------------------------
+// Public API
+// -------------------------------
 
 export async function saveWorld(world: WorldBrain): Promise<{ id: string }> {
-  const index = loadIndex()
-  const w = deepClone(world)
+  const w = ensureWorldMetadata(world)
+  const summary = worldToSummary(w)
+  const id = summary.id
 
-  if (!w.metadata.createdAt) w.metadata.createdAt = nowISO()
-  w.metadata.updatedAt = nowISO()
-  if (!w.metadata.name || !w.metadata.name.trim()) {
-    w.metadata.name = 'Untitled World'
-  }
+  const rec: WorldRecord = { id, summary, world: w }
 
-  localStorage.setItem(worldKey(w.metadata.id), JSON.stringify(w))
+  await withStore('readwrite', (store) => store.put(rec))
 
-  if (!index.ids.includes(w.metadata.id)) {
-    index.ids.unshift(w.metadata.id)
-  } else {
-    index.ids = [w.metadata.id, ...index.ids.filter(x => x !== w.metadata.id)]
-  }
-  saveIndex(index)
-
-  return { id: w.metadata.id }
+  return { id }
 }
 
-export function deleteWorld(id: string) {
-  const index = loadIndex()
-  localStorage.removeItem(worldKey(id))
-  saveIndex({ ids: index.ids.filter(x => x !== id) })
+export async function getWorld(id: string): Promise<WorldBrain | null> {
+  if (!id) return null
+  const rec = (await withStore<WorldRecord>('readonly', (store) => store.get(id))) as any
+  return rec?.world ?? null
 }
 
-export function renameWorld(id: string, newName: string): boolean {
-  const w = getWorld(id)
-  if (!w) return false
-  w.metadata.name = newName.trim() || w.metadata.name
-  w.metadata.updatedAt = nowISO()
-  localStorage.setItem(worldKey(id), JSON.stringify(w))
-  return true
+export async function deleteWorld(id: string): Promise<void> {
+  if (!id) return
+  await withStore('readwrite', (store) => store.delete(id))
 }
 
-export function duplicateWorld(id: string): { id: string } | null {
-  const w = getWorld(id)
+export async function listWorlds(): Promise<WorldBrain[]> {
+  const all = (await withStore<WorldRecord[]>('readonly', (store) => store.getAll())) as any
+  if (!Array.isArray(all)) return []
+  return all.map((r) => r.world).filter(Boolean)
+}
+
+export async function listWorldSummaries(): Promise<WorldSummary[]> {
+  const all = (await withStore<WorldRecord[]>('readonly', (store) => store.getAll())) as any
+  if (!Array.isArray(all)) return []
+  return all
+    .map((r) => r.summary)
+    .filter(Boolean)
+    .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+}
+
+export async function renameWorld(id: string, newName: string): Promise<void> {
+  const w = await getWorld(id)
+  if (!w) return
+  ;(w as any).metadata = { ...(w as any).metadata, name: newName }
+  await saveWorld(w)
+}
+
+export async function duplicateWorld(id: string): Promise<{ id: string } | null> {
+  const w = await getWorld(id)
   if (!w) return null
 
-  const copy = deepClone(w)
-  const newId =
-    (globalThis.crypto as any)?.randomUUID?.() ??
-    `ww_${Date.now()}_${Math.random().toString(16).slice(2)}`
+  // Deep clone via structuredClone if available, else JSON clone.
+  const clone: WorldBrain =
+    typeof structuredClone === 'function'
+      ? structuredClone(w)
+      : (JSON.parse(JSON.stringify(w)) as WorldBrain)
 
-  copy.metadata.id = newId
-  copy.metadata.name = `${copy.metadata.name} (Copy)`
-  copy.metadata.createdAt = nowISO()
-  copy.metadata.updatedAt = copy.metadata.createdAt
+  const meta: any = (clone as any).metadata ?? {}
+  const createdAt = nowMs()
+  ;(clone as any).metadata = {
+    ...meta,
+    id: `w_${createdAt}_${Math.floor(Math.random() * 1e9)}`,
+    name: `${String(meta.name ?? 'World')} (Copy)`,
+    createdAt,
+    updatedAt: createdAt,
+  }
 
-  localStorage.setItem(worldKey(newId), JSON.stringify(copy))
-
-  const index = loadIndex()
-  index.ids.unshift(newId)
-  saveIndex(index)
-
-  return { id: newId }
+  const res = await saveWorld(clone)
+  return res
 }
