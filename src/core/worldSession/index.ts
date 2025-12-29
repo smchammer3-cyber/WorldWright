@@ -31,12 +31,11 @@ class WorldSession {
   /** Internal helper to set the current world and notify listeners */
   private setWorld(world: WorldBrain | null) {
     this.world = world;
-    this.listeners.forEach((l) => {
-      if (this.world) l(this.world);
-    });
+    if (!world) return;
+    for (const l of this.listeners) l(world);
   }
 
-  /** Creates a new world from generator params */
+  /** Create a new world from generator params */
   createWorld(params: GeneratorParams) {
     const w = generateWorldFromParams(params);
     this.past = [];
@@ -44,15 +43,16 @@ class WorldSession {
     this.setWorld(w);
   }
 
-  /** Loads an existing world by ID from storage */
+  /** Loads a world by ID from storage */
   async loadWorld(id: string): Promise<void> {
     const w = await getWorldById(id);
+    if (!w) throw new Error(`WorldSession: world "${id}" not found`);
     this.past = [];
     this.future = [];
     this.setWorld(w);
   }
 
-  /** Returns the current world (may be null if not loaded yet) */
+  /** Returns current world (read-only reference; mutations happen via actions) */
   getWorld(): WorldBrain | null {
     return this.world;
   }
@@ -70,18 +70,18 @@ class WorldSession {
     this.setWorld(this.world);
   }
 
-  /** Undo the last action */
   undo() {
-    if (this.past.length === 0 || !this.world) return;
-    const prev = this.past.pop()!;
+    if (!this.world) return;
+    const prev = this.past.pop();
+    if (!prev) return;
     this.future.push(structuredClone(this.world));
     this.setWorld(prev);
   }
 
-  /** Redo the last undone action */
   redo() {
-    if (this.future.length === 0 || !this.world) return;
-    const next = this.future.pop()!;
+    if (!this.world) return;
+    const next = this.future.pop();
+    if (!next) return;
     this.past.push(structuredClone(this.world));
     this.setWorld(next);
   }
@@ -89,8 +89,13 @@ class WorldSession {
   /** Saves the current world to storage and returns its ID */
   async save(): Promise<string | null> {
     if (!this.world) return null;
-    const saved = await saveWorld(this.world);
-    return saved.id;
+    try {
+      const saved = await saveWorld(this.world);
+      // saveWorld returns a normalized WorldBrain; canonical id lives in metadata.id
+      return (saved as any)?.metadata?.id ?? this.world.metadata?.id ?? null;
+    } catch {
+      return null;
+    }
   }
 
   /** Runs a simulation tick on the current world */
