@@ -1,28 +1,24 @@
 // ========================================================
 // WORLDWRIGHT -- HOME SCREEN (V1.3)
 // File: src/screens/HomeScreen.tsx
+//
+// JARVIS CHANGE HEADER
+// Fixes:
+// - Use the real WorldSummary shape returned by listWorldSummaries().
+// - Remove unsafe casts and fields that don't exist in summaries.
+// - Display stable fields: name, resolution, created/updated timestamps, id.
 // ========================================================
 
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { listWorldSummaries, deleteWorld } from "../core/worldStorage";
+import { listWorldSummaries, deleteWorld, type WorldSummary } from "../core/worldStorage";
 
-type WorldSummary = {
-  id: string;
-  name: string;
-  seed: string;
-  updatedAt: string;
-  createdAt: string;
-  version: string;
-  styleMode: string;
-};
-
-function formatDate(s: string) {
+function formatDateMs(ms: number) {
   try {
-    return new Date(s).toLocaleString();
+    return new Date(ms).toLocaleString();
   } catch {
-    return s;
+    return String(ms);
   }
 }
 
@@ -36,7 +32,7 @@ export default function HomeScreen() {
     setLoading(true);
     setErr(null);
     try {
-      const rows = (await listWorldSummaries()) as unknown as WorldSummary[];
+      const rows = await listWorldSummaries();
       setWorlds(Array.isArray(rows) ? rows : []);
     } catch (e: any) {
       setErr(e?.message ?? "Failed to load worlds.");
@@ -61,8 +57,8 @@ export default function HomeScreen() {
     <div style={{ padding: 16, maxWidth: 1100, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 900 }}>WorldWright</div>
-          <div style={{ opacity: 0.75, marginTop: 4 }}>Select a world, or generate a new one.</div>
+          <div style={{ fontSize: 22, fontWeight: 950, letterSpacing: -0.2 }}>WorldWright</div>
+          <div style={{ marginTop: 4, opacity: 0.75 }}>Pick a world to open, simulate, or delete.</div>
         </div>
 
         <div style={{ display: "flex", gap: 10 }}>
@@ -92,80 +88,71 @@ export default function HomeScreen() {
           >
             <div style={{ fontWeight: 900, fontSize: 16 }}>No worlds yet.</div>
             <div style={{ marginTop: 8, opacity: 0.8 }}>Create your first world in Generate Mode.</div>
-            <button
-              onClick={() => nav("/generate")}
-              style={{ marginTop: 12, padding: "10px 12px", borderRadius: 12, fontWeight: 900 }}
-            >
-              Go to Generate
-            </button>
+            <div style={{ marginTop: 14 }}>
+              <button onClick={() => nav("/generate")} style={{ padding: "10px 12px", borderRadius: 12, fontWeight: 900 }}>
+                Go to Generate
+              </button>
+            </div>
           </div>
         ) : (
-          <div
-            style={{
-              marginTop: 14,
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))",
-              gap: 12,
-            }}
-          >
-            {worlds.map((w, idx) => {
-              const key =
-                (w && typeof w.id === "string" && w.id) ||
-                (w && typeof w.seed === "string" && w.seed) ||
-                `${w?.name ?? "world"}-${idx}`;
-
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
+            {worlds.map((w) => {
+              const name = (w.name || "").trim() || "Untitled World";
               return (
                 <div
-                  key={key}
+                  key={w.id}
                   style={{
-                    padding: 14,
                     borderRadius: 16,
                     border: "1px solid rgba(0,0,0,0.12)",
+                    padding: 14,
                     display: "flex",
                     flexDirection: "column",
                     gap: 10,
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <div style={{ fontWeight: 900, fontSize: 16, lineHeight: 1.15 }}>{w?.name || "World"}</div>
-                    <div style={{ opacity: 0.7, fontSize: 12 }}>v{w?.version || "?"}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 950, fontSize: 16, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {name}
+                      </div>
+                      <div style={{ opacity: 0.7, fontSize: 12, marginTop: 3 }}>
+                        Resolution: {w.width}×{w.height}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => onDelete(w.id)}
+                      style={{ padding: "10px 10px", borderRadius: 12, fontWeight: 800, opacity: 0.85 }}
+                    >
+                      Delete
+                    </button>
                   </div>
 
                   <div style={{ opacity: 0.8, fontSize: 12, lineHeight: 1.35 }}>
                     <div>
-                      <b>Style:</b> {w?.styleMode || "--"}
+                      <b>Updated:</b> {formatDateMs(w.updatedAtMs)}
                     </div>
                     <div>
-                      <b>Seed:</b> {w?.seed || "--"}
-                    </div>
-                    <div>
-                      <b>Updated:</b> {formatDate(w?.updatedAt ?? "")}
+                      <b>Created:</b> {formatDateMs(w.createdAtMs)}
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                  <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
                     <button
-                      onClick={() => w?.id && nav(`/create/${w.id}`)}
+                      onClick={() => nav(`/create/${w.id}`)}
                       style={{ flex: 1, padding: "10px 10px", borderRadius: 12, fontWeight: 900 }}
                     >
                       Open (Create)
                     </button>
                     <button
-                      onClick={() => w?.id && nav(`/sim/${w.id}`)}
+                      onClick={() => nav(`/sim/${w.id}`)}
                       style={{ padding: "10px 10px", borderRadius: 12, fontWeight: 900 }}
                     >
                       Sim
                     </button>
                   </div>
 
-                  <button
-                    onClick={() => w?.id && onDelete(w.id)}
-                    style={{ padding: "10px 10px", borderRadius: 12, fontWeight: 800, opacity: 0.85 }}
-                  >
-                    Delete
-                  </button>
-
-                  <div style={{ opacity: 0.55, fontSize: 11, wordBreak: "break-all" }}>{w?.id}</div>
+                  <div style={{ opacity: 0.55, fontSize: 11, wordBreak: "break-all" }}>{w.id}</div>
                 </div>
               );
             })}
