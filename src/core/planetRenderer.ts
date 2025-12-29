@@ -7,9 +7,10 @@
 // - renderer is read-only
 //
 // NOTE:
-// - AppShell currently expects preview.colorAt(...) returning [r,g,b]
+// - AppShell expects preview.colorAt(...) returning [r,g,b]
 // - We keep sampleGlobeColor/sampleMinimapColor as the "new" API
 //   and provide compatibility aliases (colorAt/minimapColorAt).
+// - Renderer must NEVER throw. If data is inconsistent, return debug color.
 // ========================================================
 
 import type { WorldBrain } from './worldSchema';
@@ -39,24 +40,42 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
         ? world.metadata.seaLevel
         : 0.0;
 
+  const cells = Array.isArray(world.cells) ? world.cells : [];
+
   function sampleColor(cellIndex: number): [number, number, number] {
-    const cell = world.cells[cellIndex];
-    const h = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
+    // Defensive: out-of-range / bad index
+    if (!Number.isFinite(cellIndex) || cellIndex < 0 || cellIndex >= cells.length) {
+      // Debug magenta: highlights contract mismatch without crashing
+      return [1.0, 0.0, 1.0];
+    }
+
+    const cell = cells[cellIndex];
+    if (!cell) return [1.0, 0.0, 1.0];
+
+    // Safe defaults if any fields are missing
+    const baseHeight = Number.isFinite(cell.baseHeight) ? cell.baseHeight : 0;
+    const editHeightDelta = Number.isFinite(cell.editHeightDelta) ? cell.editHeightDelta : 0;
+    const simHeightDelta = Number.isFinite(cell.simHeightDelta) ? cell.simHeightDelta : 0;
+
+    const temperature = Number.isFinite(cell.temperature) ? cell.temperature : 0.5;
+    const rainfall = Number.isFinite(cell.rainfall) ? cell.rainfall : 0.5;
+    const snowCover = Number.isFinite(cell.snowCover) ? cell.snowCover : 0;
+
+    const isWater = !!cell.isWater;
+
+    const h = baseHeight + editHeightDelta + simHeightDelta;
 
     // Water
-    if (h < seaLevel || cell.isWater) {
+    if (h < seaLevel || isWater) {
       const depth = clamp01((seaLevel - h) * 1.5);
-      // deep -> darker
       const b = 0.55 - depth * 0.25;
       return [0.08, 0.22, b];
     }
 
-    // Land: base from biome-ish ids and temperature
-    const t = clamp01(cell.temperature);
-    const r = clamp01(cell.rainfall);
+    // Land
+    const t = clamp01(temperature);
+    const r = clamp01(rainfall);
 
-    // Very simple stylized realism gradient
-    // greener with rainfall, browner with dryness, lighter with higher elevation
     const elev = clamp01((h - seaLevel) * 1.2);
     const green = clamp01(r * 0.9);
     const dry = clamp01(1 - r);
@@ -65,13 +84,11 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     const baseG = clamp01(0.25 + green * 0.45 - dry * 0.1);
     const baseB = clamp01(0.18 + elev * 0.1);
 
-    // Snow overlay
-    const snow = clamp01(cell.snowCover);
+    const snow = clamp01(snowCover);
     const rr = lerp(baseR, 0.92, snow);
     const gg = lerp(baseG, 0.94, snow);
     const bb = lerp(baseB, 0.98, snow);
 
-    // Warmth tint
     const warm = clamp01((t - 0.5) * 0.8 + 0.5);
     return [clamp01(rr + warm * 0.04), clamp01(gg + warm * 0.02), bb];
   }
@@ -92,9 +109,7 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
 }
 
 /**
- * Compatibility export for the session wiring.
- * Generate/Create/Sim can import:
- *   makePlanetPreviewFromWorldBrain(world)
+ * Compatibility export for session wiring.
  */
 export function makePlanetPreviewFromWorldBrain(world: WorldBrain): PlanetPreview {
   return buildPlanetPreview(world);
@@ -111,4 +126,4 @@ function clamp01(x: number): number {
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
-}
+}m
