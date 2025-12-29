@@ -36,10 +36,11 @@ export default function HomeScreen() {
     setLoading(true);
     setErr(null);
     try {
-      const rows = await listWorldSummaries();
-      setWorlds(rows as any);
+      const rows = (await listWorldSummaries()) as unknown as WorldSummary[];
+      setWorlds(Array.isArray(rows) ? rows : []);
     } catch (e: any) {
       setErr(e?.message ?? "Failed to load worlds.");
+      setWorlds([]);
     } finally {
       setLoading(false);
     }
@@ -80,60 +81,94 @@ export default function HomeScreen() {
         ) : err ? (
           <div style={{ padding: 12, color: "#c33" }}>{err}</div>
         ) : worlds.length === 0 ? (
-          <div style={{ marginTop: 16, padding: 18, borderRadius: 16, border: "1px solid rgba(0,0,0,0.12)", opacity: 0.9 }}>
+          <div
+            style={{
+              marginTop: 16,
+              padding: 18,
+              borderRadius: 16,
+              border: "1px solid rgba(0,0,0,0.12)",
+              opacity: 0.9,
+            }}
+          >
             <div style={{ fontWeight: 900, fontSize: 16 }}>No worlds yet.</div>
             <div style={{ marginTop: 8, opacity: 0.8 }}>Create your first world in Generate Mode.</div>
-            <button onClick={() => nav("/generate")} style={{ marginTop: 12, padding: "10px 12px", borderRadius: 12, fontWeight: 900 }}>
+            <button
+              onClick={() => nav("/generate")}
+              style={{ marginTop: 12, padding: "10px 12px", borderRadius: 12, fontWeight: 900 }}
+            >
               Go to Generate
             </button>
           </div>
         ) : (
-          <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 12 }}>
-            {worlds.map((w) => (
-              <div
-                key={w.id}
-                style={{
-                  padding: 14,
-                  borderRadius: 16,
-                  border: "1px solid rgba(0,0,0,0.12)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                  <div style={{ fontWeight: 900, fontSize: 16, lineHeight: 1.15 }}>{w.name || "World"}</div>
-                  <div style={{ opacity: 0.7, fontSize: 12 }}>v{w.version || "?"}</div>
-                </div>
+          <div
+            style={{
+              marginTop: 14,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))",
+              gap: 12,
+            }}
+          >
+            {worlds.map((w, idx) => {
+              const key =
+                (w && typeof w.id === "string" && w.id) ||
+                (w && typeof w.seed === "string" && w.seed) ||
+                `${w?.name ?? "world"}-${idx}`;
 
-                <div style={{ opacity: 0.8, fontSize: 12, lineHeight: 1.35 }}>
-                  <div>
-                    <b>Style:</b> {w.styleMode || "--"}
+              return (
+                <div
+                  key={key}
+                  style={{
+                    padding: 14,
+                    borderRadius: 16,
+                    border: "1px solid rgba(0,0,0,0.12)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ fontWeight: 900, fontSize: 16, lineHeight: 1.15 }}>{w?.name || "World"}</div>
+                    <div style={{ opacity: 0.7, fontSize: 12 }}>v{w?.version || "?"}</div>
                   </div>
-                  <div>
-                    <b>Seed:</b> {w.seed || "--"}
-                  </div>
-                  <div>
-                    <b>Updated:</b> {formatDate(w.updatedAt)}
-                  </div>
-                </div>
 
-                <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                  <button onClick={() => nav(`/create/${w.id}`)} style={{ flex: 1, padding: "10px 10px", borderRadius: 12, fontWeight: 900 }}>
-                    Open (Create)
+                  <div style={{ opacity: 0.8, fontSize: 12, lineHeight: 1.35 }}>
+                    <div>
+                      <b>Style:</b> {w?.styleMode || "--"}
+                    </div>
+                    <div>
+                      <b>Seed:</b> {w?.seed || "--"}
+                    </div>
+                    <div>
+                      <b>Updated:</b> {formatDate(w?.updatedAt ?? "")}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                    <button
+                      onClick={() => w?.id && nav(`/create/${w.id}`)}
+                      style={{ flex: 1, padding: "10px 10px", borderRadius: 12, fontWeight: 900 }}
+                    >
+                      Open (Create)
+                    </button>
+                    <button
+                      onClick={() => w?.id && nav(`/sim/${w.id}`)}
+                      style={{ padding: "10px 10px", borderRadius: 12, fontWeight: 900 }}
+                    >
+                      Sim
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => w?.id && onDelete(w.id)}
+                    style={{ padding: "10px 10px", borderRadius: 12, fontWeight: 800, opacity: 0.85 }}
+                  >
+                    Delete
                   </button>
-                  <button onClick={() => nav(`/sim/${w.id}`)} style={{ padding: "10px 10px", borderRadius: 12, fontWeight: 900 }}>
-                    Sim
-                  </button>
+
+                  <div style={{ opacity: 0.55, fontSize: 11, wordBreak: "break-all" }}>{w?.id}</div>
                 </div>
-
-                <button onClick={() => onDelete(w.id)} style={{ padding: "10px 10px", borderRadius: 12, fontWeight: 800, opacity: 0.85 }}>
-                  Delete
-                </button>
-
-                <div style={{ opacity: 0.55, fontSize: 11, wordBreak: "break-all" }}>{w.id}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
