@@ -1,34 +1,44 @@
-import React from 'react'
-import { listWorldSummaries } from '../core/worldStorage'
+// ========================================================
+// JARVIS CHANGE HEADER -- HOME SCREEN ROUTING FIX (V1.3)
+// File: src/screens/HomeScreen.tsx
+//
+// Fixes:
+// - HomeScreen no longer requires props; it owns navigation via react-router.
+// - Aligns navigation paths with App.tsx routes.
+// - Uses world summaries from worldStorage safely (local-first).
+// ========================================================
 
-interface HomeScreenProps {
-  onCreateNewWorld: () => void
-  onOpenWorld: (id: string) => void
-}
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { listWorldSummaries } from "../core/worldStorage";
 
-export function HomeScreen({ onCreateNewWorld, onOpenWorld }: HomeScreenProps) {
-  const worlds = listWorldSummaries()
+export default function HomeScreen() {
+  const navigate = useNavigate();
+  const worlds = listWorldSummaries();
 
   return (
     <div className="ww-screen">
       <header className="ww-screen-header">
         <div>
           <h1 className="ww-title">WorldWright</h1>
-          <p className="ww-subtitle">
-            Create believable worlds, then simulate and edit their history.
-          </p>
+          <div className="ww-muted">Create, edit, and simulate worlds.</div>
         </div>
-        <button className="ww-primary-button" onClick={onCreateNewWorld}>
-          + Create New World
-        </button>
+
+        <div className="ww-screen-actions">
+          <button className="ww-primary-btn" onClick={() => navigate("/generate")}>
+            New World
+          </button>
+        </div>
       </header>
 
-      <main className="ww-screen-body">
+      <main className="ww-screen-main">
+        <h2 className="ww-section-title">Your Worlds</h2>
+
         {worlds.length === 0 ? (
-          <div className="ww-empty-state">
-            <p>You don&apos;t have any worlds yet.</p>
-            <button className="ww-secondary-button" onClick={onCreateNewWorld}>
-              Start your first world
+          <div className="ww-empty">
+            <div className="ww-muted">No worlds yet.</div>
+            <button className="ww-secondary-btn" onClick={() => navigate("/generate")}>
+              Generate your first world
             </button>
           </div>
         ) : (
@@ -37,15 +47,11 @@ export function HomeScreen({ onCreateNewWorld, onOpenWorld }: HomeScreenProps) {
               <button
                 key={world.id}
                 className="ww-world-card"
-                onClick={() => onOpenWorld(world.id)}
+                onClick={() => navigate(`/modes/create/${world.id}`)}
               >
-                <div className="ww-world-thumb" />
                 <div className="ww-world-name">{world.name}</div>
                 <div className="ww-world-meta">
-                  <span>
-                    Updated:{' '}
-                    {new Date(world.updatedAt).toLocaleDateString()}
-                  </span>
+                  <span>Updated: {new Date(world.updatedAt).toLocaleDateString()}</span>
                 </div>
               </button>
             ))}
@@ -53,5 +59,5 @@ export function HomeScreen({ onCreateNewWorld, onOpenWorld }: HomeScreenProps) {
         )}
       </main>
     </div>
-  )
+  );
 }

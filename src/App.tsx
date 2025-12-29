@@ -11,8 +11,9 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<HomeScreen />} />
       <Route path="/generate" element={<GenerateModeApp />} />
-      <Route path="/modes/create/:worldId" element={<CreateModeApp />} />
-      <Route path="/modes/sim/:worldId" element={<SimModeApp />} />
+      {/* Keep route param name aligned with mode apps (CreateModeApp uses `id`) */}
+      <Route path="/modes/create/:id" element={<CreateModeApp />} />
+      <Route path="/modes/sim/:id" element={<SimModeApp />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -20,6 +21,7 @@ function AppRoutes() {
 
 export default function App() {
   useEffect(() => {
+    // One-time legacy migration support (safe no-op if nothing to migrate)
     (async () => {
       try {
         await restoreFromLocalStorage();

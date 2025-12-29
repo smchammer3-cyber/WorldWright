@@ -1,5 +1,16 @@
 // WorldWright – World Schema Module
-// Core data structures of the WorldBrain (Blueprint V1.3 + Modular PT4)
+// Core data structures for WorldBrain and related sub-systems.
+//
+// NOTE: This is the single source of truth for the world data contract.
+//
+// ========================================================
+// JARVIS CHANGE HEADER -- METADATA SCHEMA ALIGNMENT (V1.3)
+// File: src/core/worldSchema/index.ts
+//
+// Fixes:
+// - Add metadata.schemaVersion (required) to match worldStorage.ensureWorldMetadata().
+// - Add optional metadata.seaLevel (global sea level threshold) used by generator/renderer.
+// ========================================================
 
 export enum PlateType {
   OCEANIC = 'OCEANIC',
@@ -15,11 +26,12 @@ export enum BoundaryType {
 
 export enum SurfaceType {
   ROCK = 'ROCK',
+  VOLCANIC = 'VOLCANIC',
+  ALLUVIAL = 'ALLUVIAL',
   SAND = 'SAND',
   PEAT = 'PEAT',
-  PERMAFROST = 'PERMAFROST',
   SALT_FLATS = 'SALT_FLATS',
-  ICE = 'ICE',
+  PERMAFROST = 'PERMAFROST',
 }
 
 export enum OceanDepthClass {
@@ -29,99 +41,79 @@ export enum OceanDepthClass {
   TRENCH = 'TRENCH',
 }
 
-export interface RiverSegment {
-  id: string;
-  points: { cellIndex: number; width: number; depth: number }[];
-  isMainStem: boolean;
-  tributaryOf?: string;
-}
-
 export interface Country {
   id: string;
   name: string;
   color: string;
-  polygons: { lat: number; lon: number }[][];
-  metadata: {
-    capitalCityId?: string;
-    tags?: string[];
-  };
+  polygon: [number, number][];
 }
 
 export interface Culture {
   id: string;
   name: string;
   color: string;
-  parentCultureId?: string;
-  originYear?: number;
-  languageFamily?: string;
-  religionTags?: string[];
-  traits?: {
-    openness?: number;
-    militarism?: number;
-    tradition?: number;
-    expansionism?: number;
-    collectivism?: number;
-  };
-  preferredBiomes?: string[];
-  coastalAffinity?: number;
-  riverAffinity?: number;
-  mountainAffinity?: number;
-  stabilityBase?: number;
-  techBase?: number;
 }
 
 export interface CultureRegion {
   id: string;
   cultureId: string;
-  polygon: { lat: number; lon: number }[];
-  falloff: number;
-  isOverride?: boolean;
+  // radius-based influence OR polygon-based influence (future)
+  polygon: [number, number][];
+  opacity?: number;
 }
 
 export interface City {
   id: string;
   name: string;
-  cellIndex: number;
+  x: number;
+  y: number;
   population: number;
-  countryId?: string;
   cultureId?: string;
-
-  type?: 'VILLAGE' | 'TOWN' | 'CITY' | 'METROPOLIS' | 'FORT' | 'PORT';
-  isCapital?: boolean;
-  populationTier?: 1 | 2 | 3 | 4 | 5;
-  economicRoles?: ('AGRICULTURAL' | 'INDUSTRIAL' | 'TRADE' | 'RELIGIOUS' | 'MILITARY')[];
-  strategicValue?: number;
-  tags?: string[];
-  description?: string;
+  countryId?: string;
 }
 
 export interface Location {
   id: string;
   name: string;
-  type: 'WONDER' | 'RUIN' | 'DUNGEON' | 'NATURAL_WONDER' | 'MAGICAL_ZONE' | 'LANDMARK';
-  lat: number;
-  lon: number;
-  cellIndex: number;
-  polygon?: { lat: number; lon: number }[];
-  countryId?: string;
-  cultureId?: string;
-  tags?: string[];
-  description?: string;
+  x: number;
+  y: number;
+  kind?: string;
 }
 
 export interface Sticker {
   id: string;
-  type: 'BIOME' | 'CULTURE' | 'TERRAIN' | 'RESOURCE' | 'SPECIAL';
-  polygon: { lat: number; lon: number }[];
-  falloff: number;
-  mode: 'WORLD_RULES' | 'OVERRIDE';
-  metadata?: Record<string, any>;
+  name: string;
+  kind: string; // biome / culture / terrain / prop / etc.
+  polygon: [number, number][];
+  falloff?: number;
+  overrideWorldRules?: boolean;
+  payload?: any;
+}
+
+export interface Plate {
+  id: number;
+  name: string;
+  type: PlateType;
+}
+
+export interface River {
+  id: number;
+  name?: string;
+  // derived polylines (future) – for now we store placeholder structure
+  points?: [number, number][];
 }
 
 export interface WorldMetadata {
   id: string;
   name: string;
   seed: string;
+
+  // REQUIRED: worldStorage expects this to exist and will default to "v3"
+  schemaVersion: string;
+
+  // global sea level threshold used by generator/renderer (V1.3)
+  seaLevel?: number;
+
   version: string;
   styleMode: 'EARTHLIKE' | 'FANTASY' | 'STYLIZED' | 'ALIEN';
   gridWidth: number;
@@ -155,8 +147,8 @@ export interface Cell {
   plateId: number;
   plateType: PlateType;
   boundaryType: BoundaryType;
-  upliftRate: number;
 
+  upliftRate: number;
   surfaceAge: number;
   volcanicActivity: number;
 
@@ -179,14 +171,12 @@ export interface WorldBrain {
   gridHeight: number;
   cells: Cell[];
 
-  plates: { id: number; name: string; type: PlateType }[];
+  plates: Plate[];
+  rivers: River[];
 
-  rivers: RiverSegment[];
   countries: Country[];
-
   cultures: Culture[];
   cultureRegions: CultureRegion[];
-
   cities: City[];
 
   locations?: Location[];
@@ -195,31 +185,45 @@ export interface WorldBrain {
   metadata: WorldMetadata;
 }
 
+// -----------------------------
+// Helpers
+// -----------------------------
+
 export function createEmptyCell(index: number, seaLevel: number): Cell {
   return {
     index,
+
     baseHeight: 0,
     editHeightDelta: 0,
     simHeightDelta: 0,
+
     isWater: false,
     seaLevel,
+
     flowDirection: null,
     flowAccumulation: 0,
     basinId: null,
-    temperature: 0,
-    rainfall: 0,
+
+    temperature: 0.5,
+    rainfall: 0.5,
+
     climateCellId: 0,
     prevailingWind: [0, 0],
+
     plateId: 0,
-    plateType: PlateType.OCEANIC,
+    plateType: PlateType.CONTINENTAL,
     boundaryType: BoundaryType.NONE,
+
     upliftRate: 0,
     surfaceAge: 0.5,
     volcanicActivity: 0,
+
     baseBiomeId: 0,
+    editBiomeId: 0,
+
     surfaceType: SurfaceType.ROCK,
+
     snowCover: 0,
     oceanDepthClass: null,
-    cultureMix: undefined,
   };
 }

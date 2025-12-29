@@ -1,13 +1,11 @@
 // ========================================================
-// JARVIS CHANGE HEADER -- GENERATE MODE SAVE + CANVAS FIX
+// JARVIS CHANGE HEADER -- GENERATE MODE PARAM ALIGNMENT (V1.3)
 // File: src/modes/generate/GenerateModeApp.tsx
 //
 // Fixes:
-// - Await async storage (IndexedDB-backed worldStorage).
-// - Correctly handle saveWorld() returning a string id.
-// - Do not navigate to Create if save fails.
-// - Show save error instead of silently failing.
-// - Proper canvas sizing to avoid "stretched / waves" artifacts.
+// - Align slider parameter names/ranges to src/core/worldGenerator (0–100).
+// - Keep async saveWorld() flow safe (await + error display).
+// - Proper canvas sizing to avoid stretched artifacts.
 //
 // Non-goals:
 // - Final GPU globe renderer (this is still CPU preview).
@@ -19,48 +17,44 @@ import { useNavigate } from "react-router-dom";
 import { AppShell } from "../../ui/AppShell";
 import { createDefaultGeneratorParams, generateWorldFromParams } from "../../core/worldGenerator";
 import { saveWorld } from "../../core/worldStorage";
-import {
-  makePlanetPreviewFromWorld,
-  renderMinimap,
-  renderPlanetToCanvas,
-} from "../../core/planetRenderer";
+import { makePlanetPreviewFromWorld, renderMinimap, renderPlanetToCanvas } from "../../core/planetRenderer";
 
 export default function GenerateModeApp() {
   const navigate = useNavigate();
 
   const [params, setParams] = useState(() => createDefaultGeneratorParams());
   const [world, setWorld] = useState<any>(null);
-
   const [saveStatus, setSaveStatus] = useState<string>("");
 
   const globeCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  function setNum<K extends keyof typeof params>(key: K, value: number) {
+    setParams((p) => ({ ...p, [key]: value }));
+  }
+
   // Generate whenever params change (simple MVP behavior)
   useEffect(() => {
-    const w = generateWorldFromParams(params);
-    setWorld(w);
+    try {
+      const w = generateWorldFromParams(params as any);
+      setWorld(w);
+      setSaveStatus("");
+    } catch (e: any) {
+      setWorld(null);
+      setSaveStatus(String(e?.message ?? e));
+    }
   }, [params]);
 
   const preview = useMemo(() => {
     if (!world) return null;
-    return makePlanetPreviewFromWorld(world);
+    try {
+      return makePlanetPreviewFromWorld(world);
+    } catch {
+      return null;
+    }
   }, [world]);
 
-  // Helper: resize a canvas to match its displayed size
-  const resizeCanvasToDisplaySize = (canvas: HTMLCanvasElement) => {
-    const rect = canvas.getBoundingClientRect();
-    const w = Math.max(1, Math.floor(rect.width));
-    const h = Math.max(1, Math.floor(rect.height));
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
-      return true;
-    }
-    return false;
-  };
-
-  // Render globe + minimap
+  // Render preview to canvases
   useEffect(() => {
     if (!preview) return;
 
@@ -69,10 +63,12 @@ export default function GenerateModeApp() {
     const gctx = globe.getContext("2d");
     if (!gctx) return;
 
-    // Ensure canvas pixels match on-screen size
-    resizeCanvasToDisplaySize(globe);
+    // Keep canvas square & sized to its CSS box
+    const rect = globe.getBoundingClientRect();
+    const sizePx = Math.max(1, Math.floor(Math.min(rect.width, rect.height) * window.devicePixelRatio));
+    if (globe.width !== sizePx) globe.width = sizePx;
+    if (globe.height !== sizePx) globe.height = sizePx;
 
-    // Render a square planet inside the available canvas
     const size = Math.max(1, Math.min(globe.width, globe.height));
     renderPlanetToCanvas(gctx, preview, size, preview.seaLevel);
 
@@ -89,31 +85,26 @@ export default function GenerateModeApp() {
     renderMinimap(mctx, preview, mw, mh);
   }, [preview]);
 
-  const handleSave = async () => {
+  async function handleSave() {
     if (!world) return;
 
     setSaveStatus("Saving…");
     try {
-      const id = await saveWorld(world); // <-- worldStorage returns a string id
-      setSaveStatus(`Saved • ${new Date().toLocaleTimeString()}`);
+      const id = await saveWorld(world);
+      if (!id) {
+        setSaveStatus("Save failed: no id returned.");
+        return;
+      }
+      setSaveStatus("Saved.");
       navigate(`/modes/create/${id}`);
-    } catch (err: any) {
-      console.error("Save failed:", err);
-      const msg =
-        err?.name === "QuotaExceededError"
-          ? "Save failed: storage quota exceeded (legacy localStorage full)."
-          : `Save failed: ${String(err?.message ?? err)}`;
-      setSaveStatus(msg);
-      // DO NOT navigate
+    } catch (e: any) {
+      setSaveStatus(`Save failed: ${String(e?.message ?? e)}`);
     }
-  };
-
-  const setNum = (key: string, value: number) => {
-    setParams((p: any) => ({ ...p, [key]: value }));
-  };
+  }
 
   return (
     <AppShell
+      mode="generate"
       title="Generator"
       onBack={() => navigate("/")}
       leftToolbar={
@@ -132,23 +123,23 @@ export default function GenerateModeApp() {
             Sea Level
             <input
               type="range"
-              min={-1}
-              max={1}
-              step={0.01}
-              value={params.seaLevel ?? 0}
+              min={0}
+              max={100}
+              step={1}
+              value={params.seaLevel ?? 50}
               onChange={(e) => setNum("seaLevel", Number(e.target.value))}
             />
           </label>
 
           <label className="ww-slider">
-            Ocean Coverage
+            Landmass
             <input
               type="range"
               min={0}
-              max={1}
-              step={0.01}
-              value={params.oceanCoverage ?? 0.6}
-              onChange={(e) => setNum("oceanCoverage", Number(e.target.value))}
+              max={100}
+              step={1}
+              value={params.landmass ?? 50}
+              onChange={(e) => setNum("landmass", Number(e.target.value))}
             />
           </label>
 
@@ -157,9 +148,9 @@ export default function GenerateModeApp() {
             <input
               type="range"
               min={0}
-              max={1}
-              step={0.01}
-              value={params.plateActivity ?? 0.5}
+              max={100}
+              step={1}
+              value={params.plateActivity ?? 50}
               onChange={(e) => setNum("plateActivity", Number(e.target.value))}
             />
           </label>
@@ -178,20 +169,27 @@ export default function GenerateModeApp() {
         </div>
       }
       main={
-        <div className="ww-generate-viewport" style={{ width: "100%", height: "100%" }}>
-          <canvas
-            ref={globeCanvasRef}
-            style={{ width: "100%", height: "100%", display: "block" }}
-          />
+        <div className="ww-generate-main">
+          <div className="ww-generate-preview">
+            <canvas ref={globeCanvasRef} className="ww-globe-canvas" />
+          </div>
+
+          <div className="ww-generate-minimap">
+            <canvas ref={minimapCanvasRef} className="ww-minimap-canvas" />
+          </div>
         </div>
       }
-      minimapOverlay={
-        <canvas
-          ref={minimapCanvasRef}
-          style={{ width: "100%", height: "100%", display: "block" }}
-        />
+      rightPanel={
+        <div className="ww-right-panel-inner">
+          <div className="ww-panel-title">Preview</div>
+          <div className="ww-muted">
+            Seed: <b>{params.seed}</b>
+          </div>
+          <div className="ww-muted">
+            Size: <b>{params.width}</b> × <b>{params.height}</b>
+          </div>
+        </div>
       }
-      rightPanel={null}
     />
   );
 }
