@@ -7,3 +7,5 @@ export * from './worldEditor';
 export * from './worldSim';
 export * from './worldStorage';
 export * from './worldValidation';
+export * from './worldActions';
+export * from './worldRecompute';

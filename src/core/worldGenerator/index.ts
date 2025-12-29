@@ -1,330 +1,285 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3)
+// JARVIS CHANGE HEADER -- V1.3 GENERATOR CONTRACT LOCK
 // File: src/core/worldGenerator/index.ts
 //
-// Goals:
-// - Strictly produce WorldBrain matching worldSchema (V1.3).
-// - Global seaLevel (world.seaLevel).
-// - Coherent continents (no "static mush") using FBM + domain warp.
-// - Deterministic by seed.
-// - Hydrology placeholders are schema-correct (flowDirection/flowAccumulation/basinId).
+// Fixes:
+// - Global seaLevel lives on world.seaLevel (mirrored to metadata.seaLevel).
+// - Cells no longer store seaLevel.
+// - Generator outputs schema-consistent cells.
+// - Derived fields recomputed via recomputeWorld().
 // ========================================================
 
 import {
   WorldBrain,
   Cell,
+  Plate,
+  River,
   PlateType,
   BoundaryType,
   SurfaceType,
-  OceanDepthClass,
   createEmptyCell,
-} from "../worldSchema";
+} from '../worldSchema';
+import { recomputeWorld } from '../worldRecompute';
 
-export interface GeneratorParams {
-  seed: number;
+export type GeneratorParams = {
+  width: number;
+  height: number;
 
-  gridWidth: number;
-  gridHeight: number;
+  // 0–100: higher -> more ocean
+  seaLevel: number;
 
-  // 0..1 : higher => more ocean
-  oceanCoverage: number;
-
-  // 0..1 : tectonic intensity
+  // 0–100: more tectonic activity -> rougher terrain (MVP)
   plateActivity: number;
 
-  // degrees (0..60)
-  axialTilt: number;
+  // 0–100: axial tilt affects temperature gradient seasonality (MVP)
+  axisTilt: number;
 
-  // 0..1 : older => smoother
+  // 0–100: planet age affects smoothing (MVP)
   planetAge: number;
 
-  // 0..1 biases
-  temperatureBias: number;
-  humidityBias: number;
+  // 0–100: climate variability (MVP)
+  climateVar: number;
 
-  styleMode: "EARTHLIKE" | "FANTASY" | "STYLIZED" | "ALIEN";
+  seed: number;
+  styleMode: 'EARTHLIKE' | 'FANTASY' | 'STYLIZED' | 'ALIEN';
+};
+
+export function createDefaultGeneratorParams(): GeneratorParams {
+  return {
+    width: 256,
+    height: 128,
+
+    seaLevel: 50,
+    plateActivity: 50,
+    axisTilt: 45,
+    planetAge: 50,
+    climateVar: 35,
+
+    seed: Math.floor(Math.random() * 1_000_000_000),
+    styleMode: 'EARTHLIKE',
+  };
 }
 
-function clamp(v: number, lo: number, hi: number) {
-  return Math.max(lo, Math.min(hi, v));
-}
+export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
+  const width = clampInt(params.width, 32, 1024);
+  const height = clampInt(params.height, 16, 512);
 
-function safeUUID(): string {
-  try {
-    // @ts-ignore
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      // @ts-ignore
-      return crypto.randomUUID();
+  const rng = mulberry32(params.seed >>> 0);
+
+  const nowIso = new Date().toISOString();
+
+  // Map UI 0..100 to world seaLevel in normalized height space
+  // Higher slider => more ocean => higher sea threshold.
+  const globalSeaLevel = lerp(-0.18, 0.22, clamp01(params.seaLevel / 100));
+
+  const plateAmp = lerp(0.25, 1.35, clamp01(params.plateActivity / 100));
+
+  // Age smoothing: older => smoother
+  const smooth = lerp(0.15, 0.55, clamp01(params.planetAge / 100));
+
+  // Climate variability
+  const climateVar = lerp(0.05, 0.35, clamp01(params.climateVar / 100));
+
+  // Axis tilt impacts lat temperature curve (MVP)
+  const tilt = lerp(0.25, 1.0, clamp01(params.axisTilt / 100));
+
+  const cells: Cell[] = new Array(width * height);
+  for (let i = 0; i < cells.length; i++) cells[i] = createEmptyCell(i);
+
+  // Plates (MVP): a few synthetic plates
+  const plateCount = 10;
+  const plates: Plate[] = [];
+  for (let i = 0; i < plateCount; i++) {
+    plates.push({
+      id: i,
+      type: i % 3 === 0 ? PlateType.OCEANIC : PlateType.CONTINENTAL,
+      velocity: [lerp(-1, 1, rng()), lerp(-1, 1, rng())],
+    });
+  }
+
+  // Height field (MVP but stable):
+  // - base noise + continental blobs + smoothing
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      const idx = r * width + c;
+      const cell = cells[idx];
+
+      const lat01 = r / (height - 1);
+      const lon01 = c / (width - 1);
+
+      // Blobby continents via low-frequency noise
+      const n0 = fbm(lon01 * 2.0, lat01 * 1.8, rng, 4);
+      const n1 = fbm(lon01 * 0.8, lat01 * 0.8, rng, 3);
+      const blob = (n0 * 0.65 + n1 * 0.35);
+
+      // Add tectonic roughness
+      const rough = fbm(lon01 * 12.0, lat01 * 8.0, rng, 3) * plateAmp;
+
+      // Smoothness: dampen roughness for older worlds
+      const base = blob + rough * (1 - smooth);
+
+      // Normalize to roughly -1..1-ish
+      cell.baseHeight = clamp(base * 0.85, -1.0, 1.0);
+
+      // Assign plate id roughly by noise buckets (MVP)
+      const pPick = Math.floor(clamp01((blob + 1) * 0.5) * plateCount) % plateCount;
+      cell.plateId = pPick;
+      cell.plateType = plates[pPick].type;
+      cell.boundaryType = BoundaryType.NONE;
+
+      // Temperature: lat gradient + noise + tilt
+      const lat = lat01 * 2 - 1; // -1..1
+      const latCurve = 1 - Math.abs(lat) * tilt; // equator warm
+      const tNoise = fbm(lon01 * 4.0, lat01 * 4.0, rng, 2) * climateVar;
+      cell.temperature = clamp01(latCurve * 0.85 + 0.1 + tNoise * 0.25);
+
+      // Rainfall: simple bands + noise
+      const band = 0.55 - Math.abs(lat) * 0.35;
+      const rNoise = fbm(lon01 * 5.0, lat01 * 3.0, rng, 2) * climateVar;
+      cell.rainfall = clamp01(band + 0.15 + rNoise * 0.35);
+
+      // Biomes (very MVP placeholder IDs; renderer can map these later)
+      // We'll set baseBiomeId from temp/rain. editBiomeId defaults = baseBiomeId.
+      const biome = pickBiome(cell.temperature, cell.rainfall);
+      cell.baseBiomeId = biome;
+      cell.editBiomeId = biome;
+
+      // Surface type guess
+      cell.surfaceType = cell.plateType === PlateType.OCEANIC ? SurfaceType.ALLUVIAL : SurfaceType.ROCK;
+
+      // Hydrology baseline (empty)
+      cell.flowDirection = null;
+      cell.flowAccumulation = 0;
+      cell.basinId = null;
+
+      // Geology baseline
+      cell.upliftRate = 0;
+      cell.surfaceAge = clamp01(0.35 + rng() * 0.5);
+      cell.volcanicActivity = 0;
     }
-  } catch {}
-  return "ww_" + Math.floor(Math.random() * 1e15).toString(16);
+  }
+
+  const rivers: River[] = [];
+
+  const world: WorldBrain = {
+    gridWidth: width,
+    gridHeight: height,
+    seaLevel: globalSeaLevel,
+
+    cells,
+    plates,
+    rivers,
+
+    countries: [],
+    cultures: [],
+    cultureRegions: [],
+    cities: [],
+
+    locations: [],
+    stickers: [],
+
+    metadata: {
+      id: `w_${Date.now()}_${Math.floor(rng() * 1e9)}`,
+      name: 'Untitled World',
+      seed: String(params.seed),
+      schemaVersion: 'v3',
+
+      version: 'v1.3',
+      styleMode: params.styleMode,
+      gridWidth: width,
+      gridHeight: height,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+
+      seaLevel: globalSeaLevel,
+    },
+
+    parameters: {
+      ...params,
+      seaLevel: params.seaLevel,
+    },
+  };
+
+  recomputeWorld(world, ['GENERATED']);
+  return world;
 }
 
-function mulberry32(seed: number) {
+function pickBiome(temp: number, rain: number): number {
+  // Minimal stable biome IDs (0..N). Refine later behind renderer.
+  if (temp < 0.20) return rain < 0.35 ? 1 : 2; // polar desert / tundra
+  if (temp < 0.35) return rain < 0.35 ? 3 : 4; // steppe / taiga
+  if (temp < 0.60) return rain < 0.30 ? 5 : rain < 0.60 ? 6 : 7; // desert / grassland / temperate forest
+  return rain < 0.25 ? 8 : rain < 0.55 ? 9 : 10; // hot desert / savanna / rainforest
+}
+
+function clamp01(x: number): number {
+  return x < 0 ? 0 : x > 1 ? 1 : x;
+}
+
+function clamp(x: number, lo: number, hi: number): number {
+  return x < lo ? lo : x > hi ? hi : x;
+}
+
+function clampInt(x: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, Math.floor(x)));
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function mulberry32(a: number): () => number {
   return function () {
-    let t = (seed += 0x6d2b79f5);
+    let t = (a += 0x6d2b79f5);
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
-// Hash-based value noise (deterministic, no precomputed tables)
-function hash2D(ix: number, iy: number, seed: number) {
-  let h = ix * 374761393 + iy * 668265263 + seed * 2147483647;
-  h = (h ^ (h >>> 13)) * 1274126177;
-  h ^= h >>> 16;
-  return (h >>> 0) / 4294967296;
-}
-
-function lerp(a: number, b: number, t: number) {
-  return a + (b - a) * t;
-}
-
-function fade(t: number) {
-  return t * t * t * (t * (t * 6 - 15) + 10);
-}
-
-function valueNoise(x: number, y: number, seed: number) {
-  const x0 = Math.floor(x);
-  const y0 = Math.floor(y);
-  const x1 = x0 + 1;
-  const y1 = y0 + 1;
-
-  const sx = fade(x - x0);
-  const sy = fade(y - y0);
-
-  const n00 = hash2D(x0, y0, seed);
-  const n10 = hash2D(x1, y0, seed);
-  const n01 = hash2D(x0, y1, seed);
-  const n11 = hash2D(x1, y1, seed);
-
-  const ix0 = lerp(n00, n10, sx);
-  const ix1 = lerp(n01, n11, sx);
-  return lerp(ix0, ix1, sy); // 0..1
-}
-
-function fbm(x: number, y: number, seed: number, octaves: number, lacunarity: number, gain: number) {
+// Lightweight fractal noise using rng (stable enough for MVP, not true gradient noise)
+function fbm(x: number, y: number, rng: () => number, octaves: number): number {
   let amp = 1;
   let freq = 1;
   let sum = 0;
   let norm = 0;
-
   for (let i = 0; i < octaves; i++) {
-    sum += valueNoise(x * freq, y * freq, seed + i * 1013) * amp;
+    sum += amp * valueNoise(x * freq, y * freq, rng);
     norm += amp;
-    amp *= gain;
-    freq *= lacunarity;
+    amp *= 0.5;
+    freq *= 2.0;
   }
-  return sum / (norm || 1); // 0..1
+  return (sum / Math.max(1e-9, norm)) * 2 - 1; // -1..1
 }
 
-function domainWarp(x: number, y: number, seed: number) {
-  // low-frequency warp to create continent "blobs"
-  const wx = fbm(x * 0.35, y * 0.35, seed + 9001, 3, 2.0, 0.5);
-  const wy = fbm(x * 0.35, y * 0.35, seed + 9002, 3, 2.0, 0.5);
-  // warp range roughly -0.5..0.5
-  return { x: x + (wx - 0.5) * 1.2, y: y + (wy - 0.5) * 1.2 };
+function valueNoise(x: number, y: number, rng: () => number): number {
+  // Deterministic hash from coordinates (not from rng stream)
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+
+  const v00 = hash2(xi, yi);
+  const v10 = hash2(xi + 1, yi);
+  const v01 = hash2(xi, yi + 1);
+  const v11 = hash2(xi + 1, yi + 1);
+
+  const u = smoothstep(xf);
+  const v = smoothstep(yf);
+
+  const x1 = lerp(v00, v10, u);
+  const x2 = lerp(v01, v11, u);
+  return lerp(x1, x2, v);
+
+  function hash2(ix: number, iy: number): number {
+    // Simple integer hash to 0..1
+    let h = ix * 374761393 + iy * 668265263;
+    h = (h ^ (h >>> 13)) * 1274126177;
+    h = h ^ (h >>> 16);
+    return ((h >>> 0) / 4294967295);
+  }
 }
 
-function sigmoid(t: number) {
-  // 0..1 smootherstep-ish
+function smoothstep(t: number): number {
   return t * t * (3 - 2 * t);
-}
-
-function computeSeaLevel(oceanCoverage: number) {
-  // Ocean coverage ~55% => seaLevel around 0.30..0.36 in our height normalization.
-  // Higher oceanCoverage raises sea level and eats coastlines.
-  return clamp(0.18 + oceanCoverage * 0.36, 0.12, 0.62);
-}
-
-export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
-  const gw = Math.max(16, Math.floor(params.gridWidth));
-  const gh = Math.max(16, Math.floor(params.gridHeight));
-  const seed = Math.floor(params.seed || 0);
-
-  const rand = mulberry32(seed);
-  const seaLevel = computeSeaLevel(clamp(params.oceanCoverage, 0.05, 0.95));
-
-  const cells: Cell[] = new Array(gw * gh);
-
-  // "Style" modifiers (kept mild to avoid regressions)
-  const styleRelief =
-    params.styleMode === "FANTASY" ? 1.15 :
-    params.styleMode === "STYLIZED" ? 1.05 :
-    params.styleMode === "ALIEN" ? 1.10 : 1.0;
-
-  const ageSmoothing = clamp(params.planetAge, 0, 1);
-  const plateActivity = clamp(params.plateActivity, 0, 1);
-
-  // Height generation:
-  // - continent mask: very low freq fbm + warp
-  // - detail: mid/high freq fbm
-  // - apply tectonic relief controlled by plateActivity
-  for (let y = 0; y < gh; y++) {
-    for (let x = 0; x < gw; x++) {
-      const idx = y * gw + x;
-      const c = createEmptyCell(idx);
-
-      // Normalize coords to a stable noise space
-      const nx = x / gw;
-      const ny = y / gh;
-
-      // Domain warp
-      const w = domainWarp(nx * 4.0, ny * 4.0, seed);
-      const cx = w.x;
-      const cy = w.y;
-
-      // Continent mask (big blobs)
-      const continent = fbm(cx * 0.55, cy * 0.55, seed + 100, 4, 2.0, 0.5); // 0..1
-      // Ridge mask (adds spine variation)
-      const ridges = fbm(cx * 1.4, cy * 1.4, seed + 200, 5, 2.1, 0.5);
-
-      // Detail
-      const detail = fbm(cx * 2.8, cy * 2.8, seed + 300, 5, 2.0, 0.5);
-
-      // Combine:
-      // - Push continent into land/water separation
-      // - Add relief from ridges/detail
-      let h = 0.0;
-      h += (continent - 0.48) * 1.15;       // main landmass control
-      h += (ridges - 0.5) * 0.35;           // mountain spines
-      h += (detail - 0.5) * 0.22;           // small variation
-
-      // Tectonic relief: young planets sharper; old smoother
-      const youth = 1 - ageSmoothing;
-      h += (rand() - 0.5) * 0.18 * plateActivity * youth;
-
-      // Normalize into 0..1
-      // Center around ~0.35..0.65 with clamp
-      h = 0.5 + h * 0.75;
-      h = clamp(h, 0, 1);
-
-      // Apply style relief gently
-      h = clamp(0.5 + (h - 0.5) * styleRelief, 0, 1);
-
-      // Erosion smoothing with age: nudge toward mid
-      const smooth = ageSmoothing * 0.12;
-      h = clamp(lerp(h, 0.5, smooth), 0, 1);
-
-      c.baseHeight = h;
-
-      // Climate: latitude + altitude + biases + tilt effects
-      const lat = Math.abs(ny - 0.5) * 2; // 0 equator .. 1 poles
-      const tiltFactor = clamp(params.axialTilt / 60, 0, 1);
-
-      // Temperature baseline
-      let temp = 1 - lat;
-      temp -= (h - seaLevel) * 0.65; // altitude cooling (above sea)
-      temp -= tiltFactor * 0.12; // overall seasonal/tilt effect
-      temp += (clamp(params.temperatureBias, 0, 1) - 0.5) * 0.40;
-      temp = clamp(temp, 0, 1);
-
-      // Rainfall baseline: more near equator, boosted by humidity bias
-      let rain = (1 - lat) * 0.70 + (clamp(params.humidityBias, 0, 1) - 0.5) * 0.45;
-      // Orographic-ish: higher relief => slightly more rain windward-ish (cheap heuristic)
-      rain += (detail - 0.5) * 0.15;
-      // Dry interiors: strong continents reduce rain (cheap continentality)
-      rain -= clamp((continent - 0.62) * 0.55, 0, 0.25);
-      // Tiny noise
-      rain += (rand() - 0.5) * 0.06;
-      rain = clamp(rain, 0, 1);
-
-      c.temperature = temp;
-      c.rainfall = rain;
-
-      // Simplified tectonics placeholders
-      c.plateId = 0;
-      c.plateType = h < seaLevel * 0.85 ? PlateType.OCEANIC : PlateType.CONTINENTAL;
-      c.boundaryType = BoundaryType.NONE;
-      c.upliftRate = plateActivity * 0.5;
-      c.surfaceAge = ageSmoothing;
-      c.volcanicActivity = plateActivity * (1 - ageSmoothing) * (ridges);
-
-      // Water classification
-      c.isWater = h < seaLevel;
-
-      // Ocean depth class (shelf vs abyssal vs trench)
-      if (c.isWater) {
-        const depth = clamp((seaLevel - h) / Math.max(0.001, seaLevel), 0, 1);
-        c.oceanDepthClass =
-          depth > 0.72 ? OceanDepthClass.ABYSSAL :
-          depth > 0.35 ? OceanDepthClass.SHELF :
-          OceanDepthClass.SHELF;
-      } else {
-        c.oceanDepthClass = null;
-      }
-
-      // Biome assignment (IDs are numeric placeholders but consistent)
-      // 0 ocean, 1 rainforest, 2 temperate forest/grassland, 3 desert, 4 savanna, 5 tundra, 6 taiga
-      if (c.isWater) {
-        c.baseBiomeId = 0;
-        c.surfaceType = SurfaceType.ROCK;
-      } else if (temp < 0.18) {
-        c.baseBiomeId = 5;
-        c.surfaceType = SurfaceType.PERMAFROST;
-      } else if (temp < 0.28) {
-        c.baseBiomeId = 6;
-        c.surfaceType = SurfaceType.ROCK;
-      } else if (rain < 0.22) {
-        c.baseBiomeId = 3;
-        c.surfaceType = SurfaceType.SAND;
-      } else if (rain < 0.38) {
-        c.baseBiomeId = 4;
-        c.surfaceType = SurfaceType.ALLUVIAL;
-      } else if (rain > 0.72) {
-        c.baseBiomeId = 1;
-        c.surfaceType = SurfaceType.ALLUVIAL;
-      } else {
-        c.baseBiomeId = 2;
-        c.surfaceType = SurfaceType.ROCK;
-      }
-
-      // Snow cover
-      c.snowCover = temp < 0.15 ? clamp((0.15 - temp) / 0.15, 0, 1) : 0;
-
-      // Hydrology placeholders (schema-correct)
-      c.flowDirection = null;
-      c.flowAccumulation = 0;
-      c.basinId = null;
-
-      cells[idx] = c;
-    }
-  }
-
-  const now = new Date().toISOString();
-
-  const world: WorldBrain = {
-    gridWidth: gw,
-    gridHeight: gh,
-    seaLevel,
-
-    cells,
-
-    plates: [
-      { id: 0, name: "Primary Plate", type: PlateType.CONTINENTAL },
-    ],
-
-    rivers: [],
-    countries: [],
-    cultures: [],
-    cultureRegions: [],
-    cities: [],
-    locations: [],
-    stickers: [],
-
-    metadata: {
-      id: safeUUID(),
-      name: "New World",
-      seed: String(seed),
-      version: "1.3",
-      styleMode: params.styleMode,
-      gridWidth: gw,
-      gridHeight: gh,
-      createdAt: now,
-      updatedAt: now,
-    },
-  };
-
-  return world;
 }

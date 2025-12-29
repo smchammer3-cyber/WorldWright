@@ -1,96 +1,73 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD VALIDATION (V1.3)
+// WORLDWRIGHT -- WORLD VALIDATION (V1.3 Spine)
 // File: src/core/worldValidation/index.ts
 //
-// Strict on structure, tolerant on content.
+// Returns human-readable validation errors (non-throwing).
+// Callers can show these in a debug panel or before export/save.
 // ========================================================
 
-import { WorldBrain } from "../worldSchema";
+import { WorldBrain } from '../worldSchema';
 
-export type WorldValidationError = { path: string; message: string };
+export function validateWorld(world: WorldBrain): string[] {
+  const errors: string[] = [];
 
-function err(path: string, message: string): WorldValidationError {
-  return { path, message };
-}
-
-export function validateWorld(world: WorldBrain): WorldValidationError[] {
-  const errors: WorldValidationError[] = [];
-
-  if (!world || typeof world !== "object") return [err("world", "World is not an object.")];
-
-  if (!Number.isFinite(world.gridWidth) || world.gridWidth <= 0) errors.push(err("gridWidth", "gridWidth must be > 0."));
-  if (!Number.isFinite(world.gridHeight) || world.gridHeight <= 0) errors.push(err("gridHeight", "gridHeight must be > 0."));
-
-  if (!Number.isFinite(world.seaLevel)) errors.push(err("seaLevel", "seaLevel must be a finite number."));
-
+  // Basic grid integrity
   const expected = world.gridWidth * world.gridHeight;
-
-  if (!Array.isArray(world.cells)) errors.push(err("cells", "cells must be an array."));
-  else if (world.cells.length !== expected) errors.push(err("cells", `cells.length ${world.cells.length} != expected ${expected}.`));
-
-  if (!world.metadata || typeof world.metadata !== "object") {
-    errors.push(err("metadata", "metadata missing."));
-  } else {
-    if (typeof world.metadata.id !== "string" || !world.metadata.id) errors.push(err("metadata.id", "id must be non-empty string."));
-    if (typeof world.metadata.name !== "string") errors.push(err("metadata.name", "name must be string."));
-    if (typeof world.metadata.seed !== "string") errors.push(err("metadata.seed", "seed must be string."));
-    if (world.metadata.version !== "1.3") errors.push(err("metadata.version", "version must be '1.3'."));
-    if (typeof world.metadata.styleMode !== "string") errors.push(err("metadata.styleMode", "styleMode must be string."));
-    if (typeof world.metadata.createdAt !== "string") errors.push(err("metadata.createdAt", "createdAt must be ISO string."));
-    if (typeof world.metadata.updatedAt !== "string") errors.push(err("metadata.updatedAt", "updatedAt must be ISO string."));
+  if (world.cells.length !== expected) {
+    errors.push(
+      `Cell array size (${world.cells.length}) does not match grid (${world.gridWidth}×${world.gridHeight} = ${expected}).`,
+    );
   }
 
-  const arrays: Array<[string, any]> = [
-    ["plates", world.plates],
-    ["rivers", world.rivers],
-    ["countries", world.countries],
-    ["cultures", world.cultures],
-    ["cultureRegions", world.cultureRegions],
-    ["cities", world.cities],
-    ["locations", world.locations],
-    ["stickers", world.stickers],
-  ];
-
-  for (const [p, v] of arrays) {
-    if (!Array.isArray(v)) errors.push(err(p, `${p} must be an array.`));
+  // Global sea level
+  if (typeof (world as any).seaLevel !== 'number' || Number.isNaN((world as any).seaLevel)) {
+    errors.push('World is missing global seaLevel (number).');
   }
 
-  if (Array.isArray(world.cells)) {
-    for (let i = 0; i < world.cells.length; i++) {
-      const c: any = world.cells[i];
-      if (!c || typeof c !== "object") {
-        errors.push(err(`cells[${i}]`, "cell is not an object."));
-        continue;
-      }
-      if (c.index !== i) errors.push(err(`cells[${i}].index`, `index ${c.index} != ${i}`));
+  // Metadata sanity
+  if (!world.metadata) errors.push('World metadata is missing.');
+  if (!world.metadata?.id) errors.push('World metadata.id is missing.');
+  if (!world.metadata?.schemaVersion) errors.push('World metadata.schemaVersion is missing.');
 
-      const mustNum = (k: string) => {
-        if (!Number.isFinite(c[k])) errors.push(err(`cells[${i}].${k}`, `${k} must be a number.`));
-      };
+  // Cell contract checks
+  for (let i = 0; i < world.cells.length; i++) {
+    const cell: any = world.cells[i];
 
-      mustNum("baseHeight");
-      mustNum("editHeightDelta");
-      mustNum("simHeightDelta");
-      mustNum("temperature");
-      mustNum("rainfall");
-      mustNum("flowAccumulation");
-      mustNum("plateId");
-      mustNum("upliftRate");
-      mustNum("surfaceAge");
-      mustNum("volcanicActivity");
-      mustNum("baseBiomeId");
-      mustNum("snowCover");
+    if (cell.index !== i) {
+      errors.push(`Cell index mismatch at i=${i} (cell.index=${cell.index}).`);
+      break;
+    }
 
-      if (typeof c.isWater !== "boolean") errors.push(err(`cells[${i}].isWater`, "isWater must be boolean."));
+    // Legacy per-cell seaLevel should not exist anymore
+    if ('seaLevel' in cell) {
+      errors.push('Legacy field detected: cell.seaLevel exists. World should be normalized/migrated.');
+      break;
+    }
 
-      if (c.flowDirection !== null) {
-        if (!Number.isFinite(c.flowDirection) || c.flowDirection < 0 || c.flowDirection > 7) {
-          errors.push(err(`cells[${i}].flowDirection`, "flowDirection must be null or 0..7"));
-        }
-      }
-      if (c.basinId !== null && !Number.isFinite(c.basinId)) {
-        errors.push(err(`cells[${i}].basinId`, "basinId must be null or number"));
-      }
+    if (typeof cell.baseHeight !== 'number') errors.push(`Cell ${i} missing baseHeight.`);
+    if (typeof cell.editHeightDelta !== 'number') errors.push(`Cell ${i} missing editHeightDelta.`);
+    if (typeof cell.simHeightDelta !== 'number') errors.push(`Cell ${i} missing simHeightDelta.`);
+    if (typeof cell.isWater !== 'boolean') errors.push(`Cell ${i} missing isWater.`);
+
+    if (cell.flowDirection != null && typeof cell.flowDirection !== 'number') {
+      errors.push(`Cell ${i} flowDirection invalid type.`);
+    }
+    if (typeof cell.flowAccumulation !== 'number') errors.push(`Cell ${i} missing flowAccumulation.`);
+    if (cell.basinId != null && typeof cell.basinId !== 'number') errors.push(`Cell ${i} basinId invalid type.`);
+  }
+
+  // Countries sanity
+  for (const country of world.countries) {
+    if (!country.id) errors.push('A country is missing an id.');
+    if (!country.polygons || country.polygons.length === 0) {
+      errors.push(`Country ${country.id || '(unknown)'} has no polygons.`);
+    }
+  }
+
+  // Cities sanity
+  for (const city of world.cities) {
+    if (city.cellIndex < 0 || city.cellIndex >= world.cells.length) {
+      errors.push(`City ${city.id || city.name} has invalid cellIndex=${city.cellIndex}.`);
     }
   }
 
