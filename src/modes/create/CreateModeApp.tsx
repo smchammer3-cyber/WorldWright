@@ -17,16 +17,16 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { AppShell } from '../../ui/AppShell'
 
+import { AppShell } from '../../ui/AppShell'
+import { WorldBrain } from '../../core/worldSchema'
 import { getWorld, saveWorld } from '../../core/worldStorage'
 import { validateWorld } from '../../core/worldValidation'
 import {
-  renderPlanetToCanvas,
-  sampleColorForHeight,
+  makePlanetPreviewFromWorld,
+  renderMinimap,
+  samplePlanetColor,
 } from '../../core/planetRenderer'
-
-import type { WorldBrain } from '../../core/worldSchema'
 
 type ViewMode = 'GLOBE' | 'MAP'
 
@@ -34,13 +34,14 @@ export default function CreateModeApp() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
 
-  const [viewMode, setViewMode] = useState<ViewMode>('GLOBE')
   const [world, setWorld] = useState<WorldBrain | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [saveStatus, setSaveStatus] = useState<string>('')
 
+  const [viewMode, setViewMode] = useState<ViewMode>('GLOBE')
+
   const globeCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const mapCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   // ----- Load world -----
@@ -59,73 +60,68 @@ export default function CreateModeApp() {
       return
     }
 
-    setLoadError(null)
     setWorld(w)
-    setSaveStatus('')
+    setLoadError(null)
   }, [id])
 
-  const validationErrors = useMemo(() => {
-    if (!world) return []
-    try {
-      return validateWorld(world)
-    } catch (e) {
-      return [`Validation failed with an exception: ${(e as Error).message}`]
+  // ----- Validate -----
+
+  const runValidation = useMemo(() => {
+    return (world: WorldBrain) => {
+      try {
+        return validateWorld(world)
+      } catch (err) {
+        console.error('Validation threw error:', err)
+        return ['Validation crashed (see console).']
+      }
     }
-  }, [world])
+  }, [])
+
+  useEffect(() => {
+    if (!world) {
+      setValidationErrors([])
+      return
+    }
+    const errs = runValidation(world)
+    setValidationErrors(errs)
+  }, [world, runValidation])
 
   // ----- Save -----
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!world) return
-    const summary = saveWorld(world)
-    setSaveStatus(`Saved • ${new Date(summary.updatedAt).toLocaleString()}`)
-    // Refresh world in memory (ensures we reflect updatedAt changes consistently)
-    const refreshed = getWorld(summary.id)
-    if (refreshed) setWorld(refreshed)
+    try {
+      // worldStorage.saveWorld is async (even though it writes synchronously today).
+      const result = await saveWorld(world)
+      const idToReload = result?.id ?? world.metadata?.id ?? id
+      const refreshed = idToReload ? getWorld(idToReload) : null
+      if (refreshed) {
+        setWorld(refreshed)
+        const stamp = refreshed.metadata?.updatedAt
+          ? new Date(refreshed.metadata.updatedAt).toLocaleString()
+          : new Date().toLocaleString()
+        setSaveStatus(`Saved • ${stamp}`)
+      } else {
+        setSaveStatus(`Saved • ${new Date().toLocaleString()}`)
+      }
+    } catch (err) {
+      console.error('Save failed', err)
+      setSaveStatus('Save failed (see console).')
+    }
   }
 
   // ----- Rendering helpers -----
 
-  const renderMinimap = (w: WorldBrain) => {
-    const canvas = minimapCanvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+  useEffect(() => {
+    if (!world) return
+    if (viewMode !== 'GLOBE') return
 
-    const seaLevel = w.cells.length > 0 ? w.cells[0].seaLevel : 0
-
-    renderPlanetToCanvas(ctx, {
-      width: w.gridWidth,
-      height: w.gridHeight,
-      cells: w.cells,
-      seaLevel,
-    })
-  }
-
-  const renderMap = (w: WorldBrain) => {
-    const canvas = mapCanvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    const seaLevel = w.cells.length > 0 ? w.cells[0].seaLevel : 0
-
-    // Render at native grid resolution, then scale via CSS if desired.
-    renderPlanetToCanvas(ctx, {
-      width: w.gridWidth,
-      height: w.gridHeight,
-      cells: w.cells,
-      seaLevel,
-    })
-  }
-
-  const renderGlobe = (w: WorldBrain) => {
     const canvas = globeCanvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const seaLevel = w.cells.length > 0 ? w.cells[0].seaLevel : 0
+    const seaLevel = world.cells.length > 0 ? world.cells[0].seaLevel : 0
 
     const size = 360
     const radius = size * 0.45
@@ -135,56 +131,29 @@ export default function CreateModeApp() {
     canvas.width = size
     canvas.height = size
 
+    const preview = makePlanetPreviewFromWorld(world)
+
     const img = ctx.createImageData(size, size)
     const data = img.data
 
-    // Simple directional light
-    const light = { x: -0.35, y: 0.45, z: 0.82 }
-    {
-      const len =
-        Math.sqrt(light.x * light.x + light.y * light.y + light.z * light.z) || 1
-      light.x /= len
-      light.y /= len
-      light.z /= len
-    }
+    // Simple directional light (matches Generate Mode style for now)
+    const L = { x: -0.35, y: 0.35, z: 0.87 }
+    const len = Math.sqrt(L.x * L.x + L.y * L.y + L.z * L.z) || 1
+    L.x /= len
+    L.y /= len
+    L.z /= len
 
-    const width = w.gridWidth
-    const height = w.gridHeight
-    const cells = w.cells
+    const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 
-    // Bilinear sampling of base height (edit/sim compositing is a later phase)
-    const sampleHeight = (u: number, v: number): number => {
-      const x = u * (width - 1)
-      const y = v * (height - 1)
-      const x0 = Math.floor(x)
-      const y0 = Math.floor(y)
-      const x1 = Math.min(x0 + 1, width - 1)
-      const y1 = Math.min(y0 + 1, height - 1)
-      const tx = x - x0
-      const ty = y - y0
+    for (let py = 0; py < size; py++) {
+      for (let px = 0; px < size; px++) {
+        const dx = px - cx
+        const dy = py - cy
+        const d2 = dx * dx + dy * dy
+        const p = (py * size + px) * 4
 
-      const idx = (xx: number, yy: number) => yy * width + xx
-
-      const a = cells[idx(x0, y0)].baseHeight
-      const b = cells[idx(x1, y0)].baseHeight
-      const c = cells[idx(x0, y1)].baseHeight
-      const d = cells[idx(x1, y1)].baseHeight
-
-      const ab = a + (b - a) * tx
-      const cd = c + (d - c) * tx
-      return ab + (cd - ab) * ty
-    }
-
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const dx = x + 0.5 - cx
-        const dy = y + 0.5 - cy
-        const dist = Math.sqrt(dx * dx + dy * dy)
-
-        const i = (y * size + x) * 4
-
-        if (dist > radius) {
-          data[i + 3] = 0
+        if (d2 > radius * radius) {
+          data[p + 3] = 0
           continue
         }
 
@@ -192,41 +161,39 @@ export default function CreateModeApp() {
         const ny = dy / radius
         const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny))
 
-        // Map normal to lat/lon sampling
-        const lon = Math.atan2(nx, nz) // -pi..pi
-        const lat = Math.asin(ny) // -pi/2..pi/2
+        const lon = Math.atan2(nx, nz)
+        const lat = Math.asin(ny)
 
-        const u = (lon / (Math.PI * 2) + 0.5) % 1
-        const v = 0.5 - lat / Math.PI
+        const u = (lon + Math.PI) / (Math.PI * 2)
+        const v = 1 - (lat + Math.PI / 2) / Math.PI
 
-        const h = sampleHeight(u, v)
-        const base = sampleColorForHeight(h, seaLevel)
+        const col = samplePlanetColor(preview, u, v, seaLevel)
 
-        const ndotl = nx * light.x + ny * light.y + nz * light.z
-        const shade = Math.max(0.18, ndotl * 0.85 + 0.18)
-        const rim = Math.pow(1 - nz, 2) * 0.22
+        const ndotl = clamp01(nx * L.x + ny * L.y + nz * L.z)
+        const rim = Math.pow(1 - nz, 2) * 0.35
+        const light = 0.62 + 0.48 * ndotl + rim
 
-        data[i + 0] = Math.min(255, base.r * shade + 255 * rim)
-        data[i + 1] = Math.min(255, base.g * shade + 255 * rim)
-        data[i + 2] = Math.min(255, base.b * shade + 255 * rim)
-        data[i + 3] = 255
+        data[p + 0] = Math.max(0, Math.min(255, Math.round(col.r * light)))
+        data[p + 1] = Math.max(0, Math.min(255, Math.round(col.g * light)))
+        data[p + 2] = Math.max(0, Math.min(255, Math.round(col.b * light)))
+        data[p + 3] = 255
       }
     }
 
     ctx.putImageData(img, 0, 0)
-  }
+  }, [world, viewMode])
 
-  // Render on world or view changes
   useEffect(() => {
     if (!world) return
+    if (viewMode !== 'GLOBE') return
 
-    if (viewMode === 'MAP') {
-      renderMap(world)
-    } else {
-      renderGlobe(world)
-      renderMinimap(world)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const minimapCanvas = minimapCanvasRef.current
+    if (!minimapCanvas) return
+    const mctx = minimapCanvas.getContext('2d')
+    if (!mctx) return
+
+    const preview = makePlanetPreviewFromWorld(world)
+    renderMinimap(mctx, preview)
   }, [world, viewMode])
 
   // ----- UI -----
@@ -234,146 +201,99 @@ export default function CreateModeApp() {
   if (loadError) {
     return (
       <AppShell
-        leftPanel={
-          <div>
-            <button onClick={() => navigate('/')} style={{ width: '100%', padding: 10 }}>
-              Back to Home
+        title="Create"
+        onBack={() => navigate('/')}
+        leftToolbar={
+          <div className="ww-left-toolbar-inner">
+            <button className="ww-secondary-btn" onClick={() => navigate('/')}>
+              Back
             </button>
           </div>
         }
-        center={
-          <div style={{ padding: 16 }}>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>Create Mode</div>
-            <div style={{ opacity: 0.85 }}>{loadError}</div>
+        main={
+          <div className="ww-screen-body">
+            <p style={{ padding: 16 }}>{loadError}</p>
           </div>
         }
-        minimap={null}
-        rightPanel={
-          <div style={{ padding: 12, opacity: 0.85 }}>
-            Create Mode is in a spine-safe stub state.
-          </div>
-        }
+        minimapOverlay={null}
+        rightPanel={null}
       />
     )
   }
-
-  if (!world) {
-    return (
-      <AppShell
-        leftPanel={
-          <div>
-            <button onClick={() => navigate('/')} style={{ width: '100%', padding: 10 }}>
-              Back to Home
-            </button>
-          </div>
-        }
-        center={<div style={{ padding: 16, opacity: 0.85 }}>Loading…</div>}
-        minimap={null}
-        rightPanel={<div style={{ padding: 12, opacity: 0.85 }}>Please wait…</div>}
-      />
-    )
-  }
-
-  const worldName = world.metadata?.name ?? 'Untitled World'
 
   return (
     <AppShell
-      leftPanel={
-        <div>
-          <button onClick={() => navigate('/')} style={{ width: '100%', padding: 10 }}>
-            Back to Home
+      title="Create"
+      onBack={() => navigate('/')}
+      leftToolbar={
+        <div className="ww-left-toolbar-inner">
+          <button className="ww-secondary-btn" onClick={() => navigate('/')}>
+            Back
           </button>
 
-          <div style={{ marginTop: 12, fontWeight: 700 }}>{worldName}</div>
-          <div style={{ marginTop: 6, display: 'flex', gap: 8 }}>
+          <div style={{ height: 12 }} />
+
+          <div className="ww-seg">
             <button
+              className={viewMode === 'GLOBE' ? 'ww-seg-btn ww-seg-btn-active' : 'ww-seg-btn'}
               onClick={() => setViewMode('GLOBE')}
-              style={{
-                padding: 8,
-                flex: 1,
-                opacity: viewMode === 'GLOBE' ? 1 : 0.7,
-              }}
             >
               Globe
             </button>
             <button
+              className={viewMode === 'MAP' ? 'ww-seg-btn ww-seg-btn-active' : 'ww-seg-btn'}
               onClick={() => setViewMode('MAP')}
-              style={{
-                padding: 8,
-                flex: 1,
-                opacity: viewMode === 'MAP' ? 1 : 0.7,
-              }}
             >
               Map
             </button>
           </div>
 
-          <button onClick={handleSave} style={{ width: '100%', padding: 10, marginTop: 12 }}>
+          <div style={{ height: 12 }} />
+
+          <button className="ww-primary-btn" onClick={handleSave} disabled={!world}>
             Save
           </button>
 
-          {saveStatus && (
-            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.85 }}>{saveStatus}</div>
-          )}
+          {saveStatus ? <div className="ww-muted" style={{ marginTop: 8 }}>{saveStatus}</div> : null}
 
-          <div style={{ marginTop: 14, fontSize: 12, opacity: 0.75 }}>
-            (Tools are disabled in this cleanup step. Viewer only.)
-          </div>
-        </div>
-      }
-      center={
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {viewMode === 'MAP' ? (
-            <div>
-              <div style={{ marginBottom: 6, opacity: 0.85 }}>Map view</div>
-              <canvas ref={mapCanvasRef} style={{ width: '100%', imageRendering: 'pixelated' }} />
-            </div>
-          ) : (
-            <div>
-              <div style={{ marginBottom: 6, opacity: 0.85 }}>Globe view</div>
-              <canvas ref={globeCanvasRef} />
-            </div>
-          )}
-        </div>
-      }
-      minimap={
-        viewMode === 'GLOBE' ? (
-          <canvas ref={minimapCanvasRef} style={{ width: '100%', imageRendering: 'pixelated' }} />
-        ) : null
-      }
-      rightPanel={
-        <div>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>World Diagnostics</div>
-
-          <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 10 }}>
-            Schema: WorldBrain • Grid: {world.gridWidth}×{world.gridHeight}
-          </div>
-
-          {validationErrors.length === 0 ? (
-            <div style={{ fontSize: 12, opacity: 0.85 }}>Validation: OK</div>
-          ) : (
-            <div style={{ fontSize: 12 }}>
-              <div style={{ fontWeight: 700, marginBottom: 6, color: '#b33' }}>
-                Validation Issues ({validationErrors.length})
+          {validationErrors.length > 0 ? (
+            <div style={{ marginTop: 12 }}>
+              <div className="ww-muted" style={{ marginBottom: 6 }}>
+                Validation issues:
               </div>
-              <ul style={{ margin: 0, paddingLeft: 18, opacity: 0.9 }}>
-                {validationErrors.slice(0, 12).map((e, idx) => (
+              <ul className="ww-list">
+                {validationErrors.slice(0, 6).map((e, idx) => (
                   <li key={idx}>{e}</li>
                 ))}
+                {validationErrors.length > 6 ? <li>…and more</li> : null}
               </ul>
-              {validationErrors.length > 12 && (
-                <div style={{ marginTop: 8, opacity: 0.75 }}>
-                  Showing first 12 issues.
-                </div>
-              )}
             </div>
-          )}
-
-          <div style={{ marginTop: 14, fontSize: 12, opacity: 0.75 }}>
-            Next: re-introduce Create tools via worldEditor actions (terrain first).
-          </div>
+          ) : null}
         </div>
       }
+      main={
+        <div className="ww-generate-viewport">
+          {viewMode === 'GLOBE' ? (
+            <canvas
+              ref={globeCanvasRef}
+              style={{ width: '100%', height: '100%', display: 'block' }}
+            />
+          ) : (
+            <div style={{ padding: 16 }} className="ww-muted">
+              Map view is a stub (Globe view is canonical for now).
+            </div>
+          )}
+        </div>
+      }
+      minimapOverlay={
+        viewMode === 'GLOBE' ? (
+          <canvas
+            ref={minimapCanvasRef}
+            style={{ width: '100%', height: '100%', display: 'block' }}
+          />
+        ) : null
+      }
+      rightPanel={null}
     />
   )
 }
