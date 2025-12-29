@@ -1,15 +1,14 @@
-// ===============================================
-// JARVIS CHANGE HEADER (6A-4) - FIXED FOR V1.3 WORLD BRAIN
-// File: src/modes/generate/GenerateModeApp.tsx
+// ========================================================
+// JARVIS_CHANGE -- Generate Mode (Full File Replacement)
+// Date: 2025-12-28
 //
 // Fixes:
-// - worldGenerator now returns WorldBrain (gridWidth/gridHeight + per-cell seaLevel)
-// - Previous code destructured {width,height,seaLevel,landFraction} which do not exist.
-// - This caused planetRenderer.createImageData to receive undefined → runtime crash.
-// - Also fixes NaN UI text by computing landFraction.
-// ===============================================
+// - Sliders LEFT
+// - Preview reacts to more than sea level
+// - Save navigates reliably using world.metadata.id (no dependency on saveWorld return)
+// ========================================================
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppShell } from '../../ui/AppShell'
 
@@ -20,13 +19,56 @@ import {
 } from '../../core/worldGenerator'
 
 import { saveWorld } from '../../core/worldStorage'
-import {
-  renderPlanetToCanvas,
-  sampleColorForHeight,
-} from '../../core/planetRenderer'
 
 function clamp01(v: number) {
   return Math.max(0, Math.min(1, v))
+}
+
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t
+}
+
+type RGB = { r: number; g: number; b: number }
+
+function mix(c1: RGB, c2: RGB, t: number): RGB {
+  return {
+    r: Math.round(lerp(c1.r, c2.r, t)),
+    g: Math.round(lerp(c1.g, c2.g, t)),
+    b: Math.round(lerp(c1.b, c2.b, t)),
+  }
+}
+
+function shade(c: RGB, s: number): RGB {
+  return {
+    r: Math.max(0, Math.min(255, Math.round(c.r * s))),
+    g: Math.max(0, Math.min(255, Math.round(c.g * s))),
+    b: Math.max(0, Math.min(255, Math.round(c.b * s))),
+  }
+}
+
+function oceanColor(depth01: number): RGB {
+  const shallow = { r: 30, g: 120, b: 210 }
+  const deep = { r: 8, g: 35, b: 90 }
+  return mix(shallow, deep, clamp01(depth01))
+}
+
+function landColor(temp01: number, rain01: number, height01: number): RGB {
+  const dry = { r: 170, g: 155, b: 120 }
+  const wet = { r: 70, g: 140, b: 85 }
+  const soil = mix(dry, wet, clamp01(rain01))
+
+  const coldRock = { r: 150, g: 155, b: 160 }
+  const climate = mix(coldRock, soil, clamp01(temp01))
+
+  const rock = { r: 130, g: 125, b: 120 }
+  const snow = { r: 235, g: 240, b: 245 }
+
+  const toRock = clamp01((height01 - 0.55) / 0.25)
+  const mid = mix(climate, rock, toRock)
+
+  const snowLine = lerp(0.78, 0.92, temp01)
+  const toSnow = clamp01((height01 - snowLine) / 0.12)
+  return mix(mid, snow, toSnow)
 }
 
 export default function GenerateModeApp() {
@@ -35,19 +77,27 @@ export default function GenerateModeApp() {
   const [params, setParams] = useState<GeneratorParams>(() =>
     createDefaultGeneratorParams(),
   )
-  const [worldName, setWorldName] = useState(params.name ?? 'New World')
+  const [worldName, setWorldName] = useState('New World')
 
   const globeCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null)
+
+  // stable preview seed (avoids flicker while dragging)
+  const previewSeed = useMemo(() => {
+    const s = Number((params as any).seed)
+    if (Number.isFinite(s)) return String(s)
+    return (params as any).seed ?? '123456'
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const sliderOrder: (keyof GeneratorParams)[] = [
     'landmass',
     'seaLevel',
     'plateActivity',
+    'planetAge',
     'temperature',
     'humidity',
     'axisTilt',
-    'planetAge',
     'climateVariance',
     'worldStyle',
   ]
@@ -59,104 +109,44 @@ export default function GenerateModeApp() {
     }))
   }
 
-  const handleSave = async () => {
+  const labelForParam = (key: keyof GeneratorParams): string => {
+    switch (key) {
+      case 'landmass': return 'Landmass'
+      case 'seaLevel': return 'Sea level'
+      case 'plateActivity': return 'Plate activity'
+      case 'planetAge': return 'Planet age'
+      case 'temperature': return 'Temperature'
+      case 'humidity': return 'Humidity'
+      case 'axisTilt': return 'Axial tilt'
+      case 'climateVariance': return 'Climate variance'
+      case 'worldStyle': return 'World style'
+      default: return String(key)
+    }
+  }
+
+  const handleSave = () => {
     const world = generateWorldFromParams({
       ...params,
       name: worldName.trim() || params.name,
-    })
-    const saved = await saveWorld(world)
-    navigate(`/modes/create/${saved.id}`)
-  }
+      seed: previewSeed,
+    } as any)
 
-  function describeParam(key: keyof GeneratorParams, value: number): string {
-    const v01 = value / 100
+    // legacy saveWorld may return void -- that’s fine.
+    saveWorld(world as any)
 
-    switch (key) {
-      case 'landmass':
-        if (v01 < 0.25) return 'Mostly ocean with scattered islands'
-        if (v01 < 0.5) return 'Balanced seas and continents'
-        if (v01 < 0.75) return 'Large continents with some seas'
-        return 'Dense supercontinents with inland seas'
+    const id =
+      (world as any)?.metadata?.id ??
+      (world as any)?.id
 
-      case 'seaLevel':
-        if (v01 < 0.25) return 'Deep oceans, high cliffs, rare shallow seas'
-        if (v01 < 0.5) return 'Moderate sea level and coastlines'
-        if (v01 < 0.75) return 'Shallow seas, flooded lowlands'
-        return 'Very shallow oceans, many inland seas and lakes'
-
-      case 'plateActivity':
-        if (v01 < 0.25) return 'Old, worn-down mountains; gentle hills'
-        if (v01 < 0.5) return 'Moderate mountain ranges and plateaus'
-        if (v01 < 0.75) return 'Active plates; dramatic ranges and trenches'
-        return 'Very active; sharp ranges, ridges, and volcanism'
-
-      case 'temperature':
-        if (v01 < 0.25) return 'Colder planet overall'
-        if (v01 < 0.5) return 'Temperate baseline'
-        if (v01 < 0.75) return 'Warm baseline'
-        return 'Hot planet overall'
-
-      case 'humidity':
-        if (v01 < 0.25) return 'Drier climates; more deserts'
-        if (v01 < 0.5) return 'Balanced humidity'
-        if (v01 < 0.75) return 'Humid climates; more forests'
-        return 'Very humid; many wetlands and rain belts'
-
-      case 'axisTilt':
-        if (v01 < 0.25) return 'Low tilt; mild seasons'
-        if (v01 < 0.5) return 'Moderate tilt; noticeable seasons'
-        if (v01 < 0.75) return 'High tilt; strong seasonal contrast'
-        return 'Extreme tilt; harsh seasonal swings'
-
-      case 'planetAge':
-        if (v01 < 0.25) return 'Young planet; rough, sharp terrain'
-        if (v01 < 0.5) return 'Maturing; strong ranges with erosion'
-        if (v01 < 0.75) return 'Old; smoother continents and basins'
-        return 'Very old; worn-down mountains and broad plains'
-
-      case 'climateVariance':
-        if (v01 < 0.25) return 'Stable climate; smoother biome bands'
-        if (v01 < 0.5) return 'Moderate variance'
-        if (v01 < 0.75) return 'More chaotic belts and rain shadows'
-        return 'Highly varied and patchy climates'
-
-      case 'worldStyle':
-        if (v01 < 0.25) return 'Earthlike: grounded continents and believable climates'
-        if (v01 < 0.5) return 'Fantasy: dramatic continents and striking terrain'
-        if (v01 < 0.75) return 'Stylized: bold shapes and readable geography'
-        return 'Alien: strange landmasses and unusual contrasts'
-
-      default:
-        return ''
+    if (!id) {
+      // if somehow missing, go home (better than "stuck")
+      navigate('/')
+      return
     }
+
+    navigate(`/modes/create/${id}`)
   }
 
-  function labelForParam(key: keyof GeneratorParams): string {
-    switch (key) {
-      case 'landmass':
-        return 'Landmass'
-      case 'seaLevel':
-        return 'Sea level'
-      case 'plateActivity':
-        return 'Plate activity'
-      case 'temperature':
-        return 'Temperature'
-      case 'humidity':
-        return 'Humidity'
-      case 'axisTilt':
-        return 'Axial tilt'
-      case 'planetAge':
-        return 'Planet age'
-      case 'climateVariance':
-        return 'Climate variance'
-      case 'worldStyle':
-        return 'World style'
-      default:
-        return String(key)
-    }
-  }
-
-  // --- Preview rendering ---
   useEffect(() => {
     const globeCanvas = globeCanvasRef.current
     const minimapCanvas = minimapCanvasRef.current
@@ -169,92 +159,93 @@ export default function GenerateModeApp() {
     const world = generateWorldFromParams({
       ...params,
       name: worldName.trim() || params.name,
-    })
+      seed: previewSeed,
+    } as any)
 
-    // ✅ V1.3 WorldBrain fields
-    const width = Number.isFinite(world.gridWidth) ? world.gridWidth : (world.metadata?.gridWidth ?? 256)
-    const height = Number.isFinite(world.gridHeight) ? world.gridHeight : (world.metadata?.gridHeight ?? 128)
+    const w = (world as any).metadata?.gridWidth ?? (world as any).gridWidth ?? 256
+    const h = (world as any).metadata?.gridHeight ?? (world as any).gridHeight ?? 128
+    const width = Math.max(2, Math.floor(w))
+    const height = Math.max(2, Math.floor(h))
+    const cells: any[] = (world as any).cells ?? []
 
-    // Ensure integers for canvas APIs
-    const w = Math.max(1, Math.floor(width))
-    const h = Math.max(1, Math.floor(height))
+    const n = Math.min(cells.length, width * height)
 
-    const cells = world.cells
-    const seaLevel = Number.isFinite((cells[0] as any)?.seaLevel)
-      ? (cells[0] as any).seaLevel
-      : 0
+    const seaLevel =
+      Number.isFinite(cells[0]?.seaLevel)
+        ? Number(cells[0].seaLevel)
+        : lerp(-0.15, 0.25, (params as any).seaLevel / 100)
 
-    // Compute land fraction for UI (prevents NaN)
-    const cellCount = cells.length || 1
-    let land = 0
-    for (let i = 0; i < cells.length; i++) {
-      if ((cells[i] as any).baseHeight >= seaLevel) land++
+    const heightAt = (i: number) => {
+      const c = cells[i]
+      return Number(c?.baseHeight ?? 0) +
+        Number(c?.editHeightDelta ?? 0) +
+        Number(c?.simHeightDelta ?? 0)
     }
-    const landFraction = land / cellCount
 
-    // ---------- Minimap (flat map) ----------
-    minimapCanvas.width = w
-    minimapCanvas.height = h
+    let minH = Infinity
+    let maxH = -Infinity
+    for (let i = 0; i < n; i++) {
+      const hh = heightAt(i)
+      if (hh < minH) minH = hh
+      if (hh > maxH) maxH = hh
+    }
+    if (!Number.isFinite(minH) || !Number.isFinite(maxH) || maxH - minH < 1e-6) {
+      minH = -1
+      maxH = 1
+    }
 
-    renderPlanetToCanvas(minimapCtx, {
-      width: w,
-      height: h,
-      cells: cells as any,
-      seaLevel,
-    })
+    // ---------- MINIMAP ----------
+    minimapCanvas.width = width
+    minimapCanvas.height = height
+    minimapCtx.imageSmoothingEnabled = false
+    const miniImg = minimapCtx.createImageData(width, height)
 
-    // ---------- Globe preview ----------
-    const globeSize = 320
-    const radius = globeSize * 0.45
-    const cx = globeSize / 2
-    const cy = globeSize / 2
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = y * width + x
+        if (idx >= n) continue
+        const p = idx * 4
 
+        const c = cells[idx]
+        const hh = heightAt(idx)
+        const height01 = clamp01((hh - minH) / (maxH - minH))
+
+        const temp01 = clamp01(Number(c?.temperature ?? (params as any).temperature / 100))
+        const rain01 = clamp01(Number(c?.rainfall ?? (params as any).humidity / 100))
+
+        const isOcean = hh < seaLevel
+        const col = isOcean
+          ? oceanColor(clamp01((seaLevel - hh) / (maxH - minH)))
+          : landColor(temp01, rain01, height01)
+
+        miniImg.data[p + 0] = col.r
+        miniImg.data[p + 1] = col.g
+        miniImg.data[p + 2] = col.b
+        miniImg.data[p + 3] = 255
+      }
+    }
+    minimapCtx.putImageData(miniImg, 0, 0)
+
+    // ---------- GLOBE ----------
+    const globeSize = 360
     globeCanvas.width = globeSize
     globeCanvas.height = globeSize
+
+    const cx = globeSize / 2
+    const cy = globeSize / 2
+    const radius = globeSize * 0.42
 
     const img = globeCtx.createImageData(globeSize, globeSize)
     const data = img.data
 
-    // Simple directional light for shading
-    const lightDir = { x: -0.4, y: 0.5, z: 0.8 }
-    {
-      const len =
-        Math.sqrt(
-          lightDir.x * lightDir.x +
-            lightDir.y * lightDir.y +
-            lightDir.z * lightDir.z,
-        ) || 1
-      lightDir.x /= len
-      lightDir.y /= len
-      lightDir.z /= len
-    }
+    const L = { x: -0.35, y: 0.35, z: 0.87 }
+    const len = Math.sqrt(L.x * L.x + L.y * L.y + L.z * L.z) || 1
+    L.x /= len; L.y /= len; L.z /= len
 
-    // Bilinear sampling over world cells
-    const sample = (u: number, v: number) => {
-      const x = u * (w - 1)
-      const y = v * (h - 1)
-
-      const x0 = Math.floor(x)
-      const y0 = Math.floor(y)
-      const x1 = Math.min(w - 1, x0 + 1)
-      const y1 = Math.min(h - 1, y0 + 1)
-
-      const tx = x - x0
-      const ty = y - y0
-
-      const idx00 = y0 * w + x0
-      const idx10 = y0 * w + x1
-      const idx01 = y1 * w + x0
-      const idx11 = y1 * w + x1
-
-      const h00 = (cells[idx00] as any)?.baseHeight ?? 0
-      const h10 = (cells[idx10] as any)?.baseHeight ?? 0
-      const h01 = (cells[idx01] as any)?.baseHeight ?? 0
-      const h11 = (cells[idx11] as any)?.baseHeight ?? 0
-
-      const h0 = h00 * (1 - tx) + h10 * tx
-      const h1 = h01 * (1 - tx) + h11 * tx
-      return h0 * (1 - ty) + h1 * ty
+    const sampleCellIndex = (u: number, v: number) => {
+      const xx = Math.max(0, Math.min(width - 1, Math.floor(u * width)))
+      const yy = Math.max(0, Math.min(height - 1, Math.floor(v * height)))
+      return yy * width + xx
     }
 
     for (let py = 0; py < globeSize; py++) {
@@ -273,64 +264,49 @@ export default function GenerateModeApp() {
         const ny = dy / radius
         const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny))
 
-        // Convert sphere normal to lat/lon UV
-        const lon = Math.atan2(nx, nz) // -pi..pi
-        const lat = Math.asin(ny) // -pi/2..pi/2
-
+        const lon = Math.atan2(nx, nz)
+        const lat = Math.asin(ny)
         const u = (lon + Math.PI) / (Math.PI * 2)
         const v = 1 - (lat + Math.PI / 2) / Math.PI
 
-        const heightSample = sample(u, v)
-        const col = sampleColorForHeight(heightSample, seaLevel)
+        const idx = sampleCellIndex(u, v)
+        const c = cells[idx]
+        const hh = heightAt(idx)
+        const height01 = clamp01((hh - minH) / (maxH - minH))
 
-        // Lambert shading
-        const ndotl = clamp01(nx * lightDir.x + ny * lightDir.y + nz * lightDir.z)
-        const shade = 0.65 + 0.35 * ndotl
+        const temp01 = clamp01(Number(c?.temperature ?? (params as any).temperature / 100))
+        const rain01 = clamp01(Number(c?.rainfall ?? (params as any).humidity / 100))
 
-        data[p + 0] = Math.floor(col.r * shade)
-        data[p + 1] = Math.floor(col.g * shade)
-        data[p + 2] = Math.floor(col.b * shade)
+        const isOcean = hh < seaLevel
+        let col: RGB
+        if (isOcean) col = oceanColor(clamp01((seaLevel - hh) / (maxH - minH)))
+        else col = landColor(temp01, rain01, height01)
+
+        const ndotl = clamp01(nx * L.x + ny * L.y + nz * L.z)
+        const rim = Math.pow(1 - nz, 2) * 0.35
+        const light = 0.62 + 0.48 * ndotl + rim
+
+        const shaded = shade(col, light)
+
+        data[p + 0] = shaded.r
+        data[p + 1] = shaded.g
+        data[p + 2] = shaded.b
         data[p + 3] = 255
       }
     }
 
     globeCtx.putImageData(img, 0, 0)
-
-    // (Optional) you can use landFraction in the panel text below safely now
-    void landFraction
-  }, [params, worldName])
+  }, [params, worldName, previewSeed])
 
   return (
     <AppShell
       title="Generator"
       onBack={() => navigate('/')}
       leftToolbar={
-        <div className="ww-left-toolbar-inner">
-          <button className="ww-secondary-btn" onClick={() => navigate('/')}>
-            Back
-          </button>
-        </div>
-      }
-      main={
-        <div className="ww-generate-viewport">
-          <canvas
-            ref={globeCanvasRef}
-            style={{ width: '100%', height: '100%', display: 'block' }}
-          />
-        </div>
-      }
-      minimapOverlay={
-        <canvas
-          ref={minimapCanvasRef}
-          style={{ width: '100%', height: '100%', display: 'block' }}
-        />
-      }
-      rightPanel={
-        <div className="ww-right-panel-inner">
-          <h2 className="ww-panel-title">Generator</h2>
-          <p className="ww-panel-text">
-            Adjust the sliders to shape the planet. When you save, you’ll enter Create Mode to edit.
-          </p>
+        <div className="ww-left-toolbar-inner ww-generate-left">
+          <button className="ww-secondary-btn" onClick={() => navigate('/')}>Back</button>
+
+          <div style={{ height: 10 }} />
 
           <label className="ww-field">
             <span className="ww-field-label">World name</span>
@@ -343,7 +319,8 @@ export default function GenerateModeApp() {
 
           <div className="ww-slider-list">
             {sliderOrder.map(key => {
-              const value = params[key] as unknown as number
+              const value = (params as any)[key]
+              if (typeof value !== 'number') return null
               return (
                 <div key={String(key)} className="ww-slider-row">
                   <div className="ww-slider-header">
@@ -358,7 +335,6 @@ export default function GenerateModeApp() {
                     value={value}
                     onChange={e => handleSliderChange(key, Number(e.target.value))}
                   />
-                  <div className="ww-slider-desc">{describeParam(key, value)}</div>
                 </div>
               )
             })}
@@ -369,6 +345,15 @@ export default function GenerateModeApp() {
           </button>
         </div>
       }
+      main={
+        <div className="ww-generate-viewport">
+          <canvas ref={globeCanvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+        </div>
+      }
+      minimapOverlay={
+        <canvas ref={minimapCanvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+      }
+      rightPanel={null}
     />
   )
 }
