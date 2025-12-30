@@ -1,241 +1,257 @@
-import React from "react";
+// ========================================================
+// WORLDWRIGHT -- APP SHELL (V1.3)
+// File: src/ui/AppShell.tsx
+//
+// Layout:
+// - Top bar
+// - Left toolbar
+// - Main viewport
+// - Minimap bottom-left (Globe view only)
+// - Right panel
+//
+// Create Mode Map view: NO minimap (locked rule).
+// ========================================================
 
-type Mode = "home" | "generate" | "create" | "sim";
+import React, { useEffect, useMemo, useRef } from "react";
 
-export type ToolItem = {
+type AppMode = "generate" | "create" | "sim";
+type ViewMode = "GLOBE" | "MAP";
+
+export type LeftTool = {
   id: string;
   label: string;
+  isEnabled?: boolean;
   onClick?: () => void;
-  disabled?: boolean;
 };
 
-export type ToolGroup = {
-  id: string;
-  title: string;
-  items: ToolItem[];
+export type PlanetPreview = {
+  width: number;
+  height: number;
+  /** Return RGBA in 0..255 */
+  colorAt: (x: number, y: number) => [number, number, number, number];
 };
 
-type Props = {
-  mode: Mode;
-
-  // Top bar
+export interface AppShellProps {
   title: string;
-  subtitle?: string;
-  onGoHome?: () => void;
-  onToggleMode?: (mode: "create" | "sim") => void;
 
-  // Left toolbar tool taxonomy
-  toolGroups?: ToolGroup[];
+  mode?: AppMode;
+  viewMode?: ViewMode;
 
-  // Panels
+  leftTools?: LeftTool[];
+  planetPreview?: PlanetPreview | null;
+
   rightPanel?: React.ReactNode;
+}
 
-  // Minimap overlay (Create + Globe View only, per blueprint)
-  minimap?: React.ReactNode;
-  showMinimap?: boolean;
+function clamp(v: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, v));
+}
 
-  // Main canvas/content
-  children: React.ReactNode;
-};
+function resizeCanvasToDisplaySize(canvas: HTMLCanvasElement): boolean {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const w = Math.max(1, Math.floor(rect.width * dpr));
+  const h = Math.max(1, Math.floor(rect.height * dpr));
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+    return true;
+  }
+  return false;
+}
 
-function TopBar({
-  mode,
-  title,
-  subtitle,
-  onGoHome,
-  onToggleMode,
-}: {
-  mode: Mode;
-  title: string;
-  subtitle?: string;
-  onGoHome?: () => void;
-  onToggleMode?: (mode: "create" | "sim") => void;
-}) {
-  const showModeToggle = mode === "create" || mode === "sim";
+function drawMinimap(canvas: HTMLCanvasElement, preview: PlanetPreview) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  resizeCanvasToDisplaySize(canvas);
+
+  const w = canvas.width;
+  const h = canvas.height;
+
+  const img = ctx.createImageData(w, h);
+  const d = img.data;
+
+  for (let y = 0; y < h; y++) {
+    const v = y / Math.max(1, h - 1);
+    const py = clamp(Math.floor(v * (preview.height - 1)), 0, preview.height - 1);
+
+    for (let x = 0; x < w; x++) {
+      const u = x / Math.max(1, w - 1);
+      const px = clamp(Math.floor(u * (preview.width - 1)), 0, preview.width - 1);
+
+      const idx = (y * w + x) * 4;
+      const [r, g, b, a] = preview.colorAt(px, py);
+      d[idx + 0] = r;
+      d[idx + 1] = g;
+      d[idx + 2] = b;
+      d[idx + 3] = a;
+    }
+  }
+
+  ctx.putImageData(img, 0, 0);
+
+  // Subtle grid for readability
+  ctx.save();
+  ctx.globalAlpha = 0.08;
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 1;
+  const gx = Math.max(12, Math.floor(w / 10));
+  const gy = Math.max(10, Math.floor(h / 8));
+  for (let x = gx; x < w; x += gx) {
+    ctx.beginPath();
+    ctx.moveTo(x + 0.5, 0);
+    ctx.lineTo(x + 0.5, h);
+    ctx.stroke();
+  }
+  for (let y = gy; y < h; y += gy) {
+    ctx.beginPath();
+    ctx.moveTo(0, y + 0.5);
+    ctx.lineTo(w, y + 0.5);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function DefaultLeftTools({ tools }: { tools: LeftTool[] }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 10 }}>
+      {tools.map((t) => {
+        const enabled = t.isEnabled !== false;
+        return (
+          <button
+            key={t.id}
+            onClick={enabled ? t.onClick : undefined}
+            disabled={!enabled}
+            style={{
+              padding: "10px 10px",
+              borderRadius: 12,
+              fontWeight: 800,
+              textAlign: "left",
+              cursor: enabled ? "pointer" : "not-allowed",
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: enabled ? "rgba(17,24,39,0.70)" : "rgba(17,24,39,0.35)",
+              color: enabled ? "#E5E7EB" : "rgba(229,231,235,0.55)",
+            }}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function AppShell(props: AppShellProps) {
+  const { title, mode, viewMode, leftTools, planetPreview, rightPanel } = props;
+
+  const showMinimap = useMemo(() => {
+    if (!planetPreview) return false;
+    if (mode === "create" && viewMode === "MAP") return false; // locked rule
+    return true;
+  }, [planetPreview, mode, viewMode]);
+
+  const globeRef = useRef<HTMLCanvasElement | null>(null);
+  const miniRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    // CPU preview only: minimap draws from planetPreview; globe canvas reserved for renderer later.
+    const globe = globeRef.current;
+    if (!globe) return;
+    resizeCanvasToDisplaySize(globe);
+  }, [planetPreview]);
+
+  useEffect(() => {
+    if (!planetPreview || !showMinimap) return;
+    const mini = miniRef.current;
+    if (!mini) return;
+
+    drawMinimap(mini, planetPreview);
+    const onResize = () => drawMinimap(mini, planetPreview);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [planetPreview, showMinimap]);
+
+  const left = leftTools && leftTools.length ? <DefaultLeftTools tools={leftTools} /> : null;
 
   return (
     <div
       style={{
-        height: 52,
+        minHeight: "100vh",
         display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "0 12px",
-        borderBottom: "1px solid rgba(0,0,0,0.12)",
-        background: "rgba(255,255,255,0.85)",
-        backdropFilter: "blur(8px)",
+        flexDirection: "column",
+        background: "radial-gradient(circle at top, #0B1220 0, #070B15 55%, #050712 100%)",
+        color: "#E5E7EB",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-        <button
-          onClick={onGoHome}
-          style={{
-            padding: "8px 10px",
-            borderRadius: 10,
-            border: "1px solid rgba(0,0,0,0.15)",
-            fontWeight: 900,
-          }}
-        >
-          Home
-        </button>
-
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 900, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {title}
-          </div>
-          {subtitle ? (
-            <div
-              style={{
-                fontSize: 12,
-                opacity: 0.7,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {subtitle}
-            </div>
-          ) : null}
-        </div>
+      {/* Top bar */}
+      <div
+        style={{
+          height: 52,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 12px",
+          borderBottom: "1px solid rgba(255,255,255,0.10)",
+          background: "rgba(2,6,23,0.70)",
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        <div style={{ fontWeight: 900 }}>{title}</div>
+        <div style={{ fontSize: 12, opacity: 0.7 }}>{mode ? mode.toUpperCase() : ""}</div>
       </div>
 
-      {showModeToggle && onToggleMode ? (
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={() => onToggleMode("create")}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 10,
-              border: "1px solid rgba(0,0,0,0.15)",
-              fontWeight: 900,
-              opacity: mode === "create" ? 1 : 0.6,
-            }}
-          >
-            Create
-          </button>
-          <button
-            onClick={() => onToggleMode("sim")}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 10,
-              border: "1px solid rgba(0,0,0,0.15)",
-              fontWeight: 900,
-              opacity: mode === "sim" ? 1 : 0.6,
-            }}
-          >
-            Sim
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
+      {/* Main layout */}
+      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 340px", flex: 1 }}>
+        {/* Left toolbar */}
+        <aside
+          style={{
+            borderRight: "1px solid rgba(255,255,255,0.08)",
+            background: "rgba(2,6,23,0.55)",
+            overflow: "auto",
+          }}
+        >
+          {left}
+        </aside>
 
-function LeftToolbar({ groups }: { groups: ToolGroup[] }) {
-  return (
-    <div
-      style={{
-        width: 220,
-        borderRight: "1px solid rgba(0,0,0,0.12)",
-        background: "rgba(255,255,255,0.75)",
-        backdropFilter: "blur(8px)",
-        padding: 10,
-        overflow: "auto",
-      }}
-    >
-      {groups.map((g) => (
-        <div key={g.id} style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, opacity: 0.7, marginBottom: 8 }}>{g.title}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {g.items.map((it) => (
-              <button
-                key={it.id}
-                onClick={it.onClick}
-                disabled={!!it.disabled}
-                style={{
-                  textAlign: "left",
-                  padding: "9px 10px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(0,0,0,0.15)",
-                  fontWeight: 900,
-                  opacity: it.disabled ? 0.45 : 1,
-                  cursor: it.disabled ? "not-allowed" : "pointer",
-                }}
-              >
-                {it.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+        {/* Viewport */}
+        <main style={{ position: "relative", overflow: "hidden" }}>
+          <canvas ref={globeRef} style={{ width: "100%", height: "100%", display: "block" }} />
 
-export default function AppShell({
-  mode,
-  title,
-  subtitle,
-  onGoHome,
-  onToggleMode,
-  toolGroups,
-  rightPanel,
-  minimap,
-  showMinimap,
-  children,
-}: Props) {
-  const hasLeft = !!toolGroups && toolGroups.length > 0;
-  const hasRight = !!rightPanel;
-
-  return (
-    <div style={{ height: "100vh", width: "100vw", display: "flex", flexDirection: "column" }}>
-      {/* Top bar required by blueprint */}
-      <TopBar mode={mode} title={title} subtitle={subtitle} onGoHome={onGoHome} onToggleMode={onToggleMode} />
-
-      {/* Body */}
-      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
-        {hasLeft ? <LeftToolbar groups={toolGroups!} /> : null}
-
-        {/* Center canvas region (with minimap overlay support) */}
-        <div style={{ flex: 1, position: "relative", minWidth: 0, minHeight: 0 }}>
-          {children}
-
-          {/* Minimap: bottom-left, rectangular. Create+Globe only. */}
-          {showMinimap && minimap ? (
+          {/* Locked minimap placement: bottom-left, rectangular */}
+          {showMinimap ? (
             <div
               style={{
                 position: "absolute",
-                left: 12,
-                bottom: 12,
-                width: 220,
-                height: 150,
-                borderRadius: 12,
-                border: "1px solid rgba(0,0,0,0.2)",
+                left: 14,
+                bottom: 14,
+                width: 210,
+                height: 140,
+                borderRadius: 10,
                 overflow: "hidden",
-                background: "rgba(255,255,255,0.8)",
-                backdropFilter: "blur(8px)",
+                border: "1px solid rgba(255,255,255,0.14)",
+                background: "rgba(2,6,23,0.55)",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.45)",
               }}
             >
-              {minimap}
+              <canvas ref={miniRef} style={{ width: "100%", height: "100%", display: "block" }} />
             </div>
           ) : null}
-        </div>
+        </main>
 
-        {hasRight ? (
-          <div
-            style={{
-              width: 360,
-              borderLeft: "1px solid rgba(0,0,0,0.12)",
-              background: "rgba(255,255,255,0.75)",
-              backdropFilter: "blur(8px)",
-              overflow: "auto",
-              minHeight: 0,
-            }}
-          >
-            {rightPanel}
-          </div>
-        ) : null}
+        {/* Right panel */}
+        <aside
+          style={{
+            borderLeft: "1px solid rgba(255,255,255,0.08)",
+            background: "rgba(2,6,23,0.55)",
+            overflow: "auto",
+          }}
+        >
+          {rightPanel}
+        </aside>
       </div>
     </div>
   );
 }
+
+export default AppShell;

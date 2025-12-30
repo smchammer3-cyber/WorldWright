@@ -1,92 +1,146 @@
-import React, { useMemo, useState } from "react";
+// src/modes/sim/SimModeApp.tsx
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-
-import AppShell, { ToolGroup } from "../../ui/AppShell";
-import SimToolbar from "./SimToolbar";
-import SimViewport from "./SimViewport";
-
-import type { WorldBrain } from "../../core/worldSchema";
-import { getWorldById } from "../../core/worldStorage";
+import { AppShell, LeftTool } from "../../ui/AppShell";
+import { worldSession } from "../../core/worldSession";
+import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
 
 export default function SimModeApp() {
-  const nav = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { worldId } = useParams<{ worldId: string }>();
 
-  const [world, setWorld] = useState<WorldBrain | null>(null);
+  const [world, setWorld] = useState(worldSession.getWorld());
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  const [running, setRunning] = useState(false);
+  const [tickSpeed, setTickSpeed] = useState(250);
+
+  useEffect(() => {
+    const unsub = worldSession.subscribe((w) => setWorld(w));
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
-    async function load() {
-      if (!id) return;
+
+    async function run() {
       setError(null);
+      setLoading(true);
+
+      if (!worldId) {
+        setError("No worldId in route. Return to Home.");
+        setLoading(false);
+        return;
+      }
+
       try {
-        const w = await getWorldById(id);
-        if (!cancelled) setWorld(w);
-      } catch (e) {
-        console.error(e);
-        if (!cancelled) setError("Failed to load world.");
+        await worldSession.loadWorld(worldId);
+        if (!cancelled) setLoading(false);
+      } catch (e: any) {
+        const msg = e?.message ? String(e.message) : String(e);
+        if (!cancelled) {
+          setError(msg);
+          setLoading(false);
+        }
       }
     }
-    load();
+
+    run();
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [worldId]);
 
-  const toolGroups: ToolGroup[] = useMemo(
+  // Run simulation ticks when running is true
+  useEffect(() => {
+    let timer: number | null = null;
+    if (running) {
+      timer = window.setInterval(() => worldSession.simulateTick(), Math.max(50, tickSpeed));
+    }
+    return () => {
+      if (timer) window.clearInterval(timer);
+    };
+  }, [running, tickSpeed]);
+
+  const planetPreview = useMemo(() => {
+    if (!world) return null;
+    return makePlanetPreviewFromWorldBrain(world);
+  }, [world]);
+
+  const leftTools: LeftTool[] = useMemo(
     () => [
-      {
-        id: "nav",
-        title: "Navigation",
-        items: [
-          { id: "home", label: "Home", onClick: () => nav("/") },
-          { id: "generate", label: "Generate", onClick: () => nav("/generate") },
-          { id: "create", label: "Create", onClick: () => (id ? nav(`/create/${id}`) : null), disabled: !id },
-          { id: "sim", label: "Sim", disabled: true },
-        ],
-      },
-      {
-        id: "simtools",
-        title: "Sim Tools",
-        items: [
-          { id: "cultures", label: "Cultures", disabled: true },
-          { id: "settlements", label: "Settlements", disabled: true },
-          { id: "trade", label: "Trade Routes", disabled: true },
-          { id: "time", label: "Time", disabled: true },
-        ],
-      },
+      { id: "home", label: "Home", isEnabled: true, onClick: () => navigate("/") },
+      { id: "overview", label: "Overview", isEnabled: true },
+      { id: "culture", label: "Culture", isEnabled: false },
+      { id: "trade", label: "Trade", isEnabled: false },
+      { id: "routes", label: "Routes", isEnabled: false },
     ],
-    [nav, id]
+    [navigate]
   );
 
-  if (error && !world) {
-    return (
-      <AppShell mode="sim" title="Sim" subtitle={error} onGoHome={() => nav("/")}>
-        <div style={{ padding: 18 }}>{error}</div>
-      </AppShell>
-    );
+  async function handleSave() {
+    const id = await worldSession.save();
+    if (!id) {
+      setError("Save failed. Storage may be blocked/unavailable. Try closing other tabs and refresh.");
+      return;
+    }
+    navigate(`/sim/${id}`, { replace: true });
   }
 
-  if (!world) {
+  const rightPanel = (() => {
+    if (loading) {
+      return <div style={{ padding: 12 }}>Loading…</div>;
+    }
+    if (error) {
+      return (
+        <div style={{ padding: 12 }}>
+          <div style={{ fontWeight: 900, marginBottom: 8 }}>Sim Mode</div>
+          <div style={{ opacity: 0.9, marginBottom: 10 }}>{error}</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={() => navigate("/")}>Back to Home</button>
+            <button onClick={() => navigate("/generate")}>Go to Generate</button>
+            <button onClick={() => window.location.reload()}>Reload</button>
+          </div>
+          <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
+            Tip: If this says IndexedDB is blocked, close other WorldWright tabs/windows and reload.
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <AppShell mode="sim" title="Sim" subtitle="Loading…" onGoHome={() => nav("/")}>
-        <div style={{ padding: 18 }}>Loading…</div>
-      </AppShell>
+      <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontWeight: 900 }}>Sim</div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={() => setRunning((v) => !v)}>{running ? "Pause" : "Run"}</button>
+          <button onClick={() => worldSession.simulateTick()}>Tick</button>
+          <button onClick={handleSave}>Save</button>
+        </div>
+
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>Tick Speed (ms)</div>
+          <input
+            type="number"
+            min={50}
+            value={tickSpeed}
+            onChange={(e) => setTickSpeed(Number(e.target.value))}
+            style={{ width: "100%" }}
+          />
+        </div>
+      </div>
     );
-  }
+  })();
 
   return (
     <AppShell
+      title={`WorldWright -- Sim`}
       mode="sim"
-      title={world.metadata.name || "Untitled World"}
-      subtitle={`Sim • seed ${world.metadata.seed}`}
-      onGoHome={() => nav("/")}
-      onToggleMode={(m) => nav(`/${m}/${world.metadata.id}`)}
-      toolGroups={toolGroups}
-      rightPanel={<SimToolbar world={world} />}
-    >
-      <SimViewport world={world} />
-    </AppShell>
+      viewMode="GLOBE"
+      leftTools={leftTools}
+      planetPreview={planetPreview}
+      rightPanel={rightPanel}
+    />
   );
 }
