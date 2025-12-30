@@ -20,6 +20,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import AppShell, { ToolGroup, ViewMode } from "../../ui/AppShell";
 import { worldSession } from "../../core/worldSession";
 import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
+import Globe3D from "../../render/Globe3D";
+import MiniMap from "../../ui/MiniMap";
 
 export default function CreateModeApp() {
   const navigate = useNavigate();
@@ -70,6 +72,9 @@ export default function CreateModeApp() {
   }, [worldId]);
 
   const preview = useMemo(() => {
+    // Compute the CPU preview only when a world is loaded. The preview is used
+    // for 2D map view and minimap generation. Globe view uses the WebGL
+    // renderer instead of this raster texture.
     if (!world) return null;
     return makePlanetPreviewFromWorldBrain(world);
   }, [world]);
@@ -355,27 +360,31 @@ export default function CreateModeApp() {
       toolGroups={toolGroups}
     >
       <div style={{ width: "100%", height: "100%", position: "relative" }}>
-        {/* Main viewport (safe preview render) */}
-        {renderPreviewCanvas(preview, "main")}
+        {/* Main viewport: show a real 3D globe in Globe view, otherwise show a 2D raster map */}
+        {world && viewMode === 'GLOBE' ? (
+          <Globe3D world={world} className="" />
+        ) : (
+          renderPreviewCanvas(preview, 'main')
+        )}
 
-        {/* Minimap: ONLY Create + Globe */}
-        {showMinimap && (
+        {/* Minimap: only appears in Globe view. Uses the MiniMap component for a safe CPU raster */}
+        {world && showMinimap && (
           <div
             style={{
-              position: "absolute",
+              position: 'absolute',
               left: 16,
               bottom: 16,
               width: 220,
               height: 140,
               borderRadius: 12,
-              overflow: "hidden",
-              border: "1px solid rgba(255,255,255,0.18)",
-              background: "rgba(0,0,0,0.35)",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
+              overflow: 'hidden',
+              border: '1px solid rgba(255,255,255,0.18)',
+              background: 'rgba(0,0,0,0.35)',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.35)',
             }}
             title="Minimap (Create + Globe only)"
           >
-            {renderPreviewCanvas(preview, "minimap")}
+            <MiniMap world={world} />
           </div>
         )}
       </div>

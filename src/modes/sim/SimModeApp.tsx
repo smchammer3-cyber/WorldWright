@@ -1,9 +1,9 @@
 // src/modes/sim/SimModeApp.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AppShell from "../../ui/AppShell";
 import { worldSession } from "../../core/worldSession";
-import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
+import Globe3D from "../../render/Globe3D";
 
 export default function SimModeApp() {
   const navigate = useNavigate();
@@ -49,10 +49,7 @@ export default function SimModeApp() {
     };
   }, [worldId]);
 
-  const preview = useMemo(() => {
-    if (!world) return null;
-    return makePlanetPreviewFromWorldBrain(world);
-  }, [world]);
+  // In Sim Mode we render the 3D globe directly; no CPU preview is used.
 
   const rightPanel = (
     <div style={{ padding: 14, color: "rgba(255,255,255,0.88)" }}>
@@ -200,28 +197,12 @@ export default function SimModeApp() {
         },
       ]}
     >
-      <div style={{ width: "100%", height: "100%", position: "relative" }}>
-        {/* Placeholder viewport using preview texture. */}
-        {preview ? (
-          <canvas
-            width={preview.width}
-            height={preview.height}
-            ref={(c) => {
-              if (!c) return;
-              const ctx = c.getContext("2d");
-              if (!ctx) return;
-              const imgData = ctx.createImageData(preview.width, preview.height);
-              imgData.data.set(preview.rgba);
-              ctx.putImageData(imgData, 0, 0);
-            }}
-            style={{
-              width: "100%",
-              height: "100%",
-              imageRendering: "pixelated",
-            }}
-          />
+      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+        {/* Main viewport: render the real 3D globe when a world is loaded */}
+        {world ? (
+          <Globe3D world={world} className="" />
         ) : (
-          <div style={{ padding: 20, color: "rgba(255,255,255,0.85)" }}>No preview.</div>
+          <div style={{ padding: 20, color: 'rgba(255,255,255,0.85)' }}>No world loaded.</div>
         )}
       </div>
     </AppShell>

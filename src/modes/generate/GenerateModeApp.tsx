@@ -24,7 +24,10 @@ export default function GenerateModeApp() {
   async function handleGenerate(params: GeneratorParams) {
     setError(null);
     try {
-      worldSession.createWorld(params);
+      // Create a new world via worldSession. Awaiting ensures the world has
+      // been generated, normalized, recomputed and validated before we read
+      // it. worldSession will notify subscribers automatically.
+      await worldSession.createWorld(params);
       const w = worldSession.getWorld();
       setWorld(w);
     } catch (e: any) {
