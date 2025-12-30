@@ -8,6 +8,10 @@
 // - Add Create view toggle (Globe/Map).
 // - Enforce minimap rule: ONLY Create + Globe shows minimap.
 // - Provide blueprint tool category scaffold (disabled placeholders for now).
+//
+// Additional Stability Fix (Critical):
+// - Guard canvas preview writes so undefined rgba cannot crash the app.
+// - Prevents "Cannot convert undefined or null to object" from Uint8ClampedArray.set.
 // ========================================================
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -200,6 +204,60 @@ export default function CreateModeApp() {
     </div>
   );
 
+  // ---------------------------
+  // SAFE preview canvas renderer
+  // ---------------------------
+  function renderPreviewCanvas(p: any, mode: "main" | "minimap") {
+    const w = p?.width;
+    const h = p?.height;
+    const rgba = p?.rgba;
+
+    // If anything is missing, do NOT attempt Uint8ClampedArray.set
+    if (!w || !h || !rgba || !(rgba instanceof Uint8ClampedArray)) {
+      return (
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 12,
+            color: "rgba(255,255,255,0.85)",
+            fontSize: 13,
+          }}
+        >
+          {mode === "main" ? "Generating preview…" : "Minimap…"}
+        </div>
+      );
+    }
+
+    return (
+      <canvas
+        width={w}
+        height={h}
+        ref={(c) => {
+          if (!c) return;
+          const ctx = c.getContext("2d");
+          if (!ctx) return;
+
+          try {
+            const imgData = ctx.createImageData(w, h);
+            imgData.data.set(rgba);
+            ctx.putImageData(imgData, 0, 0);
+          } catch (e) {
+            console.error("Preview render failed:", e);
+          }
+        }}
+        style={{
+          width: "100%",
+          height: "100%",
+          imageRendering: "pixelated",
+        }}
+      />
+    );
+  }
+
   // Loading / error states (NO infinite loading)
   if (loading) {
     return (
@@ -297,31 +355,11 @@ export default function CreateModeApp() {
       toolGroups={toolGroups}
     >
       <div style={{ width: "100%", height: "100%", position: "relative" }}>
-        {/* Main viewport (placeholder: render preview) */}
-        {preview ? (
-          <canvas
-            width={preview.width}
-            height={preview.height}
-            ref={(c) => {
-              if (!c) return;
-              const ctx = c.getContext("2d");
-              if (!ctx) return;
-              const imgData = ctx.createImageData(preview.width, preview.height);
-              imgData.data.set(preview.rgba);
-              ctx.putImageData(imgData, 0, 0);
-            }}
-            style={{
-              width: "100%",
-              height: "100%",
-              imageRendering: "pixelated",
-            }}
-          />
-        ) : (
-          <div style={{ padding: 20, color: "rgba(255,255,255,0.85)" }}>No preview.</div>
-        )}
+        {/* Main viewport (safe preview render) */}
+        {renderPreviewCanvas(preview, "main")}
 
         {/* Minimap: ONLY Create + Globe */}
-        {showMinimap && preview && (
+        {showMinimap && (
           <div
             style={{
               position: "absolute",
@@ -337,23 +375,7 @@ export default function CreateModeApp() {
             }}
             title="Minimap (Create + Globe only)"
           >
-            <canvas
-              width={preview.width}
-              height={preview.height}
-              ref={(c) => {
-                if (!c) return;
-                const ctx = c.getContext("2d");
-                if (!ctx) return;
-                const imgData = ctx.createImageData(preview.width, preview.height);
-                imgData.data.set(preview.rgba);
-                ctx.putImageData(imgData, 0, 0);
-              }}
-              style={{
-                width: "100%",
-                height: "100%",
-                imageRendering: "pixelated",
-              }}
-            />
+            {renderPreviewCanvas(preview, "minimap")}
           </div>
         )}
       </div>
