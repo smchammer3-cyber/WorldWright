@@ -1,15 +1,12 @@
 // ========================================================
-// JARVIS CHANGE HEADER -- WORLD STORAGE IDB FALLBACK + CLEAR ERRORS
+// JARVIS CHANGE HEADER -- WORLD STORAGE: FIX IDB KEYPATH + NO-SILENT FAILS
 // File: src/core/worldStorage/index.ts
 //
 // Fixes:
-// - Detect IndexedDB unavailability and fall back to localStorage for full snapshots.
-// - Keep summaries index in localStorage (existing behavior).
-// - Make save/load/delete resilient in embedded preview environments.
-//
-// Notes:
-// - This fallback is intentionally minimal; it prevents "Save does nothing".
-// - Large worlds may exceed localStorage quota; we surface errors rather than failing silently.
+// - IndexedDB store uses out-of-line keys (prevents DataError: key path did not yield a value).
+// - DB_VERSION bumped to force upgrade; store is recreated.
+// - localStorage stores summaries only; no full-world localStorage snapshots (avoids QuotaExceeded).
+// - Errors are surfaced to callers.
 // ========================================================
 
 import type { WorldBrain } from "../worldSchema";
@@ -26,15 +23,12 @@ export type WorldSummary = {
 };
 
 const DB_NAME = "worldwright_db";
-const DB_VERSION = 1;
+const DB_VERSION = 2; // bumped to fix object store schema
 const STORE_WORLDS = "worlds";
 
 const LS_SUMMARIES_KEY = "worldwright_world_summaries_v1";
-const LS_WORLD_PREFIX = "worldwright_world_snapshot_v3:";
 
 const IDB_AVAILABLE = typeof indexedDB !== "undefined";
-
-type StoredWorld = { id: string; world: WorldBrain };
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -76,14 +70,13 @@ function upsertSummaryFromWorld(w: WorldBrain): WorldSummary {
   };
 }
 
-function snapshotKey(id: string) {
-  return `${LS_WORLD_PREFIX}${id}`;
+function fallbackId(): string {
+  const r = Math.floor(Math.random() * 1e9);
+  return `w_${Date.now()}_${r}`;
 }
 
 async function ensureDb(): Promise<IDBDatabase> {
-  if (!IDB_AVAILABLE) {
-    throw new Error("IndexedDB is not available in this environment.");
-  }
+  if (!IDB_AVAILABLE) throw new Error("IndexedDB is not available in this environment.");
   if (dbPromise) return dbPromise;
 
   dbPromise = new Promise((resolve, reject) => {
@@ -91,9 +84,14 @@ async function ensureDb(): Promise<IDBDatabase> {
 
     req.onupgradeneeded = () => {
       const db = req.result;
-      if (!db.objectStoreNames.contains(STORE_WORLDS)) {
-        db.createObjectStore(STORE_WORLDS, { keyPath: "id" });
+
+      // Recreate store to avoid legacy keyPath mismatches.
+      if (db.objectStoreNames.contains(STORE_WORLDS)) {
+        db.deleteObjectStore(STORE_WORLDS);
       }
+
+      // Out-of-line keys (id passed to put/get).
+      db.createObjectStore(STORE_WORLDS);
     };
 
     req.onsuccess = () => resolve(req.result);
@@ -111,7 +109,7 @@ async function idbPutWorld(id: string, world: WorldBrain): Promise<void> {
     tx.onerror = () => reject(tx.error ?? new Error("IndexedDB transaction failed"));
 
     const store = tx.objectStore(STORE_WORLDS);
-    store.put({ id, world } satisfies StoredWorld);
+    store.put(world, id);
   });
 }
 
@@ -123,10 +121,7 @@ async function idbGetWorld(id: string): Promise<WorldBrain | null> {
 
     const store = tx.objectStore(STORE_WORLDS);
     const req = store.get(id);
-    req.onsuccess = () => {
-      const row = req.result as StoredWorld | undefined;
-      resolve(row?.world ?? null);
-    };
+    req.onsuccess = () => resolve((req.result as WorldBrain) ?? null);
     req.onerror = () => reject(req.error ?? new Error("IndexedDB get failed"));
   });
 }
@@ -147,28 +142,28 @@ async function idbDeleteWorld(id: string): Promise<void> {
 // Schema normalization (minimal)
 // -----------------------------
 function normalizeWorldToV3(w: WorldBrain): WorldBrain {
-  // Ensure required metadata fields exist.
   if (!w.metadata) (w as any).metadata = {};
-  if (!w.metadata.id) (w.metadata as any).id = crypto.randomUUID?.() ?? String(Math.random());
+
+  if (!w.metadata.id) (w.metadata as any).id = (globalThis.crypto as any)?.randomUUID?.() ?? fallbackId();
   if (!w.metadata.name) (w.metadata as any).name = "Untitled World";
   if (!w.metadata.seed) (w.metadata as any).seed = String((w.metadata as any).seed ?? "");
   if (!w.metadata.schemaVersion) (w.metadata as any).schemaVersion = "v3";
   if (!w.metadata.createdAt) (w.metadata as any).createdAt = nowIso();
   if (!w.metadata.updatedAt) (w.metadata as any).updatedAt = nowIso();
 
-  // Mirror global seaLevel to metadata for storage/compat
+  // Mirror seaLevel between root and metadata for compatibility.
   if ((w as any).seaLevel != null) {
     (w.metadata as any).seaLevel = (w as any).seaLevel;
   } else if ((w.metadata as any).seaLevel != null) {
     (w as any).seaLevel = (w.metadata as any).seaLevel;
   }
 
-  // Recompute derived fields
   try {
     recomputeWorld(w, ["LOAD"]);
   } catch {
-    // Keep load resilient; validator/recompute can be tightened later.
+    // keep resilient
   }
+
   return w;
 }
 
@@ -180,7 +175,6 @@ export async function listWorldSummaries(): Promise<WorldSummary[]> {
 }
 
 export async function getWorldById(id: string): Promise<WorldBrain | null> {
-  // Try IndexedDB first
   try {
     const w = await idbGetWorld(id);
     if (w) return normalizeWorldToV3(w);
@@ -188,27 +182,21 @@ export async function getWorldById(id: string): Promise<WorldBrain | null> {
     console.error("worldStorage.getWorldById (idb) failed:", e);
   }
 
-  // Fallback: localStorage snapshot
-  const raw = localStorage.getItem(snapshotKey(id));
-  const parsed = safeJsonParse<WorldBrain>(raw);
-  if (parsed) return normalizeWorldToV3(parsed);
+  // No full-world localStorage fallback (avoids quota failures); if IDB is blocked, surface null.
   return null;
 }
 
 export async function saveWorld(world: WorldBrain): Promise<WorldBrain> {
-  const w = normalizeWorldToV3(structuredClone(world) as WorldBrain);
+  const cloneFn = (globalThis as any).structuredClone as ((x: any) => any) | undefined;
+  const w = normalizeWorldToV3((cloneFn ? cloneFn(world) : JSON.parse(JSON.stringify(world))) as WorldBrain);
 
-  // Ensure metadata timestamps
   const updatedAt = nowIso();
   (w.metadata as any).updatedAt = updatedAt;
   if (!(w.metadata as any).createdAt) (w.metadata as any).createdAt = updatedAt;
 
-  // Ensure ID
-  if (!w.metadata.id) {
-    (w.metadata as any).id = crypto.randomUUID?.() ?? String(Math.random());
-  }
+  if (!w.metadata.id) (w.metadata as any).id = (globalThis.crypto as any)?.randomUUID?.() ?? fallbackId();
 
-  // Keep summaries index in localStorage
+  // Update summaries index (localStorage)
   const summary = upsertSummaryFromWorld(w);
   const rows = readSummaries();
   const next = rows.filter((r) => r.id !== summary.id);
@@ -216,24 +204,8 @@ export async function saveWorld(world: WorldBrain): Promise<WorldBrain> {
   writeSummaries(next);
 
   // Primary: IndexedDB
-  try {
-    await idbPutWorld(w.metadata.id, w);
-    return w;
-  } catch (e) {
-    console.error("worldStorage.saveWorld (idb) failed, falling back to localStorage:", e);
-  }
-
-  // Fallback: localStorage snapshot
-  try {
-    localStorage.setItem(snapshotKey(w.metadata.id), JSON.stringify(w));
-    return w;
-  } catch (e) {
-    console.error("worldStorage.saveWorld (localStorage fallback) failed:", e);
-    // Surface a real error so UI can show it.
-    throw new Error(
-      "Save failed: storage unavailable (IndexedDB blocked and localStorage quota/availability prevented fallback)."
-    );
-  }
+  await idbPutWorld(w.metadata.id, w);
+  return w;
 }
 
 export async function deleteWorld(id: string): Promise<void> {
@@ -241,23 +213,10 @@ export async function deleteWorld(id: string): Promise<void> {
   const rows = readSummaries();
   writeSummaries(rows.filter((r) => r.id !== id));
 
-  // Try IDB
-  try {
-    await idbDeleteWorld(id);
-  } catch (e) {
-    console.error("worldStorage.deleteWorld (idb) failed:", e);
-  }
-
-  // Always remove fallback snapshot
-  try {
-    localStorage.removeItem(snapshotKey(id));
-  } catch (e) {
-    console.error("worldStorage.deleteWorld (localStorage) failed:", e);
-  }
+  // Delete from IDB
+  await idbDeleteWorld(id);
 }
 
-// Legacy migration: previously stored full worlds in localStorage. Keep as a no-op safe pass.
 export async function migrateLegacyLocalStorageWorlds(): Promise<void> {
-  // If future legacy keys exist, this is where we would import them into summaries + IDB.
   return;
 }
