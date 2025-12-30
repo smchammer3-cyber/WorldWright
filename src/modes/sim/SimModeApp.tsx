@@ -1,109 +1,89 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import AppShell from "../../ui/AppShell";
-
-import { getWorldById } from "../../core/worldStorage";
-import type { WorldBrain } from "../../core/worldSchema";
-
+import AppShell, { ToolGroup } from "../../ui/AppShell";
 import SimToolbar from "./SimToolbar";
 import SimViewport from "./SimViewport";
 
+import type { WorldBrain } from "../../core/worldSchema";
+import { getWorldById } from "../../core/worldStorage";
+
 export default function SimModeApp() {
-  const navigate = useNavigate();
-  const { worldId } = useParams<{ worldId: string }>();
+  const nav = useNavigate();
+  const { id } = useParams<{ id: string }>();
 
   const [world, setWorld] = useState<WorldBrain | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // --------------------------------------------
-  // Load world
-  // --------------------------------------------
-  useEffect(() => {
-    if (!worldId) {
-      setError("No world id provided.");
-      setLoading(false);
-      return;
-    }
-
-    let alive = true;
-
-    (async () => {
+  React.useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!id) return;
+      setError(null);
       try {
-        setLoading(true);
-        const w = await getWorldById(worldId);
-        if (!alive) return;
-
-        if (!w) {
-          setError("World not found.");
-          setWorld(null);
-        } else {
-          setWorld(w);
-          setError(null);
-        }
-      } catch (e: any) {
-        console.error("Load world failed:", e);
-        setError(String(e?.message ?? e));
-      } finally {
-        if (alive) setLoading(false);
+        const w = await getWorldById(id);
+        if (!cancelled) setWorld(w);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setError("Failed to load world.");
       }
-    })();
-
+    }
+    load();
     return () => {
-      alive = false;
+      cancelled = true;
     };
-  }, [worldId]);
+  }, [id]);
 
-  // --------------------------------------------
-  // Left toolbar
-  // --------------------------------------------
-  const leftTools = useMemo(
+  const toolGroups: ToolGroup[] = useMemo(
     () => [
-      { id: "home", label: "Home", onClick: () => navigate("/") },
       {
-        id: "generate",
-        label: "Generate",
-        onClick: () => navigate("/generate"),
+        id: "nav",
+        title: "Navigation",
+        items: [
+          { id: "home", label: "Home", onClick: () => nav("/") },
+          { id: "generate", label: "Generate", onClick: () => nav("/generate") },
+          { id: "create", label: "Create", onClick: () => (id ? nav(`/create/${id}`) : null), disabled: !id },
+          { id: "sim", label: "Sim", disabled: true },
+        ],
       },
       {
-        id: "create",
-        label: "Create",
-        onClick: () => navigate(`/create/${worldId}`),
-        disabled: !worldId,
+        id: "simtools",
+        title: "Sim Tools",
+        items: [
+          { id: "cultures", label: "Cultures", disabled: true },
+          { id: "settlements", label: "Settlements", disabled: true },
+          { id: "trade", label: "Trade Routes", disabled: true },
+          { id: "time", label: "Time", disabled: true },
+        ],
       },
-      { id: "sim", label: "Sim", active: true },
     ],
-    [navigate, worldId]
+    [nav, id]
   );
 
-  if (loading) {
+  if (error && !world) {
     return (
-      <AppShell leftTools={leftTools}>
-        <div style={{ padding: 20 }}>Loading world…</div>
-      </AppShell>
-    );
-  }
-
-  if (error) {
-    return (
-      <AppShell leftTools={leftTools}>
-        <div style={{ padding: 20, color: "red" }}>{error}</div>
+      <AppShell mode="sim" title="Sim" subtitle={error} onGoHome={() => nav("/")}>
+        <div style={{ padding: 18 }}>{error}</div>
       </AppShell>
     );
   }
 
   if (!world) {
     return (
-      <AppShell leftTools={leftTools}>
-        <div style={{ padding: 20 }}>No world loaded.</div>
+      <AppShell mode="sim" title="Sim" subtitle="Loading…" onGoHome={() => nav("/")}>
+        <div style={{ padding: 18 }}>Loading…</div>
       </AppShell>
     );
   }
 
   return (
     <AppShell
-      leftTools={leftTools}
+      mode="sim"
+      title={world.metadata.name || "Untitled World"}
+      subtitle={`Sim • seed ${world.metadata.seed}`}
+      onGoHome={() => nav("/")}
+      onToggleMode={(m) => nav(`/${m}/${world.metadata.id}`)}
+      toolGroups={toolGroups}
       rightPanel={<SimToolbar world={world} />}
     >
       <SimViewport world={world} />

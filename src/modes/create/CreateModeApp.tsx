@@ -1,125 +1,119 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
-import AppShell from "../../ui/AppShell";
-
-import { getWorldById, saveWorld } from "../../core/worldStorage";
-import type { WorldBrain } from "../../core/worldSchema";
+import AppShell, { ToolGroup } from "../../ui/AppShell";
+import MiniMap from "../../ui/MiniMap";
 
 import CreateToolbar from "./CreateToolbar";
 import CreateViewport from "./CreateViewport";
 
+import type { WorldBrain } from "../../core/worldSchema";
+import { getWorldById, saveWorld } from "../../core/worldStorage";
+
+type ViewMode = "globe" | "map";
+
 export default function CreateModeApp() {
-  const navigate = useNavigate();
-  const { worldId } = useParams<{ worldId: string }>();
+  const nav = useNavigate();
+  const { id } = useParams<{ id: string }>();
 
   const [world, setWorld] = useState<WorldBrain | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("globe");
 
-  // --------------------------------------------
-  // Load world
-  // --------------------------------------------
-  useEffect(() => {
-    if (!worldId) {
-      setError("No world id provided.");
-      setLoading(false);
-      return;
-    }
-
-    let alive = true;
-
-    (async () => {
+  React.useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      if (!id) return;
+      setError(null);
       try {
-        setLoading(true);
-        const w = await getWorldById(worldId);
-        if (!alive) return;
-
-        if (!w) {
-          setError("World not found.");
-          setWorld(null);
-        } else {
-          setWorld(w);
-          setError(null);
-        }
-      } catch (e: any) {
-        console.error("Load world failed:", e);
-        setError(String(e?.message ?? e));
-      } finally {
-        if (alive) setLoading(false);
+        const w = await getWorldById(id);
+        if (!cancelled) setWorld(w);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setError("Failed to load world.");
       }
-    })();
-
+    }
+    load();
     return () => {
-      alive = false;
+      cancelled = true;
     };
-  }, [worldId]);
+  }, [id]);
 
-  // --------------------------------------------
-  // Save
-  // --------------------------------------------
-  const handleSave = async () => {
+  const toolGroups: ToolGroup[] = useMemo(() => {
+    const groups: ToolGroup[] = [
+      {
+        id: "nav",
+        title: "Navigation",
+        items: [
+          { id: "home", label: "Home", onClick: () => nav("/") },
+          { id: "generate", label: "Generate", onClick: () => nav("/generate") },
+          { id: "create", label: "Create", disabled: true },
+          { id: "sim", label: "Sim", onClick: () => (id ? nav(`/sim/${id}`) : null), disabled: !id },
+        ],
+      },
+      {
+        id: "view",
+        title: "View",
+        items: [
+          { id: "globe", label: "Globe View", onClick: () => setViewMode("globe"), disabled: viewMode === "globe" },
+          { id: "map", label: "Map View", onClick: () => setViewMode("map"), disabled: viewMode === "map" },
+        ],
+      },
+      {
+        id: "tools",
+        title: "Tools",
+        items: [
+          { id: "terrain", label: "Terrain", disabled: true },
+          { id: "biome", label: "Biomes", disabled: true },
+          { id: "water", label: "Water", disabled: true },
+          { id: "volcano", label: "Volcano", disabled: true },
+          { id: "countries", label: "Countries", disabled: true },
+          { id: "culture", label: "Culture", disabled: true },
+          { id: "cities", label: "Cities", disabled: true },
+        ],
+      },
+    ];
+    return groups;
+  }, [nav, id, viewMode]);
+
+  async function handleSave() {
     if (!world) return;
-
+    setError(null);
     try {
-      const saved = await saveWorld(world);
-      setWorld(saved);
-    } catch (e: any) {
-      console.error("Save failed:", e);
+      await saveWorld(world);
+    } catch (e) {
+      console.error(e);
       setError("Save failed. See console for details.");
     }
-  };
-
-  // --------------------------------------------
-  // Left toolbar
-  // --------------------------------------------
-  const leftTools = useMemo(
-    () => [
-      { id: "home", label: "Home", onClick: () => navigate("/") },
-      {
-        id: "generate",
-        label: "Generate",
-        onClick: () => navigate("/generate"),
-      },
-      { id: "create", label: "Create", active: true },
-      {
-        id: "sim",
-        label: "Sim",
-        onClick: () => navigate(`/sim/${worldId}`),
-        disabled: !worldId,
-      },
-    ],
-    [navigate, worldId]
-  );
-
-  if (loading) {
-    return (
-      <AppShell leftTools={leftTools}>
-        <div style={{ padding: 20 }}>Loading world…</div>
-      </AppShell>
-    );
   }
 
-  if (error) {
+  if (error && !world) {
     return (
-      <AppShell leftTools={leftTools}>
-        <div style={{ padding: 20, color: "red" }}>{error}</div>
+      <AppShell mode="create" title="Create" subtitle={error} onGoHome={() => nav("/")}>
+        <div style={{ padding: 18 }}>{error}</div>
       </AppShell>
     );
   }
 
   if (!world) {
     return (
-      <AppShell leftTools={leftTools}>
-        <div style={{ padding: 20 }}>No world loaded.</div>
+      <AppShell mode="create" title="Create" subtitle="Loading…" onGoHome={() => nav("/")}>
+        <div style={{ padding: 18 }}>Loading…</div>
       </AppShell>
     );
   }
 
   return (
     <AppShell
-      leftTools={leftTools}
+      mode="create"
+      title={world.metadata.name || "Untitled World"}
+      subtitle={`Create • ${viewMode === "globe" ? "Globe View" : "Map View"} • seed ${world.metadata.seed}`}
+      onGoHome={() => nav("/")}
+      onToggleMode={(m) => nav(`/${m}/${world.metadata.id}`)}
+      toolGroups={toolGroups}
       rightPanel={<CreateToolbar world={world} onSave={handleSave} />}
+      minimap={<MiniMap world={world} />}
+      showMinimap={viewMode === "globe"}
     >
       <CreateViewport world={world} onWorldChange={setWorld} />
     </AppShell>
