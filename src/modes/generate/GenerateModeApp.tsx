@@ -1,8 +1,17 @@
-// src/modes/generate/GenerateModeApp.tsx
+// ========================================================
+// JARVIS CHANGE HEADER -- GENERATE MODE SAVE/ERROR HARDENING
+// File: src/modes/generate/GenerateModeApp.tsx
+//
+// Fixes:
+// - Show a visible error if save fails (no silent "nothing happens").
+// - Disable Save while saving.
+// - Keep generator preview responsive.
+// ========================================================
+
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "../../ui/AppShell";
-import { GeneratorParams } from "../../core/worldGenerator";
+import type { GeneratorParams } from "../../core/worldGenerator";
 import { worldSession } from "../../core/worldSession";
 import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
 
@@ -14,20 +23,18 @@ function SliderRow(props: {
   step?: number;
   onChange: (v: number) => void;
 }) {
-  const { label, value, min, max, step = 1, onChange } = props;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <div style={{ fontWeight: 800, fontSize: 12, opacity: 0.85 }}>
-        {label}: {value}
-      </div>
+      <div style={{ fontWeight: 800, fontSize: 12, opacity: 0.85 }}>{props.label}</div>
       <input
         type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(parseInt(e.target.value, 10))}
+        min={props.min}
+        max={props.max}
+        step={props.step ?? 1}
+        value={props.value}
+        onChange={(e) => props.onChange(parseFloat(e.target.value))}
       />
+      <div style={{ fontWeight: 900, fontSize: 12 }}>{Math.round(props.value)}</div>
     </div>
   );
 }
@@ -47,13 +54,18 @@ export default function GenerateModeApp() {
     styleMode: "EARTHLIKE",
   }));
 
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
   const updateNumber = (key: keyof GeneratorParams, v: number) => {
-    setParams((p) => ({ ...p, [key]: v } as GeneratorParams));
+    setParams((p) => ({ ...p, [key]: v }));
   };
 
-  // Generate into session whenever params change
+  // Re-generate when params change.
   useEffect(() => {
+    setErr(null);
     worldSession.createWorld(params);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     params.width,
     params.height,
@@ -66,7 +78,8 @@ export default function GenerateModeApp() {
     params.styleMode,
   ]);
 
-  const [world, setWorld] = useState(worldSession.getWorld());
+  const [world, setWorld] = useState(() => worldSession.getWorld());
+
   useEffect(() => {
     const unsub = worldSession.subscribe((w) => setWorld(w));
     return unsub;
@@ -78,8 +91,23 @@ export default function GenerateModeApp() {
   }, [world]);
 
   const handleSave = async () => {
-    const id = await worldSession.save();
-    if (id) navigate(`/create/${id}`);
+    if (!world || saving) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      const id = await worldSession.save();
+      if (!id) {
+        setErr(
+          "Save failed. Storage may be unavailable in this environment (e.g., IndexedDB blocked). Check the dev console for details."
+        );
+        return;
+      }
+      navigate(`/create/${id}`);
+    } catch (e: any) {
+      setErr(e?.message ?? "Save failed.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -89,13 +117,79 @@ export default function GenerateModeApp() {
       planetPreview={preview}
       rightPanel={
         <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 14 }}>
-          <SliderRow label="Width" value={params.width} min={64} max={1024} step={32} onChange={(v) => updateNumber("width", v)} />
-          <SliderRow label="Height" value={params.height} min={32} max={512} step={16} onChange={(v) => updateNumber("height", v)} />
-          <SliderRow label="Sea Level" value={params.seaLevel} min={0} max={100} step={1} onChange={(v) => updateNumber("seaLevel", v)} />
-          <SliderRow label="Plate Activity" value={params.plateActivity} min={0} max={100} step={1} onChange={(v) => updateNumber("plateActivity", v)} />
-          <SliderRow label="Axis Tilt" value={params.axisTilt} min={0} max={100} step={1} onChange={(v) => updateNumber("axisTilt", v)} />
-          <SliderRow label="Planet Age" value={params.planetAge} min={0} max={100} step={1} onChange={(v) => updateNumber("planetAge", v)} />
-          <SliderRow label="Climate Var" value={params.climateVar} min={0} max={100} step={1} onChange={(v) => updateNumber("climateVar", v)} />
+          <div style={{ fontWeight: 950, fontSize: 14 }}>Generator</div>
+
+          {err ? (
+            <div
+              style={{
+                padding: 10,
+                borderRadius: 12,
+                background: "rgba(200,40,40,0.10)",
+                border: "1px solid rgba(200,40,40,0.25)",
+                fontWeight: 800,
+                lineHeight: 1.3,
+              }}
+            >
+              {err}
+            </div>
+          ) : null}
+
+          <SliderRow
+            label="Width"
+            value={params.width}
+            min={64}
+            max={1024}
+            step={1}
+            onChange={(v) => updateNumber("width", v)}
+          />
+          <SliderRow
+            label="Height"
+            value={params.height}
+            min={32}
+            max={512}
+            step={1}
+            onChange={(v) => updateNumber("height", v)}
+          />
+          <SliderRow
+            label="Sea Level"
+            value={params.seaLevel}
+            min={0}
+            max={100}
+            step={1}
+            onChange={(v) => updateNumber("seaLevel", v)}
+          />
+          <SliderRow
+            label="Plate Activity"
+            value={params.plateActivity}
+            min={0}
+            max={100}
+            step={1}
+            onChange={(v) => updateNumber("plateActivity", v)}
+          />
+          <SliderRow
+            label="Axis Tilt"
+            value={params.axisTilt}
+            min={0}
+            max={100}
+            step={1}
+            onChange={(v) => updateNumber("axisTilt", v)}
+          />
+          <SliderRow
+            label="Planet Age"
+            value={params.planetAge}
+            min={0}
+            max={100}
+            step={1}
+            onChange={(v) => updateNumber("planetAge", v)}
+          />
+          <SliderRow
+            label="Climate Var"
+            value={params.climateVar}
+            min={0}
+            max={100}
+            step={1}
+            onChange={(v) => updateNumber("climateVar", v)}
+          />
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontWeight: 800, fontSize: 12, opacity: 0.85 }}>Seed</div>
@@ -110,9 +204,9 @@ export default function GenerateModeApp() {
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontWeight: 800, fontSize: 12, opacity: 0.85 }}>Style Mode</div>
             <select
-              value={params.styleMode}
+              value={params.styleMode as any}
               onChange={(e) => setParams((p) => ({ ...p, styleMode: e.target.value as any }))}
-              style={{ padding: 10, borderRadius: 10, fontWeight: 900 }}
+              style={{ padding: 10, borderRadius: 10, fontWeight: 800 }}
             >
               <option value="EARTHLIKE">EARTHLIKE</option>
               <option value="FANTASY">FANTASY</option>
@@ -121,8 +215,18 @@ export default function GenerateModeApp() {
             </select>
           </div>
 
-          <button onClick={handleSave} style={{ padding: "12px 12px", borderRadius: 12, fontWeight: 950 }}>
-            Save &amp; Open Create
+          <button
+            onClick={handleSave}
+            disabled={!world || saving}
+            style={{
+              padding: "12px 12px",
+              borderRadius: 12,
+              fontWeight: 950,
+              opacity: !world || saving ? 0.6 : 1,
+              cursor: !world || saving ? "not-allowed" : "pointer",
+            }}
+          >
+            {saving ? "Saving..." : "Save & Open Create"}
           </button>
         </div>
       }
