@@ -3,19 +3,19 @@
 // File: src/core/worldStorage/index.ts
 //
 // Fixes:
-// - Handle IndexedDB blocked state.
-// - Add open timeout to prevent infinite hangs.
-// - Throw clear errors (no silent failures).
-// - Preserve existing API: listWorldSummaries, getWorldById, saveWorld, deleteWorld.
+// - Upgrade DB version to force schema refresh.
+// - Ensure object stores exist with correct keyPaths.
+// - Detect incompatible prior schemas and throw a clear "reset storage" error.
+// - Handle onblocked + open timeout (no hangs).
 // ========================================================
 
 import type { WorldBrain } from "../worldSchema";
 
 const DB_NAME = "worldwright";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
-const STORE_WORLDS = "worlds";
-const STORE_INDEX = "world_index"; // minimal summaries list
+const STORE_WORLDS = "worlds";       // keyPath: "metadata.id"
+const STORE_INDEX = "world_index";   // keyPath: "id"
 
 type WorldSummary = {
   id: string;
@@ -35,8 +35,18 @@ function makeStorageError(msg: string, cause?: unknown) {
   return e;
 }
 
-function getDbOpenTimeoutMs() {
+function openTimeoutMs() {
   return 2000;
+}
+
+function ensureStores(db: IDBDatabase) {
+  // Only callable during upgrade in practice (db.createObjectStore)
+  if (!db.objectStoreNames.contains(STORE_WORLDS)) {
+    db.createObjectStore(STORE_WORLDS, { keyPath: "metadata.id" });
+  }
+  if (!db.objectStoreNames.contains(STORE_INDEX)) {
+    db.createObjectStore(STORE_INDEX, { keyPath: "id" });
+  }
 }
 
 function getDb(): Promise<IDBDatabase> {
@@ -51,24 +61,18 @@ function getDb(): Promise<IDBDatabase> {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
 
     const timeout = setTimeout(() => {
-      try {
-        req.onerror = null;
-        req.onsuccess = null;
-        req.onupgradeneeded = null;
-        (req as any).onblocked = null;
-      } catch {}
       reject(
         makeStorageError(
-          `IndexedDB open timed out (${getDbOpenTimeoutMs()}ms). Another tab may be blocking the database, or the browser is restricting storage.`
+          `IndexedDB open timed out (${openTimeoutMs()}ms). Another tab may be blocking the database, or the browser is restricting storage.`
         )
       );
-    }, getDbOpenTimeoutMs());
+    }, openTimeoutMs());
 
     (req as any).onblocked = () => {
       clearTimeout(timeout);
       reject(
         makeStorageError(
-          "IndexedDB is blocked by another open tab or pending upgrade. Close other WorldWright tabs and reload."
+          "IndexedDB upgrade/open is BLOCKED by another tab. Close other WorldWright tabs and reload."
         )
       );
     };
@@ -81,21 +85,63 @@ function getDb(): Promise<IDBDatabase> {
     req.onupgradeneeded = () => {
       const db = req.result;
 
-      if (!db.objectStoreNames.contains(STORE_WORLDS)) {
-        db.createObjectStore(STORE_WORLDS, { keyPath: "metadata.id" });
-      }
-      if (!db.objectStoreNames.contains(STORE_INDEX)) {
-        db.createObjectStore(STORE_INDEX, { keyPath: "id" });
-      }
+      // Create stores if missing
+      ensureStores(db);
     };
 
     req.onsuccess = () => {
       clearTimeout(timeout);
-      resolve(req.result);
+
+      const db = req.result;
+
+      // ---- Schema sanity check (catches old broken schemas) ----
+      // We must verify keyPath exists, otherwise puts will fail exactly like your screenshot.
+      try {
+        const t = db.transaction(STORE_WORLDS, "readonly");
+        const s = t.objectStore(STORE_WORLDS);
+
+        // If worlds store exists but has no keyPath (out-of-line keys),
+        // our put(world) will fail unless we provide a key each time.
+        // Blueprint + reliability: force user to reset storage.
+        const kp = (s as any).keyPath;
+        const autoInc = (s as any).autoIncrement;
+
+        const keyPathOk = kp === "metadata.id";
+        const hasKeyGenerator = !!autoInc;
+
+        if (!keyPathOk && !hasKeyGenerator) {
+          reject(
+            makeStorageError(
+              [
+                "IndexedDB schema mismatch (old database).",
+                "Your browser has an older WorldWright DB where the 'worlds' store has no keyPath and no key generator.",
+                "Fix: clear site storage for this preview origin, then reload.",
+                "In Chrome: DevTools → Application → Storage → Clear site data (or IndexedDB → delete 'worldwright').",
+              ].join(" ")
+            )
+          );
+          try {
+            db.close();
+          } catch {}
+          return;
+        }
+      } catch (e) {
+        reject(
+          makeStorageError(
+            "IndexedDB schema check failed. You may need to clear site storage for this origin and reload.",
+            e
+          )
+        );
+        try {
+          db.close();
+        } catch {}
+        return;
+      }
+
+      resolve(db);
     };
   });
 
-  // If open fails, allow retry on next call
   dbPromise.catch(() => {
     dbPromise = null;
   });
@@ -110,6 +156,15 @@ function tx<T>(
   fn: (store: IDBObjectStore) => IDBRequest<T>
 ): Promise<T> {
   return new Promise((resolve, reject) => {
+    if (!db.objectStoreNames.contains(storeName)) {
+      reject(
+        makeStorageError(
+          `IndexedDB store "${storeName}" not found. This is an old/partial schema. Clear site storage and reload.`
+        )
+      );
+      return;
+    }
+
     const t = db.transaction(storeName, mode);
     const s = t.objectStore(storeName);
     const req = fn(s);
@@ -122,30 +177,16 @@ function tx<T>(
   });
 }
 
-async function readIndex(db: IDBDatabase): Promise<WorldSummary[]> {
-  const all = await tx<any[]>(db, STORE_INDEX, "readonly", (s) => s.getAll());
-  return (all || []) as WorldSummary[];
-}
-
-async function writeIndex(db: IDBDatabase, summary: WorldSummary): Promise<void> {
-  await tx(db, STORE_INDEX, "readwrite", (s) => s.put(summary));
-}
-
-async function removeIndex(db: IDBDatabase, id: string): Promise<void> {
-  await tx(db, STORE_INDEX, "readwrite", (s) => s.delete(id));
-}
-
 function summarizeWorld(w: WorldBrain): WorldSummary {
   const now = new Date().toISOString();
   const createdAt = w.metadata.createdAt || now;
-  const updatedAt = now;
 
   return {
     id: w.metadata.id,
     name: w.metadata.name || "Untitled World",
     seed: String(w.metadata.seed ?? ""),
     createdAt,
-    updatedAt,
+    updatedAt: now,
     version: w.metadata.version || "v1.3",
     styleMode: w.metadata.styleMode || "Earthlike",
   };
@@ -157,9 +198,9 @@ function summarizeWorld(w: WorldBrain): WorldSummary {
 
 export async function listWorldSummaries(): Promise<WorldSummary[]> {
   const db = await getDb();
-  const idx = await readIndex(db);
-  // newest first
-  return idx.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  const idx = await tx<any[]>(db, STORE_INDEX, "readonly", (s) => s.getAll());
+  const list = (idx || []) as WorldSummary[];
+  return list.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
 }
 
 export async function getWorldById(id: string): Promise<WorldBrain | null> {
@@ -171,14 +212,8 @@ export async function getWorldById(id: string): Promise<WorldBrain | null> {
 export async function saveWorld(world: WorldBrain): Promise<WorldBrain> {
   const db = await getDb();
 
-  // Ensure we have an ID
   if (!world.metadata.id) {
     world.metadata.id = crypto.randomUUID();
-  }
-
-  // Mirror seaLevel if contract expects it
-  if ((world as any).seaLevel != null) {
-    (world.metadata as any).seaLevel = (world as any).seaLevel;
   }
 
   const summary = summarizeWorld(world);
@@ -186,7 +221,7 @@ export async function saveWorld(world: WorldBrain): Promise<WorldBrain> {
   world.metadata.updatedAt = summary.updatedAt;
 
   await tx(db, STORE_WORLDS, "readwrite", (s) => s.put(world));
-  await writeIndex(db, summary);
+  await tx(db, STORE_INDEX, "readwrite", (s) => s.put(summary));
 
   return world;
 }
@@ -194,5 +229,5 @@ export async function saveWorld(world: WorldBrain): Promise<WorldBrain> {
 export async function deleteWorld(id: string): Promise<void> {
   const db = await getDb();
   await tx(db, STORE_WORLDS, "readwrite", (s) => s.delete(id));
-  await removeIndex(db, id);
+  await tx(db, STORE_INDEX, "readwrite", (s) => s.delete(id));
 }
