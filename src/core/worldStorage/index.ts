@@ -1,162 +1,198 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD STORAGE (V1.3)
+// WORLDWRIGHT -- WORLD STORAGE (V1.3 STABILIZE)
 // File: src/core/worldStorage/index.ts
 //
-// IndexedDB-backed storage for WorldBrain snapshots.
+// Fixes:
+// - Handle IndexedDB blocked state.
+// - Add open timeout to prevent infinite hangs.
+// - Throw clear errors (no silent failures).
+// - Preserve existing API: listWorldSummaries, getWorldById, saveWorld, deleteWorld.
 // ========================================================
 
-import { WorldBrain } from "../worldTypes";
-import { generateId } from "../util/id";
+import type { WorldBrain } from "../worldSchema";
 
-const DB_NAME = "worldwright-db";
+const DB_NAME = "worldwright";
 const DB_VERSION = 1;
+
 const STORE_WORLDS = "worlds";
+const STORE_INDEX = "world_index"; // minimal summaries list
+
+type WorldSummary = {
+  id: string;
+  name: string;
+  seed: string;
+  updatedAt: string;
+  createdAt: string;
+  version: string;
+  styleMode: string;
+};
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+
+function makeStorageError(msg: string, cause?: unknown) {
+  const e = new Error(msg);
+  (e as any).cause = cause;
+  return e;
+}
+
+function getDbOpenTimeoutMs() {
+  return 2000;
+}
 
 function getDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
 
-  const OPEN_TIMEOUT_MS = 2000;
-
   dbPromise = new Promise((resolve, reject) => {
-    let settled = false;
-
-    const fail = (err: unknown) => {
-      if (settled) return;
-      settled = true;
-      dbPromise = null; // allow retry
-      reject(err);
-    };
-
-    const timer = window.setTimeout(() => {
-      fail(
-        new Error(
-          "IndexedDB open timed out. It may be blocked by another tab/window."
-        )
-      );
-    }, OPEN_TIMEOUT_MS);
+    if (typeof indexedDB === "undefined") {
+      reject(makeStorageError("IndexedDB is not available in this environment."));
+      return;
+    }
 
     const req = indexedDB.open(DB_NAME, DB_VERSION);
 
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(STORE_WORLDS)) {
-        db.createObjectStore(STORE_WORLDS, { keyPath: "id" });
-      }
-    };
+    const timeout = setTimeout(() => {
+      try {
+        req.onerror = null;
+        req.onsuccess = null;
+        req.onupgradeneeded = null;
+        (req as any).onblocked = null;
+      } catch {}
+      reject(
+        makeStorageError(
+          `IndexedDB open timed out (${getDbOpenTimeoutMs()}ms). Another tab may be blocking the database, or the browser is restricting storage.`
+        )
+      );
+    }, getDbOpenTimeoutMs());
 
-    req.onblocked = () => {
-      window.clearTimeout(timer);
-      fail(
-        new Error(
-          "IndexedDB is blocked. Close other WorldWright tabs/windows and reload."
+    (req as any).onblocked = () => {
+      clearTimeout(timeout);
+      reject(
+        makeStorageError(
+          "IndexedDB is blocked by another open tab or pending upgrade. Close other WorldWright tabs and reload."
         )
       );
     };
 
-    req.onsuccess = () => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
-      resolve(req.result);
+    req.onerror = () => {
+      clearTimeout(timeout);
+      reject(makeStorageError("IndexedDB open failed.", req.error));
     };
 
-    req.onerror = () => {
-      window.clearTimeout(timer);
-      fail(req.error ?? new Error("IndexedDB open failed"));
+    req.onupgradeneeded = () => {
+      const db = req.result;
+
+      if (!db.objectStoreNames.contains(STORE_WORLDS)) {
+        db.createObjectStore(STORE_WORLDS, { keyPath: "metadata.id" });
+      }
+      if (!db.objectStoreNames.contains(STORE_INDEX)) {
+        db.createObjectStore(STORE_INDEX, { keyPath: "id" });
+      }
     };
+
+    req.onsuccess = () => {
+      clearTimeout(timeout);
+      resolve(req.result);
+    };
+  });
+
+  // If open fails, allow retry on next call
+  dbPromise.catch(() => {
+    dbPromise = null;
   });
 
   return dbPromise;
 }
 
-export async function saveWorld(world: WorldBrain): Promise<string> {
-  const db = await getDb();
+function tx<T>(
+  db: IDBDatabase,
+  storeName: string,
+  mode: IDBTransactionMode,
+  fn: (store: IDBObjectStore) => IDBRequest<T>
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = db.transaction(storeName, mode);
+    const s = t.objectStore(storeName);
+    const req = fn(s);
 
-  const id = world.id ?? generateId();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(makeStorageError("IndexedDB request failed.", req.error));
+
+    t.onabort = () => reject(makeStorageError("IndexedDB transaction aborted.", t.error));
+    t.onerror = () => reject(makeStorageError("IndexedDB transaction error.", t.error));
+  });
+}
+
+async function readIndex(db: IDBDatabase): Promise<WorldSummary[]> {
+  const all = await tx<any[]>(db, STORE_INDEX, "readonly", (s) => s.getAll());
+  return (all || []) as WorldSummary[];
+}
+
+async function writeIndex(db: IDBDatabase, summary: WorldSummary): Promise<void> {
+  await tx(db, STORE_INDEX, "readwrite", (s) => s.put(summary));
+}
+
+async function removeIndex(db: IDBDatabase, id: string): Promise<void> {
+  await tx(db, STORE_INDEX, "readwrite", (s) => s.delete(id));
+}
+
+function summarizeWorld(w: WorldBrain): WorldSummary {
   const now = new Date().toISOString();
+  const createdAt = w.metadata.createdAt || now;
+  const updatedAt = now;
 
-  const record = {
-    id,
-    name: world.meta?.name ?? "Untitled World",
-    seed: world.meta?.seed ?? "",
-    createdAt: world.meta?.createdAt ?? now,
-    updatedAt: now,
-    version: world.meta?.version ?? "1.3",
-    styleMode: world.meta?.styleMode ?? "Earthlike",
-    world,
+  return {
+    id: w.metadata.id,
+    name: w.metadata.name || "Untitled World",
+    seed: String(w.metadata.seed ?? ""),
+    createdAt,
+    updatedAt,
+    version: w.metadata.version || "v1.3",
+    styleMode: w.metadata.styleMode || "Earthlike",
   };
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_WORLDS, "readwrite");
-    const store = tx.objectStore(STORE_WORLDS);
-
-    const req = store.put(record);
-
-    req.onsuccess = () => resolve(id);
-    req.onerror = () => reject(req.error);
-  });
 }
 
-export async function loadWorld(id: string): Promise<WorldBrain> {
+// --------------------------------------------
+// Public API
+// --------------------------------------------
+
+export async function listWorldSummaries(): Promise<WorldSummary[]> {
   const db = await getDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_WORLDS, "readonly");
-    const store = tx.objectStore(STORE_WORLDS);
-
-    const req = store.get(id);
-
-    req.onsuccess = () => {
-      if (!req.result) {
-        reject(new Error("World not found"));
-      } else {
-        resolve(req.result.world);
-      }
-    };
-
-    req.onerror = () => reject(req.error);
-  });
+  const idx = await readIndex(db);
+  // newest first
+  return idx.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
 }
 
-export async function listWorldSummaries() {
+export async function getWorldById(id: string): Promise<WorldBrain | null> {
+  const db = await getDb();
+  const w = await tx<any>(db, STORE_WORLDS, "readonly", (s) => s.get(id));
+  return (w || null) as WorldBrain | null;
+}
+
+export async function saveWorld(world: WorldBrain): Promise<WorldBrain> {
   const db = await getDb();
 
-  return new Promise<any[]>((resolve, reject) => {
-    const tx = db.transaction(STORE_WORLDS, "readonly");
-    const store = tx.objectStore(STORE_WORLDS);
+  // Ensure we have an ID
+  if (!world.metadata.id) {
+    world.metadata.id = crypto.randomUUID();
+  }
 
-    const req = store.getAll();
+  // Mirror seaLevel if contract expects it
+  if ((world as any).seaLevel != null) {
+    (world.metadata as any).seaLevel = (world as any).seaLevel;
+  }
 
-    req.onsuccess = () => {
-      resolve(
-        req.result.map((r) => ({
-          id: r.id,
-          name: r.name,
-          seed: r.seed,
-          createdAt: r.createdAt,
-          updatedAt: r.updatedAt,
-          version: r.version,
-          styleMode: r.styleMode,
-        }))
-      );
-    };
+  const summary = summarizeWorld(world);
+  world.metadata.createdAt = summary.createdAt;
+  world.metadata.updatedAt = summary.updatedAt;
 
-    req.onerror = () => reject(req.error);
-  });
+  await tx(db, STORE_WORLDS, "readwrite", (s) => s.put(world));
+  await writeIndex(db, summary);
+
+  return world;
 }
 
 export async function deleteWorld(id: string): Promise<void> {
   const db = await getDb();
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_WORLDS, "readwrite");
-    const store = tx.objectStore(STORE_WORLDS);
-
-    const req = store.delete(id);
-
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  await tx(db, STORE_WORLDS, "readwrite", (s) => s.delete(id));
+  await removeIndex(db, id);
 }

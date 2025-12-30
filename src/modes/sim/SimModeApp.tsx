@@ -1,7 +1,7 @@
 // src/modes/sim/SimModeApp.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AppShell, LeftTool } from "../../ui/AppShell";
+import AppShell from "../../ui/AppShell";
 import { worldSession } from "../../core/worldSession";
 import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
 
@@ -9,138 +9,221 @@ export default function SimModeApp() {
   const navigate = useNavigate();
   const { worldId } = useParams<{ worldId: string }>();
 
-  const [world, setWorld] = useState(worldSession.getWorld());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [running, setRunning] = useState(false);
-  const [tickSpeed, setTickSpeed] = useState(250);
-
+  // Subscribe to world updates
+  const [world, setWorld] = useState(worldSession.getWorld());
   useEffect(() => {
     const unsub = worldSession.subscribe((w) => setWorld(w));
-    return () => unsub();
+    return unsub;
   }, []);
 
+  // Load world with await + error handling
   useEffect(() => {
-    let cancelled = false;
+    let alive = true;
 
-    async function run() {
-      setError(null);
-      setLoading(true);
-
+    (async () => {
       if (!worldId) {
-        setError("No worldId in route. Return to Home.");
-        setLoading(false);
+        if (alive) {
+          setError("Missing worldId in route.");
+          setLoading(false);
+        }
         return;
       }
 
+      setLoading(true);
+      setError(null);
       try {
         await worldSession.loadWorld(worldId);
-        if (!cancelled) setLoading(false);
       } catch (e: any) {
-        const msg = e?.message ? String(e.message) : String(e);
-        if (!cancelled) {
-          setError(msg);
-          setLoading(false);
-        }
+        console.error(e);
+        if (alive) setError(e?.message || "Failed to load world.");
+      } finally {
+        if (alive) setLoading(false);
       }
-    }
+    })();
 
-    run();
     return () => {
-      cancelled = true;
+      alive = false;
     };
   }, [worldId]);
 
-  // Run simulation ticks when running is true
-  useEffect(() => {
-    let timer: number | null = null;
-    if (running) {
-      timer = window.setInterval(() => worldSession.simulateTick(), Math.max(50, tickSpeed));
-    }
-    return () => {
-      if (timer) window.clearInterval(timer);
-    };
-  }, [running, tickSpeed]);
-
-  const planetPreview = useMemo(() => {
+  const preview = useMemo(() => {
     if (!world) return null;
     return makePlanetPreviewFromWorldBrain(world);
   }, [world]);
 
-  const leftTools: LeftTool[] = useMemo(
-    () => [
-      { id: "home", label: "Home", isEnabled: true, onClick: () => navigate("/") },
-      { id: "overview", label: "Overview", isEnabled: true },
-      { id: "culture", label: "Culture", isEnabled: false },
-      { id: "trade", label: "Trade", isEnabled: false },
-      { id: "routes", label: "Routes", isEnabled: false },
-    ],
-    [navigate]
+  const rightPanel = (
+    <div style={{ padding: 14, color: "rgba(255,255,255,0.88)" }}>
+      <h3 style={{ margin: "6px 0 10px 0" }}>Sim</h3>
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+        <button
+          onClick={() => worldSession.simulateTick()}
+          disabled={!world || loading}
+          style={{
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.06)",
+            color: "rgba(255,255,255,0.92)",
+            cursor: !world || loading ? "not-allowed" : "pointer",
+            opacity: !world || loading ? 0.5 : 1,
+          }}
+        >
+          Tick
+        </button>
+
+        <button
+          onClick={() => navigate(`/create/${worldId}`)}
+          disabled={!worldId}
+          style={{
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.06)",
+            color: "rgba(255,255,255,0.92)",
+            cursor: !worldId ? "not-allowed" : "pointer",
+            opacity: !worldId ? 0.5 : 1,
+          }}
+        >
+          Back to Create
+        </button>
+      </div>
+
+      <div style={{ fontSize: 12, opacity: 0.8, lineHeight: 1.4 }}>
+        Sim overlays (Culture/Trade/Routes) will be added after stability.
+      </div>
+    </div>
   );
 
-  async function handleSave() {
-    const id = await worldSession.save();
-    if (!id) {
-      setError("Save failed. Storage may be blocked/unavailable. Try closing other tabs and refresh.");
-      return;
-    }
-    navigate(`/sim/${id}`, { replace: true });
+  if (loading) {
+    return (
+      <AppShell
+        mode="sim"
+        onGoHome={() => navigate("/")}
+        worldName={world?.metadata?.name || "Loading…"}
+        isDirty={worldSession.isDirty()}
+        onModeToggle={() => navigate(`/create/${worldId}`)}
+        rightPanel={rightPanel}
+        leftTools={[
+          { id: "overview", label: "Overview", disabled: true },
+          { id: "culture", label: "Culture", disabled: true },
+          { id: "trade", label: "Trade", disabled: true },
+          { id: "routes", label: "Routes", disabled: true },
+        ]}
+      >
+        <div style={{ padding: 20, color: "rgba(255,255,255,0.85)" }}>Loading world…</div>
+      </AppShell>
+    );
   }
 
-  const rightPanel = (() => {
-    if (loading) {
-      return <div style={{ padding: 12 }}>Loading…</div>;
-    }
-    if (error) {
-      return (
-        <div style={{ padding: 12 }}>
-          <div style={{ fontWeight: 900, marginBottom: 8 }}>Sim Mode</div>
-          <div style={{ opacity: 0.9, marginBottom: 10 }}>{error}</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={() => navigate("/")}>Back to Home</button>
-            <button onClick={() => navigate("/generate")}>Go to Generate</button>
-            <button onClick={() => window.location.reload()}>Reload</button>
-          </div>
-          <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
-            Tip: If this says IndexedDB is blocked, close other WorldWright tabs/windows and reload.
-          </div>
-        </div>
-      );
-    }
-
+  if (error) {
     return (
-      <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ fontWeight: 900 }}>Sim</div>
-
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => setRunning((v) => !v)}>{running ? "Pause" : "Run"}</button>
-          <button onClick={() => worldSession.simulateTick()}>Tick</button>
-          <button onClick={handleSave}>Save</button>
-        </div>
-
-        <div>
-          <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>Tick Speed (ms)</div>
-          <input
-            type="number"
-            min={50}
-            value={tickSpeed}
-            onChange={(e) => setTickSpeed(Number(e.target.value))}
-            style={{ width: "100%" }}
-          />
-        </div>
-      </div>
+      <AppShell
+        mode="sim"
+        onGoHome={() => navigate("/")}
+        worldName="Load Error"
+        isDirty={false}
+        rightPanel={
+          <div style={{ padding: 14, color: "rgba(255,255,255,0.9)" }}>
+            <h3 style={{ margin: "6px 0 10px 0" }}>Could not load world</h3>
+            <div style={{ opacity: 0.85, marginBottom: 12 }}>{error}</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => navigate("/")}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "rgba(255,255,255,0.92)",
+                  cursor: "pointer",
+                }}
+              >
+                Back to Home
+              </button>
+              <button
+                onClick={() => navigate("/generate")}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "rgba(255,255,255,0.92)",
+                  cursor: "pointer",
+                }}
+              >
+                Go to Generate
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "rgba(255,255,255,0.92)",
+                  cursor: "pointer",
+                }}
+              >
+                Reload
+              </button>
+            </div>
+          </div>
+        }
+      >
+        <div style={{ padding: 20, color: "rgba(255,255,255,0.85)" }} />
+      </AppShell>
     );
-  })();
+  }
 
   return (
     <AppShell
-      title={`WorldWright -- Sim`}
       mode="sim"
-      viewMode="GLOBE"
-      leftTools={leftTools}
-      planetPreview={planetPreview}
+      onGoHome={() => navigate("/")}
+      worldName={world?.metadata?.name || "Sim"}
+      isDirty={worldSession.isDirty()}
+      onModeToggle={() => navigate(`/create/${worldId}`)}
       rightPanel={rightPanel}
-    />
+      toolGroups={[
+        {
+          id: "sim",
+          title: "Sim Tools",
+          tools: [
+            { id: "overview", label: "Overview", disabled: true },
+            { id: "culture", label: "Culture", disabled: true },
+            { id: "trade", label: "Trade", disabled: true },
+            { id: "routes", label: "Routes", disabled: true },
+          ],
+        },
+      ]}
+    >
+      <div style={{ width: "100%", height: "100%", position: "relative" }}>
+        {/* Placeholder viewport using preview texture. */}
+        {preview ? (
+          <canvas
+            width={preview.width}
+            height={preview.height}
+            ref={(c) => {
+              if (!c) return;
+              const ctx = c.getContext("2d");
+              if (!ctx) return;
+              const imgData = ctx.createImageData(preview.width, preview.height);
+              imgData.data.set(preview.rgba);
+              ctx.putImageData(imgData, 0, 0);
+            }}
+            style={{
+              width: "100%",
+              height: "100%",
+              imageRendering: "pixelated",
+            }}
+          />
+        ) : (
+          <div style={{ padding: 20, color: "rgba(255,255,255,0.85)" }}>No preview.</div>
+        )}
+      </div>
+    </AppShell>
   );
 }

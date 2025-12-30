@@ -1,53 +1,35 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
 import AppShell, { ToolGroup } from "../../ui/AppShell";
+import { GeneratorParams } from "../../core/worldGenerator";
+import { worldSession } from "../../core/worldSession";
+import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
+import { saveWorld } from "../../core/worldStorage";
+
 import GenerateControls from "./GenerateControls";
 import GeneratePreview from "./GeneratePreview";
-
-import type { WorldBrain } from "../../core/worldSchema";
-import type { GeneratorParams } from "../../core/worldGenerator";
-import { generateWorldFromParams } from "../../core/worldGenerator";
-import { saveWorld } from "../../core/worldStorage";
 
 export default function GenerateModeApp() {
   const nav = useNavigate();
 
-  const [world, setWorld] = useState<WorldBrain | null>(null);
+  const [world, setWorld] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [currentId, setCurrentId] = useState<string | null>(null);
 
-  const toolGroups: ToolGroup[] = useMemo(
-    () => [
-      {
-        id: "nav",
-        title: "Navigation",
-        items: [
-          { id: "home", label: "Home", onClick: () => nav("/") },
-          { id: "generate", label: "Generate", disabled: true },
-          {
-            id: "create",
-            label: "Create",
-            onClick: () => (currentId ? nav(`/create/${currentId}`) : null),
-            disabled: !currentId,
-          },
-          { id: "sim", label: "Sim", onClick: () => (currentId ? nav(`/sim/${currentId}`) : null), disabled: !currentId },
-        ],
-      },
-    ],
-    [nav, currentId]
-  );
+  const preview = useMemo(() => {
+    if (!world) return null;
+    return makePlanetPreviewFromWorldBrain(world);
+  }, [world]);
 
-  function handleGenerate(params: GeneratorParams) {
+  async function handleGenerate(params: GeneratorParams) {
     setError(null);
     try {
-      const w = generateWorldFromParams(params);
+      worldSession.createWorld(params);
+      const w = worldSession.getWorld();
       setWorld(w);
-      setCurrentId(null);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setError("Generate failed. See console for details.");
+      setError(e?.message || "Generate failed.");
     }
   }
 
@@ -58,30 +40,40 @@ export default function GenerateModeApp() {
     setError(null);
     try {
       const saved = await saveWorld(world);
-      setCurrentId(saved.metadata.id);
       nav(`/create/${saved.metadata.id}`);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setError("Save failed. See console for details.");
+      setError(e?.message || "Save failed.");
     } finally {
       setSaving(false);
     }
   }
 
+  const toolGroups: ToolGroup[] = [
+    {
+      id: "generate",
+      title: "Generate",
+      tools: [
+        { id: "gen", label: "Generate", disabled: true },
+        { id: "save", label: saving ? "Saving…" : "Save → Create", disabled: !world || saving, onClick: handleSave },
+      ],
+    },
+  ];
+
+  const rightPanel = (
+    <GenerateControls onGenerate={handleGenerate} onSave={handleSave} saving={saving} disabled={!world} />
+  );
+
   return (
     <AppShell
       mode="generate"
-      title="Generate"
-      subtitle={
-        world
-          ? `seed ${world.metadata.seed} • ${world.metadata.gridWidth}×${world.metadata.gridHeight}`
-          : "Choose parameters and generate a world"
-      }
       onGoHome={() => nav("/")}
+      worldName={world?.metadata?.name || "Generate"}
+      isDirty={true}
+      rightPanel={rightPanel}
       toolGroups={toolGroups}
-      rightPanel={<GenerateControls onGenerate={handleGenerate} onSave={handleSave} saving={saving} disabled={!world} />}
     >
-      <GeneratePreview world={world} error={error} />
+      <GeneratePreview world={world} preview={preview} error={error} />
     </AppShell>
   );
 }
