@@ -1,161 +1,362 @@
-// src/modes/create/CreateModeApp.tsx
+// ========================================================
+// WORLDWRIGHT -- CREATE MODE (V1.3 STABILIZE + LAYOUT SPINE)
+// File: src/modes/create/CreateModeApp.tsx
+//
+// Fixes:
+// - Correct AppShell import (default export).
+// - Await worldSession.loadWorld and show errors (no infinite loading).
+// - Add Create view toggle (Globe/Map).
+// - Enforce minimap rule: ONLY Create + Globe shows minimap.
+// - Provide blueprint tool category scaffold (disabled placeholders for now).
+// ========================================================
+
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AppShell, LeftTool } from "../../ui/AppShell";
+
+import AppShell, { ToolGroup, ViewMode } from "../../ui/AppShell";
 import { worldSession } from "../../core/worldSession";
 import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
-import { TerrainStrokeAction } from "../../core/worldActions";
-
-type ViewMode = "GLOBE" | "MAP";
 
 export default function CreateModeApp() {
   const navigate = useNavigate();
-  const { worldId } = useParams();
+  const { worldId } = useParams<{ worldId: string }>();
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [viewMode, setViewMode] = useState<ViewMode>("GLOBE");
 
+  // Keep world reactive
   const [world, setWorld] = useState(worldSession.getWorld());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Keep local state synced with session
   useEffect(() => {
     const unsub = worldSession.subscribe((w) => setWorld(w));
-    return () => unsub();
+    return unsub;
   }, []);
 
-  // Load world by ID (await + error state)
+  // Load world with await + error handling
   useEffect(() => {
-    let cancelled = false;
+    let alive = true;
 
-    async function run() {
-      setError(null);
-      setLoading(true);
-
+    (async () => {
       if (!worldId) {
-        setError("No worldId in route. Return to Home.");
-        setLoading(false);
+        if (alive) {
+          setError("Missing worldId in route.");
+          setLoading(false);
+        }
         return;
       }
 
+      setLoading(true);
+      setError(null);
       try {
         await worldSession.loadWorld(worldId);
-        if (!cancelled) setLoading(false);
       } catch (e: any) {
-        const msg = e?.message ? String(e.message) : String(e);
-        if (!cancelled) {
-          setError(msg);
-          setLoading(false);
-        }
+        console.error(e);
+        if (alive) setError(e?.message || "Failed to load world.");
+      } finally {
+        if (alive) setLoading(false);
       }
-    }
+    })();
 
-    run();
     return () => {
-      cancelled = true;
+      alive = false;
     };
   }, [worldId]);
 
-  const planetPreview = useMemo(() => {
+  const preview = useMemo(() => {
     if (!world) return null;
     return makePlanetPreviewFromWorldBrain(world);
   }, [world]);
 
-  const leftTools: LeftTool[] = useMemo(
-    () => [
-      { id: "home", label: "Home", isEnabled: true, onClick: () => navigate("/") },
-      { id: "terrain", label: "Terrain", isEnabled: true },
-      { id: "stickers", label: "Stickers", isEnabled: false },
-      { id: "countries", label: "Countries", isEnabled: false },
-      { id: "cities", label: "Cities", isEnabled: false },
-      { id: "culture", label: "Culture", isEnabled: false },
-    ],
-    [navigate]
-  );
-
   async function handleSave() {
-    const id = await worldSession.save();
-    if (!id) {
-      setError("Save failed. Storage may be blocked/unavailable. Try closing other tabs and refresh.");
-      return;
+    setSaveError(null);
+    setSaving(true);
+    try {
+      await worldSession.save();
+    } catch (e: any) {
+      console.error(e);
+      setSaveError(e?.message || "Save failed.");
+    } finally {
+      setSaving(false);
     }
-    // Stay in Create, but ensure route is correct for reloads/bookmarks
-    navigate(`/create/${id}`, { replace: true });
   }
 
-  const rightPanel = (() => {
-    if (loading) {
-      return <div style={{ padding: 12 }}>Loading…</div>;
-    }
-    if (error) {
-      return (
-        <div style={{ padding: 12 }}>
-          <div style={{ fontWeight: 900, marginBottom: 8 }}>Create Mode</div>
-          <div style={{ opacity: 0.9, marginBottom: 10 }}>{error}</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={() => navigate("/")}>Back to Home</button>
-            <button onClick={() => navigate("/generate")}>Go to Generate</button>
-            <button onClick={() => window.location.reload()}>Reload</button>
-          </div>
-          <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
-            Tip: If this says IndexedDB is blocked, close other WorldWright tabs/windows and reload.
-          </div>
-        </div>
-      );
-    }
+  const toolGroups: ToolGroup[] = [
+    {
+      id: "terrain",
+      title: "Terrain",
+      tools: [
+        { id: "raise", label: "Raise", disabled: true },
+        { id: "lower", label: "Lower", disabled: true },
+        { id: "smooth", label: "Smooth", disabled: true },
+        { id: "flatten", label: "Flatten", disabled: true },
+      ],
+    },
+    {
+      id: "biomes",
+      title: "Biomes",
+      tools: [
+        { id: "paint_biome", label: "Paint Biome", disabled: true },
+        { id: "erase_biome", label: "Erase Biome", disabled: true },
+      ],
+    },
+    {
+      id: "water",
+      title: "Water",
+      tools: [
+        { id: "river_add", label: "Add River", disabled: true },
+        { id: "river_edit", label: "Edit River", disabled: true },
+        { id: "lake_add", label: "Add Lake", disabled: true },
+      ],
+    },
+    {
+      id: "volcano",
+      title: "Volcano",
+      tools: [{ id: "add_volcano", label: "Add Volcano", disabled: true }],
+    },
+    {
+      id: "countries",
+      title: "Countries & Borders",
+      tools: [
+        { id: "add_country", label: "Add Country", disabled: true },
+        { id: "edit_border", label: "Edit Border", disabled: true },
+      ],
+    },
+    {
+      id: "culture",
+      title: "Culture",
+      tools: [
+        { id: "add_settlement", label: "Add Settlement", disabled: true },
+        { id: "culture_zone", label: "Culture Zone", disabled: true },
+      ],
+    },
+    {
+      id: "cities",
+      title: "Cities",
+      tools: [{ id: "add_city", label: "Add City", disabled: true }],
+    },
+  ];
 
-    return (
-      <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ fontWeight: 900 }}>Create</div>
+  const rightPanel = (
+    <div style={{ padding: 14, color: "rgba(255,255,255,0.88)" }}>
+      <h3 style={{ margin: "6px 0 10px 0" }}>Create</h3>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button
-            onClick={() => setViewMode("GLOBE")}
-            style={{ fontWeight: viewMode === "GLOBE" ? 900 : 600 }}
-          >
-            Globe View
-          </button>
-          <button
-            onClick={() => setViewMode("MAP")}
-            style={{ fontWeight: viewMode === "MAP" ? 900 : 600 }}
-          >
-            Map View
-          </button>
-        </div>
+      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+        <button
+          onClick={handleSave}
+          disabled={!world || loading || saving}
+          style={{
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.06)",
+            color: "rgba(255,255,255,0.92)",
+            cursor: !world || loading || saving ? "not-allowed" : "pointer",
+            opacity: !world || loading || saving ? 0.5 : 1,
+          }}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button
-            onClick={() => {
-              // Minimal, non-destructive proof action: a tiny flatten stroke at world center.
-              const action: TerrainStrokeAction = {
-                kind: "TERRAIN_STROKE",
-                centerLat: 0,
-                centerLon: 0,
-                radiusKm: 200,
-                delta: -0.05,
-                strength: 0.5,
-              };
-              worldSession.apply(action);
-            }}
-          >
-            Flatten Center
-          </button>
-          <button onClick={() => worldSession.undo()}>Undo</button>
-          <button onClick={() => worldSession.redo()}>Redo</button>
-          <button onClick={handleSave}>Save</button>
-        </div>
+        <button
+          onClick={() => navigate(`/sim/${worldId}`)}
+          disabled={!worldId}
+          style={{
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.06)",
+            color: "rgba(255,255,255,0.92)",
+            cursor: !worldId ? "not-allowed" : "pointer",
+            opacity: !worldId ? 0.5 : 1,
+          }}
+        >
+          Go to Sim
+        </button>
       </div>
+
+      {saveError && (
+        <div
+          style={{
+            marginBottom: 12,
+            padding: 10,
+            borderRadius: 10,
+            border: "1px solid rgba(255,90,90,0.35)",
+            background: "rgba(255,90,90,0.08)",
+            color: "rgba(255,255,255,0.92)",
+            fontSize: 12,
+            lineHeight: 1.4,
+          }}
+        >
+          <b>Save failed:</b> {saveError}
+        </div>
+      )}
+
+      <div style={{ fontSize: 12, opacity: 0.8, lineHeight: 1.4 }}>
+        Tool implementations come after Phase 1 stability. For now these are blueprint-accurate categories.
+      </div>
+    </div>
+  );
+
+  // Loading / error states (NO infinite loading)
+  if (loading) {
+    return (
+      <AppShell
+        mode="create"
+        onGoHome={() => navigate("/")}
+        worldName={world?.metadata?.name || "Loading…"}
+        isDirty={worldSession.isDirty()}
+        onModeToggle={() => navigate(`/sim/${worldId}`)}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        rightPanel={rightPanel}
+        toolGroups={toolGroups}
+      >
+        <div style={{ padding: 20, color: "rgba(255,255,255,0.85)" }}>Loading world…</div>
+      </AppShell>
     );
-  })();
+  }
+
+  if (error) {
+    return (
+      <AppShell
+        mode="create"
+        onGoHome={() => navigate("/")}
+        worldName="Load Error"
+        isDirty={false}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        rightPanel={
+          <div style={{ padding: 14, color: "rgba(255,255,255,0.9)" }}>
+            <h3 style={{ margin: "6px 0 10px 0" }}>Could not load world</h3>
+            <div style={{ opacity: 0.85, marginBottom: 12 }}>{error}</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                onClick={() => navigate("/")}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "rgba(255,255,255,0.92)",
+                  cursor: "pointer",
+                }}
+              >
+                Back to Home
+              </button>
+              <button
+                onClick={() => navigate("/generate")}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "rgba(255,255,255,0.92)",
+                  cursor: "pointer",
+                }}
+              >
+                Go to Generate
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "rgba(255,255,255,0.92)",
+                  cursor: "pointer",
+                }}
+              >
+                Reload
+              </button>
+            </div>
+          </div>
+        }
+      >
+        <div style={{ padding: 20 }} />
+      </AppShell>
+    );
+  }
+
+  // Main viewport + minimap (Create + Globe only)
+  const showMinimap = viewMode === "GLOBE";
 
   return (
     <AppShell
-      title={`WorldWright -- Create`}
       mode="create"
+      onGoHome={() => navigate("/")}
+      worldName={world?.metadata?.name || "Create"}
+      isDirty={worldSession.isDirty()}
+      onModeToggle={() => navigate(`/sim/${worldId}`)}
       viewMode={viewMode}
-      leftTools={leftTools}
-      planetPreview={planetPreview}
+      onViewModeChange={setViewMode}
       rightPanel={rightPanel}
-    />
+      toolGroups={toolGroups}
+    >
+      <div style={{ width: "100%", height: "100%", position: "relative" }}>
+        {/* Main viewport (placeholder: render preview) */}
+        {preview ? (
+          <canvas
+            width={preview.width}
+            height={preview.height}
+            ref={(c) => {
+              if (!c) return;
+              const ctx = c.getContext("2d");
+              if (!ctx) return;
+              const imgData = ctx.createImageData(preview.width, preview.height);
+              imgData.data.set(preview.rgba);
+              ctx.putImageData(imgData, 0, 0);
+            }}
+            style={{
+              width: "100%",
+              height: "100%",
+              imageRendering: "pixelated",
+            }}
+          />
+        ) : (
+          <div style={{ padding: 20, color: "rgba(255,255,255,0.85)" }}>No preview.</div>
+        )}
+
+        {/* Minimap: ONLY Create + Globe */}
+        {showMinimap && preview && (
+          <div
+            style={{
+              position: "absolute",
+              left: 16,
+              bottom: 16,
+              width: 220,
+              height: 140,
+              borderRadius: 12,
+              overflow: "hidden",
+              border: "1px solid rgba(255,255,255,0.18)",
+              background: "rgba(0,0,0,0.35)",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
+            }}
+            title="Minimap (Create + Globe only)"
+          >
+            <canvas
+              width={preview.width}
+              height={preview.height}
+              ref={(c) => {
+                if (!c) return;
+                const ctx = c.getContext("2d");
+                if (!ctx) return;
+                const imgData = ctx.createImageData(preview.width, preview.height);
+                imgData.data.set(preview.rgba);
+                ctx.putImageData(imgData, 0, 0);
+              }}
+              style={{
+                width: "100%",
+                height: "100%",
+                imageRendering: "pixelated",
+              }}
+            />
+          </div>
+        )}
+      </div>
+    </AppShell>
   );
 }
