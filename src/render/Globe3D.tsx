@@ -55,100 +55,71 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         throw new Error('No preview available');
       }
 
-      const w = p.width;
-      const h = p.height;
+      const w = p.width;  // Grid width (e.g., 256)
+      const h = p.height; // Grid height (e.g., 128)
       
-      // Create high-resolution texture (2x for better quality)
-      // Add 2 extra rows for pole padding to eliminate UV singularity
-      const texW = w * 2;
-      const texH = h * 2 + 2; // Extra rows for north/south pole padding
-      texCanvas.width = texW;
-      texCanvas.height = texH;
-      
-      const ctx = texCanvas.getContext('2d', { willReadFrequently: false });
-      if (!ctx) throw new Error('Failed to create texture canvas 2D context');
-
-      // Sample with bilinear interpolation and proper wrapping
-      const img = ctx.createImageData(texW, texH);
-      const d = img.data;
-      
-      // First, render main grid with padding offset
-      for (let ty = 1; ty < texH - 1; ty++) { // Skip first and last row
-        for (let tx = 0; tx < texW; tx++) {
-          // Map texture pixel to grid coordinates
-          const fx = (tx / texW) * w;
-          const fy = ((ty - 1) / (texH - 2)) * h; // Account for padding rows
+      // Use the pre-rasterized RGBA buffer directly - it's already computed correctly
+      // This avoids re-sampling and potential mapping bugs
+      if (p.rgba && p.rgba instanceof Uint8ClampedArray) {
+        texCanvas.width = w;
+        texCanvas.height = h;
+        const ctx = texCanvas.getContext('2d');
+        if (!ctx) throw new Error('Failed to create texture canvas 2D context');
+        
+        const img = new ImageData(p.rgba, w, h);
+        ctx.putImageData(img, 0, 0);
+      } else {
+        // Fallback: manual sampling with PROPER pole handling
+        // Create texture that avoids UV singularity
+        texCanvas.width = w;
+        texCanvas.height = h;
+        const ctx = texCanvas.getContext('2d');
+        if (!ctx) throw new Error('Failed to create texture canvas 2D context');
+        
+        const img = ctx.createImageData(w, h);
+        const d = img.data;
+        
+        // CRITICAL: Clamp v coordinate away from exact poles to avoid singularity
+        const EPS = 0.5 / h; // Half-pixel epsilon
+        
+        for (let ty = 0; ty < h; ty++) {
+          // Map texture v to grid row with pole clamping
+          // v = 0 is north pole, v = 1 is south pole
+          const v = ty / (h - 1);
+          const vClamped = Math.max(EPS, Math.min(1.0 - EPS, v));
+          const fy = vClamped * (h - 1);
+          const row = Math.floor(fy);
+          const rowClamped = Math.max(0, Math.min(h - 1, row));
           
-          // Bilinear sampling with proper wrapping
-          const x0 = Math.floor(fx);
-          const y0 = Math.floor(fy);
-          const x1 = (x0 + 1) % w; // Wrap X for longitude
-          const y1 = Math.min(y0 + 1, h - 1); // Clamp Y at poles
-          
-          const dx = fx - x0;
-          const dy = fy - y0;
-          
-          // Sample four corners
-          const c00 = p.sampleGlobeColor ? p.sampleGlobeColor(y0 * w + x0) : [255, 0, 255, 255];
-          const c10 = p.sampleGlobeColor ? p.sampleGlobeColor(y0 * w + x1) : [255, 0, 255, 255];
-          const c01 = p.sampleGlobeColor ? p.sampleGlobeColor(y1 * w + x0) : [255, 0, 255, 255];
-          const c11 = p.sampleGlobeColor ? p.sampleGlobeColor(y1 * w + x1) : [255, 0, 255, 255];
-          
-          // Bilinear interpolation
-          const pixelIndex = (ty * texW + tx) * 4;
-          for (let ch = 0; ch < 4; ch++) {
-            const v0 = c00[ch] * (1 - dx) + c10[ch] * dx;
-            const v1 = c01[ch] * (1 - dx) + c11[ch] * dx;
-            d[pixelIndex + ch] = Math.round(v0 * (1 - dy) + v1 * dy);
+          for (let tx = 0; tx < w; tx++) {
+            // Map texture u to grid column with wrapping
+            const u = tx / w;
+            const fx = u * w;
+            const col = Math.floor(fx) % w;
+            
+            // Sample grid at (row, col)
+            const cellIndex = rowClamped * w + col;
+            const rgba = p.sampleGlobeColor ? p.sampleGlobeColor(cellIndex) : [255, 0, 255, 255];
+            
+            const pixelIndex = (ty * w + tx) * 4;
+            d[pixelIndex + 0] = rgba[0];
+            d[pixelIndex + 1] = rgba[1];
+            d[pixelIndex + 2] = rgba[2];
+            d[pixelIndex + 3] = rgba[3];
           }
         }
+        ctx.putImageData(img, 0, 0);
       }
-      
-      // Fill north pole row (ty=0) with average of first data row
-      // This eliminates the UV singularity starburst
-      for (let tx = 0; tx < texW; tx++) {
-        let sumR = 0, sumG = 0, sumB = 0, sumA = 0;
-        for (let sample = 0; sample < w; sample++) {
-          const idx = (1 * texW + Math.floor((sample / w) * texW)) * 4;
-          sumR += d[idx + 0];
-          sumG += d[idx + 1];
-          sumB += d[idx + 2];
-          sumA += d[idx + 3];
-        }
-        const pixelIndex = (0 * texW + tx) * 4;
-        d[pixelIndex + 0] = sumR / w;
-        d[pixelIndex + 1] = sumG / w;
-        d[pixelIndex + 2] = sumB / w;
-        d[pixelIndex + 3] = sumA / w;
-      }
-      
-      // Fill south pole row (ty=texH-1) with average of last data row
-      for (let tx = 0; tx < texW; tx++) {
-        let sumR = 0, sumG = 0, sumB = 0, sumA = 0;
-        for (let sample = 0; sample < w; sample++) {
-          const idx = ((texH - 2) * texW + Math.floor((sample / w) * texW)) * 4;
-          sumR += d[idx + 0];
-          sumG += d[idx + 1];
-          sumB += d[idx + 2];
-          sumA += d[idx + 3];
-        }
-        const pixelIndex = ((texH - 1) * texW + tx) * 4;
-        d[pixelIndex + 0] = sumR / w;
-        d[pixelIndex + 1] = sumG / w;
-        d[pixelIndex + 2] = sumB / w;
-        d[pixelIndex + 3] = sumA / w;
-      }
-      
-      ctx.putImageData(img, 0, 0);
 
       const tex = new THREE.CanvasTexture(texCanvas);
-      tex.wrapS = THREE.RepeatWrapping; // Wrap longitude (fixes vertical seam)
-      tex.wrapT = THREE.ClampToEdgeWrapping; // Clamp latitude (prevents pole artifacts)
-      tex.minFilter = THREE.LinearMipmapLinearFilter; // Use mipmaps for smooth rendering
-      tex.magFilter = THREE.LinearFilter; // Smooth magnification
-      tex.generateMipmaps = true; // Generate mipmaps
+      // CRITICAL: Proper wrap/clamp settings for equirectangular projection
+      tex.wrapS = THREE.RepeatWrapping;        // Wrap longitude (fixes vertical seam)
+      tex.wrapT = THREE.ClampToEdgeWrapping;   // Clamp latitude (prevents pole wrap)
+      tex.magFilter = THREE.LinearFilter;      // Smooth magnification
+      tex.minFilter = THREE.LinearMipmapLinearFilter; // Use mipmaps for distance
+      tex.generateMipmaps = true;              // Generate mipmap chain
       tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); // Best quality
-      tex.flipY = false; // Equirectangular standard
+      tex.flipY = false;                       // Standard equirectangular
       tex.needsUpdate = true;
       return tex;
     }
