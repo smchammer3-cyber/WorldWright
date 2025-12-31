@@ -22,6 +22,10 @@ import { worldSession } from "../../core/worldSession";
 import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
 import Globe3D from "../../render/Globe3D";
 import MiniMap from "../../ui/MiniMap";
+import CreateViewport from "./CreateViewport";
+import StickerDrawingOverlay from "./StickerDrawingOverlay";
+import { recomputeWorld } from "../../core/worldRecompute";
+import { generateCountries } from "../../core/countryGenerator";
 
 export default function CreateModeApp() {
   const navigate = useNavigate();
@@ -33,6 +37,9 @@ export default function CreateModeApp() {
   const [saving, setSaving] = useState(false);
 
   const [viewMode, setViewMode] = useState<ViewMode>("GLOBE");
+  const [activeTerrainTool, setActiveTerrainTool] = useState<'RAISE' | 'LOWER' | 'FLATTEN' | 'SMOOTH' | null>(null);
+  const [activeStickerTool, setActiveStickerTool] = useState<'BIOME' | 'CULTURE' | 'HEIGHT' | null>(null);
+  const [activeWaterTool, setActiveWaterTool] = useState<'ADD_RIVER' | 'EDIT_RIVER' | 'ADD_LAKE' | null>(null);
 
   // Keep world reactive
   const [world, setWorld] = useState(worldSession.getWorld());
@@ -92,32 +99,148 @@ export default function CreateModeApp() {
     }
   }
 
+  const handleWorldChange = (w: any) => {
+    worldSession.applyLocalEdit(w);
+  };
+
+  const handleGenerateCountries = () => {
+    if (!world) return;
+    const countryCount = Math.floor(Math.random() * 4) + 5; // 5-8 countries
+    const generatedCountries = generateCountries(world, countryCount);
+    world.countries = generatedCountries;
+    recomputeWorld(world, ['TERRAIN_EDIT']);
+    handleWorldChange(world);
+  };
+
+  const handleAddCity = () => {
+    if (!world) return;
+    // Place a city at a random land cell
+    const landCells = world.cells.filter((c) => !c.isWater);
+    if (landCells.length === 0) return;
+    
+    const randomCell = landCells[Math.floor(Math.random() * landCells.length)];
+    const row = Math.floor(randomCell.index / world.gridWidth);
+    const col = randomCell.index % world.gridWidth;
+    
+    // Determine city type based on location
+    let type: 'VILLAGE' | 'TOWN' | 'CITY' | 'METROPOLIS' | 'FORT' | 'PORT' = 'TOWN';
+    const nearCoast = landCells.find(c => {
+      const idx = c.index;
+      const r = Math.floor(idx / world.gridWidth);
+      const c1 = idx % world.gridWidth;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const nr = r + dr;
+          const nc = ((c1 + dc) % world.gridWidth + world.gridWidth) % world.gridWidth;
+          const nidx = nr * world.gridWidth + nc;
+          if (world.cells[nidx]?.isWater) return true;
+        }
+      }
+      return false;
+    });
+    if (nearCoast) type = 'PORT';
+    
+    const newCity: any = {
+      id: `city_${Date.now()}`,
+      name: `City`,
+      cellIndex: randomCell.index,
+      population: 1000,
+      type,
+      populationTier: 2,
+      isCapital: false,
+      economicRoles: ['TRADE'],
+      tags: [],
+      description: '',
+      countryId: world.countries?.[0]?.id,
+      cultureId: world.cultures?.[0]?.id,
+    };
+    
+    world.cities = world.cities || [];
+    world.cities.push(newCity);
+    recomputeWorld(world, ['TERRAIN_EDIT']);
+    handleWorldChange(world);
+  };
+
   const toolGroups: ToolGroup[] = [
     {
       id: "terrain",
       title: "Terrain",
       tools: [
-        { id: "raise", label: "Raise", disabled: true },
-        { id: "lower", label: "Lower", disabled: true },
-        { id: "smooth", label: "Smooth", disabled: true },
-        { id: "flatten", label: "Flatten", disabled: true },
+        {
+          id: "raise",
+          label: "Raise",
+          disabled: !world,
+          active: activeTerrainTool === 'RAISE',
+          onClick: () => setActiveTerrainTool(activeTerrainTool === 'RAISE' ? null : 'RAISE'),
+        },
+        {
+          id: "lower",
+          label: "Lower",
+          disabled: !world,
+          active: activeTerrainTool === 'LOWER',
+          onClick: () => setActiveTerrainTool(activeTerrainTool === 'LOWER' ? null : 'LOWER'),
+        },
+        {
+          id: "smooth",
+          label: "Smooth",
+          disabled: !world,
+          active: activeTerrainTool === 'SMOOTH',
+          onClick: () => setActiveTerrainTool(activeTerrainTool === 'SMOOTH' ? null : 'SMOOTH'),
+        },
+        {
+          id: "flatten",
+          label: "Flatten",
+          disabled: !world,
+          active: activeTerrainTool === 'FLATTEN',
+          onClick: () => setActiveTerrainTool(activeTerrainTool === 'FLATTEN' ? null : 'FLATTEN'),
+        },
       ],
     },
     {
       id: "biomes",
       title: "Biomes",
       tools: [
-        { id: "paint_biome", label: "Paint Biome", disabled: true },
-        { id: "erase_biome", label: "Erase Biome", disabled: true },
+        {
+          id: "paint_biome",
+          label: "Paint Biome",
+          disabled: !world,
+          active: activeStickerTool === 'BIOME',
+          onClick: () => setActiveStickerTool(activeStickerTool === 'BIOME' ? null : 'BIOME'),
+        },
+        {
+          id: "paint_height",
+          label: "Raise/Lower",
+          disabled: !world,
+          active: activeStickerTool === 'HEIGHT',
+          onClick: () => setActiveStickerTool(activeStickerTool === 'HEIGHT' ? null : 'HEIGHT'),
+        },
       ],
     },
     {
       id: "water",
       title: "Water",
       tools: [
-        { id: "river_add", label: "Add River", disabled: true },
-        { id: "river_edit", label: "Edit River", disabled: true },
-        { id: "lake_add", label: "Add Lake", disabled: true },
+        {
+          id: "river_add",
+          label: "Add River",
+          disabled: !world,
+          active: activeWaterTool === 'ADD_RIVER',
+          onClick: () => setActiveWaterTool(activeWaterTool === 'ADD_RIVER' ? null : 'ADD_RIVER'),
+        },
+        {
+          id: "river_edit",
+          label: "Edit River",
+          disabled: !world,
+          active: activeWaterTool === 'EDIT_RIVER',
+          onClick: () => setActiveWaterTool(activeWaterTool === 'EDIT_RIVER' ? null : 'EDIT_RIVER'),
+        },
+        {
+          id: "lake_add",
+          label: "Set Lake Level",
+          disabled: !world,
+          active: activeWaterTool === 'ADD_LAKE',
+          onClick: () => setActiveWaterTool(activeWaterTool === 'ADD_LAKE' ? null : 'ADD_LAKE'),
+        },
       ],
     },
     {
@@ -129,7 +252,12 @@ export default function CreateModeApp() {
       id: "countries",
       title: "Countries & Borders",
       tools: [
-        { id: "add_country", label: "Add Country", disabled: true },
+        {
+          id: "gen_countries",
+          label: "Generate Countries",
+          disabled: !world,
+          onClick: () => handleGenerateCountries(),
+        },
         { id: "edit_border", label: "Edit Border", disabled: true },
       ],
     },
@@ -137,14 +265,26 @@ export default function CreateModeApp() {
       id: "culture",
       title: "Culture",
       tools: [
-        { id: "add_settlement", label: "Add Settlement", disabled: true },
-        { id: "culture_zone", label: "Culture Zone", disabled: true },
+        {
+          id: "add_culture",
+          label: "Add Culture Zone",
+          disabled: !world,
+          active: activeStickerTool === 'CULTURE',
+          onClick: () => setActiveStickerTool(activeStickerTool === 'CULTURE' ? null : 'CULTURE'),
+        },
       ],
     },
     {
       id: "cities",
       title: "Cities",
-      tools: [{ id: "add_city", label: "Add City", disabled: true }],
+      tools: [
+        {
+          id: "add_city",
+          label: "Add City",
+          disabled: !world,
+          onClick: () => handleAddCity(),
+        },
+      ],
     },
   ];
 
@@ -248,7 +388,8 @@ export default function CreateModeApp() {
             if (!ctx) return;
 
             try {
-              const imgData = new ImageData(rgba, w, h);
+              // ImageData ctor expects proper Uint8ClampedArray
+              const imgData = new ImageData(rgba as any, w, h);
               ctx.putImageData(imgData, 0, 0);
             } catch (e) {
               console.error("Preview render failed:", e);
@@ -378,13 +519,32 @@ export default function CreateModeApp() {
       toolGroups={toolGroups}
     >
       <div style={{ width: "100%", height: "100%", position: "relative" }}>
-        {/* Main viewport: Globe (3D) when selected, otherwise CPU preview map */}
+        {/* Main viewport: Globe (3D) when selected, otherwise CPU preview map with terrain tools */}
         {viewMode === "GLOBE" && world ? (
           <div style={{ width: "100%", height: "100%" }}>
             <Globe3D world={world} preview={preview} />
           </div>
+        ) : world ? (
+          <CreateViewport
+            world={world}
+            activeTerrainTool={activeTerrainTool}
+            onWorldChange={handleWorldChange}
+          />
         ) : (
           renderPreviewCanvas(preview, "main")
+        )}
+
+        {/* Sticker drawing overlay */}
+        {activeStickerTool && (
+          <StickerDrawingOverlay
+            world={world}
+            activeStickerTool={activeStickerTool}
+            onStickerCreated={() => {
+              setActiveStickerTool(null);
+              handleWorldChange(world);
+            }}
+            onCancel={() => setActiveStickerTool(null)}
+          />
         )}
 
         {/* Minimap: only appears in Globe view. Uses the MiniMap component for a safe CPU raster */}

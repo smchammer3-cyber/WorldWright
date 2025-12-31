@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { WorldBrain } from '../core/worldSchema';
+import { makePlanetPreviewFromWorldBrain } from '../core/planetRenderer';
 
 type Props = {
   world: WorldBrain;
@@ -47,8 +48,6 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       // Always generate preview if not provided - fixes Sim mode purple globe
       let p = preview;
       if (!p && world) {
-        // Import dynamically to avoid circular deps
-        const { makePlanetPreviewFromWorldBrain } = require('../core/planetRenderer');
         p = makePlanetPreviewFromWorldBrain(world);
       }
       
@@ -106,7 +105,8 @@ export default function Globe3D({ world, preview, className, style }: Props) {
 
     const texture = ensureTextureFromPreview();
 
-    const geom = new THREE.SphereGeometry(1, 64, 32);
+    // Use higher pole segments to reduce scrunching: 128x128 for better polar distribution
+    const geom = new THREE.SphereGeometry(1, 128, 128);
     const mat = new THREE.MeshStandardMaterial({ 
       map: texture, 
       metalness: 0.0, 
@@ -139,18 +139,11 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     window.addEventListener('resize', onResize);
 
     function animate() {
-      const t = (performance.now() - start) / 1000;
-
-      // apply ambient slow rotation only when user is not actively dragging
-      if (!isPointerDown) {
-        mesh.rotation.y += 0.0015; // small continuous spin
-        mesh.rotation.x = Math.sin(t * 0.05) * 0.03;
-      }
-
-      // apply inertia velocities
+      // NO auto-rotation - only user-controlled movement
+      // Apply inertia velocities from drag
       if (Math.abs(velX) > 1e-5 || Math.abs(velY) > 1e-5) {
         mesh.rotation.y += velX;
-        mesh.rotation.x += Math.max(Math.min(mesh.rotation.x + velY, Math.PI / 2 - 0.1), -Math.PI / 2 + 0.1);
+        mesh.rotation.x = Math.max(Math.min(mesh.rotation.x + velY, Math.PI / 2 - 0.1), -Math.PI / 2 + 0.1);
         // decay
         velX *= 0.92;
         velY *= 0.92;

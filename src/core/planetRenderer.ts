@@ -63,7 +63,8 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     const simDelta = typeof cell.simHeightDelta === "number" ? cell.simHeightDelta : 0;
     const h = base + editDelta + simDelta;
 
-    const isWater = typeof cell.isWater === "boolean" ? cell.isWater : h < seaLevel;
+    // Always compute isWater from current height vs seaLevel (cells can be edited after generation)
+    const isWater = h < seaLevel;
 
     // Get rainfall (not 'moisture' which doesn't exist)
     const rainfall = typeof cell.rainfall === "number" ? clamp01(cell.rainfall) : 0.5;

@@ -39,6 +39,10 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
       axisTilt: 23,
       planetAge: 50,
       climateVar: 35,
+      moistureLevel: 50,
+      temperatureOffset: 0,
+      erosionIntensity: 50,
+      continentCount: 5,
       seed: Math.floor(Math.random() * 1_000_000_000),
       styleMode: "EARTHLIKE",
     }),
@@ -178,6 +182,46 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
         />
       </Row>
 
+      <Row label={`Moisture Level (0–100): ${params.moistureLevel}`}>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={params.moistureLevel}
+          onChange={(e) => set("moistureLevel", clampInt(parseInt(e.target.value, 10), 0, 100))}
+        />
+      </Row>
+
+      <Row label={`Temperature Offset (-50 to +50): ${params.temperatureOffset > 0 ? '+' : ''}${params.temperatureOffset}`}>
+        <input
+          type="range"
+          min={-50}
+          max={50}
+          value={params.temperatureOffset}
+          onChange={(e) => set("temperatureOffset", clampInt(parseInt(e.target.value, 10), -50, 50))}
+        />
+      </Row>
+
+      <Row label={`Erosion Intensity (0–100): ${params.erosionIntensity}`}>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={params.erosionIntensity}
+          onChange={(e) => set("erosionIntensity", clampInt(parseInt(e.target.value, 10), 0, 100))}
+        />
+      </Row>
+
+      <Row label={`Continent Count (1–12): ${params.continentCount}`}>
+        <input
+          type="range"
+          min={1}
+          max={12}
+          value={params.continentCount}
+          onChange={(e) => set("continentCount", clampInt(parseInt(e.target.value, 10), 1, 12))}
+        />
+      </Row>
+
       <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
         <button
           onClick={() =>
@@ -190,6 +234,10 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
               axisTilt: clampInt(params.axisTilt, 0, 100),
               planetAge: clampInt(params.planetAge, 0, 100),
               climateVar: clampInt(params.climateVar, 0, 100),
+              moistureLevel: clampInt(params.moistureLevel, 0, 100),
+              temperatureOffset: clampInt(params.temperatureOffset, -50, 50),
+              erosionIntensity: clampInt(params.erosionIntensity, 0, 100),
+              continentCount: clampInt(params.continentCount, 1, 12),
               seed: typeof params.seed === 'string' ? params.seed : clampInt(params.seed, 0, 2_147_483_647),
               styleMode: params.styleMode,
             })

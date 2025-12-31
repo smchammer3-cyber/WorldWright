@@ -1,6 +1,7 @@
 import { jsx as _jsx } from "react/jsx-runtime";
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { makePlanetPreviewFromWorldBrain } from '../core/planetRenderer';
 export default function Globe3D({ world, preview, className, style }) {
     const containerRef = useRef(null);
     const texCanvasRef = useRef(null);
@@ -33,58 +34,48 @@ export default function Globe3D({ world, preview, className, style }) {
             // Always generate preview if not provided - fixes Sim mode purple globe
             let p = preview;
             if (!p && world) {
-                // Import dynamically to avoid circular deps
-                const { makePlanetPreviewFromWorldBrain } = require('../core/planetRenderer');
                 p = makePlanetPreviewFromWorldBrain(world);
             }
-            const w = (p && p.width) || world.gridWidth;
-            const h = (p && p.height) || world.gridHeight;
+            if (!p) {
+                throw new Error('No preview available');
+            }
+            const w = p.width;
+            const h = p.height;
             texCanvas.width = w;
             texCanvas.height = h;
             const ctx = texCanvas.getContext('2d');
             if (!ctx)
                 throw new Error('Failed to create texture canvas 2D context');
-            const img = ctx.createImageData(w, h);
-            const d = img.data;
-            // Fill pixels from preview - use cell index for proper sampling
-            for (let y = 0; y < h; y++) {
-                for (let x = 0; x < w; x++) {
-                    const cellIndex = y * w + x;
-                    const pixelIndex = cellIndex * 4;
-                    try {
-                        let rgba;
-                        if (p && typeof p.sampleGlobeColor === 'function') {
-                            // Primary method: sample using cell index
-                            rgba = p.sampleGlobeColor(cellIndex);
+            // Use the pre-rasterized RGBA buffer directly - it's already computed
+            if (p.rgba && p.rgba instanceof Uint8ClampedArray) {
+                const img = new ImageData(p.rgba, w, h);
+                ctx.putImageData(img, 0, 0);
+            }
+            else {
+                // Fallback: sample cell by cell using the colorAt method
+                const img = ctx.createImageData(w, h);
+                const d = img.data;
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        const cellIndex = y * w + x;
+                        const pixelIndex = cellIndex * 4;
+                        try {
+                            const rgba = p.sampleGlobeColor ? p.sampleGlobeColor(cellIndex) : [255, 0, 255, 255];
+                            d[pixelIndex + 0] = rgba[0];
+                            d[pixelIndex + 1] = rgba[1];
+                            d[pixelIndex + 2] = rgba[2];
+                            d[pixelIndex + 3] = rgba[3] ?? 255;
                         }
-                        else if (p && p.rgba && p.rgba instanceof Uint8ClampedArray) {
-                            // Fallback: use pre-rasterized RGBA buffer
-                            rgba = [
-                                p.rgba[pixelIndex],
-                                p.rgba[pixelIndex + 1],
-                                p.rgba[pixelIndex + 2],
-                                p.rgba[pixelIndex + 3]
-                            ];
+                        catch (err) {
+                            d[pixelIndex + 0] = 255;
+                            d[pixelIndex + 1] = 0;
+                            d[pixelIndex + 2] = 255;
+                            d[pixelIndex + 3] = 255;
                         }
-                        else {
-                            // Last resort: magenta debug color
-                            rgba = [255, 0, 255, 255];
-                        }
-                        d[pixelIndex + 0] = rgba[0];
-                        d[pixelIndex + 1] = rgba[1];
-                        d[pixelIndex + 2] = rgba[2];
-                        d[pixelIndex + 3] = rgba[3] ?? 255;
-                    }
-                    catch (err) {
-                        // Error: bright magenta for debugging
-                        d[pixelIndex + 0] = 255;
-                        d[pixelIndex + 1] = 0;
-                        d[pixelIndex + 2] = 255;
-                        d[pixelIndex + 3] = 255;
                     }
                 }
+                ctx.putImageData(img, 0, 0);
             }
-            ctx.putImageData(img, 0, 0);
             const tex = new THREE.CanvasTexture(texCanvas);
             tex.wrapS = THREE.RepeatWrapping; // Fix horizontal seams
             tex.wrapT = THREE.ClampToEdgeWrapping; // Prevent pole distortion
@@ -95,7 +86,8 @@ export default function Globe3D({ world, preview, className, style }) {
             return tex;
         }
         const texture = ensureTextureFromPreview();
-        const geom = new THREE.SphereGeometry(1, 64, 32);
+        // Use higher pole segments to reduce scrunching: 128x128 for better polar distribution
+        const geom = new THREE.SphereGeometry(1, 128, 128);
         const mat = new THREE.MeshStandardMaterial({
             map: texture,
             metalness: 0.0,
@@ -124,16 +116,11 @@ export default function Globe3D({ world, preview, className, style }) {
         }
         window.addEventListener('resize', onResize);
         function animate() {
-            const t = (performance.now() - start) / 1000;
-            // apply ambient slow rotation only when user is not actively dragging
-            if (!isPointerDown) {
-                mesh.rotation.y += 0.0015; // small continuous spin
-                mesh.rotation.x = Math.sin(t * 0.05) * 0.03;
-            }
-            // apply inertia velocities
+            // NO auto-rotation - only user-controlled movement
+            // Apply inertia velocities from drag
             if (Math.abs(velX) > 1e-5 || Math.abs(velY) > 1e-5) {
                 mesh.rotation.y += velX;
-                mesh.rotation.x += Math.max(Math.min(mesh.rotation.x + velY, Math.PI / 2 - 0.1), -Math.PI / 2 + 0.1);
+                mesh.rotation.x = Math.max(Math.min(mesh.rotation.x + velY, Math.PI / 2 - 0.1), -Math.PI / 2 + 0.1);
                 // decay
                 velX *= 0.92;
                 velY *= 0.92;

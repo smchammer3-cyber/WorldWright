@@ -20,6 +20,7 @@ import {
   createEmptyCell,
 } from '../worldSchema';
 import { recomputeWorld } from '../worldRecompute';
+import { generateCountries } from '../countryGenerator';
 
 export type GeneratorParams = {
   width: number;
@@ -28,17 +29,29 @@ export type GeneratorParams = {
   // 0–100: higher -> more ocean
   seaLevel: number;
 
-  // 0–100: more tectonic activity -> rougher terrain (MVP)
+  // 0–100: more tectonic activity -> rougher terrain
   plateActivity: number;
 
-  // 0–100: axial tilt affects temperature gradient seasonality (MVP)
+  // 0–100: axial tilt affects temperature gradient seasonality
   axisTilt: number;
 
-  // 0–100: planet age affects smoothing (MVP)
+  // 0–100: planet age affects smoothing (erosion over time)
   planetAge: number;
 
-  // 0–100: climate variability (MVP)
+  // 0–100: climate variability
   climateVar: number;
+
+  // 0–100: global moisture/humidity level
+  moistureLevel: number;
+
+  // -50 to +50: temperature offset (warmer/colder worlds)
+  temperatureOffset: number;
+
+  // 0–100: erosion intensity (landform smoothing)
+  erosionIntensity: number;
+
+  // 1–12: number of major continents
+  continentCount: number;
 
   // seed can be a number or string; normalized deterministically to a 32-bit uint
   seed: number | string;
@@ -51,10 +64,14 @@ export function createDefaultGeneratorParams(): GeneratorParams {
     height: 128,
 
     seaLevel: 50,
-    plateActivity: 50,
+    plateActivity: 55,
     axisTilt: 45,
-    planetAge: 50,
+    planetAge: 70,
     climateVar: 35,
+    moistureLevel: 50,
+    temperatureOffset: 0,
+    erosionIntensity: 70,
+    continentCount: 4,
 
     seed: Math.floor(Math.random() * 1_000_000_000),
     styleMode: 'EARTHLIKE',
@@ -71,10 +88,11 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const nowIso = new Date().toISOString();
 
   // Map UI 0..100 to world seaLevel in normalized height space
-  // Higher slider => more ocean => higher sea threshold.
-  // Terrain generates in roughly -1..1 range, so sea level should be around -0.2 to 0.2
-  // for reasonable land/ocean distribution. At 50% slider, aim for ~30% ocean.
-  const globalSeaLevel = lerp(-0.18, 0.22, clamp01(params.seaLevel / 100));
+  // Target: ~30% ocean coverage at 50% slider position (Earth is ~29% land, 71% ocean)
+  // Higher slider = more ocean (higher sea level threshold)
+  // With larger continents, sea level is lower in normalized space
+  // At 50% slider, use ~-0.35 for Earth-like balance
+  const globalSeaLevel = lerp(-0.75, 0.0, clamp01(params.seaLevel / 100));
 
   const plateAmp = lerp(0.25, 1.35, clamp01(params.plateActivity / 100));
 
@@ -90,15 +108,17 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const cells: Cell[] = new Array(width * height);
   for (let i = 0; i < cells.length; i++) cells[i] = createEmptyCell(i);
 
-  // Plates: fewer plates = larger continents (per blueprint Section 4.2)
-  // Target: 3-7 major continents for Earthlike style
-  const plateCount = 9;
+  // Plates: continentCount drives number of continental plates
+  // Blueprint Section 4.2: fewer plates = larger continents
+  const continentCount = clampInt(params.continentCount, 1, 12);
+  // Total plates = continents + oceanic plates for separation
+  const plateCount = continentCount + Math.floor(continentCount * 1.2);
   const plates: Plate[] = [];
   for (let i = 0; i < plateCount; i++) {
-    // 55% oceanic, 45% continental for ~3-5 major continents
+    // First N plates are continental, rest are oceanic
     plates.push({
       id: i,
-      type: i < 5 ? PlateType.OCEANIC : PlateType.CONTINENTAL,
+      type: i < continentCount ? PlateType.CONTINENTAL : PlateType.OCEANIC,
       velocity: [lerp(-1, 1, rng()), lerp(-1, 1, rng())],
     });
   }
@@ -119,43 +139,67 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       cell.plateId = pPick;
       cell.plateType = plates[pPick].type;
 
-      // Create large continental shapes (lower frequency = larger features)
-      // Blueprint Section 4.3: "substantial continents and ocean basins"
-      const continentNoise = fbm(lon01 * 1.8, lat01 * 1.4, rng, 3);
+      // Create LARGE continental landmasses with proper height distribution
+      // KEY: Use MUCH lower-frequency noise for realistic continent-sized features
+      // Earth's continents span ~30-50% of globe width - match this scale
       
-      // Add variation noise for natural coastlines
-      const detailNoise = fbm(lon01 * 4.5, lat01 * 3.5, rng, 2) * 0.2;
+      // Continent-scale base (VERY low freq - shapes continents)
+      // 0.08-0.12 creates ~4-6 major landmasses per world (like Earth's 7 continents)
+      const continentBase = fbm(lon01 * 0.10, lat01 * 0.08, rng, 2) * 1.0;
       
-      // Create distinct continental centers using plate-based positioning
-      // This ensures continents are separated by oceanic plates
+      // Regional variation (low freq - shapes 100s of km)
+      const regionalVar = fbm(lon01 * 0.35, lat01 * 0.25, rng, 2) * 0.5;
+      
+      // Coastline detail (mid freq - shapes 10s of km)  
+      const coastDetail = fbm(lon01 * 1.0, lat01 * 0.75, rng, 2) * 0.15;
+      
+      // Mountain/valley roughness (high freq - shapes 1s of km)
+      const roughness = fbm(lon01 * 3.0, lat01 * 2.5, rng, 2) * 0.08;
+      
+      // Plate-based elevation bias
       let plateHeightBias;
       if (cell.plateType === PlateType.CONTINENTAL) {
-        // Continental plates: elevated with local variation
-        // Use plate position to create distinct continental centers
-        const plateCenterDist = fbm(lon01 * 0.9 + cell.plateId * 0.4, lat01 * 0.7 + cell.plateId * 0.5, rng, 2);
-        plateHeightBias = 0.60 + plateCenterDist * 0.28 + detailNoise * 0.12;
+        // Continental plates: Elevated with continental bulges
+        // Create distinct continental centers using plate noise
+        const plateSeed = fbm(lon01 * 0.2 + cell.plateId * 0.8, lat01 * 0.15 + cell.plateId * 0.9, rng, 1);
+        // Range: 0.25 to 0.95 for higher continental platforms (more visible land)
+        plateHeightBias = 0.40 + plateSeed * 0.45;
       } else {
-        // Oceanic plates: deep basins to separate continents
-        plateHeightBias = -0.75 + detailNoise * 0.10;
+        // Oceanic plates: Deep basins
+        // Range: -0.95 to -0.65 for deeper consistent ocean depths
+        const oceanDepth = fbm(lon01 * 0.3, lat01 * 0.2, rng, 1);
+        plateHeightBias = -0.85 + oceanDepth * 0.15;
       }
 
-      // Add tectonic roughness based on plate activity
-      const rough = fbm(lon01 * 8.0, lat01 * 6.5, rng, 3) * plateAmp * 0.22;
+      // Tectonic activity adds roughness
+      const tectonicRough = fbm(lon01 * 4.0, lat01 * 3.5, rng, 2) * plateAmp * 0.15;
 
-      // Combine: strong plate bias + continental shapes + roughness
-      // Strong depth difference ensures proper ocean basins
-      const base = plateHeightBias + continentNoise * 0.38 + rough * (1 - smooth * 0.65);
+      // Combine layers: plate base + regional + coast + terrain + tectonic
+      // Order: start with plate bias (dominant), add progressively finer features
+      const base = plateHeightBias + continentBase + regionalVar + coastDetail + roughness + tectonicRough * (1 - smooth * 0.4);
 
-      // Normalize with extended range to allow deeper oceans
-      cell.baseHeight = clamp(base * 0.88, -1.4, 1.2);
+      // CRITICAL: Proper height range
+      // Use wider range to distinguish ocean depths from mountain peaks
+      cell.baseHeight = clamp(base * 1.0, -1.5, 1.3);
+      
+      // Reduce artifacts at poles: near poles (lat01 > 0.85), suppress extreme roughness
+      const poleFactor = Math.max(0, 1 - Math.pow(Math.abs(lat01 * 2 - 1) - 0.85, 2) * 8);
+      if (poleFactor > 0.1) {
+        // Interpolate toward more ocean (sea level) near poles to avoid weird spikes
+        cell.baseHeight = lerp(cell.baseHeight, -0.3 - Math.random() * 0.1, poleFactor * 0.5);
+      }
+      
       cell.boundaryType = BoundaryType.NONE;
 
-      // Temperature: lat gradient + noise + tilt + styleMode
+      // Temperature: lat gradient + noise + tilt + styleMode + temperatureOffset
       const lat = lat01 * 2 - 1; // -1..1
       // Axis tilt affects temperature gradient sharpness: higher tilt => steeper poles
       const tiltFactor = lerp(0.65, 1.25, tilt);
       const latCurve = 1 - Math.pow(Math.abs(lat), tiltFactor);
       const tNoise = fbm(lon01 * 4.0, lat01 * 4.0, rng, 2) * climateVar;
+      
+      // Temperature offset: -50 to +50 mapped to -0.3 to +0.3
+      const tempOffset = (params.temperatureOffset / 100) * 0.6;
       
       // StyleMode modifiers
       let tempMod = 0;
@@ -167,16 +211,19 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
         tempMod = 0.08 + fbm(lon01 * 3.0, lat01 * 2.5, rng, 2) * 0.12;
       }
       
-      cell.temperature = clamp01(latCurve * 0.8 + 0.12 + tNoise * 0.22 + tempMod);
+      cell.temperature = clamp01(latCurve * 0.8 + 0.12 + tNoise * 0.22 + tempMod + tempOffset);
 
-      // Rainfall: bands influenced by tilt, elevation hints, and styleMode
+      // Rainfall: bands influenced by tilt, elevation hints, styleMode, and moistureLevel
       // ITCZ (Inter-Tropical Convergence Zone) near equator, dry subtropics
       const absLat = Math.abs(lat);
       const itczBand = Math.exp(-Math.pow(absLat * 2.5, 2)); // peak at equator
       const subtropicDry = Math.exp(-Math.pow((absLat - 0.35) * 3.5, 2)); // dry ~30° lat
       const polarMoist = absLat > 0.7 ? (absLat - 0.7) * 0.4 : 0;
       
-      let rainBase = itczBand * 0.6 - subtropicDry * 0.25 + polarMoist + 0.25;
+      // Moisture level: 0-100 mapped to 0.5-1.5 multiplier
+      const moistureMult = lerp(0.5, 1.5, params.moistureLevel / 100);
+      
+      let rainBase = (itczBand * 0.6 - subtropicDry * 0.25 + polarMoist + 0.25) * moistureMult;
       const rNoise = fbm(lon01 * 5.0, lat01 * 3.0, rng, 2) * climateVar;
       
       // StyleMode rainfall modifiers
@@ -268,12 +315,14 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     }
   }
 
-  // Erosion & age smoothing pass(s): older planets should be smoother.
-  // Use a small number of iterative smoothing passes proportional to
-  // planetAge. We perform smoothing on baseHeight and update surfaceAge.
+  // Erosion & age smoothing pass(s): older planets + higher erosion => smoother.
+  // Erosion intensity combined with planet age determines smoothing.
   const ageFactor = clamp01(params.planetAge / 100);
-  const smoothingPasses = Math.max(1, Math.round(lerp(1, 6, ageFactor)));
-  const smoothingStrength = lerp(0.15, 0.65, ageFactor); // higher => more smoothing per pass
+  const erosionFactor = clamp01(params.erosionIntensity / 100);
+  const combinedSmoothing = (ageFactor + erosionFactor) / 2;
+  
+  const smoothingPasses = Math.max(1, Math.round(lerp(1, 8, combinedSmoothing)));
+  const smoothingStrength = lerp(0.15, 0.70, combinedSmoothing);
 
   for (let pass = 0; pass < smoothingPasses; pass++) {
     const newHeights = new Array<number>(cells.length);
@@ -379,7 +428,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     plates,
     rivers,
 
-    countries: [],
+    countries: [], // Will be populated below
     cultures: [],
     cultureRegions: [],
     cities: [],
@@ -388,7 +437,6 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     stickers: [],
 
     metadata: {
-      // Deterministic id derived from seed and grid size — same seed => same id.
       id: `w_${params.styleMode}_${width}x${height}_${seedUint}`,
       name: 'Untitled World',
       seed: String(params.seed),
@@ -411,6 +459,10 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   };
 
   recomputeWorld(world, ['GENERATED']);
+  
+  // CRITICAL: Generate countries AFTER recompute so water cells are marked
+  world.countries = generateCountries(world, continentCount);
+  
   return world;
 }
 

@@ -36,38 +36,22 @@ export function buildPlanetPreview(world) {
         const editDelta = typeof cell.editHeightDelta === "number" ? cell.editHeightDelta : 0;
         const simDelta = typeof cell.simHeightDelta === "number" ? cell.simHeightDelta : 0;
         const h = base + editDelta + simDelta;
-        const isWater = typeof cell.isWater === "boolean" ? cell.isWater : h < seaLevel;
+        // Always compute isWater from current height vs seaLevel (cells can be edited after generation)
+        const isWater = h < seaLevel;
         // Get rainfall (not 'moisture' which doesn't exist)
         const rainfall = typeof cell.rainfall === "number" ? clamp01(cell.rainfall) : 0.5;
         const temp = typeof cell.temperature === "number" ? clamp01(cell.temperature) : 0.5;
         const snow = typeof cell.snowCover === "number" ? clamp01(cell.snowCover) : 0;
-        // Calculate hillslope shading with better gradient detection
+        // Calculate hillslope shading for terrain definition
         let lighting = 1.0;
-        if (row > 0 && col > 0 && row < height - 1 && col < width - 1) {
-            // Sample multiple neighbors for better gradient detection
+        if (row > 0 && col > 0) {
             const nw = cells[(row - 1) * width + (col - 1)];
-            const n = cells[(row - 1) * width + col];
-            const ne = cells[(row - 1) * width + (col + 1)];
-            const w = cells[row * width + (col - 1)];
-            if (nw && n && ne && w) {
+            if (nw) {
                 const nwH = (typeof nw.baseHeight === "number" ? nw.baseHeight : 0) +
                     (typeof nw.editHeightDelta === "number" ? nw.editHeightDelta : 0) +
                     (typeof nw.simHeightDelta === "number" ? nw.simHeightDelta : 0);
-                const nH = (typeof n.baseHeight === "number" ? n.baseHeight : 0) +
-                    (typeof n.editHeightDelta === "number" ? n.editHeightDelta : 0) +
-                    (typeof n.simHeightDelta === "number" ? n.simHeightDelta : 0);
-                const neH = (typeof ne.baseHeight === "number" ? ne.baseHeight : 0) +
-                    (typeof ne.editHeightDelta === "number" ? ne.editHeightDelta : 0) +
-                    (typeof ne.simHeightDelta === "number" ? ne.simHeightDelta : 0);
-                const wH = (typeof w.baseHeight === "number" ? w.baseHeight : 0) +
-                    (typeof w.editHeightDelta === "number" ? w.editHeightDelta : 0) +
-                    (typeof w.simHeightDelta === "number" ? w.simHeightDelta : 0);
-                // Compute gradient in x and y directions
-                const dx = (neH - nwH) * 0.5; // Horizontal gradient
-                const dy = (nH - wH) * 0.5; // Vertical gradient (approximate)
-                // Compute lighting based on slope (assuming light from NW)
-                const slope = (dx + dy) * 4.0; // Amplify for visibility
-                lighting = clamp01(0.75 + slope * 0.25); // Range 0.5-1.0 for better contrast
+                const slope = (h - nwH) * 6.0; // Stronger slope for better visibility
+                lighting = clamp01(0.7 + slope * 0.3); // Range 0.4-1.0 for good contrast
             }
         }
         if (isWater) {

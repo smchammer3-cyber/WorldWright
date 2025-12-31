@@ -281,6 +281,18 @@ class WorldSession {
         this.notify();
     }
     /**
+     * Apply a local edit without creating history (for brush strokes that don't need individual undo).
+     * This is used for continuous brush strokes where each pixel shouldn't be a separate undo.
+     */
+    applyLocalEdit(world) {
+        if (!this.world || !world)
+            return;
+        this.world = world;
+        recomputeWorld(this.world, ['TERRAIN_EDIT']);
+        this.dirty = true;
+        this.notify();
+    }
+    /**
      * Undo the most recent edit or simulation tick. Does nothing if the history
      * cannot be rewound. Undo does not clear the dirty flag; consumers may
      * choose to save after undo.

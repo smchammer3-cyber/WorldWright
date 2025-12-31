@@ -155,6 +155,15 @@ export interface City {
   population: number;
   countryId?: string;
   cultureId?: string;
+
+  // Extended metadata (V1.3 blueprint)
+  type?: 'VILLAGE' | 'TOWN' | 'CITY' | 'METROPOLIS' | 'FORT' | 'PORT';
+  isCapital?: boolean;
+  populationTier?: 1 | 2 | 3 | 4 | 5; // 1=village, 5=metropolis
+  economicRoles?: ('AGRICULTURAL' | 'INDUSTRIAL' | 'TRADE' | 'RELIGIOUS' | 'MILITARY')[];
+  strategicValue?: number; // 0..1
+  tags?: string[];
+  description?: string;
 }
 
 export interface Location {

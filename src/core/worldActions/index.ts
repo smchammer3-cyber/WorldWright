@@ -1,4 +1,4 @@
-import type { WorldBrain, Sticker, City, Country } from '../worldSchema';
+import type { WorldBrain, Sticker, City, Country, River } from '../worldSchema';
 import { recomputeWorld } from '../worldRecompute';
 
 // Terrain brush tools supported by the WorldAction system.
@@ -27,7 +27,10 @@ export type WorldAction =
   | TerrainStrokeAction
   | StickerApplyAction
   | AddCityAction
-  | AddCountryAction;
+  | AddCountryAction
+  | AddRiverAction
+  | RemoveRiverAction
+  | SetLakeLevelAction;
 
 /**
  * Apply a single WorldAction to the provided world. This function mutates
@@ -112,6 +115,21 @@ export function applyWorldAction(world: WorldBrain, action: WorldAction): void {
       recomputeWorld(world, ['TERRAIN_EDIT']);
       return;
 
+    case 'ADD_RIVER':
+      applyAddRiver(world, action as AddRiverAction);
+      recomputeWorld(world, ['TERRAIN_EDIT']);
+      return;
+
+    case 'REMOVE_RIVER':
+      applyRemoveRiver(world, action as RemoveRiverAction);
+      recomputeWorld(world, ['TERRAIN_EDIT']);
+      return;
+
+    case 'SET_LAKE_LEVEL':
+      applySetLakeLevel(world, action as SetLakeLevelAction);
+      recomputeWorld(world, ['TERRAIN_EDIT']);
+      return;
+
     default:
       return;
   }
@@ -122,6 +140,12 @@ export type StickerApplyAction = { type: 'STICKER_APPLY'; sticker: Sticker };
 export type AddCityAction = { type: 'ADD_CITY'; city: City };
 
 export type AddCountryAction = { type: 'ADD_COUNTRY'; country: Country };
+
+export type AddRiverAction = { type: 'ADD_RIVER'; river: River };
+
+export type RemoveRiverAction = { type: 'REMOVE_RIVER'; riverId: number };
+
+export type SetLakeLevelAction = { type: 'SET_LAKE_LEVEL'; cellIndex: number; newLevel: number };
 
 function applySticker(world: WorldBrain, action: StickerApplyAction): void {
   const { sticker } = action;
@@ -191,6 +215,33 @@ function pointInPolygon(point: { lat: number; lon: number }, polygon: { lat: num
     if (intersect) inside = !inside;
   }
   return inside;
+}
+
+function applyAddRiver(world: WorldBrain, action: AddRiverAction): void {
+  world.rivers = world.rivers ?? [];
+  world.rivers.push(action.river);
+}
+
+function applyRemoveRiver(world: WorldBrain, action: RemoveRiverAction): void {
+  world.rivers = (world.rivers ?? []).filter(r => r.id !== action.riverId);
+}
+
+function applySetLakeLevel(world: WorldBrain, action: SetLakeLevelAction): void {
+  // Find all cells in the same basin and raise/lower by delta
+  const cell = world.cells[action.cellIndex];
+  if (!cell) return;
+  
+  const basinId = cell.basinId;
+  const currentLevel = cell.baseHeight + cell.editHeightDelta;
+  const delta = action.newLevel - currentLevel;
+  
+  if (basinId != null) {
+    for (const c of world.cells) {
+      if (c.basinId === basinId) {
+        c.editHeightDelta = (c.editHeightDelta ?? 0) + delta;
+      }
+    }
+  }
 }
 
 // Alias used by worldEditor; maintained for backward compatibility.
