@@ -57,48 +57,60 @@ export default function Globe3D({ world, preview, className, style }: Props) {
 
       const w = p.width;
       const h = p.height;
-      texCanvas.width = w;
-      texCanvas.height = h;
-      const ctx = texCanvas.getContext('2d');
+      
+      // Create high-resolution texture (2x for better quality)
+      const texW = w * 2;
+      const texH = h * 2;
+      texCanvas.width = texW;
+      texCanvas.height = texH;
+      
+      const ctx = texCanvas.getContext('2d', { willReadFrequently: false });
       if (!ctx) throw new Error('Failed to create texture canvas 2D context');
 
-      // Use the pre-rasterized RGBA buffer directly - it's already computed
-      if (p.rgba && p.rgba instanceof Uint8ClampedArray) {
-        const img = new ImageData(p.rgba, w, h);
-        ctx.putImageData(img, 0, 0);
-      } else {
-        // Fallback: sample cell by cell using the colorAt method
-        const img = ctx.createImageData(w, h);
-        const d = img.data;
-        
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            const cellIndex = y * w + x;
-            const pixelIndex = cellIndex * 4;
-            
-            try {
-              const rgba = p.sampleGlobeColor ? p.sampleGlobeColor(cellIndex) : [255, 0, 255, 255];
-              d[pixelIndex + 0] = rgba[0];
-              d[pixelIndex + 1] = rgba[1];
-              d[pixelIndex + 2] = rgba[2];
-              d[pixelIndex + 3] = rgba[3] ?? 255;
-            } catch (err) {
-              d[pixelIndex + 0] = 255;
-              d[pixelIndex + 1] = 0;
-              d[pixelIndex + 2] = 255;
-              d[pixelIndex + 3] = 255;
-            }
+      // Sample with bilinear interpolation and proper wrapping
+      const img = ctx.createImageData(texW, texH);
+      const d = img.data;
+      
+      for (let ty = 0; ty < texH; ty++) {
+        for (let tx = 0; tx < texW; tx++) {
+          // Map texture pixel to grid coordinates (with 0.5 offset for cell centers)
+          const fx = (tx / texW) * w;
+          const fy = (ty / texH) * h;
+          
+          // Bilinear sampling with proper wrapping
+          const x0 = Math.floor(fx);
+          const y0 = Math.floor(fy);
+          const x1 = (x0 + 1) % w; // Wrap X for longitude
+          const y1 = Math.min(y0 + 1, h - 1); // Clamp Y at poles
+          
+          const dx = fx - x0;
+          const dy = fy - y0;
+          
+          // Sample four corners
+          const c00 = p.sampleGlobeColor ? p.sampleGlobeColor(y0 * w + x0) : [255, 0, 255, 255];
+          const c10 = p.sampleGlobeColor ? p.sampleGlobeColor(y0 * w + x1) : [255, 0, 255, 255];
+          const c01 = p.sampleGlobeColor ? p.sampleGlobeColor(y1 * w + x0) : [255, 0, 255, 255];
+          const c11 = p.sampleGlobeColor ? p.sampleGlobeColor(y1 * w + x1) : [255, 0, 255, 255];
+          
+          // Bilinear interpolation
+          const pixelIndex = (ty * texW + tx) * 4;
+          for (let ch = 0; ch < 4; ch++) {
+            const v0 = c00[ch] * (1 - dx) + c10[ch] * dx;
+            const v1 = c01[ch] * (1 - dx) + c11[ch] * dx;
+            d[pixelIndex + ch] = Math.round(v0 * (1 - dy) + v1 * dy);
           }
         }
-        ctx.putImageData(img, 0, 0);
       }
+      ctx.putImageData(img, 0, 0);
 
       const tex = new THREE.CanvasTexture(texCanvas);
-      tex.wrapS = THREE.RepeatWrapping; // Fix horizontal seams
-      tex.wrapT = THREE.ClampToEdgeWrapping; // Prevent pole distortion
-      tex.minFilter = THREE.LinearFilter; // Smooth filtering
-      tex.magFilter = THREE.LinearFilter; // Smooth filtering
-      tex.flipY = false;
+      tex.wrapS = THREE.RepeatWrapping; // Wrap longitude (fixes vertical seam)
+      tex.wrapT = THREE.ClampToEdgeWrapping; // Clamp latitude (prevents pole artifacts)
+      tex.minFilter = THREE.LinearMipmapLinearFilter; // Use mipmaps for smooth rendering
+      tex.magFilter = THREE.LinearFilter; // Smooth magnification
+      tex.generateMipmaps = true; // Generate mipmaps
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); // Best quality
+      tex.flipY = false; // Equirectangular standard
       tex.needsUpdate = true;
       return tex;
     }

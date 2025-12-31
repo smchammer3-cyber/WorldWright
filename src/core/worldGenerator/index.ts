@@ -121,8 +121,12 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     });
   }
 
-  // Height field: generate substantial continents and ocean basins
-  // Step 1: Create large-scale continental shapes with low-frequency noise
+  // Height field: THREE-STAGE GENERATION for realistic continents
+  // Stage 1: Create continent-scale plate-based height map (dominant signal)
+  // Stage 2: Smooth and enforce minimum continent size
+  // Stage 3: Add detail layers (regional, coastal, mountain roughness)
+  
+  // STAGE 1: Plate-based continent formation
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
@@ -131,56 +135,114 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const lat01 = r / (height - 1);
       const lon01 = c / (width - 1);
 
-      // Assign plate id first using very low-frequency noise for large plates
-      const plateNoise = fbm(lon01 * 1.4, lat01 * 1.0, rng, 2);
+      // Assign plate ID using very low-frequency noise for large plates
+      const plateNoise = fbm(lon01 * 0.8, lat01 * 0.6, rng, 2);
       const pPick = Math.floor(clamp01((plateNoise + 1) * 0.5) * plateCount) % plateCount;
       cell.plateId = pPick;
       cell.plateType = plates[pPick].type;
 
-      // Create LARGE continental landmasses with proper height distribution
-      // KEY: Use MUCH lower-frequency noise for realistic continent-sized features
-      // Earth's continents span ~30-50% of globe width - match this scale
-      
-      // Continent-scale base (VERY low freq - shapes continents)
-      // Target: 3-5 distinct landmasses per world (like Earth's 7 continents)
-      // Use lower amplitude to prevent super-continent formation
-      const continentBase = fbm(lon01 * 0.12, lat01 * 0.10, rng, 2) * 0.85;
-      
-      // Regional variation (low freq - shapes 100s of km)
-      const regionalVar = fbm(lon01 * 0.40, lat01 * 0.30, rng, 2) * 0.45;
-      
-      // Coastline detail (mid freq - shapes 10s of km)  
-      const coastDetail = fbm(lon01 * 1.2, lat01 * 0.9, rng, 2) * 0.20;
-      
-      // Mountain/valley roughness (high freq - shapes 1s of km)
-      const roughness = fbm(lon01 * 3.5, lat01 * 2.8, rng, 2) * 0.10;
-      
-      // Plate-based elevation bias
+      // CRITICAL: Plate type DOMINATES height (creates distinct continents)
+      // Continental plates get a strong positive bias, oceanic get strong negative
       let plateHeightBias;
       if (cell.plateType === PlateType.CONTINENTAL) {
-        // Continental plates: Elevated with continental bulges
-        // Create distinct continental centers using plate noise
-        // BALANCED: Not too high to avoid super-continents
-        const plateSeed = fbm(lon01 * 0.18 + cell.plateId * 0.7, lat01 * 0.14 + cell.plateId * 0.8, rng, 1);
-        // Range: 0.30 to 0.85 for continental platforms (balanced land/ocean ratio)
-        plateHeightBias = 0.35 + plateSeed * 0.50;
+        // Continental core: Use plate-seeded noise for distinct continental centers
+        // This creates 3-5 large cohesive landmasses
+        const plateCenterX = (cell.plateId * 0.371) % 1.0; // Pseudo-random plate centers
+        const plateCenterY = (cell.plateId * 0.719) % 1.0;
+        const distFromCenter = Math.sqrt(
+          Math.pow(lon01 - plateCenterX, 2) + Math.pow(lat01 - plateCenterY, 2)
+        );
+        
+        // Continental bulge: highest at plate center, falls off toward edges
+        const continentStrength = Math.max(0, 1.0 - distFromCenter * 3.0);
+        const continentNoise = fbm(lon01 * 0.15, lat01 * 0.12, rng, 2);
+        
+        // Range: -0.2 to +1.2 (mostly above water with strong core)
+        plateHeightBias = 0.4 + continentStrength * 0.8 + continentNoise * 0.3;
       } else {
-        // Oceanic plates: Deep basins
-        // Range: -0.95 to -0.70 for consistent ocean depths
-        const oceanDepth = fbm(lon01 * 0.28, lat01 * 0.18, rng, 1);
-        plateHeightBias = -0.88 + oceanDepth * 0.25;
+        // Oceanic plate: Deep uniform basins
+        const oceanDepth = fbm(lon01 * 0.25, lat01 * 0.18, rng, 1);
+        // Range: -1.1 to -0.7 (always below sea level)
+        plateHeightBias = -0.95 + oceanDepth * 0.25;
       }
 
-      // Tectonic activity adds roughness
-      const tectonicRough = fbm(lon01 * 4.0, lat01 * 3.5, rng, 2) * plateAmp * 0.15;
+      // Store initial height (will smooth and add detail later)
+      cell.baseHeight = clamp(plateHeightBias, -1.5, 1.5);
+      cell.boundaryType = BoundaryType.NONE;
+    }
+  }
 
-      // Combine layers: plate base + regional + coast + terrain + tectonic
-      // Order: start with plate bias (dominant), add progressively finer features
-      const base = plateHeightBias + continentBase + regionalVar + coastDetail + roughness + tectonicRough * (1 - smooth * 0.4);
+  // STAGE 2: Smooth continental interiors (enforce coherent landmasses)
+  // Apply box blur to create continuous continents, not speckled noise
+  const smoothPasses = 3;
+  const tempHeights = new Float32Array(width * height);
+  
+  for (let pass = 0; pass < smoothPasses; pass++) {
+    // Copy current heights
+    for (let i = 0; i < cells.length; i++) {
+      tempHeights[i] = cells[i].baseHeight;
+    }
+    
+    // Apply 3x3 box blur
+    for (let r = 1; r < height - 1; r++) {
+      for (let c = 0; c < width; c++) {
+        const idx = r * width + c;
+        const cell = cells[idx];
+        
+        // Skip oceanic plates (keep oceans deep)
+        if (cell.plateType === PlateType.OCEANIC) continue;
+        
+        // 3x3 neighborhood with wrapping
+        let sum = 0;
+        let count = 0;
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nr = r + dr;
+            const nc = (c + dc + width) % width; // Wrap X
+            if (nr >= 0 && nr < height) {
+              sum += tempHeights[nr * width + nc];
+              count++;
+            }
+          }
+        }
+        
+        // Blend smoothed with original (preserve some variation)
+        const smoothed = sum / count;
+        cell.baseHeight = lerp(tempHeights[idx], smoothed, 0.6);
+      }
+    }
+  }
 
-      // CRITICAL: Proper height range
-      // Use wider range to distinguish ocean depths from mountain peaks
-      cell.baseHeight = clamp(base * 1.0, -1.5, 1.3);
+  // STAGE 3: Add detail layers to continents (NOT to base formation)
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      const idx = r * width + c;
+      const cell = cells[idx];
+
+      const lat01 = r / (height - 1);
+      const lon01 = c / (width - 1);
+
+      // Only add detail to land (continents) - oceans stay smooth
+      if (cell.baseHeight > -0.3) {
+        // Regional terrain variation (hills, plateaus)
+        const regionalVar = fbm(lon01 * 0.6, lat01 * 0.5, rng, 2) * 0.25;
+        
+        // Coastline detail (bays, peninsulas)
+        const coastDetail = fbm(lon01 * 1.8, lat01 * 1.4, rng, 2) * 0.15;
+        
+        // Mountain/valley roughness
+        const roughness = fbm(lon01 * 4.5, lat01 * 3.6, rng, 2) * 0.12;
+        
+        // Tectonic activity (mountain ranges)
+        const tectonicRough = fbm(lon01 * 3.0, lat01 * 2.5, rng, 2) * plateAmp * 0.18;
+        
+        // Apply detail layers with erosion dampening
+        const detailStrength = 1.0 - smooth * 0.5;
+        cell.baseHeight += (regionalVar + coastDetail + roughness + tectonicRough) * detailStrength;
+      }
+
+      // Clamp final height
+      cell.baseHeight = clamp(cell.baseHeight, -1.5, 1.3);
       
       // STRONG pole smoothing to eliminate star-shaped distortion
       // Near poles (lat01 < 0.10 or > 0.90), aggressively smooth terrain
