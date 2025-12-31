@@ -59,8 +59,9 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       const h = p.height;
       
       // Create high-resolution texture (2x for better quality)
+      // Add 2 extra rows for pole padding to eliminate UV singularity
       const texW = w * 2;
-      const texH = h * 2;
+      const texH = h * 2 + 2; // Extra rows for north/south pole padding
       texCanvas.width = texW;
       texCanvas.height = texH;
       
@@ -71,11 +72,12 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       const img = ctx.createImageData(texW, texH);
       const d = img.data;
       
-      for (let ty = 0; ty < texH; ty++) {
+      // First, render main grid with padding offset
+      for (let ty = 1; ty < texH - 1; ty++) { // Skip first and last row
         for (let tx = 0; tx < texW; tx++) {
-          // Map texture pixel to grid coordinates (with 0.5 offset for cell centers)
+          // Map texture pixel to grid coordinates
           const fx = (tx / texW) * w;
-          const fy = (ty / texH) * h;
+          const fy = ((ty - 1) / (texH - 2)) * h; // Account for padding rows
           
           // Bilinear sampling with proper wrapping
           const x0 = Math.floor(fx);
@@ -101,6 +103,42 @@ export default function Globe3D({ world, preview, className, style }: Props) {
           }
         }
       }
+      
+      // Fill north pole row (ty=0) with average of first data row
+      // This eliminates the UV singularity starburst
+      for (let tx = 0; tx < texW; tx++) {
+        let sumR = 0, sumG = 0, sumB = 0, sumA = 0;
+        for (let sample = 0; sample < w; sample++) {
+          const idx = (1 * texW + Math.floor((sample / w) * texW)) * 4;
+          sumR += d[idx + 0];
+          sumG += d[idx + 1];
+          sumB += d[idx + 2];
+          sumA += d[idx + 3];
+        }
+        const pixelIndex = (0 * texW + tx) * 4;
+        d[pixelIndex + 0] = sumR / w;
+        d[pixelIndex + 1] = sumG / w;
+        d[pixelIndex + 2] = sumB / w;
+        d[pixelIndex + 3] = sumA / w;
+      }
+      
+      // Fill south pole row (ty=texH-1) with average of last data row
+      for (let tx = 0; tx < texW; tx++) {
+        let sumR = 0, sumG = 0, sumB = 0, sumA = 0;
+        for (let sample = 0; sample < w; sample++) {
+          const idx = ((texH - 2) * texW + Math.floor((sample / w) * texW)) * 4;
+          sumR += d[idx + 0];
+          sumG += d[idx + 1];
+          sumB += d[idx + 2];
+          sumA += d[idx + 3];
+        }
+        const pixelIndex = ((texH - 1) * texW + tx) * 4;
+        d[pixelIndex + 0] = sumR / w;
+        d[pixelIndex + 1] = sumG / w;
+        d[pixelIndex + 2] = sumB / w;
+        d[pixelIndex + 3] = sumA / w;
+      }
+      
       ctx.putImageData(img, 0, 0);
 
       const tex = new THREE.CanvasTexture(texCanvas);

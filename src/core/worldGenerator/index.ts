@@ -88,9 +88,10 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const nowIso = new Date().toISOString();
 
   // Map UI 0..100 to world seaLevel in normalized height space
-  // Target: ~35% land / 65% ocean at 50% slider (Earth-like is 29% land / 71% ocean)
-  // Balanced with distinct continents, not super-continent
-  const globalSeaLevel = lerp(-0.65, 0.05, clamp01(params.seaLevel / 100));
+  // NEW HEIGHT RANGES: Continents (0.3 to 1.4), Oceans (-1.2 to -0.7)
+  // At 50% slider: target 30-35% land (Earth-like 29%)
+  // Sea level at 0.0 gives roughly 30% land with current generation
+  const globalSeaLevel = lerp(-0.20, 0.30, clamp01(params.seaLevel / 100));
 
   const plateAmp = lerp(0.25, 1.35, clamp01(params.plateActivity / 100));
 
@@ -121,12 +122,24 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     });
   }
 
-  // Height field: THREE-STAGE GENERATION for realistic continents
-  // Stage 1: Create continent-scale plate-based height map (dominant signal)
-  // Stage 2: Smooth and enforce minimum continent size
-  // Stage 3: Add detail layers (regional, coastal, mountain roughness)
+  // Height field: PROPER CONTINENT-FIRST GENERATION
+  // Following the requested approach: continents first, then decorate
   
-  // STAGE 1: Plate-based continent formation
+  // STAGE 1: Generate continent-scale plate centers (Voronoi-style)
+  const plateCenters: Array<{ lon: number; lat: number; isContinental: boolean }> = [];
+  
+  for (let i = 0; i < plateCount; i++) {
+    // Distribute plate centers pseudo-randomly but deterministically
+    const lon = ((i * 0.618033988749895) % 1.0) * 2 - 1; // Golden ratio distribution
+    const lat = ((i * 0.7548776662466927) % 1.0) * 2 - 1; // Another irrational
+    plateCenters.push({
+      lon: lon,
+      lat: lat,
+      isContinental: i < continentCount
+    });
+  }
+  
+  // STAGE 2: Assign each cell to nearest plate and set base height
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
@@ -134,47 +147,67 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
       const lat01 = r / (height - 1);
       const lon01 = c / (width - 1);
+      const lat = lat01 * 2 - 1; // -1 to 1
+      const lon = lon01 * 2 - 1; // -1 to 1
 
-      // Assign plate ID using very low-frequency noise for large plates
-      const plateNoise = fbm(lon01 * 0.8, lat01 * 0.6, rng, 2);
-      const pPick = Math.floor(clamp01((plateNoise + 1) * 0.5) * plateCount) % plateCount;
-      cell.plateId = pPick;
-      cell.plateType = plates[pPick].type;
-
-      // CRITICAL: Plate type DOMINATES height (creates distinct continents)
-      // Continental plates get a strong positive bias, oceanic get strong negative
-      let plateHeightBias;
-      if (cell.plateType === PlateType.CONTINENTAL) {
-        // Continental core: Use plate-seeded noise for distinct continental centers
-        // This creates 3-5 large cohesive landmasses
-        const plateCenterX = (cell.plateId * 0.371) % 1.0; // Pseudo-random plate centers
-        const plateCenterY = (cell.plateId * 0.719) % 1.0;
-        const distFromCenter = Math.sqrt(
-          Math.pow(lon01 - plateCenterX, 2) + Math.pow(lat01 - plateCenterY, 2)
-        );
+      // Find nearest plate center (with wrap-around for longitude)
+      let minDist = Infinity;
+      let nearestPlate = 0;
+      
+      for (let p = 0; p < plateCenters.length; p++) {
+        const pc = plateCenters[p];
+        // Compute distance with longitude wrapping (toroidal distance)
+        let dLon = Math.abs(lon - pc.lon);
+        if (dLon > 1.0) dLon = 2.0 - dLon; // Wrap around
+        const dLat = lat - pc.lat;
+        const dist = Math.sqrt(dLon * dLon + dLat * dLat);
         
-        // Continental bulge: highest at plate center, falls off toward edges
-        const continentStrength = Math.max(0, 1.0 - distFromCenter * 3.0);
-        const continentNoise = fbm(lon01 * 0.15, lat01 * 0.12, rng, 2);
-        
-        // Range: -0.2 to +1.2 (mostly above water with strong core)
-        plateHeightBias = 0.4 + continentStrength * 0.8 + continentNoise * 0.3;
-      } else {
-        // Oceanic plate: Deep uniform basins
-        const oceanDepth = fbm(lon01 * 0.25, lat01 * 0.18, rng, 1);
-        // Range: -1.1 to -0.7 (always below sea level)
-        plateHeightBias = -0.95 + oceanDepth * 0.25;
+        if (dist < minDist) {
+          minDist = dist;
+          nearestPlate = p;
+        }
       }
+      
+      cell.plateId = nearestPlate;
+      cell.plateType = plateCenters[nearestPlate].isContinental 
+        ? PlateType.CONTINENTAL 
+        : PlateType.OCEANIC;
 
-      // Store initial height (will smooth and add detail later)
-      cell.baseHeight = clamp(plateHeightBias, -1.5, 1.5);
+      // CONTINENTAL PLATES: Create tall landmasses that fall off from center
+      if (cell.plateType === PlateType.CONTINENTAL) {
+        const pc = plateCenters[nearestPlate];
+        
+        // Distance from plate center (with wrapping)
+        let dLon = Math.abs(lon - pc.lon);
+        if (dLon > 1.0) dLon = 2.0 - dLon;
+        const dLat = lat - pc.lat;
+        const distFromCenter = Math.sqrt(dLon * dLon + dLat * dLat);
+        
+        // Continental bulge: 1.0 at center, falls off to 0.0 at ~0.4 radius
+        // This creates LARGE continents (20-40% of globe)
+        const continentRadius = 0.5; // Half the globe width
+        const continentStrength = Math.max(0, 1.0 - (distFromCenter / continentRadius));
+        
+        // Add low-frequency noise for continent shape variation
+        const shapeNoise = fbm(lon01 * 0.3, lat01 * 0.25, rng, 2);
+        
+        // CRITICAL: Continental height is DOMINANT (0.3 to 1.4)
+        // Most of continent is above sea level (~0 is typical sea level)
+        cell.baseHeight = 0.3 + continentStrength * 0.9 + shapeNoise * 0.2;
+        
+      } else {
+        // OCEANIC PLATES: Deep uniform basins
+        const oceanNoise = fbm(lon01 * 0.4, lat01 * 0.3, rng, 1);
+        // Range: -1.2 to -0.7 (always well below sea level)
+        cell.baseHeight = -1.0 + oceanNoise * 0.2;
+      }
+      
       cell.boundaryType = BoundaryType.NONE;
     }
   }
 
-  // STAGE 2: Smooth continental interiors (enforce coherent landmasses)
-  // Apply box blur to create continuous continents, not speckled noise
-  const smoothPasses = 3;
+  // STAGE 3: Smooth continental interiors (5 passes for coherent landmasses)
+  const smoothPasses = 5; // More passes = more coherent continents
   const tempHeights = new Float32Array(width * height);
   
   for (let pass = 0; pass < smoothPasses; pass++) {
@@ -183,20 +216,20 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       tempHeights[i] = cells[i].baseHeight;
     }
     
-    // Apply 3x3 box blur
-    for (let r = 1; r < height - 1; r++) {
+    // Apply 5x5 box blur for stronger smoothing
+    for (let r = 2; r < height - 2; r++) {
       for (let c = 0; c < width; c++) {
         const idx = r * width + c;
         const cell = cells[idx];
         
-        // Skip oceanic plates (keep oceans deep)
+        // Only smooth continental plates (keep ocean basins deep)
         if (cell.plateType === PlateType.OCEANIC) continue;
         
-        // 3x3 neighborhood with wrapping
+        // 5x5 neighborhood with wrapping
         let sum = 0;
         let count = 0;
-        for (let dr = -1; dr <= 1; dr++) {
-          for (let dc = -1; dc <= 1; dc++) {
+        for (let dr = -2; dr <= 2; dr++) {
+          for (let dc = -2; dc <= 2; dc++) {
             const nr = r + dr;
             const nc = (c + dc + width) % width; // Wrap X
             if (nr >= 0 && nr < height) {
@@ -206,14 +239,14 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
           }
         }
         
-        // Blend smoothed with original (preserve some variation)
+        // Strong blend toward smoothed value
         const smoothed = sum / count;
-        cell.baseHeight = lerp(tempHeights[idx], smoothed, 0.6);
+        cell.baseHeight = lerp(tempHeights[idx], smoothed, 0.7);
       }
     }
   }
 
-  // STAGE 3: Add detail layers to continents (NOT to base formation)
+  // STAGE 4: Add detail layers ONLY to land areas
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
@@ -222,27 +255,27 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const lat01 = r / (height - 1);
       const lon01 = c / (width - 1);
 
-      // Only add detail to land (continents) - oceans stay smooth
-      if (cell.baseHeight > -0.3) {
+      // Only add detail to potential land (height > -0.2)
+      if (cell.baseHeight > -0.2) {
         // Regional terrain variation (hills, plateaus)
-        const regionalVar = fbm(lon01 * 0.6, lat01 * 0.5, rng, 2) * 0.25;
+        const regionalVar = fbm(lon01 * 1.2, lat01 * 1.0, rng, 2) * 0.20;
         
-        // Coastline detail (bays, peninsulas)
-        const coastDetail = fbm(lon01 * 1.8, lat01 * 1.4, rng, 2) * 0.15;
+        // Coastline detail (bays, peninsulas, islands)
+        const coastDetail = fbm(lon01 * 2.5, lat01 * 2.0, rng, 2) * 0.15;
         
         // Mountain/valley roughness
-        const roughness = fbm(lon01 * 4.5, lat01 * 3.6, rng, 2) * 0.12;
+        const roughness = fbm(lon01 * 5.0, lat01 * 4.0, rng, 2) * 0.10;
         
-        // Tectonic activity (mountain ranges)
-        const tectonicRough = fbm(lon01 * 3.0, lat01 * 2.5, rng, 2) * plateAmp * 0.18;
+        // Tectonic mountain ranges at plate boundaries
+        const tectonicRough = fbm(lon01 * 3.5, lat01 * 2.8, rng, 2) * plateAmp * 0.15;
         
-        // Apply detail layers with erosion dampening
-        const detailStrength = 1.0 - smooth * 0.5;
+        // Apply detail with erosion dampening
+        const detailStrength = 1.0 - smooth * 0.4;
         cell.baseHeight += (regionalVar + coastDetail + roughness + tectonicRough) * detailStrength;
       }
 
-      // Clamp final height
-      cell.baseHeight = clamp(cell.baseHeight, -1.5, 1.3);
+      // Clamp final height to valid range
+      cell.baseHeight = clamp(cell.baseHeight, -1.5, 1.5);
       
       // STRONG pole smoothing to eliminate star-shaped distortion
       // Near poles (lat01 < 0.10 or > 0.90), aggressively smooth terrain
