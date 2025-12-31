@@ -89,10 +89,9 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
   // Map UI 0..100 to world seaLevel in normalized height space
   // Target: ~30% ocean coverage at 50% slider position (Earth is ~29% land, 71% ocean)
-  // Higher slider = more ocean (higher sea level threshold)
-  // With larger continents, sea level is lower in normalized space
-  // At 50% slider, use ~-0.35 for Earth-like balance
-  const globalSeaLevel = lerp(-0.75, 0.0, clamp01(params.seaLevel / 100));
+  // With massive continents from updated generation, sea level needs to be much lower
+  // At 50% slider, use ~-0.45 for Earth-like balance with larger landmasses
+  const globalSeaLevel = lerp(-0.90, 0.1, clamp01(params.seaLevel / 100));
 
   const plateAmp = lerp(0.25, 1.35, clamp01(params.plateActivity / 100));
 
@@ -145,30 +144,32 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       
       // Continent-scale base (VERY low freq - shapes continents)
       // 0.08-0.12 creates ~4-6 major landmasses per world (like Earth's 7 continents)
-      const continentBase = fbm(lon01 * 0.10, lat01 * 0.08, rng, 2) * 1.0;
+      // AMPLIFIED: Higher weight to make continents much more dominant
+      const continentBase = fbm(lon01 * 0.08, lat01 * 0.06, rng, 2) * 1.4;
       
       // Regional variation (low freq - shapes 100s of km)
-      const regionalVar = fbm(lon01 * 0.35, lat01 * 0.25, rng, 2) * 0.5;
+      const regionalVar = fbm(lon01 * 0.25, lat01 * 0.18, rng, 2) * 0.6;
       
       // Coastline detail (mid freq - shapes 10s of km)  
-      const coastDetail = fbm(lon01 * 1.0, lat01 * 0.75, rng, 2) * 0.15;
+      const coastDetail = fbm(lon01 * 0.8, lat01 * 0.6, rng, 2) * 0.12;
       
       // Mountain/valley roughness (high freq - shapes 1s of km)
-      const roughness = fbm(lon01 * 3.0, lat01 * 2.5, rng, 2) * 0.08;
+      const roughness = fbm(lon01 * 2.5, lat01 * 2.0, rng, 2) * 0.06;
       
       // Plate-based elevation bias
       let plateHeightBias;
       if (cell.plateType === PlateType.CONTINENTAL) {
         // Continental plates: Elevated with continental bulges
         // Create distinct continental centers using plate noise
-        const plateSeed = fbm(lon01 * 0.2 + cell.plateId * 0.8, lat01 * 0.15 + cell.plateId * 0.9, rng, 1);
-        // Range: 0.25 to 0.95 for higher continental platforms (more visible land)
-        plateHeightBias = 0.40 + plateSeed * 0.45;
+        const plateSeed = fbm(lon01 * 0.15 + cell.plateId * 0.6, lat01 * 0.12 + cell.plateId * 0.7, rng, 1);
+        // Range: 0.35 to 1.1 for MUCH higher continental platforms (more visible land)
+        // This creates massive, distinct continents like Earth
+        plateHeightBias = 0.55 + plateSeed * 0.55;
       } else {
         // Oceanic plates: Deep basins
-        // Range: -0.95 to -0.65 for deeper consistent ocean depths
-        const oceanDepth = fbm(lon01 * 0.3, lat01 * 0.2, rng, 1);
-        plateHeightBias = -0.85 + oceanDepth * 0.15;
+        // Range: -1.0 to -0.75 for deeper consistent ocean depths
+        const oceanDepth = fbm(lon01 * 0.25, lat01 * 0.15, rng, 1);
+        plateHeightBias = -0.90 + oceanDepth * 0.20;
       }
 
       // Tectonic activity adds roughness
