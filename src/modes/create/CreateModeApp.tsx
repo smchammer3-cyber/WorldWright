@@ -20,13 +20,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import AppShell, { ToolGroup, ViewMode } from "../../ui/AppShell";
 import { worldSession } from "../../core/worldSession";
 import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
-<<<<<<< Updated upstream
 import Globe3D from "../../render/Globe3D";
 import MiniMap from "../../ui/MiniMap";
-=======
-import Globe3D from "../../render/Globe3D";
-import MiniMap from "../../ui/MiniMap";
->>>>>>> Stashed changes
 
 export default function CreateModeApp() {
   const navigate = useNavigate();
