@@ -13,6 +13,8 @@ type Props = {
 export default function Globe3D({ world, preview, className, style }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const texCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const meshRotationRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   useEffect(() => {
     const el = containerRef.current;
@@ -22,8 +24,17 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     const height = el.clientHeight || 600;
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
-    camera.position.set(0, 0, 2.6);
+    
+    // Use existing camera or create new one
+    let camera = cameraRef.current;
+    if (!camera) {
+      camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+      camera.position.set(0, 0, 2.6);
+      cameraRef.current = camera;
+    } else {
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    }
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio || 1);
@@ -115,6 +126,43 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         ctx.putImageData(img, 0, 0);
       }
 
+      // Fix pole singularity: average colors at poles
+      const ctx = texCanvas.getContext('2d');
+      if (ctx) {
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        
+        // North pole (top row, y=0): average all pixels in row
+        let nr = 0, ng = 0, nb = 0;
+        for (let x = 0; x < w; x++) {
+          const i = x * 4;
+          nr += d[i]; ng += d[i + 1]; nb += d[i + 2];
+        }
+        nr = Math.round(nr / w);
+        ng = Math.round(ng / w);
+        nb = Math.round(nb / w);
+        for (let x = 0; x < w; x++) {
+          const i = x * 4;
+          d[i] = nr; d[i + 1] = ng; d[i + 2] = nb;
+        }
+        
+        // South pole (bottom row, y=h-1): average all pixels in row
+        let sr = 0, sg = 0, sb = 0;
+        for (let x = 0; x < w; x++) {
+          const i = ((h - 1) * w + x) * 4;
+          sr += d[i]; sg += d[i + 1]; sb += d[i + 2];
+        }
+        sr = Math.round(sr / w);
+        sg = Math.round(sg / w);
+        sb = Math.round(sb / w);
+        for (let x = 0; x < w; x++) {
+          const i = ((h - 1) * w + x) * 4;
+          d[i] = sr; d[i + 1] = sg; d[i + 2] = sb;
+        }
+        
+        ctx.putImageData(imgData, 0, 0);
+      }
+      
       const tex = new THREE.CanvasTexture(texCanvas);
       // CRITICAL: Proper wrap/clamp settings for equirectangular projection
       tex.wrapS = THREE.RepeatWrapping;        // Wrap longitude (fixes vertical seam)
@@ -139,6 +187,11 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       flatShading: false,  // Smooth shading for better appearance
     });
     const mesh = new THREE.Mesh(geom, mat);
+    
+    // Restore previous rotation if it exists
+    mesh.rotation.x = meshRotationRef.current.x;
+    mesh.rotation.y = meshRotationRef.current.y;
+    
     scene.add(mesh);
 
     // small ambient rotation + pointer interaction state
@@ -169,6 +222,11 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       if (Math.abs(velX) > 1e-5 || Math.abs(velY) > 1e-5) {
         mesh.rotation.y += velX;
         mesh.rotation.x = Math.max(Math.min(mesh.rotation.x + velY, Math.PI / 2 - 0.1), -Math.PI / 2 + 0.1);
+        
+        // Save rotation to ref for persistence
+        meshRotationRef.current.x = mesh.rotation.x;
+        meshRotationRef.current.y = mesh.rotation.y;
+        
         // decay
         velX *= 0.92;
         velY *= 0.92;
@@ -225,6 +283,10 @@ export default function Globe3D({ world, preview, className, style }: Props) {
 
       // clamp pitch
       mesh.rotation.x = Math.max(Math.min(mesh.rotation.x, Math.PI / 2 - 0.1), -Math.PI / 2 + 0.1);
+
+      // Save rotation to ref for persistence
+      meshRotationRef.current.x = mesh.rotation.x;
+      meshRotationRef.current.y = mesh.rotation.y;
 
       // update instantaneous velocity for inertia
       velX = -dx * sens * 0.6 + velX * 0.4;

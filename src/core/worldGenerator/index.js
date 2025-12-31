@@ -66,6 +66,8 @@ export function generateWorldFromParams(params) {
     // ========================================================================
     // HEIGHT FIELD GENERATION: "CONTINENTS FIRST, THEN DECORATE" ARCHITECTURE
     // ========================================================================
+    console.log('[WorldGenerator] Using QUANTILE-BASED continent generation (v2)');
+    console.log('[WorldGenerator] Target land fraction:', (1.0 - params.seaLevel / 100.0));
     // STAGE 1: Generate LOW-FREQUENCY continent potential field
     // Create a coarse resolution continent mask (4x downsampled)
     const continentWidth = Math.floor(width / 4);
@@ -171,9 +173,9 @@ export function generateWorldFromParams(params) {
         for (let c = 0; c < width; c++) {
             const idx = r * width + c;
             const cell = cells[idx];
+            const lat01 = r / (height - 1);
+            const lon01 = c / (width - 1);
             if (cell.baseHeight > 0.0) { // Only land gets detail
-                const lat01 = r / (height - 1);
-                const lon01 = c / (width - 1);
                 // Regional terrain (hills, valleys) - medium frequency
                 const regional = fbm(lon01 * 2.5, lat01 * 2.0, rng, 2) * 0.15;
                 // Coastline detail (bays, peninsulas) - higher frequency

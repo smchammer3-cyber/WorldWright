@@ -254,10 +254,10 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const idx = r * width + c;
       const cell = cells[idx];
       
+      const lat01 = r / (height - 1);
+      const lon01 = c / (width - 1);
+      
       if (cell.baseHeight > 0.0) { // Only land gets detail
-        const lat01 = r / (height - 1);
-        const lon01 = c / (width - 1);
-        
         // Regional terrain (hills, valleys) - medium frequency
         const regional = fbm(lon01 * 2.5, lat01 * 2.0, rng, 2) * 0.15;
         
@@ -288,10 +288,12 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       cell.boundaryType = BoundaryType.NONE;
 
       // Temperature: lat gradient + noise + tilt + styleMode + temperatureOffset
-      const lat = lat01 * 2 - 1; // -1..1
+      const lat = lat01 * 2 - 1; // -1..1 (north pole = -1, south pole = +1)
       // Axis tilt affects temperature gradient sharpness: higher tilt => steeper poles
       const tiltFactor = lerp(0.65, 1.25, tilt);
-      const latCurve = 1 - Math.pow(Math.abs(lat), tiltFactor);
+      // INVERTED: poles should be COLD (0), equator should be WARM (1)
+      // Apply tiltFactor as power to create sharper/gentler gradient
+      const latCurve = Math.pow(1 - Math.abs(lat), 1.0 / tiltFactor); // Distance from equator
       const tNoise = fbm(lon01 * 4.0, lat01 * 4.0, rng, 2) * climateVar;
       
       // Temperature offset: -50 to +50 mapped to -0.3 to +0.3
@@ -307,7 +309,9 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
         tempMod = 0.08 + fbm(lon01 * 3.0, lat01 * 2.5, rng, 2) * 0.12;
       }
       
-      cell.temperature = clamp01(latCurve * 0.8 + 0.12 + tNoise * 0.22 + tempMod + tempOffset);
+      // Temperature formula: latCurve dominates (0 at poles, 1 at equator)
+      // Add small base, noise, and modifiers
+      cell.temperature = clamp01(latCurve * 0.75 + 0.05 + tNoise * 0.15 + tempMod + tempOffset);
 
       // Rainfall: bands influenced by tilt, elevation hints, styleMode, and moistureLevel
       // ITCZ (Inter-Tropical Convergence Zone) near equator, dry subtropics
