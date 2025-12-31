@@ -217,8 +217,27 @@ export default function CreateModeApp() {
     const h = p?.height;
     const rgba = p?.rgba;
 
-    // If a raw RGBA buffer exists, use it (compat path)
-    if (w && h && rgba && rgba instanceof Uint8ClampedArray) {
+    if (!w || !h) {
+      return (
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 12,
+            color: 'rgba(255,255,255,0.85)',
+            fontSize: 13,
+          }}
+        >
+          {mode === 'main' ? 'Generating preview…' : 'Minimap…'}
+        </div>
+      );
+    }
+
+    // Use the pre-rasterized RGBA buffer (always available from planetRenderer)
+    if (rgba && rgba instanceof Uint8ClampedArray) {
       return (
         <canvas
           width={w}
@@ -229,8 +248,7 @@ export default function CreateModeApp() {
             if (!ctx) return;
 
             try {
-              const imgData = ctx.createImageData(w, h);
-              imgData.data.set(rgba);
+              const imgData = new ImageData(rgba, w, h);
               ctx.putImageData(imgData, 0, 0);
             } catch (e) {
               console.error("Preview render failed:", e);
@@ -239,47 +257,8 @@ export default function CreateModeApp() {
           style={{
             width: "100%",
             height: "100%",
-            imageRendering: "pixelated",
+            imageRendering: "auto", // Smooth scaling instead of pixelated
           }}
-        />
-      );
-    }
-
-    // Otherwise, try the PlanetPreview API (colorAt / minimapColorAt / sampleGlobeColor)
-    if (w && h && (typeof p.minimapColorAt === 'function' || typeof p.sampleGlobeColor === 'function')) {
-      return (
-        <canvas
-          width={w}
-          height={h}
-          ref={(c) => {
-            if (!c) return;
-            const ctx = c.getContext('2d');
-            if (!ctx) return;
-
-            try {
-              const imgData = ctx.createImageData(w, h);
-              const d = imgData.data;
-              for (let y = 0; y < h; y++) {
-                for (let x = 0; x < w; x++) {
-                  const rgbaPixel = mode === 'minimap' && typeof p.minimapColorAt === 'function'
-                    ? p.minimapColorAt(x, y)
-                    : typeof p.sampleGlobeColor === 'function'
-                    ? p.sampleGlobeColor(y * w + x)
-                    : p.colorAt(x, y);
-
-                  const idx = (y * w + x) * 4;
-                  d[idx + 0] = rgbaPixel[0];
-                  d[idx + 1] = rgbaPixel[1];
-                  d[idx + 2] = rgbaPixel[2];
-                  d[idx + 3] = rgbaPixel[3] ?? 255;
-                }
-              }
-              ctx.putImageData(imgData, 0, 0);
-            } catch (e) {
-              console.error('Preview render failed (planet API):', e);
-            }
-          }}
-          style={{ width: '100%', height: '100%', imageRendering: 'pixelated' }}
         />
       );
     }
@@ -297,7 +276,7 @@ export default function CreateModeApp() {
           fontSize: 13,
         }}
       >
-        {mode === 'main' ? 'Generating preview…' : 'Minimap…'}
+        No preview available
       </div>
     );
   }

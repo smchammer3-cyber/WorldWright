@@ -29,66 +29,76 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     renderer.setSize(width, height, false);
     el.appendChild(renderer.domElement);
 
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.9);
+    // Improved lighting setup for better terrain visibility
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
     scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
     dir.position.set(5, 3, 5);
     scene.add(dir);
+    // Add ambient light for better overall visibility
+    const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+    scene.add(ambient);
 
     // create texture canvas
     const texCanvas = document.createElement('canvas');
     texCanvasRef.current = texCanvas;
 
     function ensureTextureFromPreview(): THREE.Texture {
-      const p = preview ?? (window as any).makePlanetPreviewFromWorldBrain?.(world);
-      const w = (p && p.width) || world.gridWidth;
-      const h = (p && p.height) || world.gridHeight;
+      // Always generate preview if not provided - fixes Sim mode purple globe
+      let p = preview;
+      if (!p && world) {
+        // Import dynamically to avoid circular deps
+        const { makePlanetPreviewFromWorldBrain } = require('../core/planetRenderer');
+        p = makePlanetPreviewFromWorldBrain(world);
+      }
+      
+      if (!p) {
+        throw new Error('No preview available');
+      }
+
+      const w = p.width;
+      const h = p.height;
       texCanvas.width = w;
       texCanvas.height = h;
       const ctx = texCanvas.getContext('2d');
       if (!ctx) throw new Error('Failed to create texture canvas 2D context');
 
-      const img = ctx.createImageData(w, h);
-      const d = img.data;
-
-      // fill pixels from preview API if available
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          const idx = (y * w + x) * 4;
-          try {
-            let rgba: number[] = [255, 0, 255, 255];
-            if (p) {
-              // prefer minimapColorAt for small previews
-              if (typeof p.minimapColorAt === 'function') {
-                const px = p.minimapColorAt(x, y);
-                rgba = px;
-              } else if (typeof p.colorAt === 'function') {
-                const px = p.colorAt(x, y);
-                rgba = px;
-              } else if (typeof p.sampleGlobeColor === 'function') {
-                const px = p.sampleGlobeColor(y * w + x);
-                rgba = px;
-              }
-            } else {
-              // fallback magenta for debug
-              rgba = [255, 0, 255, 255];
+      // Use the pre-rasterized RGBA buffer directly - it's already computed
+      if (p.rgba && p.rgba instanceof Uint8ClampedArray) {
+        const img = new ImageData(p.rgba, w, h);
+        ctx.putImageData(img, 0, 0);
+      } else {
+        // Fallback: sample cell by cell using the colorAt method
+        const img = ctx.createImageData(w, h);
+        const d = img.data;
+        
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const cellIndex = y * w + x;
+            const pixelIndex = cellIndex * 4;
+            
+            try {
+              const rgba = p.sampleGlobeColor ? p.sampleGlobeColor(cellIndex) : [255, 0, 255, 255];
+              d[pixelIndex + 0] = rgba[0];
+              d[pixelIndex + 1] = rgba[1];
+              d[pixelIndex + 2] = rgba[2];
+              d[pixelIndex + 3] = rgba[3] ?? 255;
+            } catch (err) {
+              d[pixelIndex + 0] = 255;
+              d[pixelIndex + 1] = 0;
+              d[pixelIndex + 2] = 255;
+              d[pixelIndex + 3] = 255;
             }
-
-            d[idx + 0] = rgba[0];
-            d[idx + 1] = rgba[1];
-            d[idx + 2] = rgba[2];
-            d[idx + 3] = rgba[3] ?? 255;
-          } catch (err) {
-            d[idx + 0] = 255;
-            d[idx + 1] = 0;
-            d[idx + 2] = 255;
-            d[idx + 3] = 255;
           }
         }
+        ctx.putImageData(img, 0, 0);
       }
 
-      ctx.putImageData(img, 0, 0);
       const tex = new THREE.CanvasTexture(texCanvas);
+      tex.wrapS = THREE.RepeatWrapping; // Fix horizontal seams
+      tex.wrapT = THREE.ClampToEdgeWrapping; // Prevent pole distortion
+      tex.minFilter = THREE.LinearFilter; // Smooth filtering
+      tex.magFilter = THREE.LinearFilter; // Smooth filtering
       tex.flipY = false;
       tex.needsUpdate = true;
       return tex;
@@ -97,7 +107,12 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     const texture = ensureTextureFromPreview();
 
     const geom = new THREE.SphereGeometry(1, 64, 32);
-    const mat = new THREE.MeshStandardMaterial({ map: texture, metalness: 0.0, roughness: 1.0 });
+    const mat = new THREE.MeshStandardMaterial({ 
+      map: texture, 
+      metalness: 0.0, 
+      roughness: 0.8,  // Slightly less rough for better light interaction
+      flatShading: false,  // Smooth shading for better appearance
+    });
     const mesh = new THREE.Mesh(geom, mat);
     scene.add(mesh);
 
@@ -112,8 +127,10 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     let velY = 0;
 
     function onResize() {
-      const w2 = el.clientWidth || 800;
-      const h2 = el.clientHeight || 600;
+      const el2 = containerRef.current;
+      if (!el2) return;
+      const w2 = el2.clientWidth || 800;
+      const h2 = el2.clientHeight || 600;
       camera.aspect = w2 / h2;
       camera.updateProjectionMatrix();
       renderer.setSize(w2, h2, false);
@@ -243,4 +260,3 @@ export default function Globe3D({ world, preview, className, style }: Props) {
 
   return <div ref={containerRef} className={className} style={{ width: '100%', height: '100%', ...style }} />;
 }
->>>>>>> 602dd5c (feat: add 3D Globe renderer, interactions, preview fixes, and river extraction; integrate Globe into Create Mode)

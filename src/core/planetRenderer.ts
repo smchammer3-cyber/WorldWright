@@ -55,8 +55,8 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     const base =
       typeof cell.baseHeight === "number"
         ? cell.baseHeight
-        : typeof cell.height === "number"
-        ? cell.height
+        : typeof (cell as any).height === "number"
+        ? (cell as any).height
         : 0;
 
     const editDelta = typeof cell.editHeightDelta === "number" ? cell.editHeightDelta : 0;
@@ -65,41 +65,112 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
 
     const isWater = typeof cell.isWater === "boolean" ? cell.isWater : h < seaLevel;
 
-    // Basic biome-ish shading (stable + deterministic)
+    // Get rainfall (not 'moisture' which doesn't exist)
+    const rainfall = typeof cell.rainfall === "number" ? clamp01(cell.rainfall) : 0.5;
     const temp = typeof cell.temperature === "number" ? clamp01(cell.temperature) : 0.5;
-    const moist = typeof cell.moisture === "number" ? clamp01(cell.moisture) : 0.5;
     const snow = typeof cell.snowCover === "number" ? clamp01(cell.snowCover) : 0;
 
+    // Calculate hillslope shading for terrain definition
+    let lighting = 1.0;
+    if (row > 0 && col > 0) {
+      const nw = cells[(row - 1) * width + (col - 1)];
+      if (nw) {
+        const nwH = (typeof nw.baseHeight === "number" ? nw.baseHeight : 0) +
+                    (typeof nw.editHeightDelta === "number" ? nw.editHeightDelta : 0) +
+                    (typeof nw.simHeightDelta === "number" ? nw.simHeightDelta : 0);
+        const slope = (h - nwH) * 6.0; // Stronger slope for better visibility
+        lighting = clamp01(0.7 + slope * 0.3); // Range 0.4-1.0 for good contrast
+      }
+    }
+
     if (isWater) {
-      // deeper water darker
-      const depth = clamp01((seaLevel - h) * 0.6);
-      return [0.06, 0.16, clamp01(0.45 - depth * 0.22)];
+      // Clean ocean colors with depth variation
+      const depth = clamp01((seaLevel - h) * 2.0);
+      
+      // Three-tier ocean depth
+      const shallowR = 0.20, shallowG = 0.55, shallowB = 0.75; // Coastal blue
+      const midR = 0.10, midG = 0.35, midB = 0.60; // Ocean blue
+      const deepR = 0.03, deepG = 0.15, deepB = 0.40; // Deep navy
+
+      let r, g, b;
+      if (depth < 0.4) {
+        // Shallow to mid
+        const t = depth / 0.4;
+        r = lerp(shallowR, midR, t);
+        g = lerp(shallowG, midG, t);
+        b = lerp(shallowB, midB, t);
+      } else {
+        // Mid to deep
+        const t = (depth - 0.4) / 0.6;
+        r = lerp(midR, deepR, t);
+        g = lerp(midG, deepG, t);
+        b = lerp(midB, deepB, t);
+      }
+
+      // Apply subtle lighting only
+      r = clamp01(r * lighting);
+      g = clamp01(g * lighting);
+      b = clamp01(b * lighting);
+
+      return [r, g, b];
     }
 
-    // Land: start green → dry brown → snowy white
-    const dry = clamp01(1 - moist);
-    let r = lerp(0.12, 0.44, dry);
-    let g = lerp(0.36, 0.34, dry);
-    let b = lerp(0.14, 0.10, dry);
+    // Land biomes based on temperature and rainfall (Earth-like Whittaker biome diagram)
+    const elev = clamp01((h - seaLevel) * 3.0);
+    let r = 0.3, g = 0.3, b = 0.2;
 
-    // elevation tint
-    const elev = clamp01((h - seaLevel) * 0.25);
-    r = clamp01(r + elev * 0.10);
-    g = clamp01(g + elev * 0.06);
-    b = clamp01(b + elev * 0.04);
-
-    // warmth tint
-    const warm = clamp01((temp - 0.5) * 0.8 + 0.5);
-    r = clamp01(r + warm * 0.04);
-    g = clamp01(g + warm * 0.02);
-
-    // snow overlay
-    if (snow > 0) {
-      const s = clamp01(snow);
-      r = lerp(r, 0.92, s);
-      g = lerp(g, 0.92, s);
-      b = lerp(b, 0.96, s);
+    // Snow/ice caps (high elevation or cold + wet)
+    if (snow > 0.6 || (temp < 0.2 && rainfall > 0.4) || elev > 0.75) {
+      // Ice and snow: brilliant white/light blue
+      const iceFactor = clamp01(Math.max(snow, elev > 0.75 ? 1.0 : 0.0));
+      r = lerp(0.85, 0.95, iceFactor);
+      g = lerp(0.88, 0.96, iceFactor);
+      b = lerp(0.92, 0.98, iceFactor);
     }
+    // Tundra (cold, low rainfall)
+    else if (temp < 0.25) {
+      r = 0.55; g = 0.58; b = 0.52; // gray-green
+    }
+    // Taiga/boreal forest (cold, moderate rainfall)
+    else if (temp < 0.40 && rainfall > 0.35) {
+      r = 0.20; g = 0.35; b = 0.22; // dark green
+    }
+    // Desert (hot + dry OR moderate + very dry)
+    else if (rainfall < 0.25 || (temp > 0.65 && rainfall < 0.35)) {
+      const dryness = 1.0 - rainfall;
+      r = lerp(0.70, 0.85, dryness);
+      g = lerp(0.60, 0.70, dryness);
+      b = lerp(0.35, 0.45, dryness);
+    }
+    // Grassland/savanna (moderate temp, moderate rain)
+    else if (rainfall < 0.50) {
+      r = 0.58; g = 0.62; b = 0.35;
+    }
+    // Temperate forest (moderate temp, good rain)
+    else if (temp >= 0.40 && temp < 0.65 && rainfall >= 0.50) {
+      r = 0.25; g = 0.48; b = 0.22;
+    }
+    // Tropical rainforest (hot + wet)
+    else if (temp >= 0.65 && rainfall >= 0.60) {
+      r = 0.10; g = 0.40; b = 0.15;
+    }
+    // Default temperate
+    else {
+      r = 0.35; g = 0.50; b = 0.28;
+    }
+
+    // Elevation shading: higher = slightly lighter (mountains)
+    if (elev > 0.3) {
+      const mountain = (elev - 0.3) / 0.7;
+      r = lerp(r, 0.70, mountain * 0.35);
+      g = lerp(g, 0.65, mountain * 0.35);
+      b = lerp(b, 0.60, mountain * 0.35);
+    }
+
+    // Apply clean hillslope shading
+    r = clamp01(r * lighting);
+    g = clamp01(g * lighting);
+    b = clamp01(b * lighting);
 
     return [r, g, b];
   }

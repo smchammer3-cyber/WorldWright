@@ -140,6 +140,37 @@ class WorldSession {
       // eslint-disable-next-line no-console
       console.warn('Validation warnings on generated world:', errors);
     }
+    // Ensure generated world ID is unique in storage. If a world with the
+    // same deterministic id exists (same seed + params), assign a unique
+    // suffix and bump the createdAt timestamp. This prevents accidental
+    // overwrites when users generate worlds with the same seed.
+    try {
+      const existing = await getWorldById(w.metadata.id);
+      if (existing) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `Generated world id ${w.metadata.id} already exists for seed ${w.metadata.seed}; creating unique id.`
+        );
+        const base = w.metadata.id;
+        let i = 1;
+        let candidate = `${base}_dup${i}`;
+        // Try to find a free suffix (bounded loop to avoid infinite waits).
+        while (i < 1000) {
+          // eslint-disable-next-line no-await-in-loop
+          const ex = await getWorldById(candidate);
+          if (!ex) break;
+          i++;
+          candidate = `${base}_dup${i}`;
+        }
+        w.metadata.id = candidate;
+        w.metadata.name = `${w.metadata.name} (copy)`;
+        w.metadata.createdAt = new Date().toISOString();
+      }
+    } catch (e) {
+      // If storage is unavailable, continue but warn.
+      // eslint-disable-next-line no-console
+      console.warn('Could not verify world id uniqueness due to storage error:', e);
+    }
     this.world = w;
     this.history = [cloneWorld(w)];
     this.historyIndex = 0;

@@ -53,6 +53,17 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Real-time updates: regenerate world whenever parameters change
+  useEffect(() => {
+    // Debounce rapid changes to avoid excessive regeneration
+    const timer = setTimeout(() => {
+      onGenerate(params);
+    }, 300); // 300ms debounce for smooth slider dragging
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
+
   function set<K extends keyof GeneratorParams>(key: K, value: GeneratorParams[K]) {
     setParams((p) => ({ ...p, [key]: value }));
   }
@@ -179,7 +190,7 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
               axisTilt: clampInt(params.axisTilt, 0, 100),
               planetAge: clampInt(params.planetAge, 0, 100),
               climateVar: clampInt(params.climateVar, 0, 100),
-              seed: clampInt(params.seed, 0, 2_147_483_647),
+              seed: typeof params.seed === 'string' ? params.seed : clampInt(params.seed, 0, 2_147_483_647),
               styleMode: params.styleMode,
             })
           }

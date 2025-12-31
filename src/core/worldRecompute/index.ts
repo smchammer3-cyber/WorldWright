@@ -118,11 +118,11 @@ function recomputeHydrology(world: WorldBrain): void {
     return c ? c.baseHeight + c.editHeightDelta + c.simHeightDelta : 0;
   }
 
-  // Reset
+  // Reset only missing defaults — preserve any hints provided by the generator
   for (const cell of cells) {
-    cell.flowDirection = null;
-    cell.flowAccumulation = 1;
-    cell.basinId = null;
+    if (cell.flowDirection === undefined) cell.flowDirection = null;
+    if (typeof cell.flowAccumulation !== 'number') cell.flowAccumulation = 1;
+    if (cell.basinId === undefined) cell.basinId = null;
   }
 
   const neigh: Array<[number, number]> = [

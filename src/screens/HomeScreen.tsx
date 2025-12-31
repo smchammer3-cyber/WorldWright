@@ -43,7 +43,23 @@ export default function HomeScreen() {
 
   return (
     <div style={{ padding: 24 }}>
-      <h1>WorldWright</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1>WorldWright</h1>
+        <button
+          onClick={() => nav("/generate")}
+          style={{
+            padding: "10px 16px",
+            borderRadius: 12,
+            fontWeight: 900,
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            color: "white",
+            border: "none",
+            cursor: "pointer",
+          }}
+        >
+          + Generate New World
+        </button>
+      </div>
 
       <div style={{ marginTop: 18 }}>
         {loading ? (

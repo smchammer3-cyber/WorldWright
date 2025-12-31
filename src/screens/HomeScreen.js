@@ -39,7 +39,15 @@ export default function HomeScreen() {
         await deleteWorld(id);
         await refresh();
     };
-    return (_jsxs("div", { style: { padding: 24 }, children: [_jsx("h1", { children: "WorldWright" }), _jsx("div", { style: { marginTop: 18 }, children: loading ? (_jsx("div", { style: { padding: 12 }, children: "Loading\u2026" })) : err ? (_jsx("div", { style: { padding: 12, color: "#c33" }, children: err })) : worlds.length === 0 ? (_jsxs("div", { style: {
+    return (_jsxs("div", { style: { padding: 24 }, children: [_jsxs("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' }, children: [_jsx("h1", { children: "WorldWright" }), _jsx("button", { onClick: () => nav("/generate"), style: {
+                            padding: "10px 16px",
+                            borderRadius: 12,
+                            fontWeight: 900,
+                            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                            color: "white",
+                            border: "none",
+                            cursor: "pointer",
+                        }, children: "+ Generate New World" })] }), _jsx("div", { style: { marginTop: 18 }, children: loading ? (_jsx("div", { style: { padding: 12 }, children: "Loading\u2026" })) : err ? (_jsx("div", { style: { padding: 12, color: "#c33" }, children: err })) : worlds.length === 0 ? (_jsxs("div", { style: {
                         marginTop: 16,
                         padding: 18,
                         borderRadius: 16,
