@@ -20,8 +20,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import AppShell, { ToolGroup, ViewMode } from "../../ui/AppShell";
 import { worldSession } from "../../core/worldSession";
 import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
+<<<<<<< Updated upstream
 import Globe3D from "../../render/Globe3D";
 import MiniMap from "../../ui/MiniMap";
+=======
+import Globe3D from "../../render/Globe3D";
+import MiniMap from "../../ui/MiniMap";
+>>>>>>> Stashed changes
 
 export default function CreateModeApp() {
   const navigate = useNavigate();
@@ -399,31 +404,29 @@ export default function CreateModeApp() {
       toolGroups={toolGroups}
     >
       <div style={{ width: "100%", height: "100%", position: "relative" }}>
-<<<<<<< HEAD
         {/* Main viewport: Globe (3D) when selected, otherwise CPU preview map */}
-        {viewMode === 'GLOBE' && world ? (
-          <div style={{ width: '100%', height: '100%' }}>
+        {viewMode === "GLOBE" && world ? (
+          <div style={{ width: "100%", height: "100%" }}>
             <Globe3D world={world} preview={preview} />
           </div>
         ) : (
-          renderPreviewCanvas(preview, 'main')
-        )}
+          renderPreviewCanvas(preview, "main")
         )}
 
         {/* Minimap: only appears in Globe view. Uses the MiniMap component for a safe CPU raster */}
         {world && showMinimap && (
           <div
             style={{
-              position: 'absolute',
+              position: "absolute",
               left: 16,
               bottom: 16,
               width: 220,
               height: 140,
               borderRadius: 12,
-              overflow: 'hidden',
-              border: '1px solid rgba(255,255,255,0.18)',
-              background: 'rgba(0,0,0,0.35)',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.35)',
+              overflow: "hidden",
+              border: "1px solid rgba(255,255,255,0.18)",
+              background: "rgba(0,0,0,0.35)",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.35)",
             }}
             title="Minimap (Create + Globe only)"
           >
