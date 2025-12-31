@@ -88,10 +88,9 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const nowIso = new Date().toISOString();
 
   // Map UI 0..100 to world seaLevel in normalized height space
-  // Target: ~30% ocean coverage at 50% slider position (Earth is ~29% land, 71% ocean)
-  // With massive continents from updated generation, sea level needs to be much lower
-  // At 50% slider, use ~-0.45 for Earth-like balance with larger landmasses
-  const globalSeaLevel = lerp(-0.90, 0.1, clamp01(params.seaLevel / 100));
+  // Target: ~35% land / 65% ocean at 50% slider (Earth-like is 29% land / 71% ocean)
+  // Balanced with distinct continents, not super-continent
+  const globalSeaLevel = lerp(-0.65, 0.05, clamp01(params.seaLevel / 100));
 
   const plateAmp = lerp(0.25, 1.35, clamp01(params.plateActivity / 100));
 
@@ -143,33 +142,33 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       // Earth's continents span ~30-50% of globe width - match this scale
       
       // Continent-scale base (VERY low freq - shapes continents)
-      // 0.08-0.12 creates ~4-6 major landmasses per world (like Earth's 7 continents)
-      // AMPLIFIED: Higher weight to make continents much more dominant
-      const continentBase = fbm(lon01 * 0.08, lat01 * 0.06, rng, 2) * 1.4;
+      // Target: 3-5 distinct landmasses per world (like Earth's 7 continents)
+      // Use lower amplitude to prevent super-continent formation
+      const continentBase = fbm(lon01 * 0.12, lat01 * 0.10, rng, 2) * 0.85;
       
       // Regional variation (low freq - shapes 100s of km)
-      const regionalVar = fbm(lon01 * 0.25, lat01 * 0.18, rng, 2) * 0.6;
+      const regionalVar = fbm(lon01 * 0.40, lat01 * 0.30, rng, 2) * 0.45;
       
       // Coastline detail (mid freq - shapes 10s of km)  
-      const coastDetail = fbm(lon01 * 0.8, lat01 * 0.6, rng, 2) * 0.12;
+      const coastDetail = fbm(lon01 * 1.2, lat01 * 0.9, rng, 2) * 0.20;
       
       // Mountain/valley roughness (high freq - shapes 1s of km)
-      const roughness = fbm(lon01 * 2.5, lat01 * 2.0, rng, 2) * 0.06;
+      const roughness = fbm(lon01 * 3.5, lat01 * 2.8, rng, 2) * 0.10;
       
       // Plate-based elevation bias
       let plateHeightBias;
       if (cell.plateType === PlateType.CONTINENTAL) {
         // Continental plates: Elevated with continental bulges
         // Create distinct continental centers using plate noise
-        const plateSeed = fbm(lon01 * 0.15 + cell.plateId * 0.6, lat01 * 0.12 + cell.plateId * 0.7, rng, 1);
-        // Range: 0.35 to 1.1 for MUCH higher continental platforms (more visible land)
-        // This creates massive, distinct continents like Earth
-        plateHeightBias = 0.55 + plateSeed * 0.55;
+        // BALANCED: Not too high to avoid super-continents
+        const plateSeed = fbm(lon01 * 0.18 + cell.plateId * 0.7, lat01 * 0.14 + cell.plateId * 0.8, rng, 1);
+        // Range: 0.30 to 0.85 for continental platforms (balanced land/ocean ratio)
+        plateHeightBias = 0.35 + plateSeed * 0.50;
       } else {
         // Oceanic plates: Deep basins
-        // Range: -1.0 to -0.75 for deeper consistent ocean depths
-        const oceanDepth = fbm(lon01 * 0.25, lat01 * 0.15, rng, 1);
-        plateHeightBias = -0.90 + oceanDepth * 0.20;
+        // Range: -0.95 to -0.70 for consistent ocean depths
+        const oceanDepth = fbm(lon01 * 0.28, lat01 * 0.18, rng, 1);
+        plateHeightBias = -0.88 + oceanDepth * 0.25;
       }
 
       // Tectonic activity adds roughness
@@ -183,11 +182,14 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       // Use wider range to distinguish ocean depths from mountain peaks
       cell.baseHeight = clamp(base * 1.0, -1.5, 1.3);
       
-      // Reduce artifacts at poles: near poles (lat01 > 0.85), suppress extreme roughness
-      const poleFactor = Math.max(0, 1 - Math.pow(Math.abs(lat01 * 2 - 1) - 0.85, 2) * 8);
-      if (poleFactor > 0.1) {
-        // Interpolate toward more ocean (sea level) near poles to avoid weird spikes
-        cell.baseHeight = lerp(cell.baseHeight, -0.3 - Math.random() * 0.1, poleFactor * 0.5);
+      // STRONG pole smoothing to eliminate star-shaped distortion
+      // Near poles (lat01 < 0.10 or > 0.90), aggressively smooth terrain
+      const distFromPole = Math.min(lat01, 1 - lat01); // 0 at poles, 0.5 at equator
+      if (distFromPole < 0.15) {
+        // Smoothly transition to ocean near poles (avoids artifacts)
+        const poleBlend = 1 - (distFromPole / 0.15); // 1.0 at pole, 0.0 at boundary
+        const poleTarget = -0.4 + (Math.random() * 0.1 - 0.05); // Subtle ocean variation
+        cell.baseHeight = lerp(cell.baseHeight, poleTarget, poleBlend * 0.8);
       }
       
       cell.boundaryType = BoundaryType.NONE;

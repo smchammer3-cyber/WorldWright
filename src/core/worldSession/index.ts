@@ -259,10 +259,12 @@ class WorldSession {
   /**
    * Apply a local edit without creating history (for brush strokes that don't need individual undo).
    * This is used for continuous brush strokes where each pixel shouldn't be a separate undo.
+   * Creates a new world reference to ensure React re-renders.
    */
   applyLocalEdit(world: WorldBrain): void {
     if (!this.world || !world) return;
-    this.world = world;
+    // Clone the world to create a new reference for React reactivity
+    this.world = cloneWorld(world);
     recomputeWorld(this.world, ['TERRAIN_EDIT']);
     this.dirty = true;
     this.notify();
