@@ -39,51 +39,9 @@ export function applyTerrainTool(
  * but it must always end in recomputeWorld() to keep derived layers consistent.
  */
 export function applySticker(world: WorldBrain, sticker: Sticker): void {
-  const { gridWidth, gridHeight, cells } = world;
-
-  const lats = sticker.polygon.map(p => p.lat);
-  const lons = sticker.polygon.map(p => p.lon);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
-
-  // Convert lat/lon bounds to grid bounds (simple equirectangular)
-  const rMin = Math.floor(((90 - maxLat) / 180) * gridHeight);
-  const rMax = Math.ceil(((90 - minLat) / 180) * gridHeight);
-  const cMin = Math.floor(((minLon + 180) / 360) * gridWidth);
-  const cMax = Math.ceil(((maxLon + 180) / 360) * gridWidth);
-
-  for (let r = rMin; r <= rMax; r++) {
-    for (let c = cMin; c <= cMax; c++) {
-      const rr = (r + gridHeight) % gridHeight;
-      const cc = (c + gridWidth) % gridWidth;
-      const idx = rr * gridWidth + cc;
-      const cell = cells[idx];
-
-      // point-in-polygon test in lon/lat space
-      const lat = 90 - (rr / gridHeight) * 180;
-      const lon = (cc / gridWidth) * 360 - 180;
-
-      if (!pointInPolygon({ lat, lon }, sticker.polygon)) continue;
-
-      if (sticker.type === 'BIOME' && sticker.payload.biomeId != null) {
-        cell.editBiomeId = sticker.payload.biomeId;
-      }
-
-      if (sticker.type === 'CULTURE' && sticker.payload.cultureId) {
-        cell.cultureId = sticker.payload.cultureId;
-      }
-
-      if (sticker.type === 'HEIGHT' && typeof sticker.payload.heightDelta === 'number') {
-        cell.editHeightDelta += sticker.payload.heightDelta;
-      }
-    }
-  }
-
-  world.stickers = world.stickers ?? [];
-  world.stickers.push(sticker);
-
+  // Forward sticker edits through the action gateway so they are recorded
+  // and processed in a single place (applyAction will recompute).
+  applyAction(world, { type: 'STICKER_APPLY', sticker } as any);
   recomputeWorld(world, ['STICKER_EDIT']);
 }
 

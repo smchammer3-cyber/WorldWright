@@ -76,7 +76,7 @@ export default function GenerateModeApp() {
       rightPanel={rightPanel}
       toolGroups={toolGroups}
     >
-      <GeneratePreview world={world} preview={preview} error={error} />
+      <GeneratePreview world={world} error={error} />
     </AppShell>
   );
 }

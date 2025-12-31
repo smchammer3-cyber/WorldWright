@@ -217,49 +217,88 @@ export default function CreateModeApp() {
     const h = p?.height;
     const rgba = p?.rgba;
 
-    // If anything is missing, do NOT attempt Uint8ClampedArray.set
-    if (!w || !h || !rgba || !(rgba instanceof Uint8ClampedArray)) {
+    // If a raw RGBA buffer exists, use it (compat path)
+    if (w && h && rgba && rgba instanceof Uint8ClampedArray) {
       return (
-        <div
+        <canvas
+          width={w}
+          height={h}
+          ref={(c) => {
+            if (!c) return;
+            const ctx = c.getContext("2d");
+            if (!ctx) return;
+
+            try {
+              const imgData = ctx.createImageData(w, h);
+              imgData.data.set(rgba);
+              ctx.putImageData(imgData, 0, 0);
+            } catch (e) {
+              console.error("Preview render failed:", e);
+            }
+          }}
           style={{
             width: "100%",
             height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 12,
-            color: "rgba(255,255,255,0.85)",
-            fontSize: 13,
+            imageRendering: "pixelated",
           }}
-        >
-          {mode === "main" ? "Generating preview…" : "Minimap…"}
-        </div>
+        />
+      );
+    }
+
+    // Otherwise, try the PlanetPreview API (colorAt / minimapColorAt / sampleGlobeColor)
+    if (w && h && (typeof p.minimapColorAt === 'function' || typeof p.sampleGlobeColor === 'function')) {
+      return (
+        <canvas
+          width={w}
+          height={h}
+          ref={(c) => {
+            if (!c) return;
+            const ctx = c.getContext('2d');
+            if (!ctx) return;
+
+            try {
+              const imgData = ctx.createImageData(w, h);
+              const d = imgData.data;
+              for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                  const rgbaPixel = mode === 'minimap' && typeof p.minimapColorAt === 'function'
+                    ? p.minimapColorAt(x, y)
+                    : typeof p.sampleGlobeColor === 'function'
+                    ? p.sampleGlobeColor(y * w + x)
+                    : p.colorAt(x, y);
+
+                  const idx = (y * w + x) * 4;
+                  d[idx + 0] = rgbaPixel[0];
+                  d[idx + 1] = rgbaPixel[1];
+                  d[idx + 2] = rgbaPixel[2];
+                  d[idx + 3] = rgbaPixel[3] ?? 255;
+                }
+              }
+              ctx.putImageData(imgData, 0, 0);
+            } catch (e) {
+              console.error('Preview render failed (planet API):', e);
+            }
+          }}
+          style={{ width: '100%', height: '100%', imageRendering: 'pixelated' }}
+        />
       );
     }
 
     return (
-      <canvas
-        width={w}
-        height={h}
-        ref={(c) => {
-          if (!c) return;
-          const ctx = c.getContext("2d");
-          if (!ctx) return;
-
-          try {
-            const imgData = ctx.createImageData(w, h);
-            imgData.data.set(rgba);
-            ctx.putImageData(imgData, 0, 0);
-          } catch (e) {
-            console.error("Preview render failed:", e);
-          }
-        }}
+      <div
         style={{
-          width: "100%",
-          height: "100%",
-          imageRendering: "pixelated",
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 12,
+          color: 'rgba(255,255,255,0.85)',
+          fontSize: 13,
         }}
-      />
+      >
+        {mode === 'main' ? 'Generating preview…' : 'Minimap…'}
+      </div>
     );
   }
 
@@ -360,11 +399,15 @@ export default function CreateModeApp() {
       toolGroups={toolGroups}
     >
       <div style={{ width: "100%", height: "100%", position: "relative" }}>
-        {/* Main viewport: show a real 3D globe in Globe view, otherwise show a 2D raster map */}
-        {world && viewMode === 'GLOBE' ? (
-          <Globe3D world={world} className="" />
+<<<<<<< HEAD
+        {/* Main viewport: Globe (3D) when selected, otherwise CPU preview map */}
+        {viewMode === 'GLOBE' && world ? (
+          <div style={{ width: '100%', height: '100%' }}>
+            <Globe3D world={world} preview={preview} />
+          </div>
         ) : (
           renderPreviewCanvas(preview, 'main')
+        )}
         )}
 
         {/* Minimap: only appears in Globe view. Uses the MiniMap component for a safe CPU raster */}
