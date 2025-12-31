@@ -48,12 +48,16 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       // Always generate preview if not provided - fixes Sim mode purple globe
       let p = preview;
       if (!p && world) {
+        console.log('[Globe3D] Generating preview from world');
         p = makePlanetPreviewFromWorldBrain(world);
       }
       
       if (!p) {
         throw new Error('No preview available');
       }
+
+      console.log('[Globe3D] Creating texture from preview:', p.width, 'x', p.height, 
+                  'rgba buffer:', p.rgba instanceof Uint8ClampedArray);
 
       const w = p.width;  // Grid width (e.g., 256)
       const h = p.height; // Grid height (e.g., 128)

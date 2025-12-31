@@ -126,6 +126,9 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   // HEIGHT FIELD GENERATION: "CONTINENTS FIRST, THEN DECORATE" ARCHITECTURE
   // ========================================================================
   
+  console.log('[WorldGenerator] Using QUANTILE-BASED continent generation (v2)');
+  console.log('[WorldGenerator] Target land fraction:', (1.0 - params.seaLevel / 100.0));
+  
   // STAGE 1: Generate LOW-FREQUENCY continent potential field
   // Create a coarse resolution continent mask (4x downsampled)
   const continentWidth = Math.floor(width / 4);
