@@ -249,6 +249,33 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
   
   // STAGE 5: Add detail layers ONLY to land (continents)
+  // OPTIMIZATION: Pre-compute coastal cell map to avoid O(n^2)
+  const coastalCells = new Set<number>();
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      const idx = r * width + c;
+      const cell = cells[idx];
+      if (cell.baseHeight >= 0.0) {
+        // Check if any neighbor is water
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const nr = r + dr;
+            const nc = (c + dc + width) % width;
+            if (nr >= 0 && nr < height) {
+              const nidx = nr * width + nc;
+              if (cells[nidx] && cells[nidx].baseHeight < 0.0) {
+                coastalCells.add(idx);
+                break;
+              }
+            }
+          }
+          if (coastalCells.has(idx)) break;
+        }
+      }
+    }
+  }
+
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
@@ -258,18 +285,26 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const lon01 = c / (width - 1);
       
       if (cell.baseHeight > 0.0) { // Only land gets detail
+        const isCoastal = coastalCells.has(idx);
+        
         // Regional terrain (hills, valleys) - medium frequency
         const regional = fbm(lon01 * 2.5, lat01 * 2.0, rng, 2) * 0.15;
         
-        // Coastline detail (bays, peninsulas) - higher frequency
-        const coastal = fbm(lon01 * 5.0, lat01 * 4.0, rng, 2) * 0.10;
+        // Coastline detail (bays, peninsulas, fjords) - STRONGER near coast
+        const coastalFreq = isCoastal ? 8.0 : 5.0;
+        const coastalAmp = isCoastal ? 0.18 : 0.10;
+        const coastal = fbm(lon01 * coastalFreq, lat01 * coastalFreq * 0.8, rng, 3) * coastalAmp;
         
-        // Mountain ranges - highest frequency
-        const mountains = fbm(lon01 * 8.0, lat01 * 6.5, rng, 2) * 0.08 * plateAmp;
+        // Mountain ranges - highest frequency, reduced near coast
+        const mountainAmp = isCoastal ? 0.05 : 0.08;
+        const mountains = fbm(lon01 * 8.0, lat01 * 6.5, rng, 2) * mountainAmp * plateAmp;
+        
+        // Continental shelf: lower elevation near coast
+        const shelfDrop = isCoastal ? -0.03 : 0;
         
         // Apply detail with erosion dampening
         const detailStrength = 1.0 - smooth * 0.4;
-        cell.baseHeight += (regional + coastal + mountains) * detailStrength;
+        cell.baseHeight += (regional + coastal + mountains + shelfDrop) * detailStrength;
       }
       
       // Clamp to valid range

@@ -105,11 +105,25 @@ export default function CreateModeApp() {
 
   const handleGenerateCountries = () => {
     if (!world) return;
-    const countryCount = Math.floor(Math.random() * 4) + 5; // 5-8 countries
-    const generatedCountries = generateCountries(world, countryCount);
-    world.countries = generatedCountries;
-    recomputeWorld(world, ['TERRAIN_EDIT']);
-    handleWorldChange(world);
+    try {
+      const countryCount = Math.floor(Math.random() * 4) + 5; // 5-8 countries
+      const generatedCountries = generateCountries(world, countryCount);
+      
+      if (!generatedCountries || generatedCountries.length === 0) {
+        console.error('[Generate Countries] No countries generated - check world has land cells');
+        alert('Failed to generate countries. Ensure the world has sufficient land mass.');
+        return;
+      }
+      
+      // Properly update world with new countries
+      const updatedWorld = { ...world, countries: generatedCountries };
+      worldSession.applyLocalEdit(updatedWorld);
+      
+      console.log(`[Generate Countries] Successfully generated ${generatedCountries.length} countries`);
+    } catch (error) {
+      console.error('[Generate Countries] Error:', error);
+      alert(`Failed to generate countries: ${error}`);
+    }
   };
 
   const handleAddCity = () => {

@@ -140,11 +140,16 @@ export default function StickerDrawingOverlay({
         }
         
         const sticker = createSticker(stickerId, activeStickerTool, currentPolygon, 'OVERRIDE', payload);
-        applyStickerToWorld(world, sticker);
         
-        // Reset and notify
+        // Apply sticker to world properly via mutation then notify
+        if (world) {
+          applyStickerToWorld(world, sticker);
+          // Trigger worldSession update to ensure rendering
+          onStickerCreated?.(world);
+        }
+        
+        // Reset
         setCurrentPolygon([]);
-        onStickerCreated?.(world);
         return;
       }
     }

@@ -21,6 +21,9 @@ export interface TerrainBrushState {
 export class TerrainBrushController {
   private state: TerrainBrushState;
   private actionHistory: TerrainStrokeAction[] = [];
+  private pendingStrokeSamples: Array<{ row: number; col: number }> = [];
+  private recomputeThrottleTimer: number | null = null;
+  private lastApplyTime: number = 0;
 
   constructor(
     private world: WorldBrain | null,
@@ -102,6 +105,13 @@ export class TerrainBrushController {
    * End a brush stroke (mouse/touch up).
    */
   endStroke(): void {
+    // Flush any pending strokes
+    if (this.recomputeThrottleTimer) {
+      clearTimeout(this.recomputeThrottleTimer);
+      this.recomputeThrottleTimer = null;
+    }
+    this.flushPendingStrokes();
+    
     this.state.isDrawing = false;
     this.notifyStateChange();
     // Finalize the action history for undo/redo
@@ -109,25 +119,64 @@ export class TerrainBrushController {
 
   /**
    * Apply brush at a specific cell, creating and dispatching an action.
+   * OPTIMIZED: Batch samples and throttle recompute to avoid lag.
    */
   private applyBrushAtCell(gridRow: number, gridCol: number): void {
     if (!this.world) return;
 
-    const action: TerrainStrokeAction = {
-      type: 'TERRAIN_STROKE',
-      tool: this.state.tool,
-      center: { row: gridRow, col: gridCol },
-      radius: this.state.brushParams.radius,
-      strength: this.state.brushParams.strength,
-    };
+    // Accumulate stroke sample
+    this.pendingStrokeSamples.push({ row: gridRow, col: gridCol });
 
-    // Apply action and recompute
-    applyWorldAction(this.world, action);
+    const now = performance.now();
+    const timeSinceLastApply = now - this.lastApplyTime;
+
+    // Throttle: only apply every 100ms to avoid lag
+    if (timeSinceLastApply < 100 && this.state.isDrawing) {
+      // Schedule a delayed flush if not already scheduled
+      if (!this.recomputeThrottleTimer) {
+        this.recomputeThrottleTimer = window.setTimeout(() => {
+          this.flushPendingStrokes();
+        }, 100);
+      }
+      return;
+    }
+
+    this.flushPendingStrokes();
+  }
+
+  /**
+   * Flush accumulated stroke samples to world.
+   */
+  private flushPendingStrokes(): void {
+    if (!this.world || this.pendingStrokeSamples.length === 0) {
+      this.pendingStrokeSamples = [];
+      this.recomputeThrottleTimer = null;
+      return;
+    }
+
+    // Apply each sample
+    for (const sample of this.pendingStrokeSamples) {
+      const action: TerrainStrokeAction = {
+        type: 'TERRAIN_STROKE',
+        tool: this.state.tool,
+        center: { row: sample.row, col: sample.col },
+        radius: this.state.brushParams.radius,
+        strength: this.state.brushParams.strength * 0.3, // Reduce strength for smoother accumulation
+      };
+      applyWorldAction(this.world, action);
+      this.actionHistory.push(action);
+    }
+
+    // Single recompute for all accumulated samples
     recomputeWorld(this.world, ['TERRAIN_EDIT']);
 
-    this.state.lastAppliedStroke = action;
-    this.actionHistory.push(action);
+    // Notify once
+    this.lastApplyTime = performance.now();
     this.onWorldChange(this.world);
+
+    // Clear pending samples
+    this.pendingStrokeSamples = [];
+    this.recomputeThrottleTimer = null;
   }
 
   /**

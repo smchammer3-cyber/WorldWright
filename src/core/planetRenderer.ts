@@ -45,9 +45,24 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     return [r, g, b, 255];
   }
 
+  function wrapCol(c: number): number {
+    if (width === 0) return 0;
+    const m = c % width;
+    return m < 0 ? m + width : m;
+  }
+
+  function clampRow(r: number): number {
+    if (height === 0) return 0;
+    if (r < 0) return 0;
+    if (r >= height) return height - 1;
+    return r;
+  }
+
   function sampleFromRowCol(row: number, col: number): [number, number, number] {
-    if (row < 0 || row >= height || col < 0 || col >= width) return [1, 0, 1]; // magenta debug
-    const idx = row * width + col;
+    if (height === 0 || width === 0) return [1, 0, 1];
+    const r = clampRow(row);
+    const c = wrapCol(col);
+    const idx = r * width + c;
     const cell = cells[idx];
     if (!cell) return [1, 0, 1];
 
@@ -173,6 +188,24 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     g = clamp01(g * lighting);
     b = clamp01(b * lighting);
 
+    // COUNTRY BORDERS: Overlay borders on land cells
+    if (!isWater && cell.countryId !== undefined && cell.countryId !== null) {
+      // Check if this is a border cell (neighbor has different countryId)
+      const isBorder = [
+        r > 0 ? cells[(r - 1) * width + c]?.countryId : null,
+        r < height - 1 ? cells[(r + 1) * width + c]?.countryId : null,
+        cells[r * width + wrapCol(c - 1)]?.countryId,
+        cells[r * width + wrapCol(c + 1)]?.countryId,
+      ].some(neighborId => neighborId !== undefined && neighborId !== cell.countryId);
+
+      if (isBorder) {
+        // Draw border as dark line
+        r = r * 0.4;
+        g = g * 0.4;
+        b = b * 0.4;
+      }
+    }
+
     return [r, g, b];
   }
 
@@ -183,8 +216,8 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
   // Pre-rasterize for canvas fallbacks (Create/Sim currently use preview.rgba).
   // This makes the contract explicit and prevents runtime mismatches.
   const rgba = rasterizeToBytes(width, height, (x, y) => {
-    const col = Math.floor(clamp(x, 0, width - 1));
-    const row = Math.floor(clamp(y, 0, height - 1));
+    const col = Math.floor(x);
+    const row = Math.floor(y);
     return sampleRGBAFromRowCol(row, col);
   });
 
@@ -196,14 +229,14 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     rgba,
 
     colorAt: (x, y) => {
-      const col = Math.floor(clamp(x, 0, width - 1));
-      const row = Math.floor(clamp(y, 0, height - 1));
+      const col = Math.floor(x);
+      const row = Math.floor(y);
       return sampleRGBAFromRowCol(row, col);
     },
 
     minimapColorAt: (x, y) => {
-      const col = Math.floor(clamp(x, 0, width - 1));
-      const row = Math.floor(clamp(y, 0, height - 1));
+      const col = Math.floor(x);
+      const row = Math.floor(y);
       return sampleRGBAFromRowCol(row, col);
     },
 

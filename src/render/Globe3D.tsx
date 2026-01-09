@@ -83,6 +83,40 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         
         const img = new ImageData(p.rgba, w, h);
         ctx.putImageData(img, 0, 0);
+        
+        // CRITICAL: Apply pole averaging to pre-rasterized buffer too
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        
+        // North pole (top row, y=0): average all pixels in row
+        let nr = 0, ng = 0, nb = 0;
+        for (let x = 0; x < w; x++) {
+          const i = x * 4;
+          nr += d[i]; ng += d[i + 1]; nb += d[i + 2];
+        }
+        nr = Math.round(nr / w);
+        ng = Math.round(ng / w);
+        nb = Math.round(nb / w);
+        for (let x = 0; x < w; x++) {
+          const i = x * 4;
+          d[i] = nr; d[i + 1] = ng; d[i + 2] = nb;
+        }
+        
+        // South pole (bottom row, y=h-1): average all pixels in row
+        let sr = 0, sg = 0, sb = 0;
+        for (let x = 0; x < w; x++) {
+          const i = ((h - 1) * w + x) * 4;
+          sr += d[i]; sg += d[i + 1]; sb += d[i + 2];
+        }
+        sr = Math.round(sr / w);
+        sg = Math.round(sg / w);
+        sb = Math.round(sb / w);
+        for (let x = 0; x < w; x++) {
+          const i = ((h - 1) * w + x) * 4;
+          d[i] = sr; d[i + 1] = sg; d[i + 2] = sb;
+        }
+        
+        ctx.putImageData(imgData, 0, 0);
       } else {
         // Fallback: manual sampling with PROPER pole handling
         // Create texture that avoids UV singularity
@@ -124,40 +158,37 @@ export default function Globe3D({ world, preview, className, style }: Props) {
           }
         }
         ctx.putImageData(img, 0, 0);
-      }
-
-      // Fix pole singularity: average colors at poles
-      const ctx = texCanvas.getContext('2d');
-      if (ctx) {
+        
+        // Apply pole averaging for fallback path too
         const imgData = ctx.getImageData(0, 0, w, h);
-        const d = imgData.data;
+        const d2 = imgData.data;
         
         // North pole (top row, y=0): average all pixels in row
         let nr = 0, ng = 0, nb = 0;
         for (let x = 0; x < w; x++) {
           const i = x * 4;
-          nr += d[i]; ng += d[i + 1]; nb += d[i + 2];
+          nr += d2[i]; ng += d2[i + 1]; nb += d2[i + 2];
         }
         nr = Math.round(nr / w);
         ng = Math.round(ng / w);
         nb = Math.round(nb / w);
         for (let x = 0; x < w; x++) {
           const i = x * 4;
-          d[i] = nr; d[i + 1] = ng; d[i + 2] = nb;
+          d2[i] = nr; d2[i + 1] = ng; d2[i + 2] = nb;
         }
         
         // South pole (bottom row, y=h-1): average all pixels in row
         let sr = 0, sg = 0, sb = 0;
         for (let x = 0; x < w; x++) {
           const i = ((h - 1) * w + x) * 4;
-          sr += d[i]; sg += d[i + 1]; sb += d[i + 2];
+          sr += d2[i]; sg += d2[i + 1]; sb += d2[i + 2];
         }
         sr = Math.round(sr / w);
         sg = Math.round(sg / w);
         sb = Math.round(sb / w);
         for (let x = 0; x < w; x++) {
           const i = ((h - 1) * w + x) * 4;
-          d[i] = sr; d[i + 1] = sg; d[i + 2] = sb;
+          d2[i] = sr; d2[i + 1] = sg; d2[i + 2] = sb;
         }
         
         ctx.putImageData(imgData, 0, 0);
@@ -178,8 +209,60 @@ export default function Globe3D({ world, preview, className, style }: Props) {
 
     const texture = ensureTextureFromPreview();
 
-    // Use higher pole segments to reduce scrunching: 128x128 for better polar distribution
-    const geom = new THREE.SphereGeometry(1, 128, 128);
+    // FIX POLE SUNBURST: Use custom geometry that properly handles pole UVs
+    // Standard SphereGeometry collapses all pole vertices to single point with undefined U coord
+    // We build a custom sphere with proper equirectangular UV mapping
+    const widthSegments = 128;
+    const heightSegments = 64;
+    const geom = new THREE.BufferGeometry();
+    
+    const vertices: number[] = [];
+    const normals: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
+    
+    // Build sphere with proper pole handling
+    for (let latIndex = 0; latIndex <= heightSegments; latIndex++) {
+      const v = latIndex / heightSegments; // 0 at north pole, 1 at south pole
+      const phi = v * Math.PI; // 0 to PI (north to south)
+      
+      for (let lonIndex = 0; lonIndex <= widthSegments; lonIndex++) {
+        const u = lonIndex / widthSegments; // 0 to 1 (wraps at meridian)
+        const theta = u * Math.PI * 2; // 0 to 2PI
+        
+        // Sphere position using standard spherical coordinates
+        const x = -Math.sin(phi) * Math.cos(theta);
+        const y = Math.cos(phi);
+        const z = Math.sin(phi) * Math.sin(theta);
+        
+        vertices.push(x, y, z);
+        normals.push(x, y, z); // Normal = normalized position for unit sphere
+        
+        // CRITICAL: Proper UV mapping for equirectangular texture
+        // U wraps around longitude, V goes from pole to pole
+        uvs.push(u, v);
+      }
+    }
+    
+    // Build indices for triangles
+    for (let latIndex = 0; latIndex < heightSegments; latIndex++) {
+      for (let lonIndex = 0; lonIndex < widthSegments; lonIndex++) {
+        const a = latIndex * (widthSegments + 1) + lonIndex;
+        const b = a + widthSegments + 1;
+        const c = a + 1;
+        const d = b + 1;
+        
+        // Two triangles per quad
+        indices.push(a, b, c);
+        indices.push(b, d, c);
+      }
+    }
+    
+    geom.setIndex(indices);
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    
     const mat = new THREE.MeshStandardMaterial({ 
       map: texture, 
       metalness: 0.0, 
@@ -206,7 +289,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
 
     function onResize() {
       const el2 = containerRef.current;
-      if (!el2) return;
+      if (!el2 || !camera) return;
       const w2 = el2.clientWidth || 800;
       const h2 = el2.clientHeight || 600;
       camera.aspect = w2 / h2;
@@ -217,6 +300,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     window.addEventListener('resize', onResize);
 
     function animate() {
+      if (!camera) return;
       // NO auto-rotation - only user-controlled movement
       // Apply inertia velocities from drag
       if (Math.abs(velX) > 1e-5 || Math.abs(velY) > 1e-5) {
@@ -299,6 +383,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     }
 
     function onWheel(ev: WheelEvent) {
+      if (!camera) return;
       ev.preventDefault();
       const delta = ev.deltaY > 0 ? 0.2 : -0.2;
       camera.position.z = Math.max(1.6, Math.min(6, camera.position.z + delta));
