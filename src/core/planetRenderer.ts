@@ -60,9 +60,9 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
 
   function sampleFromRowCol(row: number, col: number): [number, number, number] {
     if (height === 0 || width === 0) return [1, 0, 1];
-    const r = clampRow(row);
+    const cRow = clampRow(row);
     const c = wrapCol(col);
-    const idx = r * width + c;
+    const idx = cRow * width + c;
     const cell = cells[idx];
     if (!cell) return [1, 0, 1];
 
@@ -192,10 +192,10 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     if (!isWater && cell.countryId !== undefined && cell.countryId !== null) {
       // Check if this is a border cell (neighbor has different countryId)
       const isBorder = [
-        r > 0 ? cells[(r - 1) * width + c]?.countryId : null,
-        r < height - 1 ? cells[(r + 1) * width + c]?.countryId : null,
-        cells[r * width + wrapCol(c - 1)]?.countryId,
-        cells[r * width + wrapCol(c + 1)]?.countryId,
+        cRow > 0 ? cells[(cRow - 1) * width + c]?.countryId : null,
+        cRow < height - 1 ? cells[(cRow + 1) * width + c]?.countryId : null,
+        cells[cRow * width + wrapCol(c - 1)]?.countryId,
+        cells[cRow * width + wrapCol(c + 1)]?.countryId,
       ].some(neighborId => neighborId !== undefined && neighborId !== cell.countryId);
 
       if (isBorder) {
