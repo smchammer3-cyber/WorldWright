@@ -90,6 +90,7 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const brushControllerRef = useRef<TerrainBrushController | null>(null);
   const [brushState, setBrushState] = useState<TerrainBrushState | null>(null);
+  const labelsOverlayRef = useRef<HTMLDivElement | null>(null);
 
   // Initialize brush controller
   useEffect(() => {
@@ -121,6 +122,10 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
     } catch (e) {
       console.error("Create viewport draw failed:", e);
     }
+    // Also refresh labels overlay
+    try {
+      updateLabelsOverlay();
+    } catch (e) {}
   }, [world]);
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -155,6 +160,78 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
     }
   };
 
+  // ------------------------------
+  // Country labels overlay (MAP)
+  // ------------------------------
+  type Label = { name: string; lat: number; lon: number; el: HTMLDivElement };
+  const labels: Label[] = [];
+
+  function computeCentroid(poly: { lat: number; lon: number }[]): { lat: number; lon: number } {
+    if (!poly || poly.length === 0) return { lat: 0, lon: 0 };
+    let lat = 0, lon = 0;
+    for (const p of poly) { lat += p.lat; lon += p.lon; }
+    lat /= poly.length; lon /= poly.length;
+    return { lat, lon };
+  }
+
+  function initLabels() {
+    const overlay = labelsOverlayRef.current;
+    if (!overlay) return;
+    while (overlay.firstChild) overlay.removeChild(overlay.firstChild);
+    labels.length = 0;
+
+    const maxLabels = 12;
+    const countries = Array.isArray(world.countries) ? world.countries.slice(0, maxLabels) : [];
+    for (const c of countries) {
+      const poly = c.polygons?.[0] || [];
+      const { lat, lon } = computeCentroid(poly);
+      const el = document.createElement('div');
+      el.style.position = 'absolute';
+      el.style.transform = 'translate(-50%, -50%)';
+      el.style.padding = '3px 6px';
+      el.style.borderRadius = '6px';
+      el.style.border = '1px solid rgba(0,0,0,0.35)';
+      el.style.background = 'rgba(0,0,0,0.6)';
+      el.style.color = 'rgba(255,255,255,0.95)';
+      el.style.fontSize = '11px';
+      el.style.whiteSpace = 'nowrap';
+      el.textContent = c.name;
+      overlay.appendChild(el);
+      labels.push({ name: c.name, lat, lon, el });
+    }
+  }
+
+  function latLonToCanvasXY(lat: number, lon: number): { x: number; y: number } {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const w = canvas.width;
+    const h = canvas.height;
+    const x = ((lon + 180) / 360) * w;
+    const y = (((90 - lat) / 180)) * h;
+    return { x, y };
+  }
+
+  function updateLabelsOverlay() {
+    const overlay = labelsOverlayRef.current;
+    const canvas = canvasRef.current;
+    if (!overlay || !canvas) return;
+    if (labels.length === 0) initLabels();
+    for (const lbl of labels) {
+      const p = latLonToCanvasXY(lbl.lat, lbl.lon);
+      lbl.el.style.left = `${p.x}px`;
+      lbl.el.style.top = `${p.y}px`;
+      lbl.el.style.display = 'block';
+    }
+  }
+
+  useEffect(() => {
+    initLabels();
+    updateLabelsOverlay();
+    const onResize = () => updateLabelsOverlay();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   return (
     <div style={{ position: "absolute", inset: 0, overflow: "auto" }}>
       <div style={{ padding: 12, fontWeight: 900 }}>
@@ -166,7 +243,8 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
         )}
       </div>
       <div style={{ padding: 12 }}>
-        <canvas
+        <div style={{ position: 'relative' }}>
+          <canvas
           ref={canvasRef}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleCanvasMouseMove}
@@ -181,7 +259,19 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
             display: "block",
             cursor: brushState?.enabled ? "crosshair" : "default",
           }}
-        />
+          />
+          <div
+            ref={labelsOverlayRef}
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              right: 0,
+              bottom: 0,
+              pointerEvents: 'none',
+            }}
+          />
+        </div>
         <div style={{ fontSize: 11, opacity: 0.65, marginTop: 8 }}>
           {brushState?.enabled
             ? `Terrain brush active: ${brushState.tool.toUpperCase()} - click and drag to paint.`
