@@ -16,6 +16,8 @@ export default function Globe3D({ world, preview, className, style }: Props) {
   const texCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const meshRotationRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const labelsOverlayRef = useRef<HTMLDivElement | null>(null);
+  const meshRef = useRef<THREE.Mesh | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -41,6 +43,18 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     renderer.setPixelRatio(window.devicePixelRatio || 1);
     renderer.setSize(width, height, false);
     el.appendChild(renderer.domElement);
+
+    // Create labels overlay
+    let overlay = labelsOverlayRef.current;
+    if (!overlay) {
+      overlay = document.createElement('div');
+      labelsOverlayRef.current = overlay;
+      overlay.style.position = 'absolute';
+      overlay.style.inset = '0px';
+      overlay.style.pointerEvents = 'none';
+      overlay.style.zIndex = '2';
+      el.appendChild(overlay);
+    }
 
     // ========================================================
     // CONTRACT ENFORCEMENT: LIGHTING OWNED BY THREE.JS
@@ -325,6 +339,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       flatShading: false,        // Smooth shading for realism
     });
     const mesh = new THREE.Mesh(geom, mat);
+    meshRef.current = mesh;
     
     // Restore previous rotation if it exists
     mesh.rotation.x = meshRotationRef.current.x;
@@ -370,6 +385,11 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         velX *= 0.92;
         velY *= 0.92;
       }
+
+      // Update country labels overlay
+      try {
+        updateLabelsOverlay();
+      } catch (e) {}
 
       renderer.render(scene, camera);
       rafId = requestAnimationFrame(animate);
@@ -472,6 +492,94 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     // initial texture update
     update();
 
+    // ------------------------------
+    // Country labels overlay helpers
+    // ------------------------------
+    type Label = { name: string; lat: number; lon: number; el: HTMLDivElement };
+    const labels: Label[] = [];
+
+    function computeCentroid(poly: { lat: number; lon: number }[]): { lat: number; lon: number } {
+      if (!poly || poly.length === 0) return { lat: 0, lon: 0 };
+      let lat = 0, lon = 0;
+      for (const p of poly) { lat += p.lat; lon += p.lon; }
+      lat /= poly.length; lon /= poly.length;
+      return { lat, lon };
+    }
+
+    function initLabels() {
+      if (!overlay) return;
+      // Clear existing
+      while (overlay.firstChild) overlay.removeChild(overlay.firstChild);
+      labels.length = 0;
+
+      const maxLabels = 12;
+      const countries = Array.isArray(world.countries) ? world.countries.slice(0, maxLabels) : [];
+      for (const c of countries) {
+        const poly = c.polygons?.[0] || [];
+        const { lat, lon } = computeCentroid(poly);
+        const el = document.createElement('div');
+        el.style.position = 'absolute';
+        el.style.transform = 'translate(-50%, -50%)';
+        el.style.padding = '3px 6px';
+        el.style.borderRadius = '6px';
+        el.style.border = '1px solid rgba(0,0,0,0.35)';
+        el.style.background = 'rgba(0,0,0,0.6)';
+        el.style.color = 'rgba(255,255,255,0.95)';
+        el.style.fontSize = '11px';
+        el.style.whiteSpace = 'nowrap';
+        el.textContent = c.name;
+        overlay.appendChild(el);
+        labels.push({ name: c.name, lat, lon, el });
+      }
+    }
+
+    function latLonToSphere(lat: number, lon: number): THREE.Vector3 {
+      // Convert lat/lon to unit sphere coordinates
+      const v = (90 - lat) / 180; // 0..1 from north to south
+      const u = (lon + 180) / 360; // 0..1 around longitude
+      const phi = v * Math.PI;
+      const theta = u * Math.PI * 2;
+      const x = -Math.sin(phi) * Math.cos(theta);
+      const y = Math.cos(phi);
+      const z = Math.sin(phi) * Math.sin(theta);
+      return new THREE.Vector3(x, y, z);
+    }
+
+    function updateLabelsOverlay() {
+      if (!overlay || !camera || !meshRef.current) return;
+      const mesh2 = meshRef.current;
+      mesh2.updateMatrixWorld();
+      const camDir = new THREE.Vector3();
+      camera.getWorldDirection(camDir);
+
+      const w = renderer.domElement.width;
+      const h = renderer.domElement.height;
+
+      for (const lbl of labels) {
+        const p = latLonToSphere(lbl.lat, lbl.lon);
+        // rotate by mesh orientation
+        p.applyEuler(mesh2.rotation);
+        // Visibility: hide label if on far side of sphere
+        const facing = p.dot(camDir);
+        if (facing <= 0) {
+          lbl.el.style.display = 'none';
+          continue;
+        } else {
+          lbl.el.style.display = 'block';
+        }
+
+        // project to screen
+        const wp = p.clone().multiplyScalar(1.0); // radius = 1
+        const sp = wp.project(camera);
+        const sx = (sp.x * 0.5 + 0.5) * w;
+        const sy = (-sp.y * 0.5 + 0.5) * h;
+        lbl.el.style.left = `${sx}px`;
+        lbl.el.style.top = `${sy}px`;
+      }
+    }
+
+    initLabels();
+
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
       window.removeEventListener('resize', onResize);
@@ -493,6 +601,10 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       // remove canvas
       if (renderer.domElement && renderer.domElement.parentElement) {
         renderer.domElement.parentElement.removeChild(renderer.domElement);
+      }
+      // remove overlay
+      if (overlay && overlay.parentElement) {
+        try { overlay.parentElement.removeChild(overlay); } catch (e) {}
       }
     };
   }, [world, preview]);
