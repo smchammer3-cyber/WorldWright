@@ -86,22 +86,18 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     const temp = typeof cell.temperature === "number" ? clamp01(cell.temperature) : 0.5;
     const snow = typeof cell.snowCover === "number" ? clamp01(cell.snowCover) : 0;
 
-    // Calculate hillslope shading for terrain definition
-    let lighting = 1.0;
-    if (row > 0 && col > 0) {
-      const nw = cells[(row - 1) * width + (col - 1)];
-      if (nw) {
-        const nwH = (typeof nw.baseHeight === "number" ? nw.baseHeight : 0) +
-                    (typeof nw.editHeightDelta === "number" ? nw.editHeightDelta : 0) +
-                    (typeof nw.simHeightDelta === "number" ? nw.simHeightDelta : 0);
-        const slope = (h - nwH) * 6.0; // Stronger slope for better visibility
-        lighting = clamp01(0.7 + slope * 0.3); // Range 0.4-1.0 for good contrast
-      }
-    }
+    // ========================================================
+    // CONTRACT ENFORCEMENT: ALBEDO ONLY
+    // No baked lighting here. All lighting is handled by Three.js.
+    // This renderer outputs base color (albedo) only.
+    // ========================================================
 
     if (isWater) {
-      // Clean ocean colors with depth variation
+      // Clean ocean colors with depth variation + continental shelf band
       const depth = clamp01((seaLevel - h) * 2.0);
+
+      // Shelf mask: strongest very near coast, fades by modest depth
+      const shelfMask = smoothstep(0.35, 0.02, depth);
       
       // Three-tier ocean depth
       const shallowR = 0.20, shallowG = 0.55, shallowB = 0.75; // Coastal blue
@@ -123,11 +119,13 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
         b = lerp(midB, deepB, t);
       }
 
-      // Apply subtle lighting only
-      r = clamp01(r * lighting);
-      g = clamp01(g * lighting);
-      b = clamp01(b * lighting);
+      // Blend lighter shelf tint near coasts to improve coast readability
+      const shelfR = 0.28, shelfG = 0.65, shelfB = 0.80;
+      r = lerp(r, shelfR, shelfMask * 0.40);
+      g = lerp(g, shelfG, shelfMask * 0.40);
+      b = lerp(b, shelfB, shelfMask * 0.40);
 
+      // Pure albedo - no lighting applied
       return [r, g, b];
     }
 
@@ -135,10 +133,13 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     const elev = clamp01((h - seaLevel) * 3.0);
     let r = 0.3, g = 0.3, b = 0.2;
 
-    // Snow/ice caps (high elevation or cold + wet)
-    if (snow > 0.6 || (temp < 0.2 && rainfall > 0.4) || elev > 0.75) {
+    // Permanent ice factor based primarily on temperature (renderer-only overlay)
+    const permIce = temp < 0.20 ? smoothstep(0.20, 0.08, temp) : 0;
+
+    // Snow/ice caps (high elevation or cold + wet or permanent ice)
+    if (snow > 0.6 || permIce > 0 || (temp < 0.2 && rainfall > 0.4) || elev > 0.75) {
       // Ice and snow: brilliant white/light blue
-      const iceFactor = clamp01(Math.max(snow, elev > 0.75 ? 1.0 : 0.0));
+      const iceFactor = clamp01(Math.max(snow, permIce, elev > 0.75 ? 1.0 : 0.0));
       r = lerp(0.85, 0.95, iceFactor);
       g = lerp(0.88, 0.96, iceFactor);
       b = lerp(0.92, 0.98, iceFactor);
@@ -183,10 +184,8 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
       b = lerp(b, 0.60, mountain * 0.35);
     }
 
-    // Apply clean hillslope shading
-    r = clamp01(r * lighting);
-    g = clamp01(g * lighting);
-    b = clamp01(b * lighting);
+    // Pure albedo - no lighting applied
+    // All lighting is handled by Three.js shader
 
     // COUNTRY BORDERS: Overlay borders on land cells
     if (!isWater && cell.countryId !== undefined && cell.countryId !== null) {
@@ -203,6 +202,76 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
         r = r * 0.4;
         g = g * 0.4;
         b = b * 0.4;
+      }
+    }
+
+    // Polar sunburst artifact guard: collapse color variation near poles by row-averaging
+    const polarRows = Math.max(1, Math.floor(height * 0.02));
+    if (row < polarRows || row > height - 1 - polarRows) {
+      const dist = Math.min(row, height - 1 - row);
+      const strength = clamp01((polarRows - dist) / polarRows) * 0.6;
+      // Simple local row blur (5-tap) to approximate longitude-average
+      let ar = 0, ag = 0, ab = 0, ct = 0;
+      for (let dc = -2; dc <= 2; dc++) {
+        const nc = wrapCol(col + dc);
+        const nIdx = row * width + nc;
+        const n = cells[nIdx];
+        if (!n) continue;
+        // Recompute minimal water/land color for neighbor (avoid heavy recursion)
+        const nb = (typeof n.baseHeight === 'number' ? n.baseHeight : 0) + (typeof n.editHeightDelta === 'number' ? n.editHeightDelta : 0) + (typeof n.simHeightDelta === 'number' ? n.simHeightDelta : 0);
+        const nIsWater = nb < seaLevel;
+        if (nIsWater) {
+          const nDepth = clamp01((seaLevel - nb) * 2.0);
+          const nShelf = smoothstep(0.35, 0.02, nDepth);
+          let nr = nDepth < 0.4 ? lerp(0.20, 0.10, nDepth / 0.4) : lerp(0.10, 0.03, (nDepth - 0.4) / 0.6);
+          let ng = nDepth < 0.4 ? lerp(0.55, 0.35, nDepth / 0.4) : lerp(0.35, 0.15, (nDepth - 0.4) / 0.6);
+          let nbcol = nDepth < 0.4 ? lerp(0.75, 0.60, nDepth / 0.4) : lerp(0.60, 0.40, (nDepth - 0.4) / 0.6);
+          nr = lerp(nr, 0.28, nShelf * 0.40);
+          ng = lerp(ng, 0.65, nShelf * 0.40);
+          nbcol = lerp(nbcol, 0.80, nShelf * 0.40);
+          ar += nr; ag += ng; ab += nbcol; ct++;
+        } else {
+          const nt = typeof n.temperature === 'number' ? clamp01(n.temperature) : 0.5;
+          const nrain = typeof n.rainfall === 'number' ? clamp01(n.rainfall) : 0.5;
+          const nsnow = typeof n.snowCover === 'number' ? clamp01(n.snowCover) : 0;
+          const nelev = clamp01((nb - seaLevel) * 3.0);
+          const npIce = nt < 0.20 ? smoothstep(0.20, 0.08, nt) : 0;
+          let nr = 0.35, ng = 0.50, nbcol = 0.28;
+          if (nsnow > 0.6 || npIce > 0 || (nt < 0.2 && nrain > 0.4) || nelev > 0.75) {
+            const iceF = clamp01(Math.max(nsnow, npIce, nelev > 0.75 ? 1.0 : 0.0));
+            nr = lerp(0.85, 0.95, iceF);
+            ng = lerp(0.88, 0.96, iceF);
+            nbcol = lerp(0.92, 0.98, iceF);
+          } else if (nt < 0.25) {
+            nr = 0.55; ng = 0.58; nbcol = 0.52;
+          } else if (nt < 0.40 && nrain > 0.35) {
+            nr = 0.20; ng = 0.35; nbcol = 0.22;
+          } else if (nrain < 0.25 || (nt > 0.65 && nrain < 0.35)) {
+            const dryness = 1.0 - nrain;
+            nr = lerp(0.70, 0.85, dryness);
+            ng = lerp(0.60, 0.70, dryness);
+            nbcol = lerp(0.35, 0.45, dryness);
+          } else if (nrain < 0.50) {
+            nr = 0.58; ng = 0.62; nbcol = 0.35;
+          } else if (nt >= 0.40 && nt < 0.65 && nrain >= 0.50) {
+            nr = 0.25; ng = 0.48; nbcol = 0.22;
+          } else if (nt >= 0.65 && nrain >= 0.60) {
+            nr = 0.10; ng = 0.40; nbcol = 0.15;
+          }
+          if (nelev > 0.3) {
+            const m = (nelev - 0.3) / 0.7;
+            nr = lerp(nr, 0.70, m * 0.35);
+            ng = lerp(ng, 0.65, m * 0.35);
+            nbcol = lerp(nbcol, 0.60, m * 0.35);
+          }
+          ar += nr; ag += ng; ab += nbcol; ct++;
+        }
+      }
+      if (ct > 0) {
+        const arAvg = ar / ct, agAvg = ag / ct, abAvg = ab / ct;
+        r = lerp(r, arAvg, strength);
+        g = lerp(g, agAvg, strength);
+        b = lerp(b, abAvg, strength);
       }
     }
 
@@ -281,6 +350,11 @@ function clamp(n: number, lo: number, hi: number): number {
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
+}
+
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = clamp01((x - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
 }
 
 function rasterizeToBytes(

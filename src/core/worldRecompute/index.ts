@@ -23,6 +23,10 @@ export function recomputeWorld(world: WorldBrain, reasons: RecomputeReason[] = [
   // Expand later (hydrology, climate cells, erosion, biome smoothing) behind this gateway.
 
   recomputeIsWater(world);
+  // Subtle, deterministic landmask smoothing near sea level to remove pixel acne
+  smoothLandmaskNearSeaLevel(world, 1);
+  // Re-evaluate water after smoothing
+  recomputeIsWater(world);
   // Basic climate -> hydrology -> cryosphere -> biomes pipeline
   recomputeClimate(world);
   recomputeHydrology(world);
@@ -46,20 +50,35 @@ function recomputeIsWater(world: WorldBrain): void {
 }
 
 function recomputeSnow(world: WorldBrain): void {
-  // Simple, stable heuristic:
-  // - colder temps => more snow
-  // - higher elevation => more snow
-  // Keep it cheap + deterministic; replace with real cryosphere later.
+  // Blueprint-correct overlays via single stored field 'snowCover'.
+  // Rules:
+  // - Snow increases when tempC <= 0 with a soft ramp (~0..-6C).
+  // - Permanent ice increases when tempC <= -12 with a soft ramp (~-12..-25C).
+  // - Moisture may modulate SNOW depth, but permanent ice does not require rainfall.
+  // - Elevation boosts both slightly.
   for (const cell of world.cells) {
     const h = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
+    const t = clamp01(cell.temperature);
+    const r = clamp01(cell.rainfall);
 
-    // temp: 0..1, where 0 is cold, 1 is hot
-    const coldness = clamp01(1 - cell.temperature);
+    // Map normalized temp to approximate Celsius for ramps (-30C..+30C)
+    const tempC = -30 + t * 60;
 
-    // height influence: assume heights tend to be roughly in -1..1-ish
-    const heightBoost = clamp01((h - 0.15) * 1.25);
+    // Soft ramps (0..1)
+    const snowFromTemp = tempC < 0 ? clamp01((0 - tempC) / 6) : 0; // 1 at -6C and colder
+    const permIce = tempC < -12 ? clamp01((-12 - tempC) / 13) : 0; // 1 at ~-25C
 
-    const snow = clamp01(coldness * 0.85 + heightBoost * 0.35);
+    // Elevation boost (normalized around global sea level space)
+    const heightBoost = clamp01((h - 0.15) * 1.00);
+
+    // Moisture modulates snow depth a bit, but not permanent ice
+    const snowMoistMod = lerp(0.6, 1.0, r);
+
+    // Combine: permanent ice dominates; snow adds with moisture and elevation
+    let snow = Math.max(permIce, snowFromTemp * snowMoistMod);
+    snow = clamp01(snow + heightBoost * 0.30);
+
+    // Gentle spatial smoothing via min clamp to avoid hard bands
     cell.snowCover = snow;
   }
 }
@@ -69,6 +88,11 @@ function recomputeClimate(world: WorldBrain): void {
   const gh = world.gridHeight;
   const cells = world.cells;
   const sea = world.seaLevel;
+  // Read axis tilt if available to shape latitudinal cooling
+  const axisTilt = typeof (world.parameters as any)?.axisTilt === 'number' ? (world.parameters as any).axisTilt as number : 45;
+  const tilt01 = clamp01(axisTilt / 100);
+  // k ~ 1.7..2.3: higher tilt => stronger seasonal contrast but here we keep poles colder
+  const poleK = lerp(1.7, 2.3, tilt01);
 
   function oceanProximityAt(row: number, col: number, radius = 4): number {
     let count = 0;
@@ -88,8 +112,11 @@ function recomputeClimate(world: WorldBrain): void {
   }
 
   for (let r = 0; r < gh; r++) {
-    const lat = 90 - (r / gh) * 180;
-    const latFactor = 1 - Math.abs(lat) / 90;
+    const latDeg = 90 - (r / gh) * 180;
+    const latNorm = latDeg / 90; // -1..1 mapped to -1..1 via deg/90
+    const absLat01 = Math.abs(latNorm); // 0 at equator, 1 at poles
+    const poleFactor = Math.pow(absLat01, poleK); // stronger cooling toward poles
+    const equatorWarmth = 1 - poleFactor; // 1 at equator, ~0 at poles
     for (let c = 0; c < gw; c++) {
       const idx = r * gw + c;
       const cell = cells[idx];
@@ -98,12 +125,63 @@ function recomputeClimate(world: WorldBrain): void {
       const elevFactor = clamp01((h - sea + 0.5) * 0.5);
       const oceanProx = oceanProximityAt(r, c, 4);
 
-      const temp = clamp01(latFactor * 0.9 + (1 - elevFactor) * 0.05 + oceanProx * 0.05);
-      let rainfall = clamp01(oceanProx * 0.6 + latFactor * 0.2 + (temp > 0.6 ? 0.05 : 0));
+      // Temperature: equator warmth dominates; elevation and ocean proximity modulate
+      const temp = clamp01(equatorWarmth * 0.92 + (1 - elevFactor) * 0.05 + oceanProx * 0.03);
+      let rainfall = clamp01(oceanProx * 0.6 + equatorWarmth * 0.20 + (temp > 0.6 ? 0.05 : 0));
       rainfall = clamp01(rainfall * (1 - elevFactor * 0.5));
 
       cell.temperature = temp;
       cell.rainfall = rainfall;
+    }
+  }
+}
+
+// Majority-filter smoothing of landmask by nudging heights near sea level.
+// Deterministic, parameter-free; adjusts simHeightDelta by tiny amounts to flip borderline cells.
+function smoothLandmaskNearSeaLevel(world: WorldBrain, iterations: number = 1): void {
+  const gw = world.gridWidth;
+  const gh = world.gridHeight;
+  const cells = world.cells;
+  const sea = world.seaLevel;
+  const epsilon = 0.02; // only adjust cells within ~2% of normalized height around sea level
+  const margin = 0.008; // small push across threshold
+
+  for (let pass = 0; pass < iterations; pass++) {
+    for (let r = 0; r < gh; r++) {
+      for (let c = 0; c < gw; c++) {
+        const idx = r * gw + c;
+        const cell = cells[idx];
+        if (!cell) continue;
+        const h = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
+        const isWater = h < sea;
+
+        // Count 4-neighbor majority
+        let landNeighbors = 0;
+        let waterNeighbors = 0;
+        const north = r - 1;
+        const south = r + 1;
+        const west = (c - 1 + gw) % gw;
+        const east = (c + 1) % gw;
+        if (north >= 0) { const hn = cells[north * gw + c].baseHeight + cells[north * gw + c].editHeightDelta + cells[north * gw + c].simHeightDelta; (hn < sea ? waterNeighbors++ : landNeighbors++); }
+        if (south < gh) { const hs = cells[south * gw + c].baseHeight + cells[south * gw + c].editHeightDelta + cells[south * gw + c].simHeightDelta; (hs < sea ? waterNeighbors++ : landNeighbors++); }
+        { const hw = cells[r * gw + west].baseHeight + cells[r * gw + west].editHeightDelta + cells[r * gw + west].simHeightDelta; (hw < sea ? waterNeighbors++ : landNeighbors++); }
+        { const he = cells[r * gw + east].baseHeight + cells[r * gw + east].editHeightDelta + cells[r * gw + east].simHeightDelta; (he < sea ? waterNeighbors++ : landNeighbors++); }
+
+        const majorityWater = waterNeighbors > landNeighbors;
+        const majorityLand = landNeighbors > waterNeighbors;
+
+        // Only nudge borderline cells
+        const dist = Math.abs(h - sea);
+        if (dist > epsilon) continue;
+
+        if (isWater && majorityLand) {
+          // raise slightly to land
+          cell.simHeightDelta += dist + margin;
+        } else if (!isWater && majorityWater) {
+          // sink slightly to water
+          cell.simHeightDelta -= dist + margin;
+        }
+      }
     }
   }
 }
@@ -219,6 +297,10 @@ function recomputeBiomes(world: WorldBrain): void {
 
 function clamp01(x: number): number {
   return x < 0 ? 0 : x > 1 ? 1 : x;
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
 }
 
 function recomputeRivers(world: WorldBrain): void {

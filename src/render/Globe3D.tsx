@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { WorldBrain } from '../core/worldSchema';
 import { makePlanetPreviewFromWorldBrain } from '../core/planetRenderer';
+import { generateNormalMap, normalMapToCanvas } from '../core/normalMapGenerator';
 
 type Props = {
   world: WorldBrain;
@@ -41,14 +42,24 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     renderer.setSize(width, height, false);
     el.appendChild(renderer.domElement);
 
-    // Improved lighting setup for better terrain visibility
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+    // ========================================================
+    // CONTRACT ENFORCEMENT: LIGHTING OWNED BY THREE.JS
+    // The CPU planetRenderer outputs ALBEDO only.
+    // All lighting is handled here with physically-based principles.
+    // ========================================================
+    
+    // Soft, realistic lighting setup
+    // Hemisphere light simulates sky/ground ambient
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
     scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+    
+    // Directional light simulates sun
+    const dir = new THREE.DirectionalLight(0xffffff, 1.0);
     dir.position.set(5, 3, 5);
     scene.add(dir);
-    // Add ambient light for better overall visibility
-    const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+    
+    // Minimal ambient to prevent full darkness
+    const ambient = new THREE.AmbientLight(0xffffff, 0.2);
     scene.add(ambient);
 
     // create texture canvas
@@ -209,6 +220,29 @@ export default function Globe3D({ world, preview, className, style }: Props) {
 
     const texture = ensureTextureFromPreview();
 
+    // ========================================================
+    // NORMAL MAP GENERATION
+    // Generate normals from world height data for physically-based lighting
+    // ========================================================
+    let normalTexture: THREE.Texture | null = null;
+    if (world) {
+      try {
+        const normalMap = generateNormalMap(world, 0.3); // Height scale = 0.3
+        const normalCanvas = normalMapToCanvas(normalMap);
+        normalTexture = new THREE.CanvasTexture(normalCanvas);
+        normalTexture.wrapS = THREE.RepeatWrapping;
+        normalTexture.wrapT = THREE.ClampToEdgeWrapping;
+        normalTexture.magFilter = THREE.LinearFilter;
+        normalTexture.minFilter = THREE.LinearMipmapLinearFilter;
+        normalTexture.generateMipmaps = true;
+        normalTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        normalTexture.flipY = false;
+        normalTexture.needsUpdate = true;
+      } catch (e) {
+        console.warn('[Globe3D] Failed to generate normal map:', e);
+      }
+    }
+
     // FIX POLE SUNBURST: Use custom geometry that properly handles pole UVs
     // Standard SphereGeometry collapses all pole vertices to single point with undefined U coord
     // We build a custom sphere with proper equirectangular UV mapping
@@ -263,11 +297,17 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
     geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     
+    // ========================================================
+    // MATERIAL SETUP: ALBEDO + NORMAL MAP
+    // Albedo texture from planetRenderer (no baked lighting)
+    // Normal map from height data (for physically-based lighting)
+    // ========================================================
     const mat = new THREE.MeshStandardMaterial({ 
-      map: texture, 
-      metalness: 0.0, 
-      roughness: 0.8,  // Slightly less rough for better light interaction
-      flatShading: false,  // Smooth shading for better appearance
+      map: texture,              // Albedo (base color) from CPU renderer
+      normalMap: normalTexture,  // Normal map from height data
+      metalness: 0.0,            // Non-metallic (rock, soil, water)
+      roughness: 0.9,            // Diffuse surface (not glossy)
+      flatShading: false,        // Smooth shading for realism
     });
     const mesh = new THREE.Mesh(geom, mat);
     
@@ -328,6 +368,25 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         const newTex = ensureTextureFromPreview();
         if (mat.map) mat.map.dispose();
         mat.map = newTex;
+        
+        // Update normal map too if world available
+        if (world) {
+          const newNormalMap = generateNormalMap(world, 0.3);
+          const newNormalCanvas = normalMapToCanvas(newNormalMap);
+          const newNormalTex = new THREE.CanvasTexture(newNormalCanvas);
+          newNormalTex.wrapS = THREE.RepeatWrapping;
+          newNormalTex.wrapT = THREE.ClampToEdgeWrapping;
+          newNormalTex.magFilter = THREE.LinearFilter;
+          newNormalTex.minFilter = THREE.LinearMipmapLinearFilter;
+          newNormalTex.generateMipmaps = true;
+          newNormalTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+          newNormalTex.flipY = false;
+          newNormalTex.needsUpdate = true;
+          
+          if (mat.normalMap) mat.normalMap.dispose();
+          mat.normalMap = newNormalTex;
+        }
+        
         mat.needsUpdate = true;
       } catch (e) {
         // non-fatal
