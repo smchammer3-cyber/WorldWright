@@ -187,21 +187,35 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     // Pure albedo - no lighting applied
     // All lighting is handled by Three.js shader
 
-    // COUNTRY BORDERS: Overlay borders on land cells
+    // COUNTRY BORDERS: Stronger, deterministic overlay on land cells
     if (!isWater && cell.countryId !== undefined && cell.countryId !== null) {
-      // Check if this is a border cell (neighbor has different countryId)
-      const isBorder = [
-        cRow > 0 ? cells[(cRow - 1) * width + c]?.countryId : null,
-        cRow < height - 1 ? cells[(cRow + 1) * width + c]?.countryId : null,
-        cells[cRow * width + wrapCol(c - 1)]?.countryId,
-        cells[cRow * width + wrapCol(c + 1)]?.countryId,
-      ].some(neighborId => neighborId !== undefined && neighborId !== cell.countryId);
-
-      if (isBorder) {
-        // Draw border as dark line
-        r = r * 0.4;
-        g = g * 0.4;
-        b = b * 0.4;
+      const myId = cell.countryId;
+      let diffCount = 0;
+      // 8-neighborhood for thicker, more coherent borders
+      const neighbors: Array<{ dr: number; dc: number }> = [
+        { dr: -1, dc: 0 },
+        { dr: 1, dc: 0 },
+        { dr: 0, dc: -1 },
+        { dr: 0, dc: 1 },
+        { dr: -1, dc: -1 },
+        { dr: -1, dc: 1 },
+        { dr: 1, dc: -1 },
+        { dr: 1, dc: 1 },
+      ];
+      for (const n of neighbors) {
+        const nr = clampRow(cRow + n.dr);
+        const nc = wrapCol(c + n.dc);
+        const nCell = cells[nr * width + nc];
+        const nid = nCell?.countryId;
+        if (nid !== undefined && nid !== null && nid !== myId) diffCount++;
+      }
+      if (diffCount > 0) {
+        // Blend toward a dark border color; intensity scales with neighbor differences
+        const borderColor: [number, number, number] = [0.05, 0.05, 0.07];
+        const strength = clamp01(diffCount / 3) * 0.85; // cap strong borders without overpowering biomes
+        r = lerp(r, borderColor[0], strength);
+        g = lerp(g, borderColor[1], strength);
+        b = lerp(b, borderColor[2], strength);
       }
     }
 
