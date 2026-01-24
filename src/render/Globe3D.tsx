@@ -95,38 +95,47 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         const img = new ImageData(p.rgba, w, h);
         ctx.putImageData(img, 0, 0);
         
-        // CRITICAL: Apply pole averaging to pre-rasterized buffer too
+        // CRITICAL: Apply polar collapse smoothing to top/bottom N rows
         const imgData = ctx.getImageData(0, 0, w, h);
         const d = imgData.data;
-        
-        // North pole (top row, y=0): average all pixels in row
-        let nr = 0, ng = 0, nb = 0;
-        for (let x = 0; x < w; x++) {
-          const i = x * 4;
-          nr += d[i]; ng += d[i + 1]; nb += d[i + 2];
+        const N = Math.max(2, Math.floor(h * 0.04));
+
+        // Helper: compute row average RGB
+        function rowAvg(y: number): [number, number, number] {
+          let rr = 0, gg = 0, bb = 0;
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            rr += d[i]; gg += d[i + 1]; bb += d[i + 2];
+          }
+          return [Math.round(rr / w), Math.round(gg / w), Math.round(bb / w)];
         }
-        nr = Math.round(nr / w);
-        ng = Math.round(ng / w);
-        nb = Math.round(nb / w);
-        for (let x = 0; x < w; x++) {
-          const i = x * 4;
-          d[i] = nr; d[i + 1] = ng; d[i + 2] = nb;
+
+        // North: blend each pixel toward row average, stronger at pole
+        for (let y = 0; y < N; y++) {
+          const [ar, ag, ab] = rowAvg(y);
+          const t = (N - y) / N; // 1 at pole row, -> 0 toward equator
+          const strength = t * t * (3 - 2 * t); // smoothstep
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            d[i] = Math.round(d[i] * (1 - strength) + ar * strength);
+            d[i + 1] = Math.round(d[i + 1] * (1 - strength) + ag * strength);
+            d[i + 2] = Math.round(d[i + 2] * (1 - strength) + ab * strength);
+          }
         }
-        
-        // South pole (bottom row, y=h-1): average all pixels in row
-        let sr = 0, sg = 0, sb = 0;
-        for (let x = 0; x < w; x++) {
-          const i = ((h - 1) * w + x) * 4;
-          sr += d[i]; sg += d[i + 1]; sb += d[i + 2];
+
+        // South: same for bottom N rows
+        for (let y = h - N; y < h; y++) {
+          const [ar, ag, ab] = rowAvg(y);
+          const t = (y - (h - N)) / N; // 0 at boundary, -> 1 at pole row
+          const strength = t * t * (3 - 2 * t);
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            d[i] = Math.round(d[i] * (1 - strength) + ar * strength);
+            d[i + 1] = Math.round(d[i + 1] * (1 - strength) + ag * strength);
+            d[i + 2] = Math.round(d[i + 2] * (1 - strength) + ab * strength);
+          }
         }
-        sr = Math.round(sr / w);
-        sg = Math.round(sg / w);
-        sb = Math.round(sb / w);
-        for (let x = 0; x < w; x++) {
-          const i = ((h - 1) * w + x) * 4;
-          d[i] = sr; d[i + 1] = sg; d[i + 2] = sb;
-        }
-        
+
         ctx.putImageData(imgData, 0, 0);
       } else {
         // Fallback: manual sampling with PROPER pole handling
@@ -170,38 +179,44 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         }
         ctx.putImageData(img, 0, 0);
         
-        // Apply pole averaging for fallback path too
+        // Apply polar collapse smoothing for fallback path too
         const imgData = ctx.getImageData(0, 0, w, h);
         const d2 = imgData.data;
-        
-        // North pole (top row, y=0): average all pixels in row
-        let nr = 0, ng = 0, nb = 0;
-        for (let x = 0; x < w; x++) {
-          const i = x * 4;
-          nr += d2[i]; ng += d2[i + 1]; nb += d2[i + 2];
+        const N = Math.max(2, Math.floor(h * 0.04));
+
+        function rowAvg2(y: number): [number, number, number] {
+          let rr = 0, gg = 0, bb = 0;
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            rr += d2[i]; gg += d2[i + 1]; bb += d2[i + 2];
+          }
+          return [Math.round(rr / w), Math.round(gg / w), Math.round(bb / w)];
         }
-        nr = Math.round(nr / w);
-        ng = Math.round(ng / w);
-        nb = Math.round(nb / w);
-        for (let x = 0; x < w; x++) {
-          const i = x * 4;
-          d2[i] = nr; d2[i + 1] = ng; d2[i + 2] = nb;
+
+        for (let y = 0; y < N; y++) {
+          const [ar, ag, ab] = rowAvg2(y);
+          const t = (N - y) / N;
+          const strength = t * t * (3 - 2 * t);
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            d2[i] = Math.round(d2[i] * (1 - strength) + ar * strength);
+            d2[i + 1] = Math.round(d2[i + 1] * (1 - strength) + ag * strength);
+            d2[i + 2] = Math.round(d2[i + 2] * (1 - strength) + ab * strength);
+          }
         }
-        
-        // South pole (bottom row, y=h-1): average all pixels in row
-        let sr = 0, sg = 0, sb = 0;
-        for (let x = 0; x < w; x++) {
-          const i = ((h - 1) * w + x) * 4;
-          sr += d2[i]; sg += d2[i + 1]; sb += d2[i + 2];
+
+        for (let y = h - N; y < h; y++) {
+          const [ar, ag, ab] = rowAvg2(y);
+          const t = (y - (h - N)) / N;
+          const strength = t * t * (3 - 2 * t);
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            d2[i] = Math.round(d2[i] * (1 - strength) + ar * strength);
+            d2[i + 1] = Math.round(d2[i + 1] * (1 - strength) + ag * strength);
+            d2[i + 2] = Math.round(d2[i + 2] * (1 - strength) + ab * strength);
+          }
         }
-        sr = Math.round(sr / w);
-        sg = Math.round(sg / w);
-        sb = Math.round(sb / w);
-        for (let x = 0; x < w; x++) {
-          const i = ((h - 1) * w + x) * 4;
-          d2[i] = sr; d2[i + 1] = sg; d2[i + 2] = sb;
-        }
-        
+
         ctx.putImageData(imgData, 0, 0);
       }
       
