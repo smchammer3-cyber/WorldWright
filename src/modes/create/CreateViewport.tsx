@@ -88,6 +88,7 @@ function screenToGridCoords(
 
 export default function CreateViewport({ world, activeTerrainTool, onWorldChange }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const borderCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const brushControllerRef = useRef<TerrainBrushController | null>(null);
   const [brushState, setBrushState] = useState<TerrainBrushState | null>(null);
   const labelsOverlayRef = useRef<HTMLDivElement | null>(null);
@@ -116,9 +117,11 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
   // Redraw canvas when world changes
   useEffect(() => {
     const c = canvasRef.current;
+    const bc = borderCanvasRef.current;
     if (!c) return;
     try {
       draw(c, world);
+      if (bc) drawBorders(bc, world, c);
     } catch (e) {
       console.error("Create viewport draw failed:", e);
     }
@@ -159,6 +162,56 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
       brushControllerRef.current.endStroke();
     }
   };
+
+  function drawBorders(overlay: HTMLCanvasElement, world: WorldBrain, baseCanvas: HTMLCanvasElement) {
+    const ctx = overlay.getContext('2d');
+    if (!ctx) return;
+    // Match overlay size to base canvas displayed size
+    const rect = baseCanvas.getBoundingClientRect();
+    overlay.width = Math.max(1, Math.floor(rect.width));
+    overlay.height = Math.max(1, Math.floor(rect.height));
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+    const w = world.gridWidth;
+    const h = world.gridHeight;
+
+    // Determine pixel scale based on displayed size
+    const sx = overlay.width / w;
+    const sy = overlay.height / h;
+
+    ctx.strokeStyle = 'rgba(10,10,15,0.95)';
+    ctx.lineWidth = Math.max(1, Math.floor(Math.min(sx, sy))); // scale line width
+
+    // Draw border segments where neighboring countryId differs
+    for (let r = 0; r < h; r++) {
+      for (let c = 0; c < w; c++) {
+        const idx = r * w + c;
+        const cell = world.cells[idx];
+        if (!cell || cell.isWater || !cell.countryId) continue;
+        const myId = cell.countryId;
+        const neighbors = [
+          [r - 1, c], [r + 1, c], [r, (c - 1 + w) % w], [r, (c + 1) % w]
+        ];
+        let isBorder = false;
+        for (const [nr, nc] of neighbors) {
+          if (nr < 0 || nr >= h) continue;
+          const nIdx = nr * w + nc;
+          const nCell = world.cells[nIdx];
+          if (nCell && !nCell.isWater && nCell.countryId && nCell.countryId !== myId) {
+            isBorder = true;
+            break;
+          }
+        }
+        if (isBorder) {
+          const x = c * sx;
+          const y = r * sy;
+          // Draw a small rectangle representing the cell border
+          ctx.fillStyle = 'rgba(20,20,30,0.95)';
+          ctx.fillRect(x, y, Math.ceil(sx), Math.ceil(sy));
+        }
+      }
+    }
+  }
 
   // ------------------------------
   // Country labels overlay (MAP)
@@ -204,8 +257,9 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
   function latLonToCanvasXY(lat: number, lon: number): { x: number; y: number } {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
-    const w = canvas.width;
-    const h = canvas.height;
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
     const x = ((lon + 180) / 360) * w;
     const y = (((90 - lat) / 180)) * h;
     return { x, y };
@@ -227,7 +281,12 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
   useEffect(() => {
     initLabels();
     updateLabelsOverlay();
-    const onResize = () => updateLabelsOverlay();
+    const onResize = () => {
+      updateLabelsOverlay();
+      const c = canvasRef.current;
+      const bc = borderCanvasRef.current;
+      if (c && bc) drawBorders(bc, world, c);
+    };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -245,20 +304,24 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
       <div style={{ padding: 12 }}>
         <div style={{ position: 'relative' }}>
           <canvas
-          ref={canvasRef}
-          onMouseDown={handleCanvasMouseDown}
-          onMouseMove={handleCanvasMouseMove}
-          onMouseUp={handleCanvasMouseUp}
-          onMouseLeave={handleCanvasMouseLeave}
-          style={{
-            width: "100%",
-            maxWidth: 1200,
-            borderRadius: 12,
-            border: "1px solid rgba(0,0,0,0.15)",
-            background: "#111",
-            display: "block",
-            cursor: brushState?.enabled ? "crosshair" : "default",
-          }}
+            ref={canvasRef}
+            onMouseDown={handleCanvasMouseDown}
+            onMouseMove={handleCanvasMouseMove}
+            onMouseUp={handleCanvasMouseUp}
+            onMouseLeave={handleCanvasMouseLeave}
+            style={{
+              width: "100%",
+              maxWidth: 1200,
+              borderRadius: 12,
+              border: "1px solid rgba(0,0,0,0.15)",
+              background: "#111",
+              display: "block",
+              cursor: brushState?.enabled ? "crosshair" : "default",
+            }}
+          />
+          <canvas
+            ref={borderCanvasRef}
+            style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, pointerEvents: 'none' }}
           />
           <div
             ref={labelsOverlayRef}
