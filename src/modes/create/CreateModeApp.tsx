@@ -14,7 +14,7 @@
 // - Prevents "Cannot convert undefined or null to object" from Uint8ClampedArray.set.
 // ========================================================
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import AppShell, { ToolGroup, ViewMode } from "../../ui/AppShell";
@@ -35,6 +35,8 @@ export default function CreateModeApp() {
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const lastCountryCountRef = useRef<number>(0);
 
   const [viewMode, setViewMode] = useState<ViewMode>("GLOBE");
   const [activeTerrainTool, setActiveTerrainTool] = useState<'RAISE' | 'LOWER' | 'FLATTEN' | 'SMOOTH' | null>(null);
@@ -85,6 +87,17 @@ export default function CreateModeApp() {
     if (!world) return null;
     return makePlanetPreviewFromWorldBrain(world);
   }, [world]);
+
+  // Lightweight toast when countries are (newly) generated
+  useEffect(() => {
+    const count = world?.countries?.length || 0;
+    if (count > 0 && count !== lastCountryCountRef.current) {
+      lastCountryCountRef.current = count;
+      setToastMessage(`Generated ${count} countries`);
+      const t = window.setTimeout(() => setToastMessage(null), 2500);
+      return () => window.clearTimeout(t);
+    }
+  }, [world?.countries]);
 
   async function handleSave() {
     setSaveError(null);
@@ -303,7 +316,7 @@ export default function CreateModeApp() {
   ];
 
   const rightPanel = (
-    <div style={{ padding: 14, color: "rgba(255,255,255,0.88)" }}>
+    <div style={{ padding: 16, color: "rgba(255,255,255,0.92)" }}>
       <h3 style={{ margin: "6px 0 10px 0" }}>Create</h3>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
@@ -344,21 +357,47 @@ export default function CreateModeApp() {
         <div
           style={{
             marginBottom: 12,
-            padding: 10,
-            borderRadius: 10,
+            padding: 12,
+            borderRadius: 12,
             border: "1px solid rgba(255,90,90,0.35)",
-            background: "rgba(255,90,90,0.08)",
-            color: "rgba(255,255,255,0.92)",
+            background: "linear-gradient(180deg, rgba(255,90,90,0.12), rgba(255,90,90,0.06))",
+            color: "rgba(255,255,255,0.95)",
             fontSize: 12,
-            lineHeight: 1.4,
+            lineHeight: 1.5,
           }}
         >
           <b>Save failed:</b> {saveError}
         </div>
       )}
 
-      <div style={{ fontSize: 12, opacity: 0.8, lineHeight: 1.4 }}>
-        Tool implementations come after Phase 1 stability. For now these are blueprint-accurate categories.
+      {/* Countries quick status */}
+      {world?.countries && world.countries.length > 0 && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: 12,
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.06)",
+            color: "rgba(255,255,255,0.92)",
+            fontSize: 12,
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>Countries Generated</div>
+          <div style={{ opacity: 0.85, marginBottom: 6 }}>Total: {world.countries.length}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {world.countries.slice(0, 5).map((c) => (
+              <div key={c.id} style={{ opacity: 0.8 }}>• {c.name}</div>
+            ))}
+            {world.countries.length > 5 && (
+              <div style={{ opacity: 0.6 }}>(+ {world.countries.length - 5} more)</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div style={{ fontSize: 12, opacity: 0.8, lineHeight: 1.5, marginTop: 12 }}>
+        Tools are blueprint-accurate categories; implementation continues in Phase 2.
       </div>
     </div>
   );
@@ -533,6 +572,26 @@ export default function CreateModeApp() {
       toolGroups={toolGroups}
     >
       <div style={{ width: "100%", height: "100%", position: "relative" }}>
+        {toastMessage && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 12,
+              right: 12,
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '1px solid rgba(100,200,255,0.35)',
+              background: 'rgba(100,200,255,0.12)',
+              color: 'rgba(255,255,255,0.95)',
+              fontSize: 12,
+              zIndex: 1002,
+              boxShadow: '0 6px 18px rgba(0,0,0,0.25)',
+            }}
+            role="alert"
+          >
+            {toastMessage}
+          </div>
+        )}
         {/* Main viewport: Globe (3D) when selected, otherwise CPU preview map with terrain tools */}
         {viewMode === "GLOBE" && world ? (
           <div style={{ width: "100%", height: "100%" }}>

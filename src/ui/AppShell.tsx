@@ -122,7 +122,7 @@ function TopBar(props: {
   const showModeToggle = !!onModeToggle && (mode === "create" || mode === "sim");
   const showViewToggle = !!onViewModeChange && mode === "create";
 
-  return (
+    <div style={{ width: "100vw", height: "100vh", background: "linear-gradient(180deg, rgb(10,12,18), rgb(8,10,15))", overflow: "hidden" }}>
     <div
       style={{
         height: 54,
@@ -273,7 +273,7 @@ export default function AppShell(props: Props) {
 
       <div
         style={{
-          height: "calc(100vh - 54px)",
+            height: "calc(100vh - 54px)",
           display: "grid",
           gridTemplateColumns: hasLeft ? "260px 1fr 320px" : "1fr 320px",
         }}
@@ -281,8 +281,9 @@ export default function AppShell(props: Props) {
         {hasLeft && (
           <div
             style={{
-              borderRight: "1px solid rgba(255,255,255,0.10)",
-              background: "rgba(255,255,255,0.02)",
+                borderRight: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.03)",
+                boxShadow: "inset -0 0 12px rgba(0,0,0,0.25)",
               overflow: "auto",
             }}
           >
@@ -291,9 +292,10 @@ export default function AppShell(props: Props) {
             ) : (
               <ToolbarFlat tools={leftTools || []} />
             )}
-          </div>
-        )}
-
+              style={{
+                borderLeft: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.03)",
+                boxShadow: "inset 0 0 12px rgba(0,0,0,0.25)",
         <div style={{ position: "relative", overflow: "hidden" }}>{children}</div>
 
         <div

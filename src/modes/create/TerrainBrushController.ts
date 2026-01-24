@@ -130,13 +130,13 @@ export class TerrainBrushController {
     const now = performance.now();
     const timeSinceLastApply = now - this.lastApplyTime;
 
-    // Throttle: only apply every 100ms to avoid lag
-    if (timeSinceLastApply < 100 && this.state.isDrawing) {
+    // Throttle: only apply every 150ms to avoid lag
+    if (timeSinceLastApply < 150 && this.state.isDrawing) {
       // Schedule a delayed flush if not already scheduled
       if (!this.recomputeThrottleTimer) {
         this.recomputeThrottleTimer = window.setTimeout(() => {
           this.flushPendingStrokes();
-        }, 100);
+        }, 150);
       }
       return;
     }

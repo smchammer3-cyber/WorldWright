@@ -127,7 +127,11 @@ function recomputeClimate(world: WorldBrain): void {
 
       // Temperature: equator warmth dominates; elevation and ocean proximity modulate
       const temp = clamp01(equatorWarmth * 0.92 + (1 - elevFactor) * 0.05 + oceanProx * 0.03);
-      let rainfall = clamp01(oceanProx * 0.6 + equatorWarmth * 0.20 + (temp > 0.6 ? 0.05 : 0));
+      // Rainfall: ocean proximity dominates, equator warmth adds, plus coastal boost and low-frequency longitudinal coherence
+      const lon01 = c / gw;
+      const coastalBoost = oceanProx * (1 - elevFactor) * 0.08;
+      const longWave = (1 - Math.cos(lon01 * Math.PI * 2)) * 0.04; // smooth, coherent longitudinal variation
+      let rainfall = clamp01(oceanProx * 0.60 + equatorWarmth * 0.20 + coastalBoost + longWave + (temp > 0.6 ? 0.05 : 0));
       rainfall = clamp01(rainfall * (1 - elevFactor * 0.5));
 
       cell.temperature = temp;
