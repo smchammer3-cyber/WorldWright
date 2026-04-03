@@ -1,11 +1,12 @@
 // ========================================================
-// WORLDWRIGHT -- PLANET RENDERER (V1.3 TERRAIN PIPELINE CORRECTION)
+// WORLDWRIGHT -- PLANET RENDERER (V1.3 CLIMATE / VIEW POLISH PASS)
 // File: src/core/planetRenderer.ts
 //
 // Goals:
-// - reduce visual exaggeration of pale/icy land
-// - soften country-border harshness
-// - preserve terrain readability without lying about the world
+// - reduce washed-out white land
+// - soften country borders further
+// - improve land/ocean readability
+// - keep renderer honest to the data
 // ========================================================
 
 import type { WorldBrain } from "./worldSchema";
@@ -55,17 +56,18 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
 
   function biomeOverlayColor(editBiomeId: number | undefined): [number, number, number] | null {
     switch (editBiomeId) {
-      case 1: return [0.84, 0.89, 0.95];
-      case 3: return [0.64, 0.74, 0.42];
-      case 4: return [0.84, 0.72, 0.42];
-      case 5: return [0.18, 0.56, 0.26];
-      case 6: return [0.60, 0.60, 0.66];
+      case 1: return [0.80, 0.86, 0.92];
+      case 3: return [0.66, 0.74, 0.44];
+      case 4: return [0.82, 0.70, 0.44];
+      case 5: return [0.22, 0.52, 0.26];
+      case 6: return [0.58, 0.58, 0.62];
       default: return null;
     }
   }
 
   function sampleFromRowCol(row: number, col: number): [number, number, number] {
     if (height === 0 || width === 0) return [1, 0, 1];
+
     const cRow = clampRow(row);
     const c = wrapCol(col);
     const idx = cRow * width + c;
@@ -89,79 +91,82 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     const snow = typeof cell.snowCover === "number" ? clamp01(cell.snowCover) : 0;
 
     if (isWater) {
-      const depth = clamp01((seaLevel - h) * 1.7);
-      const shelfMask = smoothstep(0.30, 0.03, depth);
+      const depth = clamp01((seaLevel - h) * 1.75);
+      const shelfMask = smoothstep(0.28, 0.03, depth);
 
-      const shallowR = 0.18, shallowG = 0.48, shallowB = 0.68;
-      const midR = 0.09, midG = 0.30, midB = 0.52;
-      const deepR = 0.03, deepG = 0.12, deepB = 0.32;
+      const shallowR = 0.18, shallowG = 0.50, shallowB = 0.72;
+      const midR = 0.08, midG = 0.30, midB = 0.54;
+      const deepR = 0.02, deepG = 0.11, deepB = 0.30;
 
       let r, g, b;
-      if (depth < 0.4) {
-        const t = depth / 0.4;
+      if (depth < 0.38) {
+        const t = depth / 0.38;
         r = lerp(shallowR, midR, t);
         g = lerp(shallowG, midG, t);
         b = lerp(shallowB, midB, t);
       } else {
-        const t = (depth - 0.4) / 0.6;
+        const t = (depth - 0.38) / 0.62;
         r = lerp(midR, deepR, t);
         g = lerp(midG, deepG, t);
         b = lerp(midB, deepB, t);
       }
 
-      // Shelf highlight toned down
-      r = lerp(r, 0.24, shelfMask * 0.20);
-      g = lerp(g, 0.56, shelfMask * 0.20);
-      b = lerp(b, 0.72, shelfMask * 0.20);
+      // Softer shelf pop
+      r = lerp(r, 0.22, shelfMask * 0.14);
+      g = lerp(g, 0.56, shelfMask * 0.14);
+      b = lerp(b, 0.74, shelfMask * 0.14);
 
       return [r, g, b];
     }
 
     const elev = clamp01((h - seaLevel) * 2.2);
-    let r = 0.28, g = 0.32, b = 0.22;
 
-    const permIce = temp < 0.16 ? smoothstep(0.16, 0.05, temp) : 0;
+    let r = 0.34;
+    let g = 0.42;
+    let b = 0.28;
 
-    if (snow > 0.72 || permIce > 0 || (temp < 0.16 && rainfall > 0.45) || elev > 0.84) {
-      const iceFactor = clamp01(Math.max(snow, permIce, elev > 0.84 ? 1.0 : 0.0));
-      r = lerp(0.72, 0.87, iceFactor);
-      g = lerp(0.76, 0.90, iceFactor);
-      b = lerp(0.80, 0.94, iceFactor);
-    } else if (temp < 0.23) {
-      r = 0.48; g = 0.50; b = 0.44;
-    } else if (temp < 0.40 && rainfall > 0.36) {
-      r = 0.22; g = 0.36; b = 0.24;
-    } else if (rainfall < 0.24 || (temp > 0.65 && rainfall < 0.34)) {
+    const permIce = temp < 0.14 ? smoothstep(0.14, 0.04, temp) : 0;
+
+    if (snow > 0.78 || permIce > 0 || (temp < 0.14 && rainfall > 0.46) || elev > 0.88) {
+      const iceFactor = clamp01(Math.max(snow, permIce, elev > 0.88 ? 1.0 : 0.0));
+      r = lerp(0.74, 0.84, iceFactor);
+      g = lerp(0.78, 0.88, iceFactor);
+      b = lerp(0.82, 0.92, iceFactor);
+    } else if (temp < 0.22) {
+      r = 0.54; g = 0.58; b = 0.52;
+    } else if (temp < 0.38 && rainfall > 0.34) {
+      r = 0.30; g = 0.48; b = 0.30;
+    } else if (rainfall < 0.22 || (temp > 0.65 && rainfall < 0.32)) {
       const dryness = 1.0 - rainfall;
-      r = lerp(0.66, 0.79, dryness);
-      g = lerp(0.56, 0.66, dryness);
-      b = lerp(0.34, 0.40, dryness);
-    } else if (rainfall < 0.50) {
-      r = 0.54; g = 0.60; b = 0.36;
-    } else if (temp >= 0.40 && temp < 0.65 && rainfall >= 0.50) {
-      r = 0.24; g = 0.46; b = 0.24;
-    } else if (temp >= 0.65 && rainfall >= 0.60) {
-      r = 0.12; g = 0.38; b = 0.18;
+      r = lerp(0.66, 0.78, dryness);
+      g = lerp(0.58, 0.68, dryness);
+      b = lerp(0.38, 0.44, dryness);
+    } else if (rainfall < 0.48) {
+      r = 0.54; g = 0.66; b = 0.38;
+    } else if (temp >= 0.38 && temp < 0.64 && rainfall >= 0.48) {
+      r = 0.24; g = 0.50; b = 0.24;
+    } else if (temp >= 0.64 && rainfall >= 0.60) {
+      r = 0.14; g = 0.42; b = 0.18;
     } else {
-      r = 0.34; g = 0.48; b = 0.30;
+      r = 0.38; g = 0.52; b = 0.32;
     }
 
-    // Mountain brightening toned down
-    if (elev > 0.34) {
-      const mountain = (elev - 0.34) / 0.66;
-      r = lerp(r, 0.58, mountain * 0.22);
-      g = lerp(g, 0.56, mountain * 0.22);
-      b = lerp(b, 0.52, mountain * 0.22);
+    // Gentler mountain lift
+    if (elev > 0.36) {
+      const mountain = (elev - 0.36) / 0.64;
+      r = lerp(r, 0.60, mountain * 0.18);
+      g = lerp(g, 0.58, mountain * 0.18);
+      b = lerp(b, 0.54, mountain * 0.18);
     }
 
     const overlay = biomeOverlayColor(cell.editBiomeId);
     if (overlay && typeof cell.editBiomeId === "number" && cell.editBiomeId !== cell.baseBiomeId) {
-      r = lerp(r, overlay[0], 0.40);
-      g = lerp(g, overlay[1], 0.40);
-      b = lerp(b, overlay[2], 0.40);
+      r = lerp(r, overlay[0], 0.36);
+      g = lerp(g, overlay[1], 0.36);
+      b = lerp(b, overlay[2], 0.36);
     }
 
-    // Country borders much softer
+    // Softer country borders for evaluation
     if (!isWater && cell.countryId !== undefined && cell.countryId !== null) {
       const myId = cell.countryId;
       let diffCount = 0;
@@ -169,6 +174,7 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
         { dr: -1, dc: 0 }, { dr: 1, dc: 0 }, { dr: 0, dc: -1 }, { dr: 0, dc: 1 },
         { dr: -1, dc: -1 }, { dr: -1, dc: 1 }, { dr: 1, dc: -1 }, { dr: 1, dc: 1 },
       ];
+
       for (const n of neighbors) {
         const nr = clampRow(cRow + n.dr);
         const nc = wrapCol(c + n.dc);
@@ -176,11 +182,12 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
         const nid = nCell?.countryId;
         if (nid !== undefined && nid !== null && nid !== myId) diffCount++;
       }
+
       if (diffCount > 0) {
-        const strength = clamp01(diffCount / 5) * 0.25;
-        r = lerp(r, 0.16, strength);
-        g = lerp(g, 0.16, strength);
-        b = lerp(b, 0.18, strength);
+        const strength = clamp01(diffCount / 6) * 0.16;
+        r = lerp(r, 0.18, strength);
+        g = lerp(g, 0.20, strength);
+        b = lerp(b, 0.22, strength);
       }
     }
 
@@ -275,7 +282,11 @@ function rasterizeToBytes(
   return out;
 }
 
-export function rasterizePlanetPreview(preview: PlanetPreview, outW: number, outH: number): Uint8ClampedArray {
+export function rasterizePlanetPreview(
+  preview: PlanetPreview,
+  outW: number,
+  outH: number
+): Uint8ClampedArray {
   const w = Math.max(1, Math.floor(outW));
   const h = Math.max(1, Math.floor(outH));
   return rasterizeToBytes(w, h, (x, y) => {
@@ -285,7 +296,11 @@ export function rasterizePlanetPreview(preview: PlanetPreview, outW: number, out
   });
 }
 
-export function rasterizeMinimapPreview(preview: PlanetPreview, outW: number, outH: number): Uint8ClampedArray {
+export function rasterizeMinimapPreview(
+  preview: PlanetPreview,
+  outW: number,
+  outH: number
+): Uint8ClampedArray {
   const w = Math.max(1, Math.floor(outW));
   const h = Math.max(1, Math.floor(outH));
   return rasterizeToBytes(w, h, (x, y) => {
