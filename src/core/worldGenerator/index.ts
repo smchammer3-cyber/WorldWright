@@ -1,11 +1,11 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 PHASE 1 POLE FIX)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 PHASE 1.5 POLE TOPOLOGY FIX)
 // File: src/core/worldGenerator/index.ts
 //
-// Phase 1 goal:
-// - eliminate pole flower/starburst artifacts at the source
-// - move macro landmass generation onto sphere-safe sampling
-// - keep existing app contracts intact
+// Phase 1.5 goal:
+// - eliminate remaining pole fan/seam artifacts
+// - treat pole rows like converged caps, not wide rings
+// - preserve current branch contracts
 // ========================================================
 
 import {
@@ -103,26 +103,77 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     velocity: p.velocity,
   }));
 
+  // Precompute single cap samples for exact pole rows
+  const northPoleSample = buildPoleSample(
+    90,
+    continentSeeds,
+    plateSeeds,
+    rng,
+    globalSeaLevel,
+    plateAmp
+  );
+  const southPoleSample = buildPoleSample(
+    -90,
+    continentSeeds,
+    plateSeeds,
+    rng,
+    globalSeaLevel,
+    plateAmp
+  );
+
   // ----------------------------------------------------
   // PASS 1: Macro landmass + plate assignment on sphere
   // ----------------------------------------------------
   for (let r = 0; r < height; r++) {
+    const rowPoleMode = getPoleRowMode(r, height);
+
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
       const cell = cells[idx];
 
-      const lat = 90 - ((r + 0.5) / height) * 180;
-      const lon = ((c + 0.5) / width) * 360 - 180;
-      const dir = latLonToUnitVector(lat, lon);
+      let lat: number;
+      let lon: number;
+      let dir: Vec3;
+      let poleProximity: number;
 
-      const absLat01 = Math.abs(lat) / 90;
-      const poleProximity = smoothstep(0.80, 1.0, absLat01);
+      if (rowPoleMode === 'NORTH_CAP') {
+        lat = 90;
+        lon = 0;
+        dir = northPoleSample.dir;
+        poleProximity = 1;
+      } else if (rowPoleMode === 'SOUTH_CAP') {
+        lat = -90;
+        lon = 0;
+        dir = southPoleSample.dir;
+        poleProximity = 1;
+      } else {
+        lat = 90 - ((r + 0.5) / height) * 180;
+        lon = ((c + 0.5) / width) * 360 - 180;
+        dir = latLonToUnitVector(lat, lon);
+        const absLat01 = Math.abs(lat) / 90;
+        poleProximity = smoothstep(0.80, 1.0, absLat01);
+      }
+
+      if (rowPoleMode === 'NORTH_CAP') {
+        cell.plateId = northPoleSample.plateId;
+        cell.plateType = northPoleSample.plateType;
+        cell.baseHeight = northPoleSample.baseHeight;
+        cell.boundaryType = BoundaryType.NONE;
+        continue;
+      }
+
+      if (rowPoleMode === 'SOUTH_CAP') {
+        cell.plateId = southPoleSample.plateId;
+        cell.plateType = southPoleSample.plateType;
+        cell.baseHeight = southPoleSample.baseHeight;
+        cell.boundaryType = BoundaryType.NONE;
+        continue;
+      }
 
       const plateSeed = findNearestPlateSeed(dir, plateSeeds);
       cell.plateId = plateSeed.id;
       cell.plateType = plateSeed.type;
 
-      // Broad continent support from spherical seed lobes.
       let continentInfluence = 0;
       for (const seed of continentSeeds) {
         const d = greatCircleDistance01(dir, seed.dir);
@@ -132,24 +183,19 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
         }
       }
 
-      // Sphere-safe layered noise: no longitude singularity.
-      const macroNoise = sphereFbm(dir, rng, 1.1, 4);
-      const regionalNoise = sphereFbm(offsetVec(dir, 1.9, -0.8, 0.6), rng, 2.4, 3);
-      const coastNoise = sphereFbm(offsetVec(dir, -0.6, 1.4, 0.9), rng, 5.6, 2);
+      const macroNoise = sphereFbm(dir, seedUint, 1.1, 4);
+      const regionalNoise = sphereFbm(offsetVec(dir, 1.9, -0.8, 0.6), seedUint, 2.4, 3);
+      const coastNoise = sphereFbm(offsetVec(dir, -0.6, 1.4, 0.9), seedUint, 5.6, 2);
 
-      // High-frequency detail is damped toward poles to prevent starbursts.
-      const polarDetailDamp = lerp(1.0, 0.18, poleProximity);
+      const polarDetailDamp = lerp(1.0, 0.10, poleProximity);
       const landSignal =
         continentInfluence * 0.80 +
         macroNoise * 0.22 +
         regionalNoise * 0.12 +
         coastNoise * 0.06 * polarDetailDamp;
 
-      // Slightly discourage huge direct polar continent petals.
       const polarLandPenalty = poleProximity * 0.18;
-
-      const continentalBias =
-        plateSeed.type === PlateType.CONTINENTAL ? 0.09 : -0.06;
+      const continentalBias = plateSeed.type === PlateType.CONTINENTAL ? 0.09 : -0.06;
 
       const terrainPotential =
         landSignal + continentalBias - globalSeaLevel - polarLandPenalty;
@@ -157,15 +203,13 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const isLand = terrainPotential > 0;
 
       if (isLand) {
-        const upliftNoise = sphereFbm(offsetVec(dir, 0.4, 0.9, -1.3), rng, 7.0, 2);
+        const upliftNoise = sphereFbm(offsetVec(dir, 0.4, 0.9, -1.3), seedUint, 7.0, 2);
         const baseLand = 0.08 + terrainPotential * 0.82;
-        const uplifts =
-          upliftNoise * 0.08 * plateAmp * polarDetailDamp;
-
+        const uplifts = upliftNoise * 0.08 * plateAmp * polarDetailDamp;
         cell.baseHeight = baseLand + uplifts;
       } else {
         const oceanDepthSignal = -terrainPotential;
-        const abyssNoise = sphereFbm(offsetVec(dir, 1.1, -1.7, 0.2), rng, 2.2, 2);
+        const abyssNoise = sphereFbm(offsetVec(dir, 1.1, -1.7, 0.2), seedUint, 2.2, 2);
         cell.baseHeight = -0.18 - oceanDepthSignal * 0.95 + abyssNoise * 0.04;
       }
 
@@ -173,6 +217,10 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       cell.boundaryType = BoundaryType.NONE;
     }
   }
+
+  // Blend cap-adjacent rows toward pole-safe values to avoid seam/fan behavior
+  blendCapAdjacentRows(cells, width, height, 1, northPoleSample.baseHeight, southPoleSample.baseHeight);
+  blendCapAdjacentRows(cells, width, height, 2, northPoleSample.baseHeight, southPoleSample.baseHeight);
 
   // ----------------------------------------------------
   // PASS 2: Plate boundary tagging + terrain shaping
@@ -192,6 +240,14 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const sIdx = south * width + c;
       const wIdx = r * width + west;
       const eIdx = r * width + east;
+
+      const isExactPoleRow = r === 0 || r === height - 1;
+      if (isExactPoleRow) {
+        cell.boundaryType = BoundaryType.NONE;
+        cell.upliftRate = 0;
+        cell.volcanicActivity = 0;
+        continue;
+      }
 
       const neighborPlateIds = [
         cells[nIdx].plateId,
@@ -224,6 +280,9 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
         cell.boundaryType = rng() < 0.52 ? BoundaryType.DIVERGENT : BoundaryType.TRANSFORM;
       }
 
+      const lat = 90 - ((r + 0.5) / height) * 180;
+      const poleProximity = smoothstep(72 / 90, 1.0, Math.abs(lat) / 90);
+
       const boundaryStrength =
         cell.boundaryType === BoundaryType.CONVERGENT
           ? 0.10
@@ -231,7 +290,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
           ? -0.05
           : 0.02;
 
-      cell.baseHeight += boundaryStrength * plateAmp * (0.55 + rng() * 0.65);
+      cell.baseHeight += boundaryStrength * plateAmp * (0.55 + rng() * 0.65) * (1 - poleProximity * 0.7);
       cell.baseHeight = clamp(cell.baseHeight, -1.6, 1.7);
 
       cell.upliftRate =
@@ -251,7 +310,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
 
   // ----------------------------------------------------
-  // PASS 3: Erosion / smoothing with pole-safe damping
+  // PASS 3: Erosion / smoothing with cap-safe handling
   // ----------------------------------------------------
   const smoothingPasses = Math.max(2, Math.round(lerp(2, 7, smoothness)));
   const smoothingStrength = lerp(0.16, 0.62, smoothness);
@@ -264,27 +323,43 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
         const idx = r * width + c;
         const cell = cells[idx];
 
+        if (r === 0) {
+          nextHeights[idx] = northPoleSample.baseHeight;
+          continue;
+        }
+        if (r === height - 1) {
+          nextHeights[idx] = southPoleSample.baseHeight;
+          continue;
+        }
+
         const north = Math.max(0, r - 1);
         const south = Math.min(height - 1, r + 1);
-        const west = (c - 1 + width) % width;
-        const east = (c + 1) % width;
 
-        const neighbors = [
-          cells[north * width + c].baseHeight,
-          cells[south * width + c].baseHeight,
-          cells[r * width + west].baseHeight,
-          cells[r * width + east].baseHeight,
-        ];
+        const northHeight = cells[north * width + c].baseHeight;
+        const southHeight = cells[south * width + c].baseHeight;
 
-        const avg =
-          (neighbors[0] + neighbors[1] + neighbors[2] + neighbors[3]) / 4;
+        let avg: number;
+        if (r === 1 || r === height - 2) {
+          // Near-cap rows should not be over-influenced by horizontal wrap at seam-sensitive area.
+          avg = (northHeight + southHeight + cell.baseHeight) / 3;
+        } else {
+          const west = (c - 1 + width) % width;
+          const east = (c + 1) % width;
+          avg =
+            (
+              northHeight +
+              southHeight +
+              cells[r * width + west].baseHeight +
+              cells[r * width + east].baseHeight
+            ) / 4;
+        }
 
         const lat = 90 - ((r + 0.5) / height) * 180;
         const poleProximity = smoothstep(68 / 90, 1.0, Math.abs(lat) / 90);
 
-        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.55, poleProximity);
+        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.48, poleProximity);
         const upliftDelta = cell.upliftRate * 0.004;
-        const noiseBreakup = (rng() - 0.5) * 0.012 * (1 - smoothness) * (1 - poleProximity * 0.65);
+        const noiseBreakup = (rng() - 0.5) * 0.010 * (1 - smoothness) * (1 - poleProximity * 0.75);
 
         nextHeights[idx] = clamp(
           cell.baseHeight + (avg - cell.baseHeight) * localSmooth + upliftDelta + noiseBreakup,
@@ -300,6 +375,12 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     }
   }
 
+  // Re-lock exact pole rows after smoothing
+  for (let c = 0; c < width; c++) {
+    cells[c].baseHeight = northPoleSample.baseHeight;
+    cells[(height - 1) * width + c].baseHeight = southPoleSample.baseHeight;
+  }
+
   // ----------------------------------------------------
   // PASS 4: Climate seed fields (still refined later by recompute)
   // ----------------------------------------------------
@@ -310,16 +391,16 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const idx = r * width + c;
       const cell = cells[idx];
 
-      const lat = 90 - ((r + 0.5) / height) * 180;
-      const lon = ((c + 0.5) / width) * 360 - 180;
+      const lat = r === 0 ? 90 : r === height - 1 ? -90 : 90 - ((r + 0.5) / height) * 180;
+      const lon = r === 0 || r === height - 1 ? 0 : ((c + 0.5) / width) * 360 - 180;
       const dir = latLonToUnitVector(lat, lon);
 
       const absLat01 = Math.abs(lat) / 90;
       const poleProximity = smoothstep(0.82, 1.0, absLat01);
 
       const equatorWarmth = Math.pow(1 - absLat01, lerp(0.85, 1.15, tilt01));
-      const tempNoise = sphereFbm(offsetVec(dir, 0.7, 1.6, -1.1), rng, 3.4, 3);
-      const rainNoise = sphereFbm(offsetVec(dir, -1.2, 0.5, 1.8), rng, 3.0, 3);
+      const tempNoise = r === 0 || r === height - 1 ? 0 : sphereFbm(offsetVec(dir, 0.7, 1.6, -1.1), seedUint, 3.4, 3);
+      const rainNoise = r === 0 || r === height - 1 ? 0 : sphereFbm(offsetVec(dir, -1.2, 0.5, 1.8), seedUint, 3.0, 3);
 
       const coastBoost = coastalMask[idx] * 0.16;
       const elevAboveSea = Math.max(0, cell.baseHeight - globalSeaLevel);
@@ -380,7 +461,17 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
         for (let dc = -1; dc <= 1; dc++) {
           if (dr === 0 && dc === 0) continue;
-          const cc = (c + dc + width) % width;
+
+          // Pole rows should not use horizontal wrap to define artificial radial flow
+          let cc = c + dc;
+          if (rr === 0 || rr === height - 1) {
+            cc = c;
+          } else {
+            cc = (cc + width) % width;
+          }
+
+          if (cc < 0 || cc >= width) continue;
+
           const nIdx = rr * width + cc;
           const nh = cells[nIdx].baseHeight;
           if (nh < bestH - 1e-6) {
@@ -446,6 +537,91 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   world.countries = generateCountries(world, targetContinentCount);
 
   return world;
+}
+
+function buildPoleSample(
+  lat: number,
+  continentSeeds: ContinentSeed[],
+  plateSeeds: PlateSeed[],
+  rng: () => number,
+  globalSeaLevel: number,
+  plateAmp: number
+) {
+  const dir = latLonToUnitVector(lat, 0);
+  const plateSeed = findNearestPlateSeed(dir, plateSeeds);
+
+  let continentInfluence = 0;
+  for (const seed of continentSeeds) {
+    const d = greatCircleDistance01(dir, seed.dir);
+    const influence = smoothstep(seed.radius, 0.0, d) * seed.strength;
+    if (influence > continentInfluence) {
+      continentInfluence = influence;
+    }
+  }
+
+  const macroNoise = sphereFbm(dir, 123456789, 1.1, 4);
+  const regionalNoise = sphereFbm(offsetVec(dir, 1.9, -0.8, 0.6), 123456789, 2.4, 3);
+  const coastNoise = sphereFbm(offsetVec(dir, -0.6, 1.4, 0.9), 123456789, 5.6, 2);
+
+  const polarDetailDamp = 0.08;
+  const landSignal =
+    continentInfluence * 0.80 +
+    macroNoise * 0.22 +
+    regionalNoise * 0.12 +
+    coastNoise * 0.06 * polarDetailDamp;
+
+  const polarLandPenalty = 0.18;
+  const continentalBias = plateSeed.type === PlateType.CONTINENTAL ? 0.09 : -0.06;
+
+  const terrainPotential =
+    landSignal + continentalBias - globalSeaLevel - polarLandPenalty;
+
+  let baseHeight: number;
+
+  if (terrainPotential > 0) {
+    const upliftNoise = sphereFbm(offsetVec(dir, 0.4, 0.9, -1.3), 123456789, 7.0, 2);
+    baseHeight = 0.08 + terrainPotential * 0.82 + upliftNoise * 0.08 * plateAmp * polarDetailDamp;
+  } else {
+    const oceanDepthSignal = -terrainPotential;
+    const abyssNoise = sphereFbm(offsetVec(dir, 1.1, -1.7, 0.2), 123456789, 2.2, 2);
+    baseHeight = -0.18 - oceanDepthSignal * 0.95 + abyssNoise * 0.04;
+  }
+
+  return {
+    dir,
+    plateId: plateSeed.id,
+    plateType: plateSeed.type,
+    baseHeight: clamp(baseHeight, -1.5, 1.5),
+  };
+}
+
+function getPoleRowMode(r: number, height: number): 'NORTH_CAP' | 'SOUTH_CAP' | 'NORMAL' {
+  if (r === 0) return 'NORTH_CAP';
+  if (r === height - 1) return 'SOUTH_CAP';
+  return 'NORMAL';
+}
+
+function blendCapAdjacentRows(
+  cells: Cell[],
+  width: number,
+  height: number,
+  rowDistance: 1 | 2,
+  northHeight: number,
+  southHeight: number
+): void {
+  const northRow = rowDistance;
+  const southRow = height - 1 - rowDistance;
+
+  const northBlend = rowDistance === 1 ? 0.55 : 0.28;
+  const southBlend = rowDistance === 1 ? 0.55 : 0.28;
+
+  for (let c = 0; c < width; c++) {
+    const nIdx = northRow * width + c;
+    cells[nIdx].baseHeight = lerp(cells[nIdx].baseHeight, northHeight, northBlend);
+
+    const sIdx = southRow * width + c;
+    cells[sIdx].baseHeight = lerp(cells[sIdx].baseHeight, southHeight, southBlend);
+  }
 }
 
 function createContinentSeeds(count: number, rng: () => number): ContinentSeed[] {
@@ -559,57 +735,57 @@ function greatCircleDistance01(a: Vec3, b: Vec3): number {
   return angle / Math.PI;
 }
 
-function sphereFbm(dir: Vec3, rng: () => number, frequency: number, octaves: number): number {
+function sphereFbm(dir: Vec3, seed: number, frequency: number, octaves: number): number {
   let amp = 1;
   let freq = frequency;
   let sum = 0;
   let norm = 0;
 
   for (let i = 0; i < octaves; i++) {
-    sum += amp * sphereValueNoise(dir, freq, i + 1);
+    sum += amp * sphereValueNoise(dir, freq, i + 1, seed);
     norm += amp;
     amp *= 0.5;
     freq *= 2.0;
   }
 
   return ((sum / Math.max(1e-9, norm)) * 2 - 1) * 0.9;
+}
 
-  function sphereValueNoise(v: Vec3, f: number, salt: number): number {
-    const x = v[0] * f;
-    const y = v[1] * f;
-    const z = v[2] * f;
+function sphereValueNoise(v: Vec3, f: number, salt: number, seed: number): number {
+  const x = v[0] * f;
+  const y = v[1] * f;
+  const z = v[2] * f;
 
-    const xi = Math.floor(x);
-    const yi = Math.floor(y);
-    const zi = Math.floor(z);
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const zi = Math.floor(z);
 
-    const xf = x - xi;
-    const yf = y - yi;
-    const zf = z - zi;
+  const xf = x - xi;
+  const yf = y - yi;
+  const zf = z - zi;
 
-    const u = smoothstep(xf);
-    const vv = smoothstep(yf);
-    const w = smoothstep(zf);
+  const u = smoothstep(xf);
+  const vv = smoothstep(yf);
+  const w = smoothstep(zf);
 
-    const c000 = hash3(xi, yi, zi, salt, rng);
-    const c100 = hash3(xi + 1, yi, zi, salt, rng);
-    const c010 = hash3(xi, yi + 1, zi, salt, rng);
-    const c110 = hash3(xi + 1, yi + 1, zi, salt, rng);
-    const c001 = hash3(xi, yi, zi + 1, salt, rng);
-    const c101 = hash3(xi + 1, yi, zi + 1, salt, rng);
-    const c011 = hash3(xi, yi + 1, zi + 1, salt, rng);
-    const c111 = hash3(xi + 1, yi + 1, zi + 1, salt, rng);
+  const c000 = hash3(xi, yi, zi, salt, seed);
+  const c100 = hash3(xi + 1, yi, zi, salt, seed);
+  const c010 = hash3(xi, yi + 1, zi, salt, seed);
+  const c110 = hash3(xi + 1, yi + 1, zi, salt, seed);
+  const c001 = hash3(xi, yi, zi + 1, salt, seed);
+  const c101 = hash3(xi + 1, yi, zi + 1, salt, seed);
+  const c011 = hash3(xi, yi + 1, zi + 1, salt, seed);
+  const c111 = hash3(xi + 1, yi + 1, zi + 1, salt, seed);
 
-    const x00 = lerp(c000, c100, u);
-    const x10 = lerp(c010, c110, u);
-    const x01 = lerp(c001, c101, u);
-    const x11 = lerp(c011, c111, u);
+  const x00 = lerp(c000, c100, u);
+  const x10 = lerp(c010, c110, u);
+  const x01 = lerp(c001, c101, u);
+  const x11 = lerp(c011, c111, u);
 
-    const y0 = lerp(x00, x10, vv);
-    const y1 = lerp(x01, x11, vv);
+  const y0 = lerp(x00, x10, vv);
+  const y1 = lerp(x01, x11, vv);
 
-    return lerp(y0, y1, w);
-  }
+  return lerp(y0, y1, w);
 }
 
 function offsetVec(dir: Vec3, ox: number, oy: number, oz: number): Vec3 {
@@ -649,13 +825,17 @@ function hash3(
   y: number,
   z: number,
   salt: number,
-  rng: () => number
+  seed: number
 ): number {
-  let h = x * 374761393 + y * 668265263 + z * 2147483647 + salt * 1597334677;
-  const rv = Math.floor(rng() * 0xffffffff);
-  h = (h ^ rv) >>> 0;
+  let h =
+    Math.imul(x, 374761393) ^
+    Math.imul(y, 668265263) ^
+    Math.imul(z, 2147483647) ^
+    Math.imul(salt, 1597334677) ^
+    seed;
+
   h = Math.imul(h ^ (h >>> 13), 1274126177);
-  h = h ^ (h >>> 16);
+  h ^= h >>> 16;
   return (h >>> 0) / 4294967295;
 }
 
@@ -682,15 +862,6 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-function mulberry32(a: number): () => number {
-  return function () {
-    let t = (a += 0x6d2b79f5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 function seedToUint32(s: string | number): number {
   if (typeof s === 'number') return s >>> 0;
   const str = String(s);
@@ -700,6 +871,15 @@ function seedToUint32(s: string | number): number {
     h = Math.imul(h, 16777619);
   }
   return (h >>> 0) & 0xffffffff;
+}
+
+function mulberry32(a: number): () => number {
+  return function () {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 function smoothstep(edge0OrT: number, edge1?: number, maybeX?: number): number {
