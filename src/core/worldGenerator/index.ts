@@ -1,12 +1,13 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 HYBRID TECTONIC)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 HYBRID TECTONIC TUNED)
 // File: src/core/worldGenerator/index.ts
 //
 // Goals:
 // - keep tectonicsSystem as an influence layer, not visible plate geometry
-// - preserve pole-safe topology
-// - build continents from blended fields, shelves, breakup, and erosion
-// - use tectonics to bias uplift / trenches / continental tendency
+// - tune continental silhouette grammar
+// - reduce chain / pearl artifacts
+// - add more natural coastal breakup
+// - improve tectonic relief translation without visible partitions
 // ========================================================
 
 import {
@@ -20,7 +21,6 @@ import { recomputeWorld } from '../worldRecompute';
 import { generateCountries } from '../countryGenerator';
 import {
   buildTectonicsField,
-  applyTectonicUplift,
   type TectonicsField,
 } from '../tectonicsSystem';
 
@@ -42,13 +42,14 @@ export type GeneratorParams = {
 
 type Vec3 = [number, number, number];
 
-type BackboneSeed = {
-  anchors: Vec3[];
-  width: number;
+type ContinentSeed = {
+  dir: Vec3;
+  radius: number;
   strength: number;
+  asymmetry: Vec3;
 };
 
-type ShelfSeed = {
+type CoastalNibbleSeed = {
   dir: Vec3;
   radius: number;
   strength: number;
@@ -57,6 +58,12 @@ type ShelfSeed = {
 type RiftMaskSeed = {
   anchors: Vec3[];
   width: number;
+  strength: number;
+};
+
+type ShelfSeed = {
+  dir: Vec3;
+  radius: number;
   strength: number;
 };
 
@@ -94,7 +101,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
   const seaBias = clamp01(params.seaLevel / 100);
   const globalSeaLevel = lerp(-0.08, 0.12, seaBias);
-  const plateAmp = lerp(0.45, 1.25, clamp01(params.plateActivity / 100));
+  const plateAmp = lerp(0.45, 1.18, clamp01(params.plateActivity / 100));
   const age01 = clamp01(params.planetAge / 100);
   const erosion01 = clamp01(params.erosionIntensity / 100);
   const smoothness = (age01 + erosion01) * 0.5;
@@ -107,7 +114,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   for (let i = 0; i < cells.length; i++) cells[i] = createEmptyCell(i);
 
   const targetContinentCount = clampInt(params.continentCount, 1, 12);
-  const plateCount = Math.max(targetContinentCount + 5, Math.round(targetContinentCount * 2.6));
+  const plateCount = Math.max(targetContinentCount + 5, Math.round(targetContinentCount * 2.5));
 
   // ----------------------------------------------------
   // STEP 1: tectonics as influence layer
@@ -130,9 +137,10 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
 
   // ----------------------------------------------------
-  // STEP 2: generator-owned structural fields
+  // STEP 2: continent silhouette drivers
   // ----------------------------------------------------
-  const backbones = createBackboneSeeds(targetContinentCount, rng);
+  const continents = createContinentSeeds(targetContinentCount, rng);
+  const nibbles = createCoastalNibbles(targetContinentCount * 3 + 4, rng);
   const shelfSeeds = createShelfSeeds(targetContinentCount + 4, rng);
   const riftMasks = createRiftMasks(targetContinentCount + 2, rng);
 
@@ -140,7 +148,8 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     90,
     seedUint,
     fields[0],
-    backbones,
+    continents,
+    nibbles,
     shelfSeeds,
     riftMasks,
     globalSeaLevel
@@ -149,7 +158,8 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     -90,
     seedUint,
     fields[(height - 1) * width],
-    backbones,
+    continents,
+    nibbles,
     shelfSeeds,
     riftMasks,
     globalSeaLevel
@@ -183,17 +193,29 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const lat = 90 - ((r + 0.5) / height) * 180;
       const lon = ((c + 0.5) / width) * 360 - 180;
       const dir = latLonToUnitVector(lat, lon);
-
       const absLat01 = Math.abs(lat) / 90;
       const poleProximity = smoothstep(0.80, 1.0, absLat01);
-      const detailDamp = lerp(1.0, 0.12, poleProximity);
+      const detailDamp = lerp(1.0, 0.14, poleProximity);
 
-      // Backbone continents: visible shape grammar comes from these, not from plate cells
-      let backboneField = -1;
-      for (const bb of backbones) {
-        const dist = minDistanceToPolylineOnSphere(dir, bb.anchors);
-        const signal = smoothstep(bb.width, 0.0, dist) * bb.strength;
-        if (signal > backboneField) backboneField = signal;
+      // Main continent mass field
+      let continentField = -1;
+      for (const continent of continents) {
+        const warpedDir = normalize3([
+          dir[0] + continent.asymmetry[0] * 0.14,
+          dir[1] + continent.asymmetry[1] * 0.08,
+          dir[2] + continent.asymmetry[2] * 0.14,
+        ]);
+
+        const d = greatCircleDistance01(warpedDir, continent.dir);
+        const s = smoothstep(continent.radius, 0.0, d) * continent.strength;
+        if (s > continentField) continentField = s;
+      }
+
+      let nibbleField = 0;
+      for (const nibble of nibbles) {
+        const d = greatCircleDistance01(dir, nibble.dir);
+        const s = smoothstep(nibble.radius, 0.0, d) * nibble.strength;
+        if (s > nibbleField) nibbleField = s;
       }
 
       let shelfField = 0;
@@ -210,69 +232,79 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
         if (s > riftField) riftField = s;
       }
 
-      const continentNoise = sphereFbm(dir, seedUint, 0.9, 4);
-      const macroNoise = sphereFbm(offsetVec(dir, 1.2, -0.3, 0.9), seedUint, 1.8, 3);
-      const breakupNoise = sphereFbm(offsetVec(dir, -1.0, 0.8, -0.7), seedUint, 4.4, 3);
-      const coastNoise = sphereFbm(offsetVec(dir, 0.7, 1.4, 0.1), seedUint, 8.0, 2);
+      const macroNoise = sphereFbm(offsetVec(dir, 1.2, -0.3, 0.9), seedUint, 1.4, 3);
+      const breakupNoise = sphereFbm(offsetVec(dir, -1.0, 0.8, -0.7), seedUint, 3.2, 3);
+      const coastNoise = sphereFbm(offsetVec(dir, 0.7, 1.4, 0.1), seedUint, 8.8, 2);
+      const inlandNoise = sphereFbm(offsetVec(dir, -0.6, 1.1, 0.9), seedUint, 5.0, 2);
 
-      // Tectonics only biases the field -- no direct plate-cell silhouette
+      // Tectonic influence is now bias-only and more localized
       const continentalBias =
-        tect.plateType === 'CONTINENTAL' ? 0.08 : -0.05;
+        tect.plateType === 'CONTINENTAL' ? 0.05 : -0.035;
 
-      const boundaryBias =
+      const convergentBias =
         tect.boundaryType === 'CONVERGENT'
-          ? lerp(0.02, 0.12, tect.boundaryStrength)
-          : tect.boundaryType === 'DIVERGENT'
-          ? lerp(-0.08, 0.02, tect.boundaryStrength)
-          : lerp(-0.01, 0.03, tect.boundaryStrength);
-
-      const trenchBias =
-        tect.boundaryType === 'DIVERGENT' && tect.plateType === 'OCEANIC'
-          ? -tect.boundaryStrength * 0.05
+          ? lerp(0.01, 0.10, tect.boundaryStrength) * (1 - tect.distanceToBoundary * 0.75)
           : 0;
 
+      const divergentBias =
+        tect.boundaryType === 'DIVERGENT'
+          ? lerp(-0.06, 0.01, tect.boundaryStrength) * (1 - tect.distanceToBoundary * 0.65)
+          : 0;
+
+      const transformBias =
+        tect.boundaryType === 'TRANSFORM'
+          ? lerp(-0.01, 0.015, tect.boundaryStrength)
+          : 0;
+
+      // Silhouette shaping:
+      // - continentField gives main masses
+      // - nibbleField cuts bays/capes
+      // - breakupNoise fractures over-roundness
+      // - shelfField supports margins
       const terrainSignal =
-        backboneField * 0.78 +
-        continentNoise * 0.16 +
+        continentField * 0.88 +
         macroNoise * 0.12 +
-        breakupNoise * 0.10 -
-        riftField * 0.18 +
-        shelfField * 0.08 +
-        coastNoise * 0.04 * detailDamp +
+        breakupNoise * 0.12 +
+        inlandNoise * 0.05 +
+        shelfField * 0.05 -
+        nibbleField * 0.18 -
+        riftField * 0.12 +
+        coastNoise * 0.035 * detailDamp +
         continentalBias +
-        boundaryBias +
-        trenchBias -
+        convergentBias +
+        divergentBias +
+        transformBias -
         globalSeaLevel -
         poleProximity * 0.14;
 
       if (terrainSignal > 0) {
-        const raised = 0.03 + Math.pow(terrainSignal, 1.08) * 0.82;
-        const shoulder = Math.max(0, 0.10 - terrainSignal) * shelfField * 0.22;
-        cell.baseHeight = raised - shoulder;
+        const raised = 0.03 + Math.pow(terrainSignal, 1.10) * 0.80;
+        const shelfShoulder = Math.max(0, 0.10 - terrainSignal) * shelfField * 0.18;
+        cell.baseHeight = raised - shelfShoulder;
       } else {
         const oceanDepth = -terrainSignal;
         const abyssNoise = sphereFbm(offsetVec(dir, 1.1, -1.5, 0.3), seedUint, 2.1, 2);
         cell.baseHeight =
           -0.12 -
-          Math.pow(oceanDepth, 1.03) * 0.88 +
-          abyssNoise * 0.02;
+          Math.pow(oceanDepth, 1.04) * 0.86 +
+          abyssNoise * 0.018;
       }
 
       cell.baseHeight = clamp(cell.baseHeight, -1.5, 1.6);
     }
   }
 
-  // Apply moderated tectonic uplift only after terrain field exists
+  // Apply moderated tectonic relief after silhouette composition
   applyHybridTectonicInfluence(cells, fields, plateAmp);
 
   blendCapAdjacentRows(cells, width, height, 1, northPoleSample.baseHeight, southPoleSample.baseHeight);
   blendCapAdjacentRows(cells, width, height, 2, northPoleSample.baseHeight, southPoleSample.baseHeight);
 
   // ----------------------------------------------------
-  // STEP 4: coast-preserving erosion / smoothing
+  // STEP 4: tuned coast-preserving erosion / smoothing
   // ----------------------------------------------------
-  const smoothingPasses = Math.max(2, Math.round(lerp(2, 6, smoothness)));
-  const smoothingStrength = lerp(0.10, 0.32, smoothness);
+  const smoothingPasses = Math.max(2, Math.round(lerp(2, 5, smoothness)));
+  const smoothingStrength = lerp(0.08, 0.24, smoothness);
 
   for (let pass = 0; pass < smoothingPasses; pass++) {
     const nextHeights = new Array<number>(cells.length);
@@ -311,13 +343,13 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
         const lat = 90 - ((r + 0.5) / height) * 180;
         const poleProximity = smoothstep(68 / 90, 1.0, Math.abs(lat) / 90);
-        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.45, poleProximity);
+        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.50, poleProximity);
 
-        const nearSea = Math.abs(cell.baseHeight - globalSeaLevel) < 0.10;
-        const coastPreserve = nearSea ? 0.48 : 1.0;
+        const nearSea = Math.abs(cell.baseHeight - globalSeaLevel) < 0.12;
+        const coastPreserve = nearSea ? 0.40 : 1.0;
 
         const noiseBreakup =
-          (rng() - 0.5) * 0.010 * (1 - smoothness) * (1 - poleProximity * 0.75);
+          (rng() - 0.5) * 0.007 * (1 - smoothness) * (1 - poleProximity * 0.75);
 
         nextHeights[idx] = clamp(
           cell.baseHeight +
@@ -515,16 +547,16 @@ function applyHybridTectonicInfluence(
     let delta = 0;
 
     if (tect.boundaryType === 'CONVERGENT') {
-      delta = lerp(0.01, 0.08, tect.boundaryStrength);
-      if (tect.plateType === 'CONTINENTAL') delta *= 1.15;
+      delta = lerp(0.012, 0.09, tect.boundaryStrength);
+      if (tect.plateType === 'CONTINENTAL') delta *= 1.18;
     } else if (tect.boundaryType === 'DIVERGENT') {
-      delta = lerp(-0.04, 0.02, tect.boundaryStrength);
+      delta = lerp(-0.035, 0.01, tect.boundaryStrength);
     } else if (tect.boundaryType === 'TRANSFORM') {
-      delta = lerp(-0.005, 0.015, tect.boundaryStrength);
+      delta = lerp(-0.004, 0.012, tect.boundaryStrength);
     } else {
       delta = tect.plateType === 'CONTINENTAL'
-        ? lerp(0.005, 0.025, 1 - tect.distanceToBoundary)
-        : lerp(-0.015, 0.005, 1 - tect.distanceToBoundary);
+        ? lerp(0.004, 0.020, 1 - tect.distanceToBoundary)
+        : lerp(-0.012, 0.004, 1 - tect.distanceToBoundary);
     }
 
     cell.baseHeight = clamp(cell.baseHeight + delta * plateAmp, -1.6, 1.7);
@@ -535,18 +567,32 @@ function buildPoleSample(
   lat: number,
   seed: number,
   tect: TectonicsField,
-  backbones: BackboneSeed[],
+  continents: ContinentSeed[],
+  nibbles: CoastalNibbleSeed[],
   shelfSeeds: ShelfSeed[],
   riftMasks: RiftMaskSeed[],
   globalSeaLevel: number
 ): PoleSample {
   const dir = latLonToUnitVector(lat, 0);
 
-  let backboneField = -1;
-  for (const bb of backbones) {
-    const dist = minDistanceToPolylineOnSphere(dir, bb.anchors);
-    const signal = smoothstep(bb.width, 0.0, dist) * bb.strength;
-    if (signal > backboneField) backboneField = signal;
+  let continentField = -1;
+  for (const continent of continents) {
+    const warpedDir = normalize3([
+      dir[0] + continent.asymmetry[0] * 0.14,
+      dir[1] + continent.asymmetry[1] * 0.08,
+      dir[2] + continent.asymmetry[2] * 0.14,
+    ]);
+
+    const d = greatCircleDistance01(warpedDir, continent.dir);
+    const s = smoothstep(continent.radius, 0.0, d) * continent.strength;
+    if (s > continentField) continentField = s;
+  }
+
+  let nibbleField = 0;
+  for (const nibble of nibbles) {
+    const d = greatCircleDistance01(dir, nibble.dir);
+    const s = smoothstep(nibble.radius, 0.0, d) * nibble.strength;
+    if (s > nibbleField) nibbleField = s;
   }
 
   let shelfField = 0;
@@ -564,19 +610,20 @@ function buildPoleSample(
   }
 
   const noise = sphereFbm(dir, seed, 1.1, 3);
-  const continentalBias = tect.plateType === 'CONTINENTAL' ? 0.08 : -0.05;
+  const continentalBias = tect.plateType === 'CONTINENTAL' ? 0.05 : -0.035;
   const boundaryBias =
     tect.boundaryType === 'CONVERGENT'
-      ? lerp(0.02, 0.10, tect.boundaryStrength)
+      ? lerp(0.01, 0.08, tect.boundaryStrength)
       : tect.boundaryType === 'DIVERGENT'
-      ? lerp(-0.06, 0.02, tect.boundaryStrength)
+      ? lerp(-0.05, 0.01, tect.boundaryStrength)
       : 0;
 
   const terrainSignal =
-    backboneField * 0.70 +
-    noise * 0.06 +
-    shelfField * 0.05 -
-    riftField * 0.10 +
+    continentField * 0.84 +
+    noise * 0.05 +
+    shelfField * 0.04 -
+    nibbleField * 0.10 -
+    riftField * 0.08 +
     continentalBias +
     boundaryBias -
     globalSeaLevel -
@@ -594,30 +641,37 @@ function buildPoleSample(
   };
 }
 
-function createBackboneSeeds(count: number, rng: () => number): BackboneSeed[] {
-  const out: BackboneSeed[] = [];
+function createContinentSeeds(count: number, rng: () => number): ContinentSeed[] {
+  const out: ContinentSeed[] = [];
 
   for (let i = 0; i < count; i++) {
-    const anchorCount = clampInt(3 + Math.floor(rng() * 3), 3, 5);
-    let prev = randomSpherePointAvoidingExtremePoles(rng, 0.78);
-    const anchors: Vec3[] = [prev];
-
-    for (let j = 1; j < anchorCount; j++) {
-      prev = normalize3([
-        prev[0] + (rng() * 2 - 1) * 0.55,
-        prev[1] + (rng() * 2 - 1) * 0.25,
-        prev[2] + (rng() * 2 - 1) * 0.55,
-      ]);
-      anchors.push([prev[0], clamp(prev[1], -0.80, 0.80), prev[2]] as Vec3);
-    }
+    const dir = randomSpherePointAvoidingExtremePoles(rng, 0.76);
+    const asymmetry = normalize3([
+      rng() * 2 - 1,
+      (rng() * 2 - 1) * 0.45,
+      rng() * 2 - 1,
+    ]);
 
     out.push({
-      anchors,
-      width: lerp(0.08, 0.16, rng()),
-      strength: lerp(0.90, 1.16, rng()),
+      dir,
+      radius: lerp(0.16, 0.28, rng()),
+      strength: lerp(0.92, 1.16, rng()),
+      asymmetry,
     });
   }
 
+  return out;
+}
+
+function createCoastalNibbles(count: number, rng: () => number): CoastalNibbleSeed[] {
+  const out: CoastalNibbleSeed[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push({
+      dir: randomSpherePoint(rng),
+      radius: lerp(0.03, 0.08, rng()),
+      strength: lerp(0.25, 0.70, rng()),
+    });
+  }
   return out;
 }
 
@@ -626,8 +680,8 @@ function createShelfSeeds(count: number, rng: () => number): ShelfSeed[] {
   for (let i = 0; i < count; i++) {
     out.push({
       dir: randomSpherePoint(rng),
-      radius: lerp(0.10, 0.20, rng()),
-      strength: lerp(0.22, 0.50, rng()),
+      radius: lerp(0.10, 0.18, rng()),
+      strength: lerp(0.18, 0.38, rng()),
     });
   }
   return out;
@@ -637,24 +691,24 @@ function createRiftMasks(count: number, rng: () => number): RiftMaskSeed[] {
   const out: RiftMaskSeed[] = [];
 
   for (let i = 0; i < count; i++) {
-    const anchorCount = clampInt(2 + Math.floor(rng() * 3), 2, 4);
+    const anchorCount = clampInt(2 + Math.floor(rng() * 2), 2, 3);
     const anchors: Vec3[] = [];
     let prev = randomSpherePoint(rng);
     anchors.push(prev);
 
     for (let j = 1; j < anchorCount; j++) {
       prev = normalize3([
-        prev[0] + (rng() * 2 - 1) * 0.45,
-        prev[1] + (rng() * 2 - 1) * 0.18,
-        prev[2] + (rng() * 2 - 1) * 0.45,
+        prev[0] + (rng() * 2 - 1) * 0.35,
+        prev[1] + (rng() * 2 - 1) * 0.14,
+        prev[2] + (rng() * 2 - 1) * 0.35,
       ]);
       anchors.push(prev);
     }
 
     out.push({
       anchors,
-      width: lerp(0.05, 0.11, rng()),
-      strength: lerp(0.40, 0.75, rng()),
+      width: lerp(0.04, 0.08, rng()),
+      strength: lerp(0.22, 0.48, rng()),
     });
   }
 
