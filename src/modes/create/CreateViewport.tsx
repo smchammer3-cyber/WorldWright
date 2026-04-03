@@ -1,6 +1,17 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import type { WorldBrain } from "../../core/worldSchema";
+import type {
+  WorldBrain,
+  Cell,
+  Plate,
+  River,
+  Country,
+  Culture,
+  CultureRegion,
+  City,
+  Location,
+  Sticker,
+} from "../../core/worldSchema";
 import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
 import { TerrainBrushController, TerrainBrushState } from "./TerrainBrushController";
 
@@ -10,20 +21,85 @@ type Props = {
   onWorldChange: (w: WorldBrain) => void;
 };
 
+function cloneCell(cell: Cell): Cell {
+  return {
+    ...cell,
+    prevailingWind: [...cell.prevailingWind] as [number, number],
+    cultureMix: cell.cultureMix
+      ? cell.cultureMix.map((entry) => ({ ...entry }))
+      : cell.cultureMix,
+  };
+}
+
+function clonePlate(plate: Plate): Plate {
+  return {
+    ...plate,
+    velocity: [...plate.velocity] as [number, number],
+    polygons: plate.polygons
+      ? plate.polygons.map((ring) => ring.map((point) => ({ ...point })))
+      : plate.polygons,
+  };
+}
+
+function cloneRiver(river: River): River {
+  return {
+    ...river,
+    path: [...river.path],
+  };
+}
+
+function cloneCountry(country: Country): Country {
+  return {
+    ...country,
+    polygons: country.polygons.map((ring) => ring.map((point) => ({ ...point }))),
+  };
+}
+
+function cloneCulture(culture: Culture): Culture {
+  return { ...culture };
+}
+
+function cloneCultureRegion(region: CultureRegion): CultureRegion {
+  return {
+    ...region,
+    polygon: region.polygon.map((point) => ({ ...point })),
+  };
+}
+
+function cloneCity(city: City): City {
+  return {
+    ...city,
+    economicRoles: city.economicRoles ? [...city.economicRoles] : city.economicRoles,
+    tags: city.tags ? [...city.tags] : city.tags,
+  };
+}
+
+function cloneLocation(location: Location): Location {
+  return { ...location };
+}
+
+function cloneSticker(sticker: Sticker): Sticker {
+  return {
+    ...sticker,
+    polygon: sticker.polygon.map((point) => ({ ...point })),
+    payload: { ...sticker.payload },
+  };
+}
+
 function cloneWorldForRender(source: WorldBrain): WorldBrain {
   return {
     ...source,
     metadata: { ...source.metadata },
     parameters: source.parameters ? { ...source.parameters } : source.parameters,
-    cells: [...source.cells],
-    plates: [...source.plates],
-    rivers: [...source.rivers],
-    countries: [...source.countries],
-    cultures: [...source.cultures],
-    cultureRegions: [...source.cultureRegions],
-    cities: [...source.cities],
-    locations: source.locations ? [...source.locations] : source.locations,
-    stickers: source.stickers ? [...source.stickers] : source.stickers,
+    cells: source.cells.map(cloneCell),
+    plates: source.plates.map(clonePlate),
+    rivers: source.rivers.map(cloneRiver),
+    countries: source.countries.map(cloneCountry),
+    cultures: source.cultures.map(cloneCulture),
+    cultureRegions: source.cultureRegions.map(cloneCultureRegion),
+    cities: source.cities.map(cloneCity),
+    locations: source.locations ? source.locations.map(cloneLocation) : source.locations,
+    stickers: source.stickers ? source.stickers.map(cloneSticker) : source.stickers,
   };
 }
 
@@ -66,10 +142,6 @@ function draw(canvas: HTMLCanvasElement, world: WorldBrain) {
   ctx.drawImage(tmp, 0, 0, w * scale, h * scale);
 }
 
-/**
- * Convert screen coordinates to grid cell coordinates.
- * FIXED: Proper scaling calculation for accurate coordinate mapping.
- */
 function screenToGridCoords(
   screenX: number,
   screenY: number,
@@ -82,11 +154,9 @@ function screenToGridCoords(
   const x = screenX - rect.left;
   const y = screenY - rect.top;
 
-  // Normalize to 0..1 based on displayed canvas size
   const normX = x / rect.width;
   const normY = y / rect.height;
 
-  // Map to grid coordinates
   const col = Math.floor(normX * world.gridWidth);
   const row = Math.floor(normY * world.gridHeight);
 
@@ -97,44 +167,49 @@ function screenToGridCoords(
   return { row, col };
 }
 
+type Label = { name: string; lat: number; lon: number; el: HTMLDivElement };
+
 export default function CreateViewport({ world, activeTerrainTool, onWorldChange }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const borderCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const brushControllerRef = useRef<TerrainBrushController | null>(null);
-  const [brushState, setBrushState] = useState<TerrainBrushState | null>(null);
   const labelsOverlayRef = useRef<HTMLDivElement | null>(null);
-  const [draftWorld, setDraftWorld] = useState<WorldBrain>(world);
+  const labelsRef = useRef<Label[]>([]);
 
-  // Keep local draft in sync with authoritative world when not actively drawing.
+  const [brushState, setBrushState] = useState<TerrainBrushState | null>(null);
+  const [draftWorld, setDraftWorld] = useState<WorldBrain>(() => cloneWorldForRender(world));
+
+  const isDrawing = brushState?.isDrawing ?? false;
+
   useEffect(() => {
-    const isDrawing = brushControllerRef.current?.getState().isDrawing ?? false;
     if (!isDrawing) {
-      setDraftWorld(world);
-      brushControllerRef.current?.setWorld(world);
+      const fresh = cloneWorldForRender(world);
+      setDraftWorld(fresh);
+      brushControllerRef.current?.setWorld(fresh);
     }
-  }, [world]);
+  }, [world, isDrawing]);
 
-  // Initialize brush controller once, then update its world reference.
   useEffect(() => {
     if (!brushControllerRef.current) {
+      const initialDraft = cloneWorldForRender(world);
       brushControllerRef.current = new TerrainBrushController(
-        draftWorld,
+        initialDraft,
         setBrushState,
         (previewWorld) => {
-          setDraftWorld(cloneWorldForRender(previewWorld));
+          const previewClone = cloneWorldForRender(previewWorld);
+          setDraftWorld(previewClone);
+          brushControllerRef.current?.setWorld(previewClone);
         },
         (committedWorld) => {
-          const renderWorld = cloneWorldForRender(committedWorld);
-          setDraftWorld(renderWorld);
-          onWorldChange(renderWorld);
+          const committedClone = cloneWorldForRender(committedWorld);
+          setDraftWorld(committedClone);
+          brushControllerRef.current?.setWorld(committedClone);
+          onWorldChange(committedClone);
         }
       );
-    } else {
-      brushControllerRef.current.setWorld(draftWorld);
     }
-  }, [draftWorld, onWorldChange]);
+  }, [onWorldChange, world]);
 
-  // Update brush tool when activeTerrainTool changes
   useEffect(() => {
     if (activeTerrainTool && brushControllerRef.current) {
       brushControllerRef.current.setTool(activeTerrainTool);
@@ -143,17 +218,18 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
     }
   }, [activeTerrainTool]);
 
-  // Redraw canvas when local draft world changes
   useEffect(() => {
     const c = canvasRef.current;
     const bc = borderCanvasRef.current;
     if (!c) return;
+
     try {
       draw(c, draftWorld);
       if (bc) drawBorders(bc, draftWorld, c);
     } catch (e) {
       console.error("Create viewport draw failed:", e);
     }
+
     try {
       updateLabelsOverlay();
     } catch (e) {
@@ -212,6 +288,7 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
         const idx = r * w + c;
         const cell = worldToDraw.cells[idx];
         if (!cell || cell.isWater || !cell.countryId) continue;
+
         const myId = cell.countryId;
         const neighbors = [
           [r - 1, c],
@@ -219,7 +296,9 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
           [r, (c - 1 + w) % w],
           [r, (c + 1) % w],
         ];
+
         let isBorder = false;
+
         for (const [nr, nc] of neighbors) {
           if (nr < 0 || nr >= h) continue;
           const nIdx = nr * w + nc;
@@ -229,6 +308,7 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
             break;
           }
         }
+
         if (isBorder) {
           const x = c * sx;
           const y = r * sy;
@@ -238,12 +318,6 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
       }
     }
   }
-
-  // ------------------------------
-  // Country labels overlay (MAP)
-  // ------------------------------
-  type Label = { name: string; lat: number; lon: number; el: HTMLDivElement };
-  const labels: Label[] = [];
 
   function computeCentroid(poly: { lat: number; lon: number }[]): { lat: number; lon: number } {
     if (!poly || poly.length === 0) return { lat: 0, lon: 0 };
@@ -261,11 +335,13 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
   function initLabels() {
     const overlay = labelsOverlayRef.current;
     if (!overlay) return;
+
     while (overlay.firstChild) overlay.removeChild(overlay.firstChild);
-    labels.length = 0;
+    labelsRef.current = [];
 
     const maxLabels = 12;
     const countries = Array.isArray(draftWorld.countries) ? draftWorld.countries.slice(0, maxLabels) : [];
+
     for (const c of countries) {
       const poly = c.polygons?.[0] || [];
       const { lat, lon } = computeCentroid(poly);
@@ -281,18 +357,20 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
       el.style.whiteSpace = 'nowrap';
       el.textContent = c.name;
       overlay.appendChild(el);
-      labels.push({ name: c.name, lat, lon, el });
+      labelsRef.current.push({ name: c.name, lat, lon, el });
     }
   }
 
   function latLonToCanvasXY(lat: number, lon: number): { x: number; y: number } {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
+
     const rect = canvas.getBoundingClientRect();
     const w = rect.width;
     const h = rect.height;
     const x = ((lon + 180) / 360) * w;
     const y = ((90 - lat) / 180) * h;
+
     return { x, y };
   }
 
@@ -300,8 +378,10 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
     const overlay = labelsOverlayRef.current;
     const canvas = canvasRef.current;
     if (!overlay || !canvas) return;
-    if (labels.length === 0) initLabels();
-    for (const lbl of labels) {
+
+    if (labelsRef.current.length === 0) initLabels();
+
+    for (const lbl of labelsRef.current) {
       const p = latLonToCanvasXY(lbl.lat, lbl.lon);
       lbl.el.style.left = `${p.x}px`;
       lbl.el.style.top = `${p.y}px`;
@@ -312,15 +392,22 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
   useEffect(() => {
     initLabels();
     updateLabelsOverlay();
+
     const onResize = () => {
       updateLabelsOverlay();
       const c = canvasRef.current;
       const bc = borderCanvasRef.current;
       if (c && bc) drawBorders(bc, draftWorld, c);
     };
+
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [draftWorld]);
+
+  const helperText = useMemo(() => {
+    if (!brushState?.enabled) return "Select a terrain tool above to start editing.";
+    return `Terrain brush active: ${brushState.tool.toUpperCase()} - click and drag to paint.`;
+  }, [brushState]);
 
   return (
     <div style={{ position: "absolute", inset: 0, overflow: "auto" }}>
@@ -332,6 +419,7 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
           </span>
         )}
       </div>
+
       <div style={{ padding: 12 }}>
         <div style={{ position: 'relative' }}>
           <canvas
@@ -366,10 +454,9 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
             }}
           />
         </div>
+
         <div style={{ fontSize: 11, opacity: 0.65, marginTop: 8 }}>
-          {brushState?.enabled
-            ? `Terrain brush active: ${brushState.tool.toUpperCase()} - click and drag to paint.`
-            : "Select a terrain tool above to start editing."}
+          {helperText}
         </div>
       </div>
     </div>
