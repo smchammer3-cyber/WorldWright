@@ -1,9 +1,11 @@
 // ========================================================
-// WORLDWRIGHT -- PLANET RENDERER (CPU PREVIEW, SAFE)
+// WORLDWRIGHT -- PLANET RENDERER (V1.3 TERRAIN PIPELINE CORRECTION)
 // File: src/core/planetRenderer.ts
 //
-// Returns RGBA 0..255 (opaque) to match AppShell.
-// Never throws: invalid indices return debug magenta.
+// Goals:
+// - reduce visual exaggeration of pale/icy land
+// - soften country-border harshness
+// - preserve terrain readability without lying about the world
 // ========================================================
 
 import type { WorldBrain } from "./worldSchema";
@@ -53,11 +55,11 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
 
   function biomeOverlayColor(editBiomeId: number | undefined): [number, number, number] | null {
     switch (editBiomeId) {
-      case 1: return [0.86, 0.92, 0.98];
-      case 3: return [0.66, 0.78, 0.42];
-      case 4: return [0.88, 0.76, 0.42];
-      case 5: return [0.16, 0.60, 0.22];
-      case 6: return [0.62, 0.62, 0.68];
+      case 1: return [0.84, 0.89, 0.95];
+      case 3: return [0.64, 0.74, 0.42];
+      case 4: return [0.84, 0.72, 0.42];
+      case 5: return [0.18, 0.56, 0.26];
+      case 6: return [0.60, 0.60, 0.66];
       default: return null;
     }
   }
@@ -87,12 +89,12 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     const snow = typeof cell.snowCover === "number" ? clamp01(cell.snowCover) : 0;
 
     if (isWater) {
-      const depth = clamp01((seaLevel - h) * 2.0);
-      const shelfMask = smoothstep(0.35, 0.02, depth);
+      const depth = clamp01((seaLevel - h) * 1.7);
+      const shelfMask = smoothstep(0.30, 0.03, depth);
 
-      const shallowR = 0.20, shallowG = 0.55, shallowB = 0.75;
-      const midR = 0.10, midG = 0.35, midB = 0.60;
-      const deepR = 0.03, deepG = 0.15, deepB = 0.40;
+      const shallowR = 0.18, shallowG = 0.48, shallowB = 0.68;
+      const midR = 0.09, midG = 0.30, midB = 0.52;
+      const deepR = 0.03, deepG = 0.12, deepB = 0.32;
 
       let r, g, b;
       if (depth < 0.4) {
@@ -107,57 +109,59 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
         b = lerp(midB, deepB, t);
       }
 
-      r = lerp(r, 0.28, shelfMask * 0.40);
-      g = lerp(g, 0.65, shelfMask * 0.40);
-      b = lerp(b, 0.80, shelfMask * 0.40);
+      // Shelf highlight toned down
+      r = lerp(r, 0.24, shelfMask * 0.20);
+      g = lerp(g, 0.56, shelfMask * 0.20);
+      b = lerp(b, 0.72, shelfMask * 0.20);
 
       return [r, g, b];
     }
 
-    const elev = clamp01((h - seaLevel) * 3.0);
-    let r = 0.3, g = 0.3, b = 0.2;
+    const elev = clamp01((h - seaLevel) * 2.2);
+    let r = 0.28, g = 0.32, b = 0.22;
 
-    const permIce = temp < 0.20 ? smoothstep(0.20, 0.08, temp) : 0;
+    const permIce = temp < 0.16 ? smoothstep(0.16, 0.05, temp) : 0;
 
-    if (snow > 0.6 || permIce > 0 || (temp < 0.2 && rainfall > 0.4) || elev > 0.75) {
-      const iceFactor = clamp01(Math.max(snow, permIce, elev > 0.75 ? 1.0 : 0.0));
-      r = lerp(0.85, 0.95, iceFactor);
-      g = lerp(0.88, 0.96, iceFactor);
-      b = lerp(0.92, 0.98, iceFactor);
-    } else if (temp < 0.25) {
-      r = 0.55; g = 0.58; b = 0.52;
-    } else if (temp < 0.40 && rainfall > 0.35) {
-      r = 0.20; g = 0.35; b = 0.22;
-    } else if (rainfall < 0.25 || (temp > 0.65 && rainfall < 0.35)) {
+    if (snow > 0.72 || permIce > 0 || (temp < 0.16 && rainfall > 0.45) || elev > 0.84) {
+      const iceFactor = clamp01(Math.max(snow, permIce, elev > 0.84 ? 1.0 : 0.0));
+      r = lerp(0.72, 0.87, iceFactor);
+      g = lerp(0.76, 0.90, iceFactor);
+      b = lerp(0.80, 0.94, iceFactor);
+    } else if (temp < 0.23) {
+      r = 0.48; g = 0.50; b = 0.44;
+    } else if (temp < 0.40 && rainfall > 0.36) {
+      r = 0.22; g = 0.36; b = 0.24;
+    } else if (rainfall < 0.24 || (temp > 0.65 && rainfall < 0.34)) {
       const dryness = 1.0 - rainfall;
-      r = lerp(0.70, 0.85, dryness);
-      g = lerp(0.60, 0.70, dryness);
-      b = lerp(0.35, 0.45, dryness);
+      r = lerp(0.66, 0.79, dryness);
+      g = lerp(0.56, 0.66, dryness);
+      b = lerp(0.34, 0.40, dryness);
     } else if (rainfall < 0.50) {
-      r = 0.58; g = 0.62; b = 0.35;
+      r = 0.54; g = 0.60; b = 0.36;
     } else if (temp >= 0.40 && temp < 0.65 && rainfall >= 0.50) {
-      r = 0.25; g = 0.48; b = 0.22;
+      r = 0.24; g = 0.46; b = 0.24;
     } else if (temp >= 0.65 && rainfall >= 0.60) {
-      r = 0.10; g = 0.40; b = 0.15;
+      r = 0.12; g = 0.38; b = 0.18;
     } else {
-      r = 0.35; g = 0.50; b = 0.28;
+      r = 0.34; g = 0.48; b = 0.30;
     }
 
-    if (elev > 0.3) {
-      const mountain = (elev - 0.3) / 0.7;
-      r = lerp(r, 0.70, mountain * 0.35);
-      g = lerp(g, 0.65, mountain * 0.35);
-      b = lerp(b, 0.60, mountain * 0.35);
+    // Mountain brightening toned down
+    if (elev > 0.34) {
+      const mountain = (elev - 0.34) / 0.66;
+      r = lerp(r, 0.58, mountain * 0.22);
+      g = lerp(g, 0.56, mountain * 0.22);
+      b = lerp(b, 0.52, mountain * 0.22);
     }
 
-    // Respect edit biome overlays so stickers visibly appear
     const overlay = biomeOverlayColor(cell.editBiomeId);
     if (overlay && typeof cell.editBiomeId === "number" && cell.editBiomeId !== cell.baseBiomeId) {
-      r = lerp(r, overlay[0], 0.52);
-      g = lerp(g, overlay[1], 0.52);
-      b = lerp(b, overlay[2], 0.52);
+      r = lerp(r, overlay[0], 0.40);
+      g = lerp(g, overlay[1], 0.40);
+      b = lerp(b, overlay[2], 0.40);
     }
 
+    // Country borders much softer
     if (!isWater && cell.countryId !== undefined && cell.countryId !== null) {
       const myId = cell.countryId;
       let diffCount = 0;
@@ -173,10 +177,10 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
         if (nid !== undefined && nid !== null && nid !== myId) diffCount++;
       }
       if (diffCount > 0) {
-        const strength = clamp01(diffCount / 3) * 0.85;
-        r = lerp(r, 0.05, strength);
-        g = lerp(g, 0.05, strength);
-        b = lerp(b, 0.07, strength);
+        const strength = clamp01(diffCount / 5) * 0.25;
+        r = lerp(r, 0.16, strength);
+        g = lerp(g, 0.16, strength);
+        b = lerp(b, 0.18, strength);
       }
     }
 

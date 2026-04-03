@@ -1,10 +1,12 @@
 // ========================================================
-// WORLDWRIGHT -- RECOMPUTE PIPELINE (V1.3 CLIMATE/BIOME PASS)
+// WORLDWRIGHT -- RECOMPUTE PIPELINE (V1.3 TERRAIN PIPELINE CORRECTION)
 // File: src/core/worldRecompute/index.ts
 //
-// Deterministic derived-field recomputation.
-// This pass preserves generated climate structure and refines it,
-// instead of flattening it into broad latitude stripes.
+// Goals:
+// - preserve generator terrain/coast intent more strongly
+// - reduce climate flattening
+// - reduce snow/alpine over-application
+// - keep recompute as refinement, not second generator
 // ========================================================
 
 import type { WorldBrain } from '../worldSchema';
@@ -36,7 +38,7 @@ function getRecomputeProfile(reasons: RecomputeReason[]): RecomputeProfile {
     has('SEA_LEVEL_CHANGED')
   ) {
     return {
-      smoothLandmask: true,
+      smoothLandmask: false,
       recomputeClimateStage: true,
       recomputeHydrologyStage: true,
       recomputeRiverStage: true,
@@ -125,24 +127,24 @@ function recomputeSnow(world: WorldBrain): void {
     const t = clamp01(cell.temperature);
     const r = clamp01(cell.rainfall);
 
-    const tempC = -30 + t * 60;
-    const snowFromTemp = tempC < 0 ? clamp01((0 - tempC) / 6) : 0;
-    const permIce = tempC < -12 ? clamp01((-12 - tempC) / 13) : 0;
-    const heightBoost = clamp01((h - 0.15) * 1.0);
-    const snowMoistMod = lerp(0.6, 1.0, r);
+    const elevAboveSea = Math.max(0, h - world.seaLevel);
+    const tempC = -24 + t * 52;
+
+    const snowFromTemp = tempC < -2 ? clamp01((-2 - tempC) / 8) : 0;
+    const permIce = tempC < -16 ? clamp01((-16 - tempC) / 10) : 0;
+    const heightBoost = clamp01((elevAboveSea - 0.22) * 0.65);
+    const snowMoistMod = lerp(0.45, 0.92, r);
 
     let snow = Math.max(permIce, snowFromTemp * snowMoistMod);
-    snow = clamp01(snow + heightBoost * 0.3);
+    snow = clamp01(snow + heightBoost * 0.18);
 
     cell.snowCover = snow;
   }
 }
 
 /**
- * Preserve generated climate structure, then refine it.
- * Old behavior replaced climate with a simple latitude/ocean banding model.
- * New behavior blends existing generated values with physically sensible
- * modifiers, keeping regional variety intact.
+ * Preserve generated climate strongly.
+ * Recompute should refine consistency, not flatten the world back into bands.
  */
 function recomputeClimate(world: WorldBrain): void {
   const gw = world.gridWidth;
@@ -163,10 +165,10 @@ function recomputeClimate(world: WorldBrain): void {
 
   const tempOffset =
     typeof (world.parameters as any)?.temperatureOffset === 'number'
-      ? (((world.parameters as any).temperatureOffset as number) / 100) * 0.25
+      ? (((world.parameters as any).temperatureOffset as number) / 100) * 0.18
       : 0;
 
-  function oceanProximityAt(row: number, col: number, radius = 5): number {
+  function oceanProximityAt(row: number, col: number, radius = 4): number {
     let count = 0;
     let total = 0;
 
@@ -187,20 +189,16 @@ function recomputeClimate(world: WorldBrain): void {
   }
 
   function rainShadowAt(row: number, col: number): number {
-    // Simple prevailing-west-to-east shadow heuristic.
-    // Higher terrain immediately west reduces rainfall eastward.
     let shadow = 0;
-    for (let step = 1; step <= 6; step++) {
+    for (let step = 1; step <= 5; step++) {
       const westCol = ((col - step) % gw + gw) % gw;
       const idx = row * gw + westCol;
       const cell = cells[idx];
       if (!cell) continue;
       const h = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta - sea;
-      if (h > 0.12) {
-        shadow += h * (1 / step);
-      }
+      if (h > 0.16) shadow += h * (1 / step);
     }
-    return clamp01(shadow * 0.9);
+    return clamp01(shadow * 0.75);
   }
 
   for (let r = 0; r < gh; r++) {
@@ -208,11 +206,10 @@ function recomputeClimate(world: WorldBrain): void {
     const lat = lat01 * 2 - 1;
     const absLat = Math.abs(lat);
 
-    // Equator warm, poles cold, but smoother than blunt bands.
-    const latWarmth = Math.pow(1 - absLat, lerp(0.85, 1.15, tilt01));
-    const hadleyWet = Math.exp(-Math.pow(absLat * 2.2, 2));
-    const subtropicDry = Math.exp(-Math.pow((absLat - 0.33) * 5.0, 2));
-    const polarDry = absLat > 0.72 ? (absLat - 0.72) * 0.35 : 0;
+    const latWarmth = Math.pow(1 - absLat, lerp(0.88, 1.12, tilt01));
+    const hadleyWet = Math.exp(-Math.pow(absLat * 2.1, 2));
+    const subtropicDry = Math.exp(-Math.pow((absLat - 0.33) * 4.6, 2));
+    const polarDry = absLat > 0.76 ? (absLat - 0.76) * 0.24 : 0;
 
     for (let c = 0; c < gw; c++) {
       const idx = r * gw + c;
@@ -221,52 +218,49 @@ function recomputeClimate(world: WorldBrain): void {
 
       const h = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
       const elevAboveSea = Math.max(0, h - sea);
-      const elevCooling = clamp01(elevAboveSea * 0.75);
-      const oceanProx = oceanProximityAt(r, c, 5);
+      const elevCooling = clamp01(elevAboveSea * 0.55);
+      const oceanProx = oceanProximityAt(r, c, 4);
       const rainShadow = rainShadowAt(r, c);
 
-      // Preserve generator’s climate fields if present.
       const priorTemp =
         typeof cell.temperature === 'number' ? clamp01(cell.temperature) : 0.5;
       const priorRain =
         typeof cell.rainfall === 'number' ? clamp01(cell.rainfall) : 0.5;
 
-      // Build refined target, then blend with prior values.
       const targetTemp = clamp01(
-        latWarmth * 0.78 +
-          oceanProx * 0.06 +
-          (1 - elevCooling) * 0.08 +
+        latWarmth * 0.76 +
+          oceanProx * 0.04 +
+          (1 - elevCooling) * 0.06 +
           tempOffset
       );
 
-      const coastalWetness = oceanProx * (1 - elevCooling) * 0.32;
+      const coastalWetness = oceanProx * (1 - elevCooling) * 0.22;
       const targetRain = clamp01(
-        0.18 +
-          hadleyWet * 0.34 -
-          subtropicDry * 0.20 -
+        0.20 +
+          hadleyWet * 0.24 -
+          subtropicDry * 0.14 -
           polarDry +
           coastalWetness +
-          moistureLevel * 0.18 -
-          rainShadow * 0.22
+          moistureLevel * 0.14 -
+          rainShadow * 0.16
       );
 
-      // Blend toward physically guided target while keeping generated variety.
-      cell.temperature = clamp01(priorTemp * 0.62 + targetTemp * 0.38);
-      cell.rainfall = clamp01(priorRain * 0.58 + targetRain * 0.42);
+      // Strong preservation of generated climate
+      cell.temperature = clamp01(priorTemp * 0.78 + targetTemp * 0.22);
+      cell.rainfall = clamp01(priorRain * 0.76 + targetRain * 0.24);
 
-      // Small neighborhood smoothing only in latitude direction to avoid stripe edges
-      // without washing out longitude variation.
+      // Very light neighborhood smoothing
       if (r > 0 && r < gh - 1) {
         const north = cells[(r - 1) * gw + c];
         const south = cells[(r + 1) * gw + c];
         if (north && south) {
           cell.temperature = clamp01(
-            cell.temperature * 0.82 +
-              ((north.temperature + south.temperature) * 0.5) * 0.18
+            cell.temperature * 0.93 +
+              ((north.temperature + south.temperature) * 0.5) * 0.07
           );
           cell.rainfall = clamp01(
-            cell.rainfall * 0.84 +
-              ((north.rainfall + south.rainfall) * 0.5) * 0.16
+            cell.rainfall * 0.94 +
+              ((north.rainfall + south.rainfall) * 0.5) * 0.06
           );
         }
       }
@@ -282,8 +276,8 @@ function smoothLandmaskNearSeaLevel(
   const gh = world.gridHeight;
   const cells = world.cells;
   const sea = world.seaLevel;
-  const epsilon = 0.02;
-  const margin = 0.008;
+  const epsilon = 0.015;
+  const margin = 0.004;
 
   for (let pass = 0; pass < iterations; pass++) {
     for (let r = 0; r < gh; r++) {
@@ -444,10 +438,6 @@ function recomputeHydrology(world: WorldBrain): void {
   }
 }
 
-/**
- * Less stripe-prone biome assignment.
- * Uses smoother thresholds and more categories from the refined climate fields.
- */
 function recomputeBiomes(world: WorldBrain): void {
   const sea = world.seaLevel;
 
@@ -465,37 +455,31 @@ function recomputeBiomes(world: WorldBrain): void {
     const t = clamp01(cell.temperature);
     const r = clamp01(cell.rainfall);
 
-    // Alpine / ice overrides
-    if (cell.snowCover > 0.7 || elev > 0.55) {
+    if (cell.snowCover > 0.82 || elev > 0.80) {
       cell.baseBiomeId = 6;
       continue;
     }
 
-    // Cold biomes
-    if (t < 0.18) {
-      cell.baseBiomeId = r < 0.35 ? 1 : 2;
+    if (t < 0.14) {
+      cell.baseBiomeId = r < 0.30 ? 1 : 2;
       continue;
     }
 
-    // Dry biomes
-    if (r < 0.16) {
-      cell.baseBiomeId = t > 0.55 ? 8 : 4;
+    if (r < 0.14) {
+      cell.baseBiomeId = t > 0.58 ? 8 : 4;
       continue;
     }
 
-    // Semi-dry
-    if (r < 0.32) {
+    if (r < 0.28) {
       cell.baseBiomeId = t > 0.62 ? 9 : 3;
       continue;
     }
 
-    // Forest / lush
-    if (r > 0.62) {
+    if (r > 0.66) {
       cell.baseBiomeId = t > 0.62 ? 10 : 7;
       continue;
     }
 
-    // Mid-range temperate fallback
     cell.baseBiomeId = 5;
   }
 }
@@ -506,7 +490,7 @@ function recomputeRivers(world: WorldBrain): void {
   const gh = world.gridHeight;
 
   const total = gw * gh;
-  const threshold = Math.max(20, Math.round(total / 4000));
+  const threshold = Math.max(24, Math.round(total / 3800));
 
   const rivers: { id: number; sourceCellIndex: number; mouthCellIndex: number; path: number[] }[] = [];
   const used = new Set<number>();

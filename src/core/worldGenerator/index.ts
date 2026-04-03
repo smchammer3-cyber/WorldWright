@@ -1,12 +1,12 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 PHASE 2 CONTINENT SHAPE CORRECTION)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 TERRAIN PIPELINE CORRECTION)
 // File: src/core/worldGenerator/index.ts
 //
 // Goals:
-// - preserve pole-safe topology fixes
-// - improve macro continent silhouettes
-// - reduce slab/wedge ocean cuts
-// - add believable continental breakup and coastline structure
+// - preserve pole-safe topology
+// - replace blob-first continent logic with backbone/rift logic
+// - create more believable continental silhouettes
+// - improve shelves/coasts before recompute
 // ========================================================
 
 import {
@@ -47,18 +47,22 @@ type PlateSeed = {
   velocity: [number, number];
 };
 
-type ContinentSeed = {
-  dir: Vec3;
+type BackboneSeed = {
+  anchors: Vec3[];
+  width: number;
   strength: number;
-  radius: number;
-  elongation: number;
-  drift: Vec3;
 };
 
-type BasinSeed = {
-  dir: Vec3;
+type RiftSeed = {
+  anchors: Vec3[];
+  width: number;
   strength: number;
+};
+
+type ShelfSeed = {
+  dir: Vec3;
   radius: number;
+  strength: number;
 };
 
 export function createDefaultGeneratorParams(): GeneratorParams {
@@ -87,8 +91,9 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const rng = mulberry32(seedUint);
   const nowIso = new Date().toISOString();
 
-  const globalSeaLevel = lerp(-0.10, 0.12, clamp01(params.seaLevel / 100));
-  const plateAmp = lerp(0.35, 1.3, clamp01(params.plateActivity / 100));
+  const seaBias = clamp01(params.seaLevel / 100);
+  const globalSeaLevel = lerp(-0.08, 0.12, seaBias);
+  const plateAmp = lerp(0.35, 1.25, clamp01(params.plateActivity / 100));
   const age01 = clamp01(params.planetAge / 100);
   const erosion01 = clamp01(params.erosionIntensity / 100);
   const smoothness = (age01 + erosion01) * 0.5;
@@ -101,11 +106,12 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   for (let i = 0; i < cells.length; i++) cells[i] = createEmptyCell(i);
 
   const targetContinentCount = clampInt(params.continentCount, 1, 12);
-  const plateCount = Math.max(targetContinentCount + 4, Math.round(targetContinentCount * 2.5));
+  const plateCount = Math.max(targetContinentCount + 5, Math.round(targetContinentCount * 2.6));
 
-  const continentSeeds = createContinentSeeds(targetContinentCount, rng);
-  const basinSeeds = createBasinSeeds(targetContinentCount + 2, rng);
   const plateSeeds = createPlateSeeds(plateCount, targetContinentCount, rng);
+  const backboneSeeds = createBackboneSeeds(targetContinentCount, rng);
+  const riftSeeds = createRiftSeeds(targetContinentCount + 2, rng);
+  const shelfSeeds = createShelfSeeds(targetContinentCount + 3, rng);
 
   const plates: Plate[] = plateSeeds.map((p) => ({
     id: p.id,
@@ -115,25 +121,27 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
   const northPoleSample = buildPoleSample(
     90,
-    continentSeeds,
-    basinSeeds,
-    plateSeeds,
     seedUint,
+    plateSeeds,
+    backboneSeeds,
+    riftSeeds,
+    shelfSeeds,
     globalSeaLevel,
     plateAmp
   );
   const southPoleSample = buildPoleSample(
     -90,
-    continentSeeds,
-    basinSeeds,
-    plateSeeds,
     seedUint,
+    plateSeeds,
+    backboneSeeds,
+    riftSeeds,
+    shelfSeeds,
     globalSeaLevel,
     plateAmp
   );
 
   // ----------------------------------------------------
-  // PASS 1: Macro landmass + plate assignment on sphere
+  // PASS 1: Macro terrain field from backbones + rifts
   // ----------------------------------------------------
   for (let r = 0; r < height; r++) {
     const rowPoleMode = getPoleRowMode(r, height);
@@ -141,29 +149,6 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
       const cell = cells[idx];
-
-      let lat: number;
-      let lon: number;
-      let dir: Vec3;
-      let poleProximity: number;
-
-      if (rowPoleMode === 'NORTH_CAP') {
-        lat = 90;
-        lon = 0;
-        dir = northPoleSample.dir;
-        poleProximity = 1;
-      } else if (rowPoleMode === 'SOUTH_CAP') {
-        lat = -90;
-        lon = 0;
-        dir = southPoleSample.dir;
-        poleProximity = 1;
-      } else {
-        lat = 90 - ((r + 0.5) / height) * 180;
-        lon = ((c + 0.5) / width) * 360 - 180;
-        dir = latLonToUnitVector(lat, lon);
-        const absLat01 = Math.abs(lat) / 90;
-        poleProximity = smoothstep(0.80, 1.0, absLat01);
-      }
 
       if (rowPoleMode === 'NORTH_CAP') {
         cell.plateId = northPoleSample.plateId;
@@ -181,79 +166,81 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
         continue;
       }
 
+      const lat = 90 - ((r + 0.5) / height) * 180;
+      const lon = ((c + 0.5) / width) * 360 - 180;
+      const dir = latLonToUnitVector(lat, lon);
+      const absLat01 = Math.abs(lat) / 90;
+      const poleProximity = smoothstep(0.80, 1.0, absLat01);
+
       const plateSeed = findNearestPlateSeed(dir, plateSeeds);
       cell.plateId = plateSeed.id;
       cell.plateType = plateSeed.type;
 
-      // Primary continent support
-      let continentField = 0;
-      for (const seed of continentSeeds) {
-        const primary = greatCircleDistance01(dir, seed.dir);
-        const driftedDir = normalize3([
-          dir[0] + seed.drift[0] * 0.18,
-          dir[1] + seed.drift[1] * 0.18,
-          dir[2] + seed.drift[2] * 0.18,
-        ]);
-        const secondary = greatCircleDistance01(driftedDir, seed.dir);
-
-        const core = smoothstep(seed.radius, 0.0, primary) * seed.strength;
-        const lobe = smoothstep(seed.radius * seed.elongation, 0.0, secondary) * seed.strength * 0.65;
-
-        continentField = Math.max(continentField, core + lobe);
+      // Backbone-driven continental scaffolding
+      let backboneField = -1;
+      for (const seed of backboneSeeds) {
+        const dist = minDistanceToPolylineOnSphere(dir, seed.anchors);
+        const signal = smoothstep(seed.width, 0.0, dist) * seed.strength;
+        if (signal > backboneField) backboneField = signal;
       }
 
-      // Ocean basin carving
-      let basinField = 0;
-      for (const basin of basinSeeds) {
-        const d = greatCircleDistance01(dir, basin.dir);
-        const carve = smoothstep(basin.radius, 0.0, d) * basin.strength;
-        if (carve > basinField) basinField = carve;
+      // Continental breakup masks
+      const continentNoise = sphereFbm(dir, seedUint, 0.9, 4);
+      const breakupNoiseA = sphereFbm(offsetVec(dir, 1.5, -0.2, 0.8), seedUint, 2.1, 3);
+      const breakupNoiseB = sphereFbm(offsetVec(dir, -1.2, 0.8, -0.9), seedUint, 4.6, 3);
+      const coastNoise = sphereFbm(offsetVec(dir, 0.7, 1.6, 0.1), seedUint, 8.0, 2);
+
+      // Rift/basin carving -- line-like, not circular blobs
+      let riftField = 0;
+      for (const rift of riftSeeds) {
+        const dist = minDistanceToPolylineOnSphere(dir, rift.anchors);
+        const carve = smoothstep(rift.width, 0.0, dist) * rift.strength;
+        if (carve > riftField) riftField = carve;
       }
 
-      // Multi-scale shape breakup
-      const macroNoise = sphereFbm(dir, seedUint, 0.95, 4);
-      const continentalNoise = sphereFbm(offsetVec(dir, 1.7, -0.4, 0.8), seedUint, 1.9, 3);
-      const breakupNoise = sphereFbm(offsetVec(dir, -0.8, 1.1, -1.6), seedUint, 3.8, 3);
-      const coastNoise = sphereFbm(offsetVec(dir, 0.5, 1.9, 0.2), seedUint, 7.2, 2);
+      // Shelf zones encourage continental shoulders instead of inflated blobs
+      let shelfField = 0;
+      for (const shelf of shelfSeeds) {
+        const d = greatCircleDistance01(dir, shelf.dir);
+        const s = smoothstep(shelf.radius, 0.0, d) * shelf.strength;
+        if (s > shelfField) shelfField = s;
+      }
 
       const polarDetailDamp = lerp(1.0, 0.10, poleProximity);
+      const continentalBias = plateSeed.type === PlateType.CONTINENTAL ? 0.10 : -0.08;
 
-      const continentalBias = plateSeed.type === PlateType.CONTINENTAL ? 0.11 : -0.08;
-
-      // Important: use additive + subtractive breakup, not just smooth blobs
       const landSignal =
-        continentField * 0.86 +
-        macroNoise * 0.14 +
-        continentalNoise * 0.16 +
-        breakupNoise * 0.12 -
-        basinField * 0.38 +
-        coastNoise * 0.05 * polarDetailDamp;
+        backboneField * 0.86 +
+        continentNoise * 0.18 +
+        breakupNoiseA * 0.16 +
+        breakupNoiseB * 0.10 +
+        coastNoise * 0.05 * polarDetailDamp -
+        riftField * 0.34 +
+        shelfField * 0.08 +
+        continentalBias;
 
-      const polarLandPenalty = poleProximity * 0.16;
-
-      const terrainPotential =
-        landSignal + continentalBias - globalSeaLevel - polarLandPenalty;
+      const polarPenalty = poleProximity * 0.14;
+      const terrainPotential = landSignal - globalSeaLevel - polarPenalty;
 
       if (terrainPotential > 0) {
-        const upliftNoise = sphereFbm(offsetVec(dir, 0.4, 0.9, -1.3), seedUint, 6.5, 2);
-        const shelfNoise = sphereFbm(offsetVec(dir, -1.2, 0.7, 1.0), seedUint, 4.4, 2);
+        const upliftNoise = sphereFbm(offsetVec(dir, 0.3, 0.9, -1.2), seedUint, 6.2, 2);
+        const shoulderNoise = sphereFbm(offsetVec(dir, -0.9, 0.5, 1.0), seedUint, 3.8, 2);
 
-        // Sharper continental shoulder + coastal shelf variation
-        const raised = 0.05 + Math.pow(terrainPotential, 1.18) * 0.88;
+        const continentalCore = 0.04 + Math.pow(terrainPotential, 1.12) * 0.86;
         const tectonicLift = upliftNoise * 0.08 * plateAmp * polarDetailDamp;
-        const shelfCut = Math.max(0, 0.06 - terrainPotential) * shelfNoise * 0.25;
+        const shoulder = Math.max(0, 0.10 - terrainPotential) * shoulderNoise * 0.22;
 
-        cell.baseHeight = raised + tectonicLift - shelfCut;
+        cell.baseHeight = continentalCore + tectonicLift - shoulder;
       } else {
         const oceanDepthSignal = -terrainPotential;
-        const abyssNoise = sphereFbm(offsetVec(dir, 1.1, -1.7, 0.2), seedUint, 2.2, 2);
-        const trenchNoise = sphereFbm(offsetVec(dir, -1.4, 0.4, 1.6), seedUint, 5.0, 2);
+        const abyssNoise = sphereFbm(offsetVec(dir, 1.1, -1.5, 0.3), seedUint, 2.0, 2);
+        const trenchNoise = sphereFbm(offsetVec(dir, -1.3, 0.4, 1.4), seedUint, 5.0, 2);
 
         cell.baseHeight =
-          -0.16 -
-          Math.pow(oceanDepthSignal, 1.08) * 0.94 +
-          abyssNoise * 0.03 -
-          trenchNoise * 0.03;
+          -0.14 -
+          Math.pow(oceanDepthSignal, 1.05) * 0.96 +
+          abyssNoise * 0.025 -
+          trenchNoise * 0.035;
       }
 
       cell.baseHeight = clamp(cell.baseHeight, -1.5, 1.5);
@@ -265,7 +252,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   blendCapAdjacentRows(cells, width, height, 2, northPoleSample.baseHeight, southPoleSample.baseHeight);
 
   // ----------------------------------------------------
-  // PASS 2: Plate boundary tagging + terrain shaping
+  // PASS 2: Plate boundary terrain shaping
   // ----------------------------------------------------
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
@@ -273,32 +260,26 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const cell = cells[idx];
       const myPlate = cell.plateId;
 
-      const north = Math.max(0, r - 1);
-      const south = Math.min(height - 1, r + 1);
-      const west = (c - 1 + width) % width;
-      const east = (c + 1) % width;
-
-      const nIdx = north * width + c;
-      const sIdx = south * width + c;
-      const wIdx = r * width + west;
-      const eIdx = r * width + east;
-
-      const isExactPoleRow = r === 0 || r === height - 1;
-      if (isExactPoleRow) {
+      if (r === 0 || r === height - 1) {
         cell.boundaryType = BoundaryType.NONE;
         cell.upliftRate = 0;
         cell.volcanicActivity = 0;
         continue;
       }
 
-      const neighborPlateIds = [
-        cells[nIdx].plateId,
-        cells[sIdx].plateId,
-        cells[wIdx].plateId,
-        cells[eIdx].plateId,
+      const north = Math.max(0, r - 1);
+      const south = Math.min(height - 1, r + 1);
+      const west = (c - 1 + width) % width;
+      const east = (c + 1) % width;
+
+      const neighbors = [
+        cells[north * width + c],
+        cells[south * width + c],
+        cells[r * width + west],
+        cells[r * width + east],
       ];
 
-      const touchingBoundary = neighborPlateIds.some((p) => p !== myPlate);
+      const touchingBoundary = neighbors.some((n) => n.plateId !== myPlate);
       if (!touchingBoundary) {
         cell.boundaryType = BoundaryType.NONE;
         cell.upliftRate = clamp(0.01 * (1 - smoothness) * (0.4 + rng() * 0.8), 0, 0.4);
@@ -306,20 +287,13 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
         continue;
       }
 
-      const neighborTypes = [
-        cells[nIdx].plateType,
-        cells[sIdx].plateType,
-        cells[wIdx].plateType,
-        cells[eIdx].plateType,
-      ];
-
-      const hasOceanic = neighborTypes.some((t) => t === PlateType.OCEANIC);
-      const hasContinental = neighborTypes.some((t) => t === PlateType.CONTINENTAL);
+      const hasOceanic = neighbors.some((n) => n.plateType === PlateType.OCEANIC);
+      const hasContinental = neighbors.some((n) => n.plateType === PlateType.CONTINENTAL);
 
       if (hasOceanic && hasContinental) {
         cell.boundaryType = BoundaryType.CONVERGENT;
       } else {
-        cell.boundaryType = rng() < 0.52 ? BoundaryType.DIVERGENT : BoundaryType.TRANSFORM;
+        cell.boundaryType = rng() < 0.5 ? BoundaryType.DIVERGENT : BoundaryType.TRANSFORM;
       }
 
       const lat = 90 - ((r + 0.5) / height) * 180;
@@ -327,9 +301,9 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
       const boundaryStrength =
         cell.boundaryType === BoundaryType.CONVERGENT
-          ? 0.09
+          ? 0.10
           : cell.boundaryType === BoundaryType.DIVERGENT
-          ? -0.045
+          ? -0.05
           : 0.018;
 
       cell.baseHeight += boundaryStrength * plateAmp * (0.55 + rng() * 0.65) * (1 - poleProximity * 0.7);
@@ -352,10 +326,10 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
 
   // ----------------------------------------------------
-  // PASS 3: Erosion / coastline shaping
+  // PASS 3: Coast-preserving smoothing / erosion
   // ----------------------------------------------------
-  const smoothingPasses = Math.max(2, Math.round(lerp(2, 7, smoothness)));
-  const smoothingStrength = lerp(0.14, 0.52, smoothness);
+  const smoothingPasses = Math.max(2, Math.round(lerp(2, 6, smoothness)));
+  const smoothingStrength = lerp(0.12, 0.40, smoothness);
 
   for (let pass = 0; pass < smoothingPasses; pass++) {
     const nextHeights = new Array<number>(cells.length);
@@ -396,14 +370,13 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
         const lat = 90 - ((r + 0.5) / height) * 180;
         const poleProximity = smoothstep(68 / 90, 1.0, Math.abs(lat) / 90);
-        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.46, poleProximity);
+        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.45, poleProximity);
 
-        // Coast-preserving erosion: don’t over-round shorelines
-        const nearSea = Math.abs(cell.baseHeight - globalSeaLevel) < 0.09;
-        const coastPreserve = nearSea ? 0.58 : 1.0;
+        const nearSea = Math.abs(cell.baseHeight - globalSeaLevel) < 0.10;
+        const coastPreserve = nearSea ? 0.50 : 1.0;
 
         const upliftDelta = cell.upliftRate * 0.004;
-        const noiseBreakup = (rng() - 0.5) * 0.012 * (1 - smoothness) * (1 - poleProximity * 0.75);
+        const noiseBreakup = (rng() - 0.5) * 0.010 * (1 - smoothness) * (1 - poleProximity * 0.75);
 
         nextHeights[idx] = clamp(
           cell.baseHeight +
@@ -446,19 +419,19 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
       const equatorWarmth = Math.pow(1 - absLat01, lerp(0.85, 1.15, tilt01));
       const tempNoise =
-        r === 0 || r === height - 1 ? 0 : sphereFbm(offsetVec(dir, 0.7, 1.6, -1.1), seedUint, 3.4, 3);
+        r === 0 || r === height - 1 ? 0 : sphereFbm(offsetVec(dir, 0.7, 1.6, -1.1), seedUint, 3.0, 3);
       const rainNoise =
-        r === 0 || r === height - 1 ? 0 : sphereFbm(offsetVec(dir, -1.2, 0.5, 1.8), seedUint, 3.0, 3);
+        r === 0 || r === height - 1 ? 0 : sphereFbm(offsetVec(dir, -1.2, 0.5, 1.8), seedUint, 2.8, 3);
 
-      const coastBoost = coastalMask[idx] * 0.16;
+      const coastBoost = coastalMask[idx] * 0.15;
       const elevAboveSea = Math.max(0, cell.baseHeight - globalSeaLevel);
-      const elevCooling = elevAboveSea * 0.32;
-      const polarCooling = poleProximity * 0.18;
+      const elevCooling = elevAboveSea * 0.30;
+      const polarCooling = poleProximity * 0.16;
 
       cell.temperature = clamp01(
-        0.12 +
-          equatorWarmth * 0.72 +
-          tempNoise * (0.10 + climateVar01 * 0.08) +
+        0.14 +
+          equatorWarmth * 0.70 +
+          tempNoise * (0.08 + climateVar01 * 0.08) +
           tempOffset01 +
           coastBoost * 0.03 -
           elevCooling -
@@ -469,13 +442,13 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const subtropicDry = Math.exp(-Math.pow((absLat01 - 0.34) * 5.0, 2));
 
       cell.rainfall = clamp01(
-        0.18 +
-          hadleyWet * 0.34 -
-          subtropicDry * 0.20 +
-          rainNoise * (0.14 + climateVar01 * 0.08) +
-          moisture01 * 0.20 +
+        0.20 +
+          hadleyWet * 0.30 -
+          subtropicDry * 0.18 +
+          rainNoise * (0.12 + climateVar01 * 0.08) +
+          moisture01 * 0.18 +
           coastBoost -
-          elevAboveSea * 0.10
+          elevAboveSea * 0.08
       );
 
       const biome = pickBiome(cell.temperature, cell.rainfall);
@@ -588,80 +561,78 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
 function buildPoleSample(
   lat: number,
-  continentSeeds: ContinentSeed[],
-  basinSeeds: BasinSeed[],
-  plateSeeds: PlateSeed[],
   seed: number,
+  plateSeeds: PlateSeed[],
+  backboneSeeds: BackboneSeed[],
+  riftSeeds: RiftSeed[],
+  shelfSeeds: ShelfSeed[],
   globalSeaLevel: number,
   plateAmp: number
 ) {
   const dir = latLonToUnitVector(lat, 0);
   const plateSeed = findNearestPlateSeed(dir, plateSeeds);
 
-  let continentField = 0;
-  for (const seedDef of continentSeeds) {
-    const primary = greatCircleDistance01(dir, seedDef.dir);
-    const driftedDir = normalize3([
-      dir[0] + seedDef.drift[0] * 0.18,
-      dir[1] + seedDef.drift[1] * 0.18,
-      dir[2] + seedDef.drift[2] * 0.18,
-    ]);
-    const secondary = greatCircleDistance01(driftedDir, seedDef.dir);
-
-    const core = smoothstep(seedDef.radius, 0.0, primary) * seedDef.strength;
-    const lobe =
-      smoothstep(seedDef.radius * seedDef.elongation, 0.0, secondary) *
-      seedDef.strength *
-      0.65;
-
-    continentField = Math.max(continentField, core + lobe);
+  let backboneField = -1;
+  for (const bb of backboneSeeds) {
+    const dist = minDistanceToPolylineOnSphere(dir, bb.anchors);
+    const signal = smoothstep(bb.width, 0.0, dist) * bb.strength;
+    if (signal > backboneField) backboneField = signal;
   }
 
-  let basinField = 0;
-  for (const basin of basinSeeds) {
-    const d = greatCircleDistance01(dir, basin.dir);
-    const carve = smoothstep(basin.radius, 0.0, d) * basin.strength;
-    if (carve > basinField) basinField = carve;
+  let riftField = 0;
+  for (const rift of riftSeeds) {
+    const dist = minDistanceToPolylineOnSphere(dir, rift.anchors);
+    const carve = smoothstep(rift.width, 0.0, dist) * rift.strength;
+    if (carve > riftField) riftField = carve;
   }
 
-  const macroNoise = sphereFbm(dir, seed, 0.95, 4);
-  const continentalNoise = sphereFbm(offsetVec(dir, 1.7, -0.4, 0.8), seed, 1.9, 3);
-  const breakupNoise = sphereFbm(offsetVec(dir, -0.8, 1.1, -1.6), seed, 3.8, 3);
-  const coastNoise = sphereFbm(offsetVec(dir, 0.5, 1.9, 0.2), seed, 7.2, 2);
+  let shelfField = 0;
+  for (const shelf of shelfSeeds) {
+    const d = greatCircleDistance01(dir, shelf.dir);
+    const s = smoothstep(shelf.radius, 0.0, d) * shelf.strength;
+    if (s > shelfField) shelfField = s;
+  }
 
-  const polarDetailDamp = 0.08;
-  const continentalBias = plateSeed.type === PlateType.CONTINENTAL ? 0.11 : -0.08;
+  const continentNoise = sphereFbm(dir, seed, 0.9, 4);
+  const breakupNoiseA = sphereFbm(offsetVec(dir, 1.5, -0.2, 0.8), seed, 2.1, 3);
+  const breakupNoiseB = sphereFbm(offsetVec(dir, -1.2, 0.8, -0.9), seed, 4.6, 3);
+  const coastNoise = sphereFbm(offsetVec(dir, 0.7, 1.6, 0.1), seed, 8.0, 2);
+
+  const continentalBias = plateSeed.type === PlateType.CONTINENTAL ? 0.10 : -0.08;
 
   const landSignal =
-    continentField * 0.86 +
-    macroNoise * 0.14 +
-    continentalNoise * 0.16 +
-    breakupNoise * 0.12 -
-    basinField * 0.38 +
-    coastNoise * 0.05 * polarDetailDamp;
+    backboneField * 0.86 +
+    continentNoise * 0.18 +
+    breakupNoiseA * 0.16 +
+    breakupNoiseB * 0.10 +
+    coastNoise * 0.005 -
+    riftField * 0.34 +
+    shelfField * 0.08 +
+    continentalBias;
 
-  const polarLandPenalty = 0.16;
-  const terrainPotential =
-    landSignal + continentalBias - globalSeaLevel - polarLandPenalty;
+  const terrainPotential = landSignal - globalSeaLevel - 0.14;
 
   let baseHeight: number;
 
   if (terrainPotential > 0) {
-    const upliftNoise = sphereFbm(offsetVec(dir, 0.4, 0.9, -1.3), seed, 6.5, 2);
-    const shelfNoise = sphereFbm(offsetVec(dir, -1.2, 0.7, 1.0), seed, 4.4, 2);
-    const raised = 0.05 + Math.pow(terrainPotential, 1.18) * 0.88;
-    const tectonicLift = upliftNoise * 0.08 * plateAmp * polarDetailDamp;
-    const shelfCut = Math.max(0, 0.06 - terrainPotential) * shelfNoise * 0.25;
-    baseHeight = raised + tectonicLift - shelfCut;
+    const upliftNoise = sphereFbm(offsetVec(dir, 0.3, 0.9, -1.2), seed, 6.2, 2);
+    const shoulderNoise = sphereFbm(offsetVec(dir, -0.9, 0.5, 1.0), seed, 3.8, 2);
+
+    const continentalCore = 0.04 + Math.pow(terrainPotential, 1.12) * 0.86;
+    const tectonicLift = upliftNoise * 0.008 * plateAmp;
+    const shoulder = Math.max(0, 0.10 - terrainPotential) * shoulderNoise * 0.22;
+
+    baseHeight = continentalCore + tectonicLift - shoulder;
   } else {
     const oceanDepthSignal = -terrainPotential;
-    const abyssNoise = sphereFbm(offsetVec(dir, 1.1, -1.7, 0.2), seed, 2.2, 2);
-    const trenchNoise = sphereFbm(offsetVec(dir, -1.4, 0.4, 1.6), seed, 5.0, 2);
+    const abyssNoise = sphereFbm(offsetVec(dir, 1.1, -1.5, 0.3), seed, 2.0, 2);
+    const trenchNoise = sphereFbm(offsetVec(dir, -1.3, 0.4, 1.4), seed, 5.0, 2);
+
     baseHeight =
-      -0.16 -
-      Math.pow(oceanDepthSignal, 1.08) * 0.94 +
-      abyssNoise * 0.03 -
-      trenchNoise * 0.03;
+      -0.14 -
+      Math.pow(oceanDepthSignal, 1.05) * 0.96 +
+      abyssNoise * 0.025 -
+      trenchNoise * 0.035;
   }
 
   return {
@@ -672,63 +643,74 @@ function buildPoleSample(
   };
 }
 
-function getPoleRowMode(r: number, height: number): 'NORTH_CAP' | 'SOUTH_CAP' | 'NORMAL' {
-  if (r === 0) return 'NORTH_CAP';
-  if (r === height - 1) return 'SOUTH_CAP';
-  return 'NORMAL';
-}
-
-function blendCapAdjacentRows(
-  cells: Cell[],
-  width: number,
-  height: number,
-  rowDistance: 1 | 2,
-  northHeight: number,
-  southHeight: number
-): void {
-  const northRow = rowDistance;
-  const southRow = height - 1 - rowDistance;
-
-  const northBlend = rowDistance === 1 ? 0.55 : 0.28;
-  const southBlend = rowDistance === 1 ? 0.55 : 0.28;
-
-  for (let c = 0; c < width; c++) {
-    const nIdx = northRow * width + c;
-    cells[nIdx].baseHeight = lerp(cells[nIdx].baseHeight, northHeight, northBlend);
-
-    const sIdx = southRow * width + c;
-    cells[sIdx].baseHeight = lerp(cells[sIdx].baseHeight, southHeight, southBlend);
-  }
-}
-
-function createContinentSeeds(count: number, rng: () => number): ContinentSeed[] {
-  const seeds: ContinentSeed[] = [];
+function createBackboneSeeds(count: number, rng: () => number): BackboneSeed[] {
+  const out: BackboneSeed[] = [];
 
   for (let i = 0; i < count; i++) {
-    const dir = randomSpherePointAvoidingExtremePoles(rng, 0.80);
-    const drift = randomSpherePoint(rng);
-    seeds.push({
-      dir,
-      strength: lerp(0.82, 1.18, rng()),
-      radius: lerp(0.16, 0.28, rng()),
-      elongation: lerp(1.15, 1.65, rng()),
-      drift,
+    const anchorCount = clampInt(3 + Math.floor(rng() * 3), 3, 5);
+    const start = randomSpherePointAvoidingExtremePoles(rng, 0.78);
+    const anchors: Vec3[] = [start];
+    let prev = start;
+
+    for (let j = 1; j < anchorCount; j++) {
+      const next = normalize3([
+        prev[0] + (rng() * 2 - 1) * 0.55,
+        prev[1] + (rng() * 2 - 1) * 0.25,
+        prev[2] + (rng() * 2 - 1) * 0.55,
+      ]);
+      anchors.push([next[0], clamp(next[1], -0.80, 0.80), next[2]] as Vec3);
+      prev = anchors[anchors.length - 1];
+    }
+
+    out.push({
+      anchors,
+      width: lerp(0.08, 0.16, rng()),
+      strength: lerp(0.92, 1.18, rng()),
     });
   }
 
-  return seeds;
+  return out;
 }
 
-function createBasinSeeds(count: number, rng: () => number): BasinSeed[] {
-  const seeds: BasinSeed[] = [];
+function createRiftSeeds(count: number, rng: () => number): RiftSeed[] {
+  const out: RiftSeed[] = [];
+
   for (let i = 0; i < count; i++) {
-    seeds.push({
+    const anchorCount = clampInt(2 + Math.floor(rng() * 3), 2, 4);
+    const start = randomSpherePoint(rng);
+    const anchors: Vec3[] = [start];
+    let prev = start;
+
+    for (let j = 1; j < anchorCount; j++) {
+      const next = normalize3([
+        prev[0] + (rng() * 2 - 1) * 0.45,
+        prev[1] + (rng() * 2 - 1) * 0.18,
+        prev[2] + (rng() * 2 - 1) * 0.45,
+      ]);
+      anchors.push([next[0], clamp(next[1], -0.86, 0.86), next[2]] as Vec3);
+      prev = anchors[anchors.length - 1];
+    }
+
+    out.push({
+      anchors,
+      width: lerp(0.05, 0.11, rng()),
+      strength: lerp(0.60, 0.95, rng()),
+    });
+  }
+
+  return out;
+}
+
+function createShelfSeeds(count: number, rng: () => number): ShelfSeed[] {
+  const out: ShelfSeed[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push({
       dir: randomSpherePoint(rng),
-      strength: lerp(0.65, 1.00, rng()),
-      radius: lerp(0.12, 0.24, rng()),
+      radius: lerp(0.10, 0.20, rng()),
+      strength: lerp(0.25, 0.55, rng()),
     });
   }
-  return seeds;
+  return out;
 }
 
 function createPlateSeeds(
@@ -768,6 +750,56 @@ function findNearestPlateSeed(dir: Vec3, plateSeeds: PlateSeed[]): PlateSeed {
   return best;
 }
 
+function minDistanceToPolylineOnSphere(dir: Vec3, anchors: Vec3[]): number {
+  let best = 1;
+
+  for (let i = 0; i < anchors.length; i++) {
+    const d = greatCircleDistance01(dir, anchors[i]);
+    if (d < best) best = d;
+  }
+
+  for (let i = 0; i < anchors.length - 1; i++) {
+    const mid = normalize3([
+      (anchors[i][0] + anchors[i + 1][0]) * 0.5,
+      (anchors[i][1] + anchors[i + 1][1]) * 0.5,
+      (anchors[i][2] + anchors[i + 1][2]) * 0.5,
+    ]);
+    const d = greatCircleDistance01(dir, mid);
+    if (d < best) best = d;
+  }
+
+  return best;
+}
+
+function getPoleRowMode(r: number, height: number): 'NORTH_CAP' | 'SOUTH_CAP' | 'NORMAL' {
+  if (r === 0) return 'NORTH_CAP';
+  if (r === height - 1) return 'SOUTH_CAP';
+  return 'NORMAL';
+}
+
+function blendCapAdjacentRows(
+  cells: Cell[],
+  width: number,
+  height: number,
+  rowDistance: 1 | 2,
+  northHeight: number,
+  southHeight: number
+): void {
+  const northRow = rowDistance;
+  const southRow = height - 1 - rowDistance;
+
+  const northBlend = rowDistance === 1 ? 0.55 : 0.28;
+  const southBlend = rowDistance === 1 ? 0.55 : 0.28;
+
+  for (let c = 0; c < width; c++) {
+    const nIdx = northRow * width + c;
+    cells[nIdx].baseHeight = lerp(cells[nIdx].baseHeight, northHeight, northBlend);
+
+    const sIdx = southRow * width + c;
+    cells[sIdx].baseHeight = lerp(cells[sIdx].baseHeight, southHeight, southBlend);
+  }
+}
+
 function computeCoastalMask(
   cells: Cell[],
   width: number,
@@ -781,8 +813,7 @@ function computeCoastalMask(
       const idx = r * width + c;
       const cell = cells[idx];
 
-      const isLand = cell.baseHeight >= seaLevel;
-      if (!isLand) {
+      if (cell.baseHeight < seaLevel) {
         mask[idx] = 0;
         continue;
       }
@@ -814,17 +845,12 @@ function latLonToUnitVector(latDeg: number, lonDeg: number): Vec3 {
   const lon = (lonDeg * Math.PI) / 180;
 
   const cosLat = Math.cos(lat);
-  return [
-    cosLat * Math.cos(lon),
-    Math.sin(lat),
-    cosLat * Math.sin(lon),
-  ];
+  return [cosLat * Math.cos(lon), Math.sin(lat), cosLat * Math.sin(lon)];
 }
 
 function greatCircleDistance01(a: Vec3, b: Vec3): number {
   const d = clamp(dot3(a, b), -1, 1);
-  const angle = Math.acos(d);
-  return angle / Math.PI;
+  return Math.acos(d) / Math.PI;
 }
 
 function sphereFbm(dir: Vec3, seed: number, frequency: number, octaves: number): number {
