@@ -21,11 +21,15 @@ export interface TerrainBrushState {
 export class TerrainBrushController {
   private state: TerrainBrushState;
   private actionHistory: TerrainStrokeAction[] = [];
+  private pendingStrokeSamples: Array<{ row: number; col: number }> = [];
+  private recomputeThrottleTimer: number | null = null;
+  private lastApplyTime = 0;
 
   constructor(
     private world: WorldBrain | null,
     private onStateChange: (state: TerrainBrushState) => void,
-    private onWorldChange: (world: WorldBrain) => void
+    private onPreviewWorldChange: (world: WorldBrain) => void,
+    private onCommitWorldChange: (world: WorldBrain) => void,
   ) {
     this.state = {
       enabled: false,
@@ -55,6 +59,11 @@ export class TerrainBrushController {
   disable(): void {
     this.state.enabled = false;
     this.state.isDrawing = false;
+    this.pendingStrokeSamples = [];
+    if (this.recomputeThrottleTimer) {
+      clearTimeout(this.recomputeThrottleTimer);
+      this.recomputeThrottleTimer = null;
+    }
     this.notifyStateChange();
   }
 
@@ -87,7 +96,9 @@ export class TerrainBrushController {
     if (!this.state.enabled || !this.world) return;
     this.state.isDrawing = true;
     this.actionHistory = [];
+    this.pendingStrokeSamples = [];
     this.applyBrushAtCell(gridRow, gridCol);
+    this.notifyStateChange();
   }
 
   /**
@@ -100,34 +111,83 @@ export class TerrainBrushController {
 
   /**
    * End a brush stroke (mouse/touch up).
+   * Final recompute/commit happens once here.
    */
   endStroke(): void {
+    if (!this.state.isDrawing) return;
+
+    if (this.recomputeThrottleTimer) {
+      clearTimeout(this.recomputeThrottleTimer);
+      this.recomputeThrottleTimer = null;
+    }
+
+    this.flushPendingStrokes();
+
+    if (this.world) {
+      recomputeWorld(this.world, ['TERRAIN_EDIT']);
+      this.onCommitWorldChange(this.world);
+    }
+
     this.state.isDrawing = false;
     this.notifyStateChange();
-    // Finalize the action history for undo/redo
   }
 
   /**
    * Apply brush at a specific cell, creating and dispatching an action.
+   * During drawing we update preview state without final recompute.
    */
   private applyBrushAtCell(gridRow: number, gridCol: number): void {
     if (!this.world) return;
 
-    const action: TerrainStrokeAction = {
-      type: 'TERRAIN_STROKE',
-      tool: this.state.tool,
-      center: { row: gridRow, col: gridCol },
-      radius: this.state.brushParams.radius,
-      strength: this.state.brushParams.strength,
-    };
+    this.pendingStrokeSamples.push({ row: gridRow, col: gridCol });
 
-    // Apply action and recompute
-    applyWorldAction(this.world, action);
-    recomputeWorld(this.world, ['TERRAIN_EDIT']);
+    const now = performance.now();
+    const timeSinceLastApply = now - this.lastApplyTime;
 
-    this.state.lastAppliedStroke = action;
-    this.actionHistory.push(action);
-    this.onWorldChange(this.world);
+    // Throttle preview applications to keep drawing responsive.
+    if (timeSinceLastApply < 120 && this.state.isDrawing) {
+      if (!this.recomputeThrottleTimer) {
+        this.recomputeThrottleTimer = window.setTimeout(() => {
+          this.flushPendingStrokes();
+        }, 120);
+      }
+      return;
+    }
+
+    this.flushPendingStrokes();
+  }
+
+  /**
+   * Flush accumulated stroke samples into the working world and preview it.
+   * No full recompute here -- that happens once at stroke end.
+   */
+  private flushPendingStrokes(): void {
+    if (!this.world || this.pendingStrokeSamples.length === 0) {
+      this.pendingStrokeSamples = [];
+      this.recomputeThrottleTimer = null;
+      return;
+    }
+
+    for (const sample of this.pendingStrokeSamples) {
+      const action: TerrainStrokeAction = {
+        type: 'TERRAIN_STROKE',
+        tool: this.state.tool,
+        center: { row: sample.row, col: sample.col },
+        radius: this.state.brushParams.radius,
+        strength: this.state.brushParams.strength * 0.3,
+      };
+
+      applyWorldAction(this.world, action);
+      this.actionHistory.push(action);
+      this.state.lastAppliedStroke = action;
+    }
+
+    this.lastApplyTime = performance.now();
+    this.onPreviewWorldChange(this.world);
+
+    this.pendingStrokeSamples = [];
+    this.recomputeThrottleTimer = null;
+    this.notifyStateChange();
   }
 
   /**

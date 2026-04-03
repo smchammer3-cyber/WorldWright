@@ -10,10 +10,21 @@ type Props = {
   onWorldChange: (w: WorldBrain) => void;
 };
 
-interface CanvasState {
-  scale: number;
-  offsetX: number;
-  offsetY: number;
+function cloneWorldForRender(source: WorldBrain): WorldBrain {
+  return {
+    ...source,
+    metadata: { ...source.metadata },
+    parameters: source.parameters ? { ...source.parameters } : source.parameters,
+    cells: [...source.cells],
+    plates: [...source.plates],
+    rivers: [...source.rivers],
+    countries: [...source.countries],
+    cultures: [...source.cultures],
+    cultureRegions: [...source.cultureRegions],
+    cities: [...source.cities],
+    locations: source.locations ? [...source.locations] : source.locations,
+    stickers: source.stickers ? [...source.stickers] : source.stickers,
+  };
 }
 
 function draw(canvas: HTMLCanvasElement, world: WorldBrain) {
@@ -88,20 +99,40 @@ function screenToGridCoords(
 
 export default function CreateViewport({ world, activeTerrainTool, onWorldChange }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const borderCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const brushControllerRef = useRef<TerrainBrushController | null>(null);
   const [brushState, setBrushState] = useState<TerrainBrushState | null>(null);
+  const labelsOverlayRef = useRef<HTMLDivElement | null>(null);
+  const [draftWorld, setDraftWorld] = useState<WorldBrain>(world);
 
-  // Initialize brush controller
+  // Keep local draft in sync with authoritative world when not actively drawing.
   useEffect(() => {
-    brushControllerRef.current = new TerrainBrushController(
-      world,
-      setBrushState,
-      onWorldChange
-    );
-    if (activeTerrainTool) {
-      brushControllerRef.current.setTool(activeTerrainTool);
+    const isDrawing = brushControllerRef.current?.getState().isDrawing ?? false;
+    if (!isDrawing) {
+      setDraftWorld(world);
+      brushControllerRef.current?.setWorld(world);
     }
-  }, [world, onWorldChange]);
+  }, [world]);
+
+  // Initialize brush controller once, then update its world reference.
+  useEffect(() => {
+    if (!brushControllerRef.current) {
+      brushControllerRef.current = new TerrainBrushController(
+        draftWorld,
+        setBrushState,
+        (previewWorld) => {
+          setDraftWorld(cloneWorldForRender(previewWorld));
+        },
+        (committedWorld) => {
+          const renderWorld = cloneWorldForRender(committedWorld);
+          setDraftWorld(renderWorld);
+          onWorldChange(renderWorld);
+        }
+      );
+    } else {
+      brushControllerRef.current.setWorld(draftWorld);
+    }
+  }, [draftWorld, onWorldChange]);
 
   // Update brush tool when activeTerrainTool changes
   useEffect(() => {
@@ -112,22 +143,29 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
     }
   }, [activeTerrainTool]);
 
-  // Redraw canvas when world changes
+  // Redraw canvas when local draft world changes
   useEffect(() => {
     const c = canvasRef.current;
+    const bc = borderCanvasRef.current;
     if (!c) return;
     try {
-      draw(c, world);
+      draw(c, draftWorld);
+      if (bc) drawBorders(bc, draftWorld, c);
     } catch (e) {
       console.error("Create viewport draw failed:", e);
     }
-  }, [world]);
+    try {
+      updateLabelsOverlay();
+    } catch (e) {
+      // ignore overlay refresh issues
+    }
+  }, [draftWorld]);
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas || !brushControllerRef.current) return;
 
-    const coords = screenToGridCoords(e.clientX, e.clientY, canvas, world);
+    const coords = screenToGridCoords(e.clientX, e.clientY, canvas, draftWorld);
     if (coords) {
       brushControllerRef.current.startStroke(coords.row, coords.col);
     }
@@ -137,23 +175,152 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
     const canvas = canvasRef.current;
     if (!canvas || !brushControllerRef.current) return;
 
-    const coords = screenToGridCoords(e.clientX, e.clientY, canvas, world);
+    const coords = screenToGridCoords(e.clientX, e.clientY, canvas, draftWorld);
     if (coords) {
       brushControllerRef.current.continueStroke(coords.row, coords.col);
     }
   };
 
   const handleCanvasMouseUp = () => {
-    if (brushControllerRef.current) {
-      brushControllerRef.current.endStroke();
-    }
+    brushControllerRef.current?.endStroke();
   };
 
   const handleCanvasMouseLeave = () => {
-    if (brushControllerRef.current) {
-      brushControllerRef.current.endStroke();
-    }
+    brushControllerRef.current?.endStroke();
   };
+
+  function drawBorders(overlay: HTMLCanvasElement, worldToDraw: WorldBrain, baseCanvas: HTMLCanvasElement) {
+    const ctx = overlay.getContext('2d');
+    if (!ctx) return;
+
+    const rect = baseCanvas.getBoundingClientRect();
+    overlay.width = Math.max(1, Math.floor(rect.width));
+    overlay.height = Math.max(1, Math.floor(rect.height));
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+    const w = worldToDraw.gridWidth;
+    const h = worldToDraw.gridHeight;
+
+    const sx = overlay.width / w;
+    const sy = overlay.height / h;
+
+    ctx.strokeStyle = 'rgba(10,10,15,0.95)';
+    ctx.lineWidth = Math.max(1, Math.floor(Math.min(sx, sy)));
+
+    for (let r = 0; r < h; r++) {
+      for (let c = 0; c < w; c++) {
+        const idx = r * w + c;
+        const cell = worldToDraw.cells[idx];
+        if (!cell || cell.isWater || !cell.countryId) continue;
+        const myId = cell.countryId;
+        const neighbors = [
+          [r - 1, c],
+          [r + 1, c],
+          [r, (c - 1 + w) % w],
+          [r, (c + 1) % w],
+        ];
+        let isBorder = false;
+        for (const [nr, nc] of neighbors) {
+          if (nr < 0 || nr >= h) continue;
+          const nIdx = nr * w + nc;
+          const nCell = worldToDraw.cells[nIdx];
+          if (nCell && !nCell.isWater && nCell.countryId && nCell.countryId !== myId) {
+            isBorder = true;
+            break;
+          }
+        }
+        if (isBorder) {
+          const x = c * sx;
+          const y = r * sy;
+          ctx.fillStyle = 'rgba(20,20,30,0.95)';
+          ctx.fillRect(x, y, Math.ceil(sx), Math.ceil(sy));
+        }
+      }
+    }
+  }
+
+  // ------------------------------
+  // Country labels overlay (MAP)
+  // ------------------------------
+  type Label = { name: string; lat: number; lon: number; el: HTMLDivElement };
+  const labels: Label[] = [];
+
+  function computeCentroid(poly: { lat: number; lon: number }[]): { lat: number; lon: number } {
+    if (!poly || poly.length === 0) return { lat: 0, lon: 0 };
+    let lat = 0;
+    let lon = 0;
+    for (const p of poly) {
+      lat += p.lat;
+      lon += p.lon;
+    }
+    lat /= poly.length;
+    lon /= poly.length;
+    return { lat, lon };
+  }
+
+  function initLabels() {
+    const overlay = labelsOverlayRef.current;
+    if (!overlay) return;
+    while (overlay.firstChild) overlay.removeChild(overlay.firstChild);
+    labels.length = 0;
+
+    const maxLabels = 12;
+    const countries = Array.isArray(draftWorld.countries) ? draftWorld.countries.slice(0, maxLabels) : [];
+    for (const c of countries) {
+      const poly = c.polygons?.[0] || [];
+      const { lat, lon } = computeCentroid(poly);
+      const el = document.createElement('div');
+      el.style.position = 'absolute';
+      el.style.transform = 'translate(-50%, -50%)';
+      el.style.padding = '3px 6px';
+      el.style.borderRadius = '6px';
+      el.style.border = '1px solid rgba(0,0,0,0.35)';
+      el.style.background = 'rgba(0,0,0,0.6)';
+      el.style.color = 'rgba(255,255,255,0.95)';
+      el.style.fontSize = '11px';
+      el.style.whiteSpace = 'nowrap';
+      el.textContent = c.name;
+      overlay.appendChild(el);
+      labels.push({ name: c.name, lat, lon, el });
+    }
+  }
+
+  function latLonToCanvasXY(lat: number, lon: number): { x: number; y: number } {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    const x = ((lon + 180) / 360) * w;
+    const y = ((90 - lat) / 180) * h;
+    return { x, y };
+  }
+
+  function updateLabelsOverlay() {
+    const overlay = labelsOverlayRef.current;
+    const canvas = canvasRef.current;
+    if (!overlay || !canvas) return;
+    if (labels.length === 0) initLabels();
+    for (const lbl of labels) {
+      const p = latLonToCanvasXY(lbl.lat, lbl.lon);
+      lbl.el.style.left = `${p.x}px`;
+      lbl.el.style.top = `${p.y}px`;
+      lbl.el.style.display = 'block';
+    }
+  }
+
+  useEffect(() => {
+    initLabels();
+    updateLabelsOverlay();
+    const onResize = () => {
+      updateLabelsOverlay();
+      const c = canvasRef.current;
+      const bc = borderCanvasRef.current;
+      if (c && bc) drawBorders(bc, draftWorld, c);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [draftWorld]);
 
   return (
     <div style={{ position: "absolute", inset: 0, overflow: "auto" }}>
@@ -166,22 +333,39 @@ export default function CreateViewport({ world, activeTerrainTool, onWorldChange
         )}
       </div>
       <div style={{ padding: 12 }}>
-        <canvas
-          ref={canvasRef}
-          onMouseDown={handleCanvasMouseDown}
-          onMouseMove={handleCanvasMouseMove}
-          onMouseUp={handleCanvasMouseUp}
-          onMouseLeave={handleCanvasMouseLeave}
-          style={{
-            width: "100%",
-            maxWidth: 1200,
-            borderRadius: 12,
-            border: "1px solid rgba(0,0,0,0.15)",
-            background: "#111",
-            display: "block",
-            cursor: brushState?.enabled ? "crosshair" : "default",
-          }}
-        />
+        <div style={{ position: 'relative' }}>
+          <canvas
+            ref={canvasRef}
+            onMouseDown={handleCanvasMouseDown}
+            onMouseMove={handleCanvasMouseMove}
+            onMouseUp={handleCanvasMouseUp}
+            onMouseLeave={handleCanvasMouseLeave}
+            style={{
+              width: "100%",
+              maxWidth: 1200,
+              borderRadius: 12,
+              border: "1px solid rgba(0,0,0,0.15)",
+              background: "#111",
+              display: "block",
+              cursor: brushState?.enabled ? "crosshair" : "default",
+            }}
+          />
+          <canvas
+            ref={borderCanvasRef}
+            style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, pointerEvents: 'none' }}
+          />
+          <div
+            ref={labelsOverlayRef}
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              right: 0,
+              bottom: 0,
+              pointerEvents: 'none',
+            }}
+          />
+        </div>
         <div style={{ fontSize: 11, opacity: 0.65, marginTop: 8 }}>
           {brushState?.enabled
             ? `Terrain brush active: ${brushState.tool.toUpperCase()} - click and drag to paint.`

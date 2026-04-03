@@ -149,7 +149,7 @@ class WorldSession {
       if (existing) {
         // eslint-disable-next-line no-console
         console.warn(
-          `Generated world id ${w.metadata.id} already exists for seed ${w.metadata.seed}; creating unique id.`
+          `Generated world id ${w.metadata.id} already exists for seed ${w.metadata.seed}; creating unique id.`,
         );
         const base = w.metadata.id;
         let i = 1;
@@ -234,24 +234,23 @@ class WorldSession {
    */
   apply(action: WorldAction): void {
     if (!this.world) return;
-      // Apply the action and maintain the undo history (history array model).
-      applyWorldAction(this.world, action);
-      recomputeWorld(this.world, ['TERRAIN_EDIT']);
-      const errors = validateWorld(this.world);
-      if (errors.length > 0) {
-        // eslint-disable-next-line no-console
-        console.warn('Validation warnings after edit:', errors);
-      }
-      // Truncate future history if we’re not at the end.
-      if (this.historyIndex < this.history.length - 1) {
-        this.history = this.history.slice(0, this.historyIndex + 1);
-      }
-      this.history.push(cloneWorld(this.world));
-      this.historyIndex = this.history.length - 1;
-      this.dirty = true;
-      this.notify();
 
-    
+    applyWorldAction(this.world, action);
+    recomputeWorld(this.world, ['TERRAIN_EDIT']);
+
+    const errors = validateWorld(this.world);
+    if (errors.length > 0) {
+      // eslint-disable-next-line no-console
+      console.warn('Validation warnings after edit:', errors);
+    }
+
+    // Truncate future history if we’re not at the end.
+    if (this.historyIndex < this.history.length - 1) {
+      this.history = this.history.slice(0, this.historyIndex + 1);
+    }
+
+    this.history.push(cloneWorld(this.world));
+    this.historyIndex = this.history.length - 1;
     this.dirty = true;
     this.notify();
   }
