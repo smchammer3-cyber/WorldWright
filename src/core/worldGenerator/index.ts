@@ -249,6 +249,33 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
   
   // STAGE 5: Add detail layers ONLY to land (continents)
+  // OPTIMIZATION: Pre-compute coastal cell map to avoid O(n^2)
+  const coastalCells = new Set<number>();
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      const idx = r * width + c;
+      const cell = cells[idx];
+      if (cell.baseHeight >= 0.0) {
+        // Check if any neighbor is water
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const nr = r + dr;
+            const nc = (c + dc + width) % width;
+            if (nr >= 0 && nr < height) {
+              const nidx = nr * width + nc;
+              if (cells[nidx] && cells[nidx].baseHeight < 0.0) {
+                coastalCells.add(idx);
+                break;
+              }
+            }
+          }
+          if (coastalCells.has(idx)) break;
+        }
+      }
+    }
+  }
+
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
@@ -258,31 +285,47 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const lon01 = c / (width - 1);
       
       if (cell.baseHeight > 0.0) { // Only land gets detail
+        const isCoastal = coastalCells.has(idx);
+        
         // Regional terrain (hills, valleys) - medium frequency
         const regional = fbm(lon01 * 2.5, lat01 * 2.0, rng, 2) * 0.15;
         
-        // Coastline detail (bays, peninsulas) - higher frequency
-        const coastal = fbm(lon01 * 5.0, lat01 * 4.0, rng, 2) * 0.10;
+        // Coastline detail (bays, peninsulas, fjords) - attenuated to reduce pixel acne
+        const coastalFreq = isCoastal ? 8.0 : 5.0;
+        const coastalAmp = isCoastal ? 0.12 : 0.08;
+        const coastal = fbm(lon01 * coastalFreq, lat01 * coastalFreq * 0.8, rng, 3) * coastalAmp;
         
-        // Mountain ranges - highest frequency
-        const mountains = fbm(lon01 * 8.0, lat01 * 6.5, rng, 2) * 0.08 * plateAmp;
+        // Mountain ranges - high frequency, slightly reduced globally pre-threshold
+        const mountainAmp = isCoastal ? 0.04 : 0.06;
+        const mountains = fbm(lon01 * 8.0, lat01 * 6.5, rng, 2) * mountainAmp * plateAmp;
+        
+        // Continental shelf: lower elevation near coast
+        const shelfDrop = isCoastal ? -0.03 : 0;
         
         // Apply detail with erosion dampening
         const detailStrength = 1.0 - smooth * 0.4;
-        cell.baseHeight += (regional + coastal + mountains) * detailStrength;
+        cell.baseHeight += (regional + coastal + mountains + shelfDrop) * detailStrength;
       }
       
       // Clamp to valid range
       cell.baseHeight = clamp(cell.baseHeight, -1.5, 1.5);
       
-      // STRONG pole smoothing to eliminate star-shaped distortion
-      // Near poles (lat01 < 0.10 or > 0.90), aggressively smooth terrain
+      // Polar artifact mitigation: deterministic neighbor smoothing near poles (no random ocean forcing)
       const distFromPole = Math.min(lat01, 1 - lat01); // 0 at poles, 0.5 at equator
       if (distFromPole < 0.15) {
-        // Smoothly transition to ocean near poles (avoids artifacts)
         const poleBlend = 1 - (distFromPole / 0.15); // 1.0 at pole, 0.0 at boundary
-        const poleTarget = -0.4 + (Math.random() * 0.1 - 0.05); // Subtle ocean variation
-        cell.baseHeight = lerp(cell.baseHeight, poleTarget, poleBlend * 0.8);
+        // Smooth toward 4-neighbor average to reduce star-shaped distortion deterministically
+        let sum = 0, count = 0;
+        const rUp = Math.max(0, r - 1);
+        const rDn = Math.min(height - 1, r + 1);
+        const cLt = (c - 1 + width) % width;
+        const cRt = (c + 1) % width;
+        sum += cells[rUp * width + c].baseHeight; count++;
+        sum += cells[rDn * width + c].baseHeight; count++;
+        sum += cells[r * width + cLt].baseHeight; count++;
+        sum += cells[r * width + cRt].baseHeight; count++;
+        const neighborAvg = count > 0 ? sum / count : cell.baseHeight;
+        cell.baseHeight = lerp(cell.baseHeight, neighborAvg, poleBlend * 0.7);
       }
       
       cell.boundaryType = BoundaryType.NONE;

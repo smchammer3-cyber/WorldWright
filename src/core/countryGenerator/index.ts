@@ -93,10 +93,17 @@ export function generateCountries(world: WorldBrain, count: number = 6): Country
     }
   }
 
-  // Extract polygons for each country
+  // Extract polygons for each country AND ASSIGN countryId to cells
   for (let cid = 0; cid < count; cid++) {
     const cellsInCountry = cells.filter((_, i) => partition[i] === cid);
     if (cellsInCountry.length === 0) continue;
+
+    // CRITICAL: Assign countryId to cells so renderer can draw borders
+    for (let i = 0; i < partition.length; i++) {
+      if (partition[i] === cid) {
+        cells[i].countryId = `country_${cid}`;
+      }
+    }
 
     // Convert to lat/lon polygon (simplified convex hull)
     const polygon = extractCountryPolygon(cellsInCountry, gridWidth, gridHeight);

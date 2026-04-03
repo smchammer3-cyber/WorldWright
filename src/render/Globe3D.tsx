@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { WorldBrain } from '../core/worldSchema';
 import { makePlanetPreviewFromWorldBrain } from '../core/planetRenderer';
+import { generateNormalMap, normalMapToCanvas } from '../core/normalMapGenerator';
 
 type Props = {
   world: WorldBrain;
@@ -15,6 +16,8 @@ export default function Globe3D({ world, preview, className, style }: Props) {
   const texCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const meshRotationRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const labelsOverlayRef = useRef<HTMLDivElement | null>(null);
+  const meshRef = useRef<THREE.Mesh | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -41,14 +44,36 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     renderer.setSize(width, height, false);
     el.appendChild(renderer.domElement);
 
-    // Improved lighting setup for better terrain visibility
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+    // Create labels overlay
+    let overlay = labelsOverlayRef.current;
+    if (!overlay) {
+      overlay = document.createElement('div');
+      labelsOverlayRef.current = overlay;
+      overlay.style.position = 'absolute';
+      overlay.style.inset = '0px';
+      overlay.style.pointerEvents = 'none';
+      overlay.style.zIndex = '2';
+      el.appendChild(overlay);
+    }
+
+    // ========================================================
+    // CONTRACT ENFORCEMENT: LIGHTING OWNED BY THREE.JS
+    // The CPU planetRenderer outputs ALBEDO only.
+    // All lighting is handled here with physically-based principles.
+    // ========================================================
+    
+    // Soft, realistic lighting setup
+    // Hemisphere light simulates sky/ground ambient
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
     scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+    
+    // Directional light simulates sun
+    const dir = new THREE.DirectionalLight(0xffffff, 1.0);
     dir.position.set(5, 3, 5);
     scene.add(dir);
-    // Add ambient light for better overall visibility
-    const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+    
+    // Minimal ambient to prevent full darkness
+    const ambient = new THREE.AmbientLight(0xffffff, 0.2);
     scene.add(ambient);
 
     // create texture canvas
@@ -83,6 +108,49 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         
         const img = new ImageData(p.rgba, w, h);
         ctx.putImageData(img, 0, 0);
+        
+        // CRITICAL: Apply polar collapse smoothing to top/bottom N rows
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        const N = Math.max(2, Math.floor(h * 0.04));
+
+        // Helper: compute row average RGB
+        function rowAvg(y: number): [number, number, number] {
+          let rr = 0, gg = 0, bb = 0;
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            rr += d[i]; gg += d[i + 1]; bb += d[i + 2];
+          }
+          return [Math.round(rr / w), Math.round(gg / w), Math.round(bb / w)];
+        }
+
+        // North: blend each pixel toward row average, stronger at pole
+        for (let y = 0; y < N; y++) {
+          const [ar, ag, ab] = rowAvg(y);
+          const t = (N - y) / N; // 1 at pole row, -> 0 toward equator
+          const strength = t * t * (3 - 2 * t); // smoothstep
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            d[i] = Math.round(d[i] * (1 - strength) + ar * strength);
+            d[i + 1] = Math.round(d[i + 1] * (1 - strength) + ag * strength);
+            d[i + 2] = Math.round(d[i + 2] * (1 - strength) + ab * strength);
+          }
+        }
+
+        // South: same for bottom N rows
+        for (let y = h - N; y < h; y++) {
+          const [ar, ag, ab] = rowAvg(y);
+          const t = (y - (h - N)) / N; // 0 at boundary, -> 1 at pole row
+          const strength = t * t * (3 - 2 * t);
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            d[i] = Math.round(d[i] * (1 - strength) + ar * strength);
+            d[i + 1] = Math.round(d[i + 1] * (1 - strength) + ag * strength);
+            d[i + 2] = Math.round(d[i + 2] * (1 - strength) + ab * strength);
+          }
+        }
+
+        ctx.putImageData(imgData, 0, 0);
       } else {
         // Fallback: manual sampling with PROPER pole handling
         // Create texture that avoids UV singularity
@@ -124,42 +192,45 @@ export default function Globe3D({ world, preview, className, style }: Props) {
           }
         }
         ctx.putImageData(img, 0, 0);
-      }
-
-      // Fix pole singularity: average colors at poles
-      const ctx = texCanvas.getContext('2d');
-      if (ctx) {
+        
+        // Apply polar collapse smoothing for fallback path too
         const imgData = ctx.getImageData(0, 0, w, h);
-        const d = imgData.data;
-        
-        // North pole (top row, y=0): average all pixels in row
-        let nr = 0, ng = 0, nb = 0;
-        for (let x = 0; x < w; x++) {
-          const i = x * 4;
-          nr += d[i]; ng += d[i + 1]; nb += d[i + 2];
+        const d2 = imgData.data;
+        const N = Math.max(2, Math.floor(h * 0.04));
+
+        function rowAvg2(y: number): [number, number, number] {
+          let rr = 0, gg = 0, bb = 0;
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            rr += d2[i]; gg += d2[i + 1]; bb += d2[i + 2];
+          }
+          return [Math.round(rr / w), Math.round(gg / w), Math.round(bb / w)];
         }
-        nr = Math.round(nr / w);
-        ng = Math.round(ng / w);
-        nb = Math.round(nb / w);
-        for (let x = 0; x < w; x++) {
-          const i = x * 4;
-          d[i] = nr; d[i + 1] = ng; d[i + 2] = nb;
+
+        for (let y = 0; y < N; y++) {
+          const [ar, ag, ab] = rowAvg2(y);
+          const t = (N - y) / N;
+          const strength = t * t * (3 - 2 * t);
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            d2[i] = Math.round(d2[i] * (1 - strength) + ar * strength);
+            d2[i + 1] = Math.round(d2[i + 1] * (1 - strength) + ag * strength);
+            d2[i + 2] = Math.round(d2[i + 2] * (1 - strength) + ab * strength);
+          }
         }
-        
-        // South pole (bottom row, y=h-1): average all pixels in row
-        let sr = 0, sg = 0, sb = 0;
-        for (let x = 0; x < w; x++) {
-          const i = ((h - 1) * w + x) * 4;
-          sr += d[i]; sg += d[i + 1]; sb += d[i + 2];
+
+        for (let y = h - N; y < h; y++) {
+          const [ar, ag, ab] = rowAvg2(y);
+          const t = (y - (h - N)) / N;
+          const strength = t * t * (3 - 2 * t);
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            d2[i] = Math.round(d2[i] * (1 - strength) + ar * strength);
+            d2[i + 1] = Math.round(d2[i + 1] * (1 - strength) + ag * strength);
+            d2[i + 2] = Math.round(d2[i + 2] * (1 - strength) + ab * strength);
+          }
         }
-        sr = Math.round(sr / w);
-        sg = Math.round(sg / w);
-        sb = Math.round(sb / w);
-        for (let x = 0; x < w; x++) {
-          const i = ((h - 1) * w + x) * 4;
-          d[i] = sr; d[i + 1] = sg; d[i + 2] = sb;
-        }
-        
+
         ctx.putImageData(imgData, 0, 0);
       }
       
@@ -178,15 +249,97 @@ export default function Globe3D({ world, preview, className, style }: Props) {
 
     const texture = ensureTextureFromPreview();
 
-    // Use higher pole segments to reduce scrunching: 128x128 for better polar distribution
-    const geom = new THREE.SphereGeometry(1, 128, 128);
+    // ========================================================
+    // NORMAL MAP GENERATION
+    // Generate normals from world height data for physically-based lighting
+    // ========================================================
+    let normalTexture: THREE.Texture | null = null;
+    if (world) {
+      try {
+        const normalMap = generateNormalMap(world, 0.3); // Height scale = 0.3
+        const normalCanvas = normalMapToCanvas(normalMap);
+        normalTexture = new THREE.CanvasTexture(normalCanvas);
+        normalTexture.wrapS = THREE.RepeatWrapping;
+        normalTexture.wrapT = THREE.ClampToEdgeWrapping;
+        normalTexture.magFilter = THREE.LinearFilter;
+        normalTexture.minFilter = THREE.LinearMipmapLinearFilter;
+        normalTexture.generateMipmaps = true;
+        normalTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        normalTexture.flipY = false;
+        normalTexture.needsUpdate = true;
+      } catch (e) {
+        console.warn('[Globe3D] Failed to generate normal map:', e);
+      }
+    }
+
+    // FIX POLE SUNBURST: Use custom geometry that properly handles pole UVs
+    // Standard SphereGeometry collapses all pole vertices to single point with undefined U coord
+    // We build a custom sphere with proper equirectangular UV mapping
+    const widthSegments = 128;
+    const heightSegments = 64;
+    const geom = new THREE.BufferGeometry();
+    
+    const vertices: number[] = [];
+    const normals: number[] = [];
+    const uvs: number[] = [];
+    const indices: number[] = [];
+    
+    // Build sphere with proper pole handling
+    for (let latIndex = 0; latIndex <= heightSegments; latIndex++) {
+      const v = latIndex / heightSegments; // 0 at north pole, 1 at south pole
+      const phi = v * Math.PI; // 0 to PI (north to south)
+      
+      for (let lonIndex = 0; lonIndex <= widthSegments; lonIndex++) {
+        const u = lonIndex / widthSegments; // 0 to 1 (wraps at meridian)
+        const theta = u * Math.PI * 2; // 0 to 2PI
+        
+        // Sphere position using standard spherical coordinates
+        const x = -Math.sin(phi) * Math.cos(theta);
+        const y = Math.cos(phi);
+        const z = Math.sin(phi) * Math.sin(theta);
+        
+        vertices.push(x, y, z);
+        normals.push(x, y, z); // Normal = normalized position for unit sphere
+        
+        // CRITICAL: Proper UV mapping for equirectangular texture
+        // U wraps around longitude, V goes from pole to pole
+        uvs.push(u, v);
+      }
+    }
+    
+    // Build indices for triangles
+    for (let latIndex = 0; latIndex < heightSegments; latIndex++) {
+      for (let lonIndex = 0; lonIndex < widthSegments; lonIndex++) {
+        const a = latIndex * (widthSegments + 1) + lonIndex;
+        const b = a + widthSegments + 1;
+        const c = a + 1;
+        const d = b + 1;
+        
+        // Two triangles per quad
+        indices.push(a, b, c);
+        indices.push(b, d, c);
+      }
+    }
+    
+    geom.setIndex(indices);
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    
+    // ========================================================
+    // MATERIAL SETUP: ALBEDO + NORMAL MAP
+    // Albedo texture from planetRenderer (no baked lighting)
+    // Normal map from height data (for physically-based lighting)
+    // ========================================================
     const mat = new THREE.MeshStandardMaterial({ 
-      map: texture, 
-      metalness: 0.0, 
-      roughness: 0.8,  // Slightly less rough for better light interaction
-      flatShading: false,  // Smooth shading for better appearance
+      map: texture,              // Albedo (base color) from CPU renderer
+      normalMap: normalTexture,  // Normal map from height data
+      metalness: 0.0,            // Non-metallic (rock, soil, water)
+      roughness: 0.9,            // Diffuse surface (not glossy)
+      flatShading: false,        // Smooth shading for realism
     });
     const mesh = new THREE.Mesh(geom, mat);
+    meshRef.current = mesh;
     
     // Restore previous rotation if it exists
     mesh.rotation.x = meshRotationRef.current.x;
@@ -206,7 +359,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
 
     function onResize() {
       const el2 = containerRef.current;
-      if (!el2) return;
+      if (!el2 || !camera) return;
       const w2 = el2.clientWidth || 800;
       const h2 = el2.clientHeight || 600;
       camera.aspect = w2 / h2;
@@ -217,6 +370,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     window.addEventListener('resize', onResize);
 
     function animate() {
+      if (!camera) return;
       // NO auto-rotation - only user-controlled movement
       // Apply inertia velocities from drag
       if (Math.abs(velX) > 1e-5 || Math.abs(velY) > 1e-5) {
@@ -232,6 +386,11 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         velY *= 0.92;
       }
 
+      // Update country labels overlay
+      try {
+        updateLabelsOverlay();
+      } catch (e) {}
+
       renderer.render(scene, camera);
       rafId = requestAnimationFrame(animate);
     }
@@ -244,6 +403,25 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         const newTex = ensureTextureFromPreview();
         if (mat.map) mat.map.dispose();
         mat.map = newTex;
+        
+        // Update normal map too if world available
+        if (world) {
+          const newNormalMap = generateNormalMap(world, 0.3);
+          const newNormalCanvas = normalMapToCanvas(newNormalMap);
+          const newNormalTex = new THREE.CanvasTexture(newNormalCanvas);
+          newNormalTex.wrapS = THREE.RepeatWrapping;
+          newNormalTex.wrapT = THREE.ClampToEdgeWrapping;
+          newNormalTex.magFilter = THREE.LinearFilter;
+          newNormalTex.minFilter = THREE.LinearMipmapLinearFilter;
+          newNormalTex.generateMipmaps = true;
+          newNormalTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+          newNormalTex.flipY = false;
+          newNormalTex.needsUpdate = true;
+          
+          if (mat.normalMap) mat.normalMap.dispose();
+          mat.normalMap = newNormalTex;
+        }
+        
         mat.needsUpdate = true;
       } catch (e) {
         // non-fatal
@@ -299,6 +477,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     }
 
     function onWheel(ev: WheelEvent) {
+      if (!camera) return;
       ev.preventDefault();
       const delta = ev.deltaY > 0 ? 0.2 : -0.2;
       camera.position.z = Math.max(1.6, Math.min(6, camera.position.z + delta));
@@ -312,6 +491,94 @@ export default function Globe3D({ world, preview, className, style }: Props) {
 
     // initial texture update
     update();
+
+    // ------------------------------
+    // Country labels overlay helpers
+    // ------------------------------
+    type Label = { name: string; lat: number; lon: number; el: HTMLDivElement };
+    const labels: Label[] = [];
+
+    function computeCentroid(poly: { lat: number; lon: number }[]): { lat: number; lon: number } {
+      if (!poly || poly.length === 0) return { lat: 0, lon: 0 };
+      let lat = 0, lon = 0;
+      for (const p of poly) { lat += p.lat; lon += p.lon; }
+      lat /= poly.length; lon /= poly.length;
+      return { lat, lon };
+    }
+
+    function initLabels() {
+      if (!overlay) return;
+      // Clear existing
+      while (overlay.firstChild) overlay.removeChild(overlay.firstChild);
+      labels.length = 0;
+
+      const maxLabels = 12;
+      const countries = Array.isArray(world.countries) ? world.countries.slice(0, maxLabels) : [];
+      for (const c of countries) {
+        const poly = c.polygons?.[0] || [];
+        const { lat, lon } = computeCentroid(poly);
+        const el = document.createElement('div');
+        el.style.position = 'absolute';
+        el.style.transform = 'translate(-50%, -50%)';
+        el.style.padding = '3px 6px';
+        el.style.borderRadius = '6px';
+        el.style.border = '1px solid rgba(0,0,0,0.35)';
+        el.style.background = 'rgba(0,0,0,0.6)';
+        el.style.color = 'rgba(255,255,255,0.95)';
+        el.style.fontSize = '11px';
+        el.style.whiteSpace = 'nowrap';
+        el.textContent = c.name;
+        overlay.appendChild(el);
+        labels.push({ name: c.name, lat, lon, el });
+      }
+    }
+
+    function latLonToSphere(lat: number, lon: number): THREE.Vector3 {
+      // Convert lat/lon to unit sphere coordinates
+      const v = (90 - lat) / 180; // 0..1 from north to south
+      const u = (lon + 180) / 360; // 0..1 around longitude
+      const phi = v * Math.PI;
+      const theta = u * Math.PI * 2;
+      const x = -Math.sin(phi) * Math.cos(theta);
+      const y = Math.cos(phi);
+      const z = Math.sin(phi) * Math.sin(theta);
+      return new THREE.Vector3(x, y, z);
+    }
+
+    function updateLabelsOverlay() {
+      if (!overlay || !camera || !meshRef.current) return;
+      const mesh2 = meshRef.current;
+      mesh2.updateMatrixWorld();
+      const camDir = new THREE.Vector3();
+      camera.getWorldDirection(camDir);
+
+      const w = renderer.domElement.width;
+      const h = renderer.domElement.height;
+
+      for (const lbl of labels) {
+        const p = latLonToSphere(lbl.lat, lbl.lon);
+        // rotate by mesh orientation
+        p.applyEuler(mesh2.rotation);
+        // Visibility: hide label if on far side of sphere
+        const facing = p.dot(camDir);
+        if (facing <= 0) {
+          lbl.el.style.display = 'none';
+          continue;
+        } else {
+          lbl.el.style.display = 'block';
+        }
+
+        // project to screen
+        const wp = p.clone().multiplyScalar(1.0); // radius = 1
+        const sp = wp.project(camera);
+        const sx = (sp.x * 0.5 + 0.5) * w;
+        const sy = (-sp.y * 0.5 + 0.5) * h;
+        lbl.el.style.left = `${sx}px`;
+        lbl.el.style.top = `${sy}px`;
+      }
+    }
+
+    initLabels();
 
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
@@ -334,6 +601,10 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       // remove canvas
       if (renderer.domElement && renderer.domElement.parentElement) {
         renderer.domElement.parentElement.removeChild(renderer.domElement);
+      }
+      // remove overlay
+      if (overlay && overlay.parentElement) {
+        try { overlay.parentElement.removeChild(overlay); } catch (e) {}
       }
     };
   }, [world, preview]);
