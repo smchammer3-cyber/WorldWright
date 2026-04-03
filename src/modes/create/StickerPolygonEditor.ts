@@ -1,16 +1,14 @@
 // ========================================================
-// WORLDWRIGHT -- STICKER POLYGON EDITOR (V1.3 SHAPE-FIRST)
+// WORLDWRIGHT -- STICKER POLYGON EDITOR (V1.3 PRIMITIVES)
 // File: src/modes/create/StickerPolygonEditor.ts
 //
-// Shape-first helpers for sticker creation/editing.
-// Supports rectangle spawning, midpoint insertion, movement,
-// and application to the world grid.
+// Primitive-based sticker helpers for shape-first editing.
 // ========================================================
 
 import type { WorldBrain, Sticker } from '../../core/worldSchema';
 
 export type StickerToolType = 'BIOME' | 'CULTURE' | 'HEIGHT';
-
+export type StickerPrimitive = 'circle' | 'square' | 'rectangle' | 'triangle' | 'polygon';
 export type LatLonPoint = { lat: number; lon: number };
 
 export const STICKER_TEMPLATES: Record<string, any> = {
@@ -61,6 +59,26 @@ export function latLonToScreen(
   return { x, y };
 }
 
+export function createPrimitive(
+  primitive: StickerPrimitive,
+  center: LatLonPoint
+): LatLonPoint[] {
+  switch (primitive) {
+    case 'circle':
+      return createCirclePrimitive(center, 14, 12);
+    case 'square':
+      return createRectanglePrimitive(center, 12, 12);
+    case 'rectangle':
+      return createRectanglePrimitive(center, 16, 10);
+    case 'triangle':
+      return createTrianglePrimitive(center, 16, 12);
+    case 'polygon':
+      return createRectanglePrimitive(center, 14, 10);
+    default:
+      return createRectanglePrimitive(center, 16, 10);
+  }
+}
+
 export function createRectanglePrimitive(
   center: LatLonPoint,
   halfWidthDeg = 14,
@@ -77,6 +95,35 @@ export function createRectanglePrimitive(
     { lat: bottom, lon: right },
     { lat: bottom, lon: left },
   ];
+}
+
+export function createTrianglePrimitive(
+  center: LatLonPoint,
+  halfWidthDeg = 16,
+  halfHeightDeg = 12
+): LatLonPoint[] {
+  return [
+    { lat: clamp(center.lat + halfHeightDeg, -90, 90), lon: wrapLon(center.lon) },
+    { lat: clamp(center.lat - halfHeightDeg, -90, 90), lon: wrapLon(center.lon + halfWidthDeg) },
+    { lat: clamp(center.lat - halfHeightDeg, -90, 90), lon: wrapLon(center.lon - halfWidthDeg) },
+  ];
+}
+
+export function createCirclePrimitive(
+  center: LatLonPoint,
+  radiusLonDeg = 14,
+  radiusLatDeg = 12,
+  segments = 20
+): LatLonPoint[] {
+  const pts: LatLonPoint[] = [];
+  for (let i = 0; i < segments; i++) {
+    const t = (i / segments) * Math.PI * 2;
+    pts.push({
+      lat: clamp(center.lat + Math.sin(t) * radiusLatDeg, -90, 90),
+      lon: wrapLon(center.lon + Math.cos(t) * radiusLonDeg),
+    });
+  }
+  return pts;
 }
 
 export function getPolygonCentroid(points: LatLonPoint[]): LatLonPoint {
@@ -104,6 +151,18 @@ export function movePolygon(
   return points.map((p) => ({
     lat: clamp(p.lat + deltaLat, -90, 90),
     lon: wrapLon(p.lon + deltaLon),
+  }));
+}
+
+export function scalePolygonFromCenter(
+  points: LatLonPoint[],
+  center: LatLonPoint,
+  scaleX: number,
+  scaleY: number
+): LatLonPoint[] {
+  return points.map((p) => ({
+    lat: clamp(center.lat + (p.lat - center.lat) * scaleY, -90, 90),
+    lon: wrapLon(center.lon + (p.lon - center.lon) * scaleX),
   }));
 }
 
@@ -169,6 +228,44 @@ export function findNearestEdgeMidpointScreen(
   }
 
   return bestIndex;
+}
+
+export function getBoundingBox(points: LatLonPoint[]) {
+  if (points.length === 0) {
+    return { minLat: 0, maxLat: 0, minLon: 0, maxLon: 0 };
+  }
+
+  let minLat = points[0].lat;
+  let maxLat = points[0].lat;
+  let minLon = points[0].lon;
+  let maxLon = points[0].lon;
+
+  for (const p of points) {
+    minLat = Math.min(minLat, p.lat);
+    maxLat = Math.max(maxLat, p.lat);
+    minLon = Math.min(minLon, p.lon);
+    maxLon = Math.max(maxLon, p.lon);
+  }
+
+  return { minLat, maxLat, minLon, maxLon };
+}
+
+export function getBoundingHandlePoints(points: LatLonPoint[]) {
+  const box = getBoundingBox(points);
+  const centerLat = (box.minLat + box.maxLat) / 2;
+  const centerLon = wrapLon((box.minLon + box.maxLon) / 2);
+
+  return {
+    nw: { lat: box.maxLat, lon: box.minLon },
+    ne: { lat: box.maxLat, lon: box.maxLon },
+    se: { lat: box.minLat, lon: box.maxLon },
+    sw: { lat: box.minLat, lon: box.minLon },
+    n: { lat: box.maxLat, lon: centerLon },
+    e: { lat: centerLat, lon: box.maxLon },
+    s: { lat: box.minLat, lon: centerLon },
+    w: { lat: centerLat, lon: box.minLon },
+    center: { lat: centerLat, lon: centerLon },
+  };
 }
 
 export function isPointInPolygonNormalized(

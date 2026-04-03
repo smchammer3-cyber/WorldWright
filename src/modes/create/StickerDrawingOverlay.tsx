@@ -1,29 +1,27 @@
 // ========================================================
-// WORLDWRIGHT -- STICKER DRAWING OVERLAY (V1.3 SHAPE-FIRST)
+// WORLDWRIGHT -- STICKER DRAWING OVERLAY (V1.3 SELECTION BOX)
 // File: src/modes/create/StickerDrawingOverlay.tsx
 //
-// Replaces raw point-plotting with shape-first sticker creation:
-// - first click spawns a visible rectangle
-// - corner handles reshape it
-// - midpoint handles add detail
-// - center handle moves it
-// - inspector selects biome / mode / falloff
+// Primitive palette + visible selection handles + bounding box feel.
 // ========================================================
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { WorldBrain } from '../../core/worldSchema';
 import {
   applyStickerToWorld,
-  createRectanglePrimitive,
+  createPrimitive,
   createSticker,
   findNearestEdgeMidpointScreen,
   findNearestVertexScreen,
+  getBoundingHandlePoints,
   getPolygonCentroid,
   insertMidpoint,
   latLonToScreen,
   movePolygon,
+  scalePolygonFromCenter,
   screenToLatLon,
   type LatLonPoint,
+  type StickerPrimitive,
   type StickerToolType,
 } from './StickerPolygonEditor';
 import BiomeValidationModal, { validateBiomePlacement } from './BiomeValidationModal';
@@ -38,14 +36,29 @@ type Props = {
 type DragMode =
   | { kind: 'vertex'; index: number }
   | { kind: 'move'; start: LatLonPoint; original: LatLonPoint[] }
+  | {
+      kind: 'scale';
+      handle: 'nw' | 'ne' | 'se' | 'sw' | 'n' | 'e' | 's' | 'w';
+      start: LatLonPoint;
+      original: LatLonPoint[];
+      center: LatLonPoint;
+    }
   | null;
 
 const BIOME_OPTIONS = [
-  { id: 1, label: 'Polar / Tundra', color: 'rgba(210,230,255,0.35)' },
-  { id: 3, label: 'Temperate Grassland', color: 'rgba(180,210,120,0.35)' },
-  { id: 4, label: 'Desert', color: 'rgba(230,200,120,0.35)' },
-  { id: 5, label: 'Rainforest / Lush', color: 'rgba(70,180,90,0.35)' },
-  { id: 6, label: 'Mountain / Alpine', color: 'rgba(170,170,180,0.35)' },
+  { id: 1, label: 'Polar / Tundra', color: 'rgba(210,230,255,0.34)' },
+  { id: 3, label: 'Temperate Grassland', color: 'rgba(175,215,120,0.34)' },
+  { id: 4, label: 'Desert', color: 'rgba(235,205,120,0.34)' },
+  { id: 5, label: 'Rainforest / Lush', color: 'rgba(70,185,95,0.34)' },
+  { id: 6, label: 'Mountain / Alpine', color: 'rgba(175,175,185,0.34)' },
+];
+
+const PRIMITIVE_OPTIONS: Array<{ id: StickerPrimitive; label: string }> = [
+  { id: 'circle', label: 'Circle' },
+  { id: 'square', label: 'Square' },
+  { id: 'rectangle', label: 'Rectangle' },
+  { id: 'triangle', label: 'Triangle' },
+  { id: 'polygon', label: 'Polygon' },
 ];
 
 function getStickerTitle(tool: StickerToolType | null | undefined): string {
@@ -60,10 +73,10 @@ function getOverlayFillColor(
   biomeId: number
 ): string {
   if (tool === 'BIOME') {
-    return BIOME_OPTIONS.find((b) => b.id === biomeId)?.color ?? 'rgba(70,180,90,0.35)';
+    return BIOME_OPTIONS.find((b) => b.id === biomeId)?.color ?? 'rgba(70,185,95,0.34)';
   }
-  if (tool === 'CULTURE') return 'rgba(180,120,220,0.28)';
-  if (tool === 'HEIGHT') return 'rgba(220,140,80,0.28)';
+  if (tool === 'CULTURE') return 'rgba(180,120,220,0.26)';
+  if (tool === 'HEIGHT') return 'rgba(220,145,85,0.26)';
   return 'rgba(100,200,255,0.22)';
 }
 
@@ -79,6 +92,7 @@ export default function StickerDrawingOverlay({
   const [polygon, setPolygon] = useState<LatLonPoint[]>([]);
   const [dragMode, setDragMode] = useState<DragMode>(null);
 
+  const [selectedPrimitive, setSelectedPrimitive] = useState<StickerPrimitive>('rectangle');
   const [selectedBiomeId, setSelectedBiomeId] = useState<number>(5);
   const [selectedMode, setSelectedMode] = useState<'WORLD_RULES' | 'OVERRIDE'>('OVERRIDE');
   const [selectedFalloff, setSelectedFalloff] = useState<number>(0.15);
@@ -87,7 +101,6 @@ export default function StickerDrawingOverlay({
   const [showValidation, setShowValidation] = useState(false);
 
   const hasShape = polygon.length >= 3;
-
   const fillColor = useMemo(
     () => getOverlayFillColor(activeStickerTool, selectedBiomeId),
     [activeStickerTool, selectedBiomeId]
@@ -113,84 +126,109 @@ export default function StickerDrawingOverlay({
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (!hasShape) return;
 
-    // Filled region
+    const toLocal = (p: LatLonPoint) => {
+      const s = latLonToScreen(p.lat, p.lon, rect);
+      return { x: s.x - rect.left, y: s.y - rect.top };
+    };
+
+    // shape fill
     ctx.beginPath();
-    const first = latLonToScreen(polygon[0].lat, polygon[0].lon, rect);
-    ctx.moveTo(first.x - rect.left, first.y - rect.top);
-
+    const first = toLocal(polygon[0]);
+    ctx.moveTo(first.x, first.y);
     for (let i = 1; i < polygon.length; i++) {
-      const p = latLonToScreen(polygon[i].lat, polygon[i].lon, rect);
-      ctx.lineTo(p.x - rect.left, p.y - rect.top);
+      const p = toLocal(polygon[i]);
+      ctx.lineTo(p.x, p.y);
     }
-
     ctx.closePath();
     ctx.fillStyle = fillColor;
-    ctx.strokeStyle = 'rgba(110, 210, 255, 0.95)';
+    ctx.strokeStyle = 'rgba(110,210,255,0.98)';
     ctx.lineWidth = 2.5;
     ctx.fill();
     ctx.stroke();
 
-    // Midpoint handles
+    // dashed selection boundary feel
+    ctx.save();
+    ctx.setLineDash([8, 6]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.78)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+
+    // midpoint handles
     for (let i = 0; i < polygon.length; i++) {
-      const a = latLonToScreen(polygon[i].lat, polygon[i].lon, rect);
-      const b = latLonToScreen(
-        polygon[(i + 1) % polygon.length].lat,
-        polygon[(i + 1) % polygon.length].lon,
-        rect
-      );
-      const midX = (a.x + b.x) / 2 - rect.left;
-      const midY = (a.y + b.y) / 2 - rect.top;
+      const a = toLocal(polygon[i]);
+      const b = toLocal(polygon[(i + 1) % polygon.length]);
+      const midX = (a.x + b.x) / 2;
+      const midY = (a.y + b.y) / 2;
 
       ctx.fillStyle = 'rgba(255,255,255,0.95)';
-      ctx.strokeStyle = 'rgba(30,30,40,0.75)';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(20,20,30,0.75)';
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
       ctx.rect(midX - 4, midY - 4, 8, 8);
       ctx.fill();
       ctx.stroke();
     }
 
-    // Corner handles
+    // vertex handles
     for (let i = 0; i < polygon.length; i++) {
-      const p = latLonToScreen(polygon[i].lat, polygon[i].lon, rect);
-      const x = p.x - rect.left;
-      const y = p.y - rect.top;
-
-      ctx.fillStyle = 'rgba(255, 120, 120, 0.98)';
+      const p = toLocal(polygon[i]);
+      ctx.fillStyle = 'rgba(255,120,120,0.98)';
       ctx.strokeStyle = 'rgba(255,255,255,0.95)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(x, y, 7, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 6.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
     }
 
-    // Center move handle
-    const centroid = getPolygonCentroid(polygon);
-    const c = latLonToScreen(centroid.lat, centroid.lon, rect);
-    const cx = c.x - rect.left;
-    const cy = c.y - rect.top;
+    // bounding handles
+    const handles = getBoundingHandlePoints(polygon);
+    const drawSquareHandle = (
+      point: LatLonPoint,
+      size = 10,
+      fill = 'rgba(255,255,255,0.96)'
+    ) => {
+      const p = toLocal(point);
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = 'rgba(20,20,30,0.78)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.rect(p.x - size / 2, p.y - size / 2, size, size);
+      ctx.fill();
+      ctx.stroke();
+    };
 
-    ctx.fillStyle = 'rgba(90,255,140,0.98)';
+    drawSquareHandle(handles.nw);
+    drawSquareHandle(handles.ne);
+    drawSquareHandle(handles.se);
+    drawSquareHandle(handles.sw);
+    drawSquareHandle(handles.n, 8, 'rgba(215,245,255,0.96)');
+    drawSquareHandle(handles.e, 8, 'rgba(215,245,255,0.96)');
+    drawSquareHandle(handles.s, 8, 'rgba(215,245,255,0.96)');
+    drawSquareHandle(handles.w, 8, 'rgba(215,245,255,0.96)');
+
+    // center move handle
+    const c = toLocal(handles.center);
+    ctx.fillStyle = 'rgba(90,255,145,0.98)';
     ctx.strokeStyle = 'rgba(255,255,255,0.95)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+    ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
     ctx.strokeStyle = 'rgba(20,20,30,0.8)';
-    ctx.lineWidth = 1.25;
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.moveTo(cx - 5, cy);
-    ctx.lineTo(cx + 5, cy);
-    ctx.moveTo(cx, cy - 5);
-    ctx.lineTo(cx, cy + 5);
+    ctx.moveTo(c.x - 5, c.y);
+    ctx.lineTo(c.x + 5, c.y);
+    ctx.moveTo(c.x, c.y - 5);
+    ctx.lineTo(c.x, c.y + 5);
     ctx.stroke();
   }, [polygon, hasShape, fillColor]);
 
@@ -198,7 +236,27 @@ export default function StickerDrawingOverlay({
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const center = screenToLatLon(clientX, clientY, rect);
-    setPolygon(createRectanglePrimitive(center));
+    setPolygon(createPrimitive(selectedPrimitive, center));
+  };
+
+  const findScaleHandle = (
+    clientX: number,
+    clientY: number
+  ): 'nw' | 'ne' | 'se' | 'sw' | 'n' | 'e' | 's' | 'w' | null => {
+    if (!containerRef.current || !hasShape) return null;
+    const rect = containerRef.current.getBoundingClientRect();
+    const handles = getBoundingHandlePoints(polygon);
+    const order: Array<'nw' | 'ne' | 'se' | 'sw' | 'n' | 'e' | 's' | 'w'> = [
+      'nw', 'ne', 'se', 'sw', 'n', 'e', 's', 'w'
+    ];
+
+    for (const key of order) {
+      const p = latLonToScreen(handles[key].lat, handles[key].lon, rect);
+      const dist = Math.hypot(clientX - p.x, clientY - p.y);
+      if (dist <= (key.length === 1 ? 8 : 10)) return key;
+    }
+
+    return null;
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -217,13 +275,23 @@ export default function StickerDrawingOverlay({
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!containerRef.current || !hasShape) return;
-
     const rect = containerRef.current.getBoundingClientRect();
 
-    const centroid = getPolygonCentroid(polygon);
-    const c = latLonToScreen(centroid.lat, centroid.lon, rect);
-    const centerDist = Math.hypot(e.clientX - c.x, e.clientY - c.y);
+    const scaleHandle = findScaleHandle(e.clientX, e.clientY);
+    if (scaleHandle) {
+      setDragMode({
+        kind: 'scale',
+        handle: scaleHandle,
+        start: screenToLatLon(e.clientX, e.clientY, rect),
+        original: polygon,
+        center: getPolygonCentroid(polygon),
+      });
+      return;
+    }
 
+    const handles = getBoundingHandlePoints(polygon);
+    const centerScreen = latLonToScreen(handles.center.lat, handles.center.lon, rect);
+    const centerDist = Math.hypot(e.clientX - centerScreen.x, e.clientY - centerScreen.y);
     if (centerDist <= 12) {
       setDragMode({
         kind: 'move',
@@ -257,6 +325,25 @@ export default function StickerDrawingOverlay({
       const deltaLat = latLon.lat - dragMode.start.lat;
       const deltaLon = latLon.lon - dragMode.start.lon;
       setPolygon(movePolygon(dragMode.original, deltaLat, deltaLon));
+      return;
+    }
+
+    if (dragMode.kind === 'scale') {
+      const startDx = dragMode.start.lon - dragMode.center.lon;
+      const startDy = dragMode.start.lat - dragMode.center.lat;
+      const curDx = latLon.lon - dragMode.center.lon;
+      const curDy = latLon.lat - dragMode.center.lat;
+
+      const sx = Math.abs(startDx) < 0.001 ? 1 : Math.max(0.15, Math.abs(curDx / startDx));
+      const sy = Math.abs(startDy) < 0.001 ? 1 : Math.max(0.15, Math.abs(curDy / startDy));
+
+      let scaleX = sx;
+      let scaleY = sy;
+
+      if (dragMode.handle === 'n' || dragMode.handle === 's') scaleX = 1;
+      if (dragMode.handle === 'e' || dragMode.handle === 'w') scaleY = 1;
+
+      setPolygon(scalePolygonFromCenter(dragMode.original, dragMode.center, scaleX, scaleY));
     }
   };
 
@@ -268,8 +355,8 @@ export default function StickerDrawingOverlay({
     if (!world || !activeStickerTool || polygon.length < 3) return;
 
     const stickerId = `sticker_${Date.now()}`;
-
     let payload: any = {};
+
     if (activeStickerTool === 'BIOME') {
       payload.biomeId = selectedBiomeId;
 
@@ -324,9 +411,7 @@ export default function StickerDrawingOverlay({
     onCancel?.();
   };
 
-  if (!activeStickerTool) {
-    return null;
-  }
+  if (!activeStickerTool) return null;
 
   return (
     <div
@@ -357,13 +442,13 @@ export default function StickerDrawingOverlay({
           position: 'absolute',
           top: 16,
           left: 16,
-          background: 'rgba(8,10,16,0.92)',
+          background: 'rgba(8,10,16,0.93)',
           color: 'rgba(255,255,255,0.96)',
           padding: '14px 16px',
           borderRadius: 10,
           fontSize: 12,
           zIndex: 1001,
-          width: 340,
+          width: 360,
           border: '1px solid rgba(110,210,255,0.28)',
           boxShadow: '0 14px 28px rgba(0,0,0,0.28)',
         }}
@@ -372,14 +457,39 @@ export default function StickerDrawingOverlay({
           {getStickerTitle(activeStickerTool)}
         </div>
 
+        <div style={{ fontSize: 11, opacity: 0.8, marginBottom: 6 }}>Primitive</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          {PRIMITIVE_OPTIONS.map((option) => (
+            <button
+              key={option.id}
+              onClick={() => setSelectedPrimitive(option.id)}
+              style={{
+                padding: '7px 10px',
+                borderRadius: 8,
+                border: '1px solid rgba(255,255,255,0.14)',
+                background:
+                  selectedPrimitive === option.id
+                    ? 'rgba(110,210,255,0.16)'
+                    : 'rgba(255,255,255,0.06)',
+                color: 'rgba(255,255,255,0.96)',
+                cursor: 'pointer',
+                fontSize: 11,
+                fontWeight: 700,
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
         {!hasShape ? (
           <div style={{ opacity: 0.86, lineHeight: 1.5, marginBottom: 12 }}>
-            Click once on the map to spawn a shape. Then drag corner handles, drag the green center
-            handle to move it, or tap edge handles to add more control points.
+            Click once on the map to spawn a {selectedPrimitive}. Then drag the selection handles to resize,
+            drag red points to reshape, or drag the green center handle to move it.
           </div>
         ) : (
           <div style={{ opacity: 0.86, lineHeight: 1.5, marginBottom: 12 }}>
-            Shape spawned. Adjust handles, then apply the sticker to the world.
+            Selected shape is active. Resize with the white handles, refine using edge/vertex handles, then apply.
           </div>
         )}
 
@@ -404,20 +514,6 @@ export default function StickerDrawingOverlay({
                 </option>
               ))}
             </select>
-          </div>
-        )}
-
-        {activeStickerTool === 'HEIGHT' && (
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, opacity: 0.78, marginBottom: 6 }}>Terrain Bias</div>
-            <div style={{ opacity: 0.8 }}>Current preset: Broad uplift zone</div>
-          </div>
-        )}
-
-        {activeStickerTool === 'CULTURE' && (
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, opacity: 0.78, marginBottom: 6 }}>Culture Region</div>
-            <div style={{ opacity: 0.8 }}>Current preset: Culture influence zone</div>
           </div>
         )}
 
