@@ -1,8 +1,9 @@
 // ========================================================
-// WORLDWRIGHT -- STICKER POLYGON EDITOR (V1.3 PRIMITIVES)
+// WORLDWRIGHT -- STICKER POLYGON EDITOR (V1.3 PRIMITIVES FIXED)
 // File: src/modes/create/StickerPolygonEditor.ts
 //
 // Primitive-based sticker helpers for shape-first editing.
+// FIXED: stickers now store raw lat/lon coordinates to match schema.
 // ========================================================
 
 import type { WorldBrain, Sticker } from '../../core/worldSchema';
@@ -268,7 +269,63 @@ export function getBoundingHandlePoints(points: LatLonPoint[]) {
   };
 }
 
-export function isPointInPolygonNormalized(
+export function createSticker(
+  id: string,
+  type: StickerToolType,
+  vertices: LatLonPoint[],
+  mode: 'WORLD_RULES' | 'OVERRIDE',
+  payload: any,
+  falloff = 0.15
+): Sticker {
+  return {
+    id,
+    name: `${type} Sticker`,
+    type,
+    mode,
+    polygon: vertices.map((v) => ({
+      lat: clamp(v.lat, -90, 90),
+      lon: wrapLon(v.lon),
+    })),
+    falloff,
+    payload,
+  };
+}
+
+export function applyStickerToWorld(world: WorldBrain, sticker: Sticker): void {
+  if (!world.stickers) {
+    world.stickers = [];
+  }
+
+  world.stickers.push(sticker);
+
+  const { gridWidth, gridHeight } = world;
+
+  for (let y = 0; y < gridHeight; y++) {
+    for (let x = 0; x < gridWidth; x++) {
+      const cellLat = 90 - ((y + 0.5) / gridHeight) * 180;
+      const cellLon = ((x + 0.5) / gridWidth) * 360 - 180;
+
+      if (!isPointInPolygonLatLon(cellLat, cellLon, sticker.polygon)) continue;
+
+      const index = y * gridWidth + x;
+      const cell = world.cells[index];
+      if (!cell) continue;
+
+      if (sticker.type === 'BIOME' && sticker.payload.biomeId != null) {
+        cell.editBiomeId = sticker.payload.biomeId;
+      } else if (sticker.type === 'HEIGHT' && typeof sticker.payload.heightDelta === 'number') {
+        cell.editHeightDelta = Math.max(
+          -1,
+          Math.min(1, cell.editHeightDelta + sticker.payload.heightDelta)
+        );
+      } else if (sticker.type === 'CULTURE' && sticker.payload.cultureId) {
+        cell.cultureId = sticker.payload.cultureId;
+      }
+    }
+  }
+}
+
+function isPointInPolygonLatLon(
   lat: number,
   lon: number,
   vertices: Array<{ lat: number; lon: number }>
@@ -291,64 +348,6 @@ export function isPointInPolygonNormalized(
   }
 
   return inside;
-}
-
-export function createSticker(
-  id: string,
-  type: StickerToolType,
-  vertices: LatLonPoint[],
-  mode: 'WORLD_RULES' | 'OVERRIDE',
-  payload: any,
-  falloff = 0.15
-): Sticker {
-  const normalizedVertices = vertices.map((v) => ({
-    lat: (v.lat + 90) / 180,
-    lon: (wrapLon(v.lon) + 180) / 360,
-  }));
-
-  return {
-    id,
-    name: `${type} Sticker`,
-    type,
-    mode,
-    polygon: normalizedVertices,
-    falloff,
-    payload,
-  };
-}
-
-export function applyStickerToWorld(world: WorldBrain, sticker: Sticker): void {
-  if (!world.stickers) {
-    world.stickers = [];
-  }
-
-  world.stickers.push(sticker);
-
-  const { gridWidth, gridHeight } = world;
-
-  for (let y = 0; y < gridHeight; y++) {
-    for (let x = 0; x < gridWidth; x++) {
-      const cellLat = y / gridHeight;
-      const cellLon = x / gridWidth;
-
-      if (!isPointInPolygonNormalized(cellLat, cellLon, sticker.polygon)) continue;
-
-      const index = y * gridWidth + x;
-      const cell = world.cells[index];
-      if (!cell) continue;
-
-      if (sticker.type === 'BIOME' && sticker.payload.biomeId != null) {
-        cell.editBiomeId = sticker.payload.biomeId;
-      } else if (sticker.type === 'HEIGHT' && typeof sticker.payload.heightDelta === 'number') {
-        cell.editHeightDelta = Math.max(
-          -1,
-          Math.min(1, cell.editHeightDelta + sticker.payload.heightDelta)
-        );
-      } else if (sticker.type === 'CULTURE' && sticker.payload.cultureId) {
-        cell.cultureId = sticker.payload.cultureId;
-      }
-    }
-  }
 }
 
 function wrapLon(lon: number): number {
