@@ -1,18 +1,17 @@
 // ========================================================
-// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 SPHERICAL OWNERSHIP)
+// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 SPHERICAL OWNERSHIP / LOCAL BOUNDARY PROXIMITY)
 // File: src/core/tectonicsSystem/index.ts
 //
 // Purpose:
 // - provide a tectonic field source of truth
-// - replace toroidal/grid ownership with spherical ownership
+// - keep spherical plate ownership
 // - classify boundaries using relative plate motion
-// - compute per-cell boundary proximity / uplift field
+// - replace projected BFS boundary distance with local angular boundary proximity
 //
 // Notes:
-// - This pass fixes geometry first.
-// - Ownership is based on nearest plate seed on the sphere.
-// - Boundary distance is derived from actual unlike-plate adjacency,
-//   not from seed-gap heuristics.
+// - Ownership remains nearest plate seed on the sphere.
+// - Boundary cells are still derived from actual unlike-plate adjacency.
+// - distanceToBoundary is now a local geometric heuristic, not BFS steps.
 // ========================================================
 
 import type { Plate, PlateType, BoundaryType } from '../worldSchema';
@@ -41,10 +40,10 @@ export interface TectonicsField {
   plateId: number;
   plateType: PlateType;
   boundaryType: BoundaryType;
-  upliftRate: number; // negative = trench/rift pull, positive = uplift
-  boundaryStrength: number; // 0..1
-  compression: number; // -1..1
-  distanceToBoundary: number; // 0..1
+  upliftRate: number;
+  boundaryStrength: number;
+  compression: number;
+  distanceToBoundary: number;
   isBoundary: boolean;
 }
 
@@ -54,9 +53,6 @@ export interface TectonicsResult {
   seeds: PlateSeed[];
 }
 
-/**
- * Generate tectonic plates with better spread and explicit continental/oceanic intent.
- */
 export function generatePlates(
   gridWidth: number,
   gridHeight: number,
@@ -86,13 +82,6 @@ export function generatePlates(
   return shuffleInPlace(plates, rng);
 }
 
-/**
- * Full tectonics solve:
- * - generates well-spaced seeds on the sphere
- * - assigns cells by nearest spherical seed
- * - classifies boundaries using relative plate motion
- * - computes per-cell boundary proximity / uplift field
- */
 export function buildTectonicsField(
   gridWidth: number,
   gridHeight: number,
@@ -107,9 +96,6 @@ export function buildTectonicsField(
   return { plates, fields, seeds };
 }
 
-/**
- * Backward-compatible entry point. If seeds are not provided, they will be generated.
- */
 export function assignPlatesToCells(
   gridWidth: number,
   gridHeight: number,
@@ -166,12 +152,9 @@ export function assignPlatesToCells(
   }
 
   // ----------------------------------------------------
-  // Mark real boundary cells from unlike-plate adjacency
+  // Detect actual boundary cells and classify them
   // ----------------------------------------------------
-  const boundaryDistanceSteps = new Int32Array(cells.length);
-  boundaryDistanceSteps.fill(-1);
-
-  const boundaryQueue: number[] = [];
+  const boundaryIndices: number[] = [];
 
   for (let row = 0; row < gridHeight; row++) {
     for (let col = 0; col < gridWidth; col++) {
@@ -202,7 +185,6 @@ export function assignPlatesToCells(
           myPlate.velocity[1] - nPlate.velocity[1],
         ];
 
-        // Positive = compressing toward each other, negative = separating
         const convergence = -dot2(relativeVelocity, normal);
         const boundaryType = classifyBoundary(myPlate.type, nPlate.type, convergence);
         const boundaryScore = Math.abs(convergence);
@@ -221,7 +203,7 @@ export function assignPlatesToCells(
         field.compression = strongestCompression;
         field.boundaryStrength = clamp01(
           unlikeNeighborCount / Math.max(1, neighborIndices.length) * 0.55 +
-          strongestBoundaryScore * 0.45
+            strongestBoundaryScore * 0.45
         );
         field.distanceToBoundary = 0;
         field.upliftRate = computeUpliftRate(
@@ -231,48 +213,69 @@ export function assignPlatesToCells(
           myPlate.type
         );
 
-        boundaryDistanceSteps[idx] = 0;
-        boundaryQueue.push(idx);
+        boundaryIndices.push(idx);
       }
     }
   }
 
   // ----------------------------------------------------
-  // Multi-source BFS distance from actual boundaries
+  // Local angular boundary proximity heuristic
   // ----------------------------------------------------
-  let queueHead = 0;
-  while (queueHead < boundaryQueue.length) {
-    const idx = boundaryQueue[queueHead++];
-    const step = boundaryDistanceSteps[idx];
+  // This replaces projected-grid BFS step distance.
+  // We search within a bounded row window and measure true angular distance
+  // to actual boundary cells, then normalize that to 0..1.
+  //
+  // Result:
+  // - boundary cells remain 0
+  // - nearby cells get smooth geometric falloff
+  // - polar projection step artifacts are reduced
+  // ----------------------------------------------------
+  const maxAngularDistance = Math.PI * 0.22; // local tectonic influence radius
+  const searchRowRadius = Math.max(8, Math.floor(gridHeight * 0.14));
 
-    const row = Math.floor(idx / gridWidth);
-    const col = idx % gridWidth;
-    const myPlateId = plateMap[idx];
+  for (let row = 0; row < gridHeight; row++) {
+    for (let col = 0; col < gridWidth; col++) {
+      const idx = row * gridWidth + col;
+      const field = fields[idx];
 
-    const neighborIndices = getNeighborIndices(row, col, gridWidth, gridHeight);
+      if (field.isBoundary) continue;
 
-    for (const nIdx of neighborIndices) {
-      if (plateMap[nIdx] !== myPlateId) continue;
-      if (boundaryDistanceSteps[nIdx] !== -1) continue;
+      const myPlateId = field.plateId;
+      const myDir = cellDirs[idx];
 
-      boundaryDistanceSteps[nIdx] = step + 1;
-      boundaryQueue.push(nIdx);
-    }
-  }
+      let bestAngular = Infinity;
+      let localBoundaryStrength = 0;
 
-  const maxBoundarySteps = Math.max(6, Math.floor(Math.min(gridWidth, gridHeight) * 0.14));
+      const rMin = Math.max(0, row - searchRowRadius);
+      const rMax = Math.min(gridHeight - 1, row + searchRowRadius);
 
-  for (let i = 0; i < fields.length; i++) {
-    const field = fields[i];
-    const steps = boundaryDistanceSteps[i];
+      for (let rr = rMin; rr <= rMax; rr++) {
+        for (let cc = 0; cc < gridWidth; cc++) {
+          const bIdx = rr * gridWidth + cc;
+          const bField = fields[bIdx];
+          if (!bField.isBoundary) continue;
+          if (bField.plateId !== myPlateId) continue;
 
-    if (steps < 0) {
-      field.distanceToBoundary = 1;
-      field.boundaryStrength = Math.max(field.boundaryStrength, 0);
-    } else {
-      field.distanceToBoundary = clamp01(steps / maxBoundarySteps);
-      if (!field.isBoundary) {
-        field.boundaryStrength = Math.max(field.boundaryStrength, clamp01(1 - field.distanceToBoundary));
+          const d = angularDistance(myDir, cellDirs[bIdx]);
+          if (d < bestAngular) {
+            bestAngular = d;
+          }
+
+          if (d <= maxAngularDistance) {
+            localBoundaryStrength = Math.max(
+              localBoundaryStrength,
+              bField.boundaryStrength * clamp01(1 - d / maxAngularDistance)
+            );
+          }
+        }
+      }
+
+      if (Number.isFinite(bestAngular)) {
+        field.distanceToBoundary = clamp01(bestAngular / maxAngularDistance);
+        field.boundaryStrength = Math.max(field.boundaryStrength, localBoundaryStrength);
+      } else {
+        field.distanceToBoundary = 1;
+        field.boundaryStrength = Math.max(field.boundaryStrength, 0);
       }
     }
   }
@@ -294,10 +297,6 @@ export function assignPlatesToCells(
   return fields;
 }
 
-/**
- * Apply uplift directly onto cells. Keep this moderate because worldGenerator
- * should still own final terrain composition.
- */
 export function applyTectonicUplift(
   cells: any[],
   tectonicsFields: TectonicsField[],
@@ -322,9 +321,6 @@ export function applyTectonicUplift(
   }
 }
 
-/**
- * Build deterministic, better-spaced seeds on the sphere.
- */
 function createPlateSeeds(
   gridWidth: number,
   gridHeight: number,
@@ -332,7 +328,7 @@ function createPlateSeeds(
   rng: () => number
 ): PlateSeed[] {
   const seeds: PlateSeed[] = [];
-  const minAngularDistance = 0.42; // radians; moderate separation
+  const minAngularDistance = 0.42;
 
   for (const plate of plates) {
     let bestRow = Math.floor(rng() * gridHeight);
@@ -342,7 +338,6 @@ function createPlateSeeds(
     let bestDir = latLonToUnitVector(bestLat, bestLon);
     let bestScore = -Infinity;
 
-    // Poisson-ish candidate search on sphere
     for (let attempt = 0; attempt < 48; attempt++) {
       const row = Math.floor(rng() * gridHeight);
       const col = Math.floor(rng() * gridWidth);
@@ -488,10 +483,6 @@ function angularDistance(a: Vec3, b: Vec3): number {
   return Math.acos(clamp(dot3(a, b), -1, 1));
 }
 
-/**
- * Build a simple local 2D tangent-ish direction from one spherical cell to a neighboring one.
- * This is a lightweight geometric improvement over row/col wrapped direction.
- */
 function projectNeighborDirectionToLocalTangent(fromDir: Vec3, toDir: Vec3): Vec2 {
   const east = normalize3([-fromDir[2], 0, fromDir[0]]);
   const north = normalize3(cross3(fromDir, east));
