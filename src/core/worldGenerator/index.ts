@@ -45,7 +45,7 @@ export type GeneratorParams = {
 type Vec3 = [number, number, number];
 type DebugStage = 'FINAL' | 'LANDFIELD' | 'MASK_PRE' | 'MASK_POST' | 'HEIGHT';
 
-const DEBUG_STAGE: DebugStage = 'LANDFIELD';
+const DEBUG_STAGE: DebugStage = 'MASK_Pre';
 const DEBUG_LOCK_SEED = true;
 const DEBUG_FIXED_SEED: number | string = 123456;
 
