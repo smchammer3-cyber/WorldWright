@@ -1,13 +1,18 @@
 // ========================================================
-// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 UPGRADED)
+// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 SPHERICAL OWNERSHIP)
 // File: src/core/tectonicsSystem/index.ts
 //
 // Purpose:
-// - provide a real tectonic field source of truth
-// - generate better-distributed plates
-// - assign per-cell plate ownership
-// - classify boundaries with stronger semantics
-// - expose uplift/trench/ridge influence that worldGenerator can use
+// - provide a tectonic field source of truth
+// - replace toroidal/grid ownership with spherical ownership
+// - classify boundaries using relative plate motion
+// - compute per-cell boundary proximity / uplift field
+//
+// Notes:
+// - This pass fixes geometry first.
+// - Ownership is based on nearest plate seed on the sphere.
+// - Boundary distance is derived from actual unlike-plate adjacency,
+//   not from seed-gap heuristics.
 // ========================================================
 
 import type { Plate, PlateType, BoundaryType } from '../worldSchema';
@@ -17,11 +22,15 @@ import {
 } from '../worldSchema';
 
 type Vec2 = [number, number];
+type Vec3 = [number, number, number];
 
 type PlateSeed = {
   plateId: number;
   row: number;
   col: number;
+  lat: number;
+  lon: number;
+  dir: Vec3;
   type: PlateType;
   velocity: Vec2;
   driftAxis: Vec2;
@@ -79,8 +88,8 @@ export function generatePlates(
 
 /**
  * Full tectonics solve:
- * - generates well-spaced seeds
- * - assigns cells by wrapped toroidal Voronoi
+ * - generates well-spaced seeds on the sphere
+ * - assigns cells by nearest spherical seed
  * - classifies boundaries using relative plate motion
  * - computes per-cell boundary proximity / uplift field
  */
@@ -115,79 +124,78 @@ export function assignPlatesToCells(
 
   const fields: TectonicsField[] = new Array(cells.length);
   const plateMap = new Array<number>(cells.length).fill(-1);
+  const cellDirs: Vec3[] = new Array(cells.length);
 
+  // ----------------------------------------------------
+  // Ownership by nearest spherical seed
+  // ----------------------------------------------------
   for (let row = 0; row < gridHeight; row++) {
+    const lat = rowToLat(row, gridHeight);
+
     for (let col = 0; col < gridWidth; col++) {
       const idx = row * gridWidth + col;
+      const lon = colToLon(col, gridWidth);
+      const cellDir = latLonToUnitVector(lat, lon);
+      cellDirs[idx] = cellDir;
 
       let bestSeed = localSeeds[0];
-      let bestDist = Infinity;
-      let secondBestDist = Infinity;
+      let bestDot = -Infinity;
 
       for (const seed of localSeeds) {
-        const d = wrappedGridDistance(row, col, seed.row, seed.col, gridWidth, gridHeight);
-
-        if (d < bestDist) {
-          secondBestDist = bestDist;
-          bestDist = d;
+        const d = dot3(cellDir, seed.dir);
+        if (d > bestDot) {
+          bestDot = d;
           bestSeed = seed;
-        } else if (d < secondBestDist) {
-          secondBestDist = d;
         }
       }
 
       plateMap[idx] = bestSeed.plateId;
-
       const plate = plates[bestSeed.plateId];
-      const boundaryGap = secondBestDist - bestDist;
-      const boundaryStrength = clamp01(1 - boundaryGap / 4.5);
 
       fields[idx] = {
         plateId: bestSeed.plateId,
         plateType: plate.type,
         boundaryType: BoundaryTypeEnum.NONE as BoundaryType,
         upliftRate: 0,
-        boundaryStrength: boundaryStrength * 0.6,
+        boundaryStrength: 0,
         compression: 0,
-        distanceToBoundary: 1 - boundaryStrength,
+        distanceToBoundary: 1,
         isBoundary: false,
       };
     }
   }
 
-  // Boundary classification based on neighboring plates and relative motion
+  // ----------------------------------------------------
+  // Mark real boundary cells from unlike-plate adjacency
+  // ----------------------------------------------------
+  const boundaryDistanceSteps = new Int32Array(cells.length);
+  boundaryDistanceSteps.fill(-1);
+
+  const boundaryQueue: number[] = [];
+
   for (let row = 0; row < gridHeight; row++) {
     for (let col = 0; col < gridWidth; col++) {
       const idx = row * gridWidth + col;
       const myPlateId = plateMap[idx];
       const myPlate = plates[myPlateId];
-      const mySeed = localSeeds[myPlateId];
+      const myDir = cellDirs[idx];
 
       const neighborIndices = getNeighborIndices(row, col, gridWidth, gridHeight);
 
       let strongestBoundaryType: BoundaryType = BoundaryTypeEnum.NONE as BoundaryType;
       let strongestBoundaryScore = 0;
       let strongestCompression = 0;
-      let minBoundaryDistance = fields[idx].distanceToBoundary;
+      let unlikeNeighborCount = 0;
 
       for (const nIdx of neighborIndices) {
         const nPlateId = plateMap[nIdx];
         if (nPlateId === myPlateId) continue;
 
+        unlikeNeighborCount++;
         const nPlate = plates[nPlateId];
-        const nSeed = localSeeds[nPlateId];
+        const nDir = cellDirs[nIdx];
 
-        const nRow = Math.floor(nIdx / gridWidth);
-        const nCol = nIdx % gridWidth;
-
-        const normal = normalize2(wrappedDirectionVector(
-          row,
-          col,
-          nRow,
-          nCol,
-          gridWidth,
-          gridHeight
-        ));
+        const normal = normalize2(projectNeighborDirectionToLocalTangent(myDir, nDir));
 
         const relativeVelocity: Vec2 = [
           myPlate.velocity[0] - nPlate.velocity[0],
@@ -196,7 +204,6 @@ export function assignPlatesToCells(
 
         // Positive = compressing toward each other, negative = separating
         const convergence = -dot2(relativeVelocity, normal);
-
         const boundaryType = classifyBoundary(myPlate.type, nPlate.type, convergence);
         const boundaryScore = Math.abs(convergence);
 
@@ -205,37 +212,74 @@ export function assignPlatesToCells(
           strongestBoundaryType = boundaryType;
           strongestCompression = clamp(convergence, -1, 1);
         }
-
-        const seedBoundaryDistance =
-          Math.abs(
-            wrappedGridDistance(row, col, mySeed.row, mySeed.col, gridWidth, gridHeight) -
-              wrappedGridDistance(row, col, nSeed.row, nSeed.col, gridWidth, gridHeight)
-          ) * 0.5;
-
-        minBoundaryDistance = Math.min(minBoundaryDistance, clamp01(seedBoundaryDistance / 6));
       }
 
-      if (strongestBoundaryType !== BoundaryTypeEnum.NONE) {
+      if (unlikeNeighborCount > 0) {
         const field = fields[idx];
+        field.isBoundary = true;
         field.boundaryType = strongestBoundaryType;
         field.compression = strongestCompression;
-        field.isBoundary = true;
-        field.distanceToBoundary = minBoundaryDistance;
-        field.boundaryStrength = Math.max(
-          field.boundaryStrength,
-          clamp01(1 - minBoundaryDistance)
+        field.boundaryStrength = clamp01(
+          unlikeNeighborCount / Math.max(1, neighborIndices.length) * 0.55 +
+          strongestBoundaryScore * 0.45
         );
+        field.distanceToBoundary = 0;
         field.upliftRate = computeUpliftRate(
           strongestBoundaryType,
           strongestCompression,
           field.boundaryStrength,
           myPlate.type
         );
+
+        boundaryDistanceSteps[idx] = 0;
+        boundaryQueue.push(idx);
       }
     }
   }
 
+  // ----------------------------------------------------
+  // Multi-source BFS distance from actual boundaries
+  // ----------------------------------------------------
+  let queueHead = 0;
+  while (queueHead < boundaryQueue.length) {
+    const idx = boundaryQueue[queueHead++];
+    const step = boundaryDistanceSteps[idx];
+
+    const row = Math.floor(idx / gridWidth);
+    const col = idx % gridWidth;
+    const myPlateId = plateMap[idx];
+
+    const neighborIndices = getNeighborIndices(row, col, gridWidth, gridHeight);
+
+    for (const nIdx of neighborIndices) {
+      if (plateMap[nIdx] !== myPlateId) continue;
+      if (boundaryDistanceSteps[nIdx] !== -1) continue;
+
+      boundaryDistanceSteps[nIdx] = step + 1;
+      boundaryQueue.push(nIdx);
+    }
+  }
+
+  const maxBoundarySteps = Math.max(6, Math.floor(Math.min(gridWidth, gridHeight) * 0.14));
+
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i];
+    const steps = boundaryDistanceSteps[i];
+
+    if (steps < 0) {
+      field.distanceToBoundary = 1;
+      field.boundaryStrength = Math.max(field.boundaryStrength, 0);
+    } else {
+      field.distanceToBoundary = clamp01(steps / maxBoundarySteps);
+      if (!field.isBoundary) {
+        field.boundaryStrength = Math.max(field.boundaryStrength, clamp01(1 - field.distanceToBoundary));
+      }
+    }
+  }
+
+  // ----------------------------------------------------
   // Interior continental support / oceanic basin tendency
+  // ----------------------------------------------------
   for (let i = 0; i < fields.length; i++) {
     const field = fields[i];
     if (field.isBoundary) continue;
@@ -279,7 +323,7 @@ export function applyTectonicUplift(
 }
 
 /**
- * Build deterministic, better-spaced seeds from the plate list.
+ * Build deterministic, better-spaced seeds on the sphere.
  */
 function createPlateSeeds(
   gridWidth: number,
@@ -288,35 +332,44 @@ function createPlateSeeds(
   rng: () => number
 ): PlateSeed[] {
   const seeds: PlateSeed[] = [];
-  const minSeedDistance = Math.max(8, Math.min(gridWidth, gridHeight) * 0.18);
+  const minAngularDistance = 0.42; // radians; moderate separation
 
   for (const plate of plates) {
     let bestRow = Math.floor(rng() * gridHeight);
     let bestCol = Math.floor(rng() * gridWidth);
+    let bestLat = rowToLat(bestRow, gridHeight);
+    let bestLon = colToLon(bestCol, gridWidth);
+    let bestDir = latLonToUnitVector(bestLat, bestLon);
     let bestScore = -Infinity;
 
-    // Poisson-ish candidate search
-    for (let attempt = 0; attempt < 40; attempt++) {
+    // Poisson-ish candidate search on sphere
+    for (let attempt = 0; attempt < 48; attempt++) {
       const row = Math.floor(rng() * gridHeight);
       const col = Math.floor(rng() * gridWidth);
+      const lat = rowToLat(row, gridHeight);
+      const lon = colToLon(col, gridWidth);
+      const dir = latLonToUnitVector(lat, lon);
 
       let nearest = Infinity;
       for (const seed of seeds) {
-        const d = wrappedGridDistance(row, col, seed.row, seed.col, gridWidth, gridHeight);
+        const d = angularDistance(dir, seed.dir);
         nearest = Math.min(nearest, d);
       }
 
       const equatorBias =
         plate.type === PlateTypeEnum.CONTINENTAL
-          ? 1 - Math.abs(row / Math.max(1, gridHeight - 1) - 0.5) * 2 * 0.45
+          ? 1 - Math.abs(row / Math.max(1, gridHeight - 1) - 0.5) * 2 * 0.18
           : 1;
 
-      const score = (seeds.length === 0 ? minSeedDistance : nearest) * equatorBias;
+      const score = (seeds.length === 0 ? minAngularDistance : nearest) * equatorBias;
 
       if (score > bestScore) {
         bestScore = score;
         bestRow = row;
         bestCol = col;
+        bestLat = lat;
+        bestLon = lon;
+        bestDir = dir;
       }
     }
 
@@ -327,6 +380,9 @@ function createPlateSeeds(
       plateId: plate.id,
       row: bestRow,
       col: bestCol,
+      lat: bestLat,
+      lon: bestLon,
+      dir: bestDir,
       type: plate.type,
       velocity: [plate.velocity[0], plate.velocity[1]],
       driftAxis,
@@ -389,61 +445,84 @@ function getNeighborIndices(
   gridWidth: number,
   gridHeight: number
 ): number[] {
-  const west = (col - 1 + gridWidth) % gridWidth;
-  const east = (col + 1) % gridWidth;
+  const neighbors: number[] = [];
 
-  const neighbors: number[] = [
-    row * gridWidth + west,
-    row * gridWidth + east,
-  ];
+  for (let dr = -1; dr <= 1; dr++) {
+    const rr = row + dr;
+    if (rr < 0 || rr >= gridHeight) continue;
 
-  if (row > 0) {
-    neighbors.push((row - 1) * gridWidth + col);
-  }
-  if (row < gridHeight - 1) {
-    neighbors.push((row + 1) * gridWidth + col);
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const cc = (col + dc + gridWidth) % gridWidth;
+      neighbors.push(rr * gridWidth + cc);
+    }
   }
 
   return neighbors;
 }
 
-function wrappedGridDistance(
-  rowA: number,
-  colA: number,
-  rowB: number,
-  colB: number,
-  gridWidth: number,
-  gridHeight: number
-): number {
-  const dr = rowA - rowB;
-  const rawDc = Math.abs(colA - colB);
-  const dc = Math.min(rawDc, gridWidth - rawDc);
-  return Math.hypot(dr, dc);
+function rowToLat(row: number, gridHeight: number): number {
+  return 90 - ((row + 0.5) / gridHeight) * 180;
 }
 
-function wrappedDirectionVector(
-  rowA: number,
-  colA: number,
-  rowB: number,
-  colB: number,
-  gridWidth: number,
-  gridHeight: number
-): Vec2 {
-  let dc = colB - colA;
-  if (dc > gridWidth / 2) dc -= gridWidth;
-  if (dc < -gridWidth / 2) dc += gridWidth;
+function colToLon(col: number, gridWidth: number): number {
+  return ((col + 0.5) / gridWidth) * 360 - 180;
+}
 
-  const dr = rowB - rowA;
-  return [dc, dr];
+function latLonToUnitVector(latDeg: number, lonDeg: number): Vec3 {
+  const lat = (latDeg * Math.PI) / 180;
+  const lon = (lonDeg * Math.PI) / 180;
+  const cosLat = Math.cos(lat);
+  return [cosLat * Math.cos(lon), Math.sin(lat), cosLat * Math.sin(lon)];
 }
 
 function dot2(a: Vec2, b: Vec2): number {
   return a[0] * b[0] + a[1] * b[1];
 }
 
+function dot3(a: Vec3, b: Vec3): number {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+function angularDistance(a: Vec3, b: Vec3): number {
+  return Math.acos(clamp(dot3(a, b), -1, 1));
+}
+
+/**
+ * Build a simple local 2D tangent-ish direction from one spherical cell to a neighboring one.
+ * This is a lightweight geometric improvement over row/col wrapped direction.
+ */
+function projectNeighborDirectionToLocalTangent(fromDir: Vec3, toDir: Vec3): Vec2 {
+  const east = normalize3([-fromDir[2], 0, fromDir[0]]);
+  const north = normalize3(cross3(fromDir, east));
+  const delta: Vec3 = [
+    toDir[0] - fromDir[0],
+    toDir[1] - fromDir[1],
+    toDir[2] - fromDir[2],
+  ];
+
+  const eastComp = dot3(delta, east);
+  const northComp = dot3(delta, north);
+
+  return [eastComp, northComp];
+}
+
+function cross3(a: Vec3, b: Vec3): Vec3 {
+  return [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ];
+}
+
 function normalize2(v: Vec2): Vec2 {
   const len = Math.hypot(v[0], v[1]) || 1;
   return [v[0] / len, v[1] / len];
+}
+
+function normalize3(v: Vec3): Vec3 {
+  const len = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / len, v[1] / len, v[2] / len];
 }
 
 function clamp(x: number, lo: number, hi: number): number {
