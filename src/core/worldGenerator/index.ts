@@ -1,13 +1,13 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 TECTONICS-LED SILHOUETTE)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 NOISE-LED SILHOUETTE)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
 // - keep worldGenerator as the sole owner of generation
 // - follow blueprint order: tectonics -> terrain -> climate -> biomes -> hydrology
-// - remove competing broad-shape ownership from cluster seeds
-// - make broad terrain silhouette tectonics-led
-// - keep noise as refinement, not ownership
+// - make broad terrain silhouette noise-led
+// - make tectonics refine rather than directly own continent silhouette
+// - reduce plate-territory continents and polar silhouette artifacts
 //
 // IMPORTANT:
 // - generator does NOT own post-generation recompute
@@ -56,8 +56,6 @@ type DebugStage = 'FINAL' | 'LANDFIELD' | 'MASK_PRE' | 'MASK_POST' | 'HEIGHT';
 
 // ========================================================
 // DEBUG CONTROLS
-// ========================================================
-// Reset to normal production behavior.
 // ========================================================
 
 const DEBUG_STAGE: DebugStage = 'FINAL';
@@ -134,7 +132,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const southPoleSample = buildPoleSample(fields[(height - 1) * width], rng);
 
   // ----------------------------------------------------
-  // STEP 2: tectonics-led broad land plausibility
+  // STEP 2: noise-led broad land plausibility
   // ----------------------------------------------------
   const targetLandFraction = computeTargetLandFraction(params.styleMode, seaBias, targetContinentCount);
   const landField = buildLandField(width, height, seedUint, rng, fields, params.styleMode);
@@ -204,9 +202,9 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   // ----------------------------------------------------
   // STEP 3: connected component cleanup + merge
   // ----------------------------------------------------
-  landMask = removeTinyIslandsAndExpandCoasts(landMask, width, height, fields, rng);
-  landMask = mergeNearbyLandmasses(landMask, width, height, fields, rng, targetContinentCount);
-  landMask = enforceLandCoverageTarget(landMask, width, height, fields, rng, targetLandFraction);
+  landMask = removeTinyIslandsAndExpandCoasts(landMask, width, height, rng);
+  landMask = mergeNearbyLandmasses(landMask, width, height, rng, targetContinentCount);
+  landMask = enforceLandCoverageTarget(landMask, width, height, rng, targetLandFraction);
 
   clearPoleRows(landMask, width, height);
   weakenNearPoleRows(landMask, width, height, rng);
@@ -261,9 +259,6 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const lon = ((c + 0.5) / width) * 360 - 180;
       const dir = latLonToUnitVector(lat, lon);
 
-      const absLat01 = Math.abs(lat) / 90;
-      const poleProximity = smoothstep(0.88, 1.0, absLat01);
-
       const coastalFactor = computeLocalLandFraction(landMask, width, height, r, c, 2);
       const coastBand = 1 - Math.abs(coastalFactor - 0.5) * 2;
       const inlandFactor = clamp01((coastalFactor - 0.42) / 0.58);
@@ -274,48 +269,49 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const coastNoise = sphereFbm(offsetVec(dir, 0.4, 1.7, 0.2), seedUint, 8.0, 2);
       const oceanNoise = sphereFbm(offsetVec(dir, -1.1, -0.7, 0.6), seedUint, 2.0, 2);
 
-      const continentalBias = tect.plateType === PlateType.CONTINENTAL ? 0.04 : -0.025;
-
       const convergentRelief =
         tect.boundaryType === BoundaryType.CONVERGENT
-          ? lerp(0.01, 0.085, tect.boundaryStrength) * (1 - tect.distanceToBoundary * 0.8)
+          ? lerp(0.01, 0.08, tect.boundaryStrength) * (1 - tect.distanceToBoundary * 0.8)
           : 0;
 
       const divergentRelief =
         tect.boundaryType === BoundaryType.DIVERGENT
-          ? lerp(-0.045, 0.008, tect.boundaryStrength) * (1 - tect.distanceToBoundary * 0.75)
+          ? lerp(-0.04, 0.006, tect.boundaryStrength) * (1 - tect.distanceToBoundary * 0.75)
           : 0;
 
       const transformRelief =
         tect.boundaryType === BoundaryType.TRANSFORM
-          ? lerp(-0.004, 0.010, tect.boundaryStrength)
+          ? lerp(-0.003, 0.008, tect.boundaryStrength)
           : 0;
+
+      const continentalRefine =
+        tect.plateType === PlateType.CONTINENTAL
+          ? lerp(0.0, 0.035, 1 - tect.distanceToBoundary)
+          : lerp(-0.02, 0.0, 1 - tect.distanceToBoundary);
 
       if (isLand) {
         let h =
-          0.04 +
-          inlandFactor * 0.54 +
-          macroNoise * 0.09 +
-          detailNoise * 0.05 +
-          coastNoise * 0.032 * coastBand +
-          continentalBias +
+          0.02 +
+          inlandFactor * 0.56 +
+          macroNoise * 0.10 +
+          detailNoise * 0.06 +
+          coastNoise * 0.036 * coastBand +
+          continentalRefine +
           convergentRelief +
-          divergentRelief * 0.32 +
-          transformRelief * 0.42 -
-          poleProximity * 0.07 -
+          divergentRelief * 0.28 +
+          transformRelief * 0.38 -
           globalSeaLevel;
 
-        h -= coastBand * Math.max(0, 0.07 - detailNoise * 0.06);
+        h -= coastBand * Math.max(0, 0.06 - detailNoise * 0.05);
         cell.baseHeight = clamp(h, -1.4, 1.6);
       } else {
         let h =
           -0.16 -
           (0.16 + (1 - coastalFactor) * 0.54) +
-          oceanNoise * 0.04 +
-          continentalBias * 0.18 +
+          oceanNoise * 0.05 +
+          continentalRefine * 0.15 +
           divergentRelief +
-          transformRelief * 0.18 -
-          poleProximity * 0.03 -
+          transformRelief * 0.16 -
           globalSeaLevel * 0.16;
 
         cell.baseHeight = clamp(h, -1.7, 0.35);
@@ -669,10 +665,6 @@ function buildLandField(
 
   for (let r = 1; r < height - 1; r++) {
     const lat = 90 - ((r + 0.5) / height) * 180;
-    const absLat01 = Math.abs(lat) / 90;
-
-    const polarPenalty = smoothstep(0.78, 0.96, absLat01) * 0.34;
-    const polarKill = smoothstep(0.90, 1.0, absLat01) * 0.58;
 
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
@@ -680,37 +672,35 @@ function buildLandField(
       const lon = ((c + 0.5) / width) * 360 - 180;
       const dir = latLonToUnitVector(lat, lon);
 
-      const macro = sphereFbm(offsetVec(dir, 1.1, -0.2, 0.7), seedUint, 0.95, 4);
-      const shape = sphereFbm(offsetVec(dir, -0.9, 1.3, -0.5), seedUint, 1.9, 4);
-      const breakup = sphereFbm(offsetVec(dir, 0.3, 1.7, 0.1), seedUint, 4.8, 3);
-      const fine = sphereFbm(offsetVec(dir, -1.2, -0.4, 1.0), seedUint, 8.8, 2);
+      const largeA = sphereFbm(offsetVec(dir, 1.1, -0.2, 0.7), seedUint, 0.70, 4);
+      const largeB = sphereFbm(offsetVec(dir, -0.9, 1.3, -0.5), seedUint, 1.35, 4);
+      const medium = sphereFbm(offsetVec(dir, 0.3, 1.7, 0.1), seedUint, 3.2, 3);
+      const breakup = sphereFbm(offsetVec(dir, -1.2, -0.4, 1.0), seedUint, 7.5, 2);
 
       const noiseOwner =
-        macro * 0.40 +
-        shape * 0.26 +
-        breakup * 0.10 +
-        fine * 0.03;
+        largeA * 0.34 +
+        largeB * 0.30 +
+        medium * 0.12 +
+        breakup * 0.04;
 
-      let tectonicPlausibility = 0;
+      let tectonicModulation = 0;
 
+      // Soft modulation only, not ownership.
       if (tect.plateType === PlateType.CONTINENTAL) {
-        tectonicPlausibility += lerp(0.10, 0.24, tect.distanceToBoundary);
+        tectonicModulation += lerp(0.01, 0.05, 1 - tect.distanceToBoundary);
       } else {
-        tectonicPlausibility -= lerp(0.08, 0.20, tect.distanceToBoundary);
+        tectonicModulation -= lerp(0.01, 0.04, 1 - tect.distanceToBoundary);
       }
 
       if (tect.boundaryType === BoundaryType.CONVERGENT) {
-        tectonicPlausibility += lerp(0.08, 0.24, tect.boundaryStrength);
+        tectonicModulation += lerp(0.015, 0.06, tect.boundaryStrength);
       } else if (tect.boundaryType === BoundaryType.DIVERGENT) {
-        tectonicPlausibility -= lerp(0.05, 0.16, tect.boundaryStrength);
+        tectonicModulation -= lerp(0.01, 0.045, tect.boundaryStrength);
       } else if (tect.boundaryType === BoundaryType.TRANSFORM) {
-        tectonicPlausibility += lerp(-0.02, 0.03, tect.boundaryStrength);
+        tectonicModulation += lerp(-0.01, 0.012, tect.boundaryStrength);
       }
 
-      let value = noiseOwner + tectonicPlausibility;
-
-      value -= polarPenalty;
-      value -= polarKill;
+      let value = noiseOwner + tectonicModulation;
 
       if (styleMode === 'FANTASY') value += 0.03;
       if (styleMode === 'STYLIZED') value += 0.02;
@@ -774,7 +764,6 @@ function removeTinyIslandsAndExpandCoasts(
   mask: Uint8Array,
   width: number,
   height: number,
-  fields: TectonicsField[],
   rng: () => number
 ): Uint8Array {
   const next = new Uint8Array(mask);
@@ -794,10 +783,8 @@ function removeTinyIslandsAndExpandCoasts(
       if (next[idx] === 1) continue;
 
       const landFrac = computeLocalLandFraction(next, width, height, r, c, 1);
-      const tect = fields[idx];
-      const bonus = tect.plateType === PlateType.CONTINENTAL ? 0.05 : 0;
 
-      if (landFrac > 0.55 && rng() < 0.30 + bonus) {
+      if (landFrac > 0.58 && rng() < 0.24) {
         next[idx] = 1;
       }
     }
@@ -810,7 +797,6 @@ function mergeNearbyLandmasses(
   mask: Uint8Array,
   width: number,
   height: number,
-  fields: TectonicsField[],
   rng: () => number,
   targetContinentCount: number
 ): Uint8Array {
@@ -829,15 +815,9 @@ function mergeNearbyLandmasses(
 
         const landFracNear = computeLocalLandFraction(next, width, height, r, c, 2);
         const landFracFar = computeLocalLandFraction(next, width, height, r, c, 3);
-        const tect = fields[idx];
 
-        const favorable =
-          tect.plateType === PlateType.CONTINENTAL ||
-          tect.boundaryType === BoundaryType.CONVERGENT;
-
-        if (landFracNear > 0.22 && landFracFar > 0.34) {
-          const p = favorable ? 0.22 : 0.12;
-          if (rng() < p) bridge[idx] = 1;
+        if (landFracNear > 0.24 && landFracFar > 0.36) {
+          if (rng() < 0.16) bridge[idx] = 1;
         }
       }
     }
@@ -852,7 +832,6 @@ function enforceLandCoverageTarget(
   mask: Uint8Array,
   width: number,
   height: number,
-  fields: TectonicsField[],
   rng: () => number,
   targetFraction: number
 ): Uint8Array {
@@ -882,17 +861,9 @@ function enforceLandCoverageTarget(
         if (next[idx] === 1) continue;
 
         const landFrac = computeLocalLandFraction(next, width, height, r, c, 2);
-        if (landFrac <= 0.24) continue;
+        if (landFrac <= 0.26) continue;
 
-        const tect = fields[idx];
-        const bias =
-          tect.plateType === PlateType.CONTINENTAL
-            ? 0.10
-            : tect.boundaryType === BoundaryType.CONVERGENT
-              ? 0.06
-              : 0;
-
-        if (rng() < 0.18 + landFrac * 0.34 + bias) {
+        if (rng() < 0.14 + landFrac * 0.24) {
           grow[idx] = 1;
         }
       }
@@ -915,10 +886,7 @@ function enforceLandCoverageTarget(
         const landFrac = computeLocalLandFraction(next, width, height, r, c, 1);
         if (landFrac >= 0.45) continue;
 
-        const tect = fields[idx];
-        const keepBias = tect.plateType === PlateType.CONTINENTAL ? 0.06 : 0;
-
-        if (rng() < 0.18 - keepBias) {
+        if (rng() < 0.18) {
           prune[idx] = 0;
         }
       }
@@ -1002,7 +970,7 @@ function weakenNearPoleRows(
       if (mask[idx] === 0) continue;
 
       const landFrac = computeLocalLandFraction(mask, width, height, r, c, 2);
-      if (landFrac < 0.55 && rng() < 0.30) {
+      if (landFrac < 0.58 && rng() < 0.34) {
         mask[idx] = 0;
       }
     }
@@ -1016,8 +984,8 @@ function weakenNearPoleRows(
 function buildPoleSample(tect: TectonicsField, rng: () => number): PoleSample {
   const baseHeight =
     tect.plateType === PlateType.CONTINENTAL
-      ? lerp(0.00, 0.12, rng())
-      : lerp(-0.24, -0.08, rng());
+      ? lerp(0.00, 0.10, rng())
+      : lerp(-0.22, -0.08, rng());
 
   return {
     baseHeight,
@@ -1039,17 +1007,17 @@ function applyHybridTectonicInfluence(
     let delta = 0;
 
     if (tect.boundaryType === BoundaryType.CONVERGENT) {
-      delta = lerp(0.012, 0.080, tect.boundaryStrength);
-      if (tect.plateType === PlateType.CONTINENTAL) delta *= 1.16;
+      delta = lerp(0.012, 0.075, tect.boundaryStrength);
+      if (tect.plateType === PlateType.CONTINENTAL) delta *= 1.12;
     } else if (tect.boundaryType === BoundaryType.DIVERGENT) {
-      delta = lerp(-0.032, 0.008, tect.boundaryStrength);
+      delta = lerp(-0.030, 0.006, tect.boundaryStrength);
     } else if (tect.boundaryType === BoundaryType.TRANSFORM) {
-      delta = lerp(-0.004, 0.010, tect.boundaryStrength);
+      delta = lerp(-0.003, 0.009, tect.boundaryStrength);
     } else {
       delta =
         tect.plateType === PlateType.CONTINENTAL
-          ? lerp(0.003, 0.014, 1 - tect.distanceToBoundary)
-          : lerp(-0.010, 0.004, 1 - tect.distanceToBoundary);
+          ? lerp(0.002, 0.010, 1 - tect.distanceToBoundary)
+          : lerp(-0.008, 0.003, 1 - tect.distanceToBoundary);
     }
 
     cell.baseHeight = clamp(cell.baseHeight + delta * plateAmp, -1.6, 1.7);
@@ -1067,8 +1035,8 @@ function blendCapAdjacentRows(
   const northRow = rowDistance;
   const southRow = height - 1 - rowDistance;
 
-  const northBlend = rowDistance === 1 ? 0.48 : 0.22;
-  const southBlend = rowDistance === 1 ? 0.48 : 0.22;
+  const northBlend = rowDistance === 1 ? 0.44 : 0.18;
+  const southBlend = rowDistance === 1 ? 0.44 : 0.18;
 
   for (let c = 0; c < width; c++) {
     const nIdx = northRow * width + c;
