@@ -1,5 +1,5 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 DERIVED POLE CAPS)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 FINAL POLE-CAP COLLAPSE)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
@@ -7,7 +7,7 @@
 // - follow blueprint order: tectonics -> terrain -> climate -> biomes -> hydrology
 // - make broad terrain silhouette noise-led
 // - make tectonics refine rather than directly own continent silhouette
-// - derive poles from surrounding terrain instead of stamping cap ownership
+// - explicitly collapse pole-cap variance at the end of terrain generation
 //
 // IMPORTANT:
 // - generator does NOT own post-generation recompute
@@ -45,7 +45,6 @@ export type GeneratorParams = {
 };
 
 type Vec3 = [number, number, number];
-
 type DebugStage = 'FINAL' | 'LANDFIELD' | 'MASK_PRE' | 'MASK_POST' | 'HEIGHT';
 
 // ========================================================
@@ -226,7 +225,6 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   // ----------------------------------------------------
   // STEP 4: convert silhouette + tectonics into terrain
   // ----------------------------------------------------
-  // Do NOT stamp pole rows here. Let them derive from nearby terrain later.
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
@@ -307,7 +305,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   // ----------------------------------------------------
   applyHybridTectonicInfluence(cells, fields, plateAmp);
 
-  // Derive first cap-adjacent rows from their interior neighbors before smoothing
+  // Let the cap-adjacent band start from the interior.
   deriveCapAdjacentRows(cells, width, height);
 
   const smoothingPasses = Math.max(2, Math.round(lerp(2, 5, smoothness)));
@@ -339,14 +337,13 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
         const lat = 90 - ((r + 0.5) / height) * 180;
         const absLat01 = Math.abs(lat) / 90;
+        const extremePoleBand = smoothstep(0.95, 1.0, absLat01);
 
-        // Much gentler pole-specific behavior
-        const extremePoleBand = smoothstep(0.93, 1.0, absLat01);
         const nearSea = Math.abs(cell.baseHeight - globalSeaLevel) < 0.12;
         const coastPreserve = nearSea ? 0.34 : 1.0;
-        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.85, extremePoleBand);
+        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.92, extremePoleBand);
         const noiseBreakup =
-          (rng() - 0.5) * 0.005 * (1 - smoothness) * (1 - extremePoleBand * 0.35);
+          (rng() - 0.5) * 0.005 * (1 - smoothness) * (1 - extremePoleBand * 0.2);
 
         nextHeights[idx] = clamp(
           cell.baseHeight + (avg - cell.baseHeight) * localSmooth * coastPreserve + noiseBreakup,
@@ -360,13 +357,11 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       cells[i].baseHeight = nextHeights[i];
       cells[i].surfaceAge = clamp01(0.18 + age01 * 0.72 + (rng() - 0.5) * 0.08);
     }
-
-    // Re-derive pole-adjacent rows lightly after each smoothing pass
-    deriveCapAdjacentRowsLight(cells, width, height);
   }
 
-  // Derive final pole rows from adjacent rows ONCE, at the end
-  derivePoleRowsFromAdjacent(cells, width, height);
+  // FINAL CAP STABILIZATION:
+  // Collapse variance near the polar singularity explicitly.
+  collapsePoleCapVariance(cells, width, height);
 
   if (DEBUG_STAGE === 'HEIGHT') {
     return buildDebugWorld({
@@ -667,7 +662,6 @@ function buildLandField(
 
       let tectonicModulation = 0;
 
-      // Soft modulation only, not ownership.
       if (tect.plateType === PlateType.CONTINENTAL) {
         tectonicModulation += lerp(0.01, 0.05, 1 - tect.distanceToBoundary);
       } else {
@@ -964,8 +958,6 @@ function weakenNearPoleRows(
 // ========================================================
 
 function deriveCapAdjacentRows(cells: Cell[], width: number, height: number): void {
-  // Row 1 derives from row 2, row 2 remains naturally generated.
-  // South equivalent too.
   for (let c = 0; c < width; c++) {
     const north1 = 1 * width + c;
     const north2 = 2 * width + c;
@@ -977,26 +969,35 @@ function deriveCapAdjacentRows(cells: Cell[], width: number, height: number): vo
   }
 }
 
-function deriveCapAdjacentRowsLight(cells: Cell[], width: number, height: number): void {
-  for (let c = 0; c < width; c++) {
-    const north1 = 1 * width + c;
-    const north2 = 2 * width + c;
-    cells[north1].baseHeight = lerp(cells[north1].baseHeight, cells[north2].baseHeight, 0.20);
+function collapsePoleCapVariance(cells: Cell[], width: number, height: number): void {
+  // Strong collapse on row 1 / height-2
+  const north1Mean = averageRowHeight(cells, width, 1);
+  const south1Mean = averageRowHeight(cells, width, height - 2);
 
-    const south1 = (height - 2) * width + c;
-    const south2 = (height - 3) * width + c;
-    cells[south1].baseHeight = lerp(cells[south1].baseHeight, cells[south2].baseHeight, 0.20);
+  // Light collapse on row 2 / height-3
+  const north2Mean = averageRowHeight(cells, width, 2);
+  const south2Mean = averageRowHeight(cells, width, height - 3);
+
+  for (let c = 0; c < width; c++) {
+    const n1 = 1 * width + c;
+    const n2 = 2 * width + c;
+    const s1 = (height - 2) * width + c;
+    const s2 = (height - 3) * width + c;
+
+    cells[n1].baseHeight = lerp(cells[n1].baseHeight, north1Mean, 0.82);
+    cells[n2].baseHeight = lerp(cells[n2].baseHeight, north2Mean, 0.38);
+
+    cells[s1].baseHeight = lerp(cells[s1].baseHeight, south1Mean, 0.82);
+    cells[s2].baseHeight = lerp(cells[s2].baseHeight, south2Mean, 0.38);
   }
-}
 
-function derivePoleRowsFromAdjacent(cells: Cell[], width: number, height: number): void {
-  // Final poles derived from the adjacent ring, not a single tectonic owner.
-  const northAvg = averageRowHeight(cells, width, 1);
-  const southAvg = averageRowHeight(cells, width, height - 2);
+  // Final poles become single shared values from the stabilized adjacent rings.
+  const northPole = averageRowHeight(cells, width, 1);
+  const southPole = averageRowHeight(cells, width, height - 2);
 
   for (let c = 0; c < width; c++) {
-    cells[c].baseHeight = northAvg;
-    cells[(height - 1) * width + c].baseHeight = southAvg;
+    cells[c].baseHeight = northPole;
+    cells[(height - 1) * width + c].baseHeight = southPole;
   }
 }
 
