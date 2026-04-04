@@ -1,15 +1,14 @@
 // ========================================================
-// WORLDWRIGHT -- PLANET RENDERER (V1.4 CONTINUOUS OCEAN PROOF)
+// WORLDWRIGHT -- PLANET RENDERER (V1.4 TERRAIN-ONLY PROOF)
 // File: src/core/planetRenderer.ts
 //
 // Goals:
 // - interpret world data more continuously and less bucket-like
-// - reduce slabby climate banding
-// - keep oceans readable without overwhelming continents
-// - reduce over-harsh polar/ice whitening
 // - keep raw Generate debugging visually honest
-// - PROOF STEP: remove oceanDepthClass color branching and
-//   use a continuous ocean depth gradient only
+// - PROOF STEP:
+//   * ignore oceanDepthClass color branching
+//   * ignore rainfall / temperature / snow land tinting
+//   * render both ocean and land primarily from height/elevation
 // ========================================================
 
 import type { WorldBrain } from "./worldSchema";
@@ -32,8 +31,8 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     typeof world.seaLevel === "number"
       ? world.seaLevel
       : typeof world.metadata?.seaLevel === "number"
-      ? world.metadata.seaLevel
-      : 0;
+        ? world.metadata.seaLevel
+        : 0;
 
   const cells = Array.isArray(world.cells) ? world.cells : [];
 
@@ -93,10 +92,6 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
   function sampleOceanColor(_cell: any, h: number): [number, number, number] {
     const depth = clamp01((seaLevel - h) * 1.5);
 
-    // PROOF STEP:
-    // Ignore oceanDepthClass entirely and render oceans from a single
-    // continuous depth gradient. If the multi-colored polar rings weaken,
-    // then ocean depth class coloring was a major visual amplifier.
     const shallow: [number, number, number] = [0.20, 0.54, 0.73];
     const mid: [number, number, number] = [0.08, 0.30, 0.53];
     const deep: [number, number, number] = [0.02, 0.09, 0.24];
@@ -110,53 +105,40 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     return blend(mid, deep, t);
   }
 
-  function sampleLandColor(cell: any, h: number): [number, number, number] {
-    const rainfall = typeof cell.rainfall === "number" ? clamp01(cell.rainfall) : 0.5;
-    const temp = typeof cell.temperature === "number" ? clamp01(cell.temperature) : 0.5;
-    const snow = typeof cell.snowCover === "number" ? clamp01(cell.snowCover) : 0;
+  function sampleLandColor(_cell: any, h: number): [number, number, number] {
     const elev = clamp01(Math.max(0, h - seaLevel) * 2.0);
 
-    const arid: [number, number, number] = [0.76, 0.66, 0.42];
-    const steppe: [number, number, number] = [0.63, 0.67, 0.38];
-    const grass: [number, number, number] = [0.48, 0.63, 0.34];
-    const temperate: [number, number, number] = [0.24, 0.50, 0.24];
-    const coolForest: [number, number, number] = [0.28, 0.47, 0.29];
-    const tropical: [number, number, number] = [0.14, 0.40, 0.18];
-    const tundra: [number, number, number] = [0.54, 0.58, 0.52];
+    // Terrain-only proof:
+    // beach -> lowland -> upland -> rock -> icecap
+    const beach: [number, number, number] = [0.78, 0.70, 0.52];
+    const lowland: [number, number, number] = [0.44, 0.60, 0.34];
+    const upland: [number, number, number] = [0.34, 0.50, 0.28];
+    const highland: [number, number, number] = [0.48, 0.52, 0.42];
     const rock: [number, number, number] = [0.58, 0.57, 0.53];
     const ice: [number, number, number] = [0.82, 0.87, 0.92];
 
-    const dry = 1 - rainfall;
-    const warm = temp;
+    if (elev < 0.08) {
+      const t = elev / 0.08;
+      return blend(beach, lowland, t);
+    }
 
-    let rgb = grass;
+    if (elev < 0.35) {
+      const t = (elev - 0.08) / 0.27;
+      return blend(lowland, upland, t);
+    }
 
-    rgb = blend(rgb, steppe, clamp01((dry - 0.35) / 0.30));
-    rgb = blend(rgb, arid, clamp01((dry - 0.62) / 0.28));
+    if (elev < 0.62) {
+      const t = (elev - 0.35) / 0.27;
+      return blend(upland, highland, t);
+    }
 
-    const tropicality = clamp01((warm - 0.58) / 0.30) * clamp01((rainfall - 0.55) / 0.30);
-    rgb = blend(rgb, tropical, tropicality);
+    if (elev < 0.86) {
+      const t = (elev - 0.62) / 0.24;
+      return blend(highland, rock, t);
+    }
 
-    const coolness = clamp01((0.45 - warm) / 0.30);
-    rgb = blend(rgb, coolForest, coolness * clamp01((rainfall - 0.35) / 0.35));
-
-    const tundraFactor = clamp01((0.22 - warm) / 0.20);
-    rgb = blend(rgb, tundra, tundraFactor);
-
-    const mountain = clamp01((elev - 0.40) / 0.45);
-    rgb = blend(rgb, rock, mountain * 0.45);
-
-    const tempC = -22 + temp * 50;
-    const permanentIce = tempC < -17 ? clamp01((-17 - tempC) / 12) : 0;
-    const iceFactor = clamp01(Math.max(snow * 0.75, permanentIce * 0.85));
-
-    const whitenStrength =
-      iceFactor * 0.55 +
-      clamp01((elev - 0.88) / 0.12) * 0.35;
-
-    rgb = blend(rgb, ice, clamp01(whitenStrength));
-
-    return rgb;
+    const t = (elev - 0.86) / 0.14;
+    return blend(rock, ice, clamp01(t));
   }
 
   function applyStickerTint(
