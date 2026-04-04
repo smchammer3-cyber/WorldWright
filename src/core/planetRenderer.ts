@@ -1,13 +1,13 @@
 // ========================================================
-// WORLDWRIGHT -- PLANET RENDERER (V1.3 INTERPRETATION LOCK)
+// WORLDWRIGHT -- PLANET RENDERER (V1.4 CONTINUOUS TERRAIN DEBUG)
 // File: src/core/planetRenderer.ts
 //
 // Goals:
-// - interpret world data faithfully without exaggerating artifacts
-// - reduce washed-out white/alpine overreach
-// - improve ocean depth readability
-// - keep sticker tinting visible but not overpowering
-// - keep country borders subtle for evaluation
+// - interpret world data more continuously and less bucket-like
+// - reduce slabby climate banding
+// - keep oceans readable without overwhelming continents
+// - reduce over-harsh polar/ice whitening
+// - keep raw Generate debugging visually honest
 // ========================================================
 
 import type { WorldBrain } from "./worldSchema";
@@ -67,20 +67,31 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
 
   function stickerOverlayColor(editBiomeId: number | undefined): [number, number, number] | null {
     switch (editBiomeId) {
-      case 1: return [0.80, 0.86, 0.92]; // tundra/ice tint
-      case 3: return [0.66, 0.74, 0.44]; // grass/temperate
-      case 4: return [0.82, 0.70, 0.44]; // desert
-      case 5: return [0.22, 0.52, 0.26]; // lush/jungle
-      case 6: return [0.58, 0.58, 0.62]; // mountain/alpine
+      case 1: return [0.80, 0.86, 0.92];
+      case 3: return [0.66, 0.74, 0.44];
+      case 4: return [0.82, 0.70, 0.44];
+      case 5: return [0.22, 0.52, 0.26];
+      case 6: return [0.58, 0.58, 0.62];
       default: return null;
     }
+  }
+
+  function blend(
+    a: [number, number, number],
+    b: [number, number, number],
+    t: number
+  ): [number, number, number] {
+    return [
+      lerp(a[0], b[0], t),
+      lerp(a[1], b[1], t),
+      lerp(a[2], b[2], t),
+    ];
   }
 
   function sampleOceanColor(cell: any, h: number): [number, number, number] {
     const depth = clamp01((seaLevel - h) * 1.5);
     const cls = cell?.oceanDepthClass ?? null;
 
-    // Base ramp is calmer and less neon than before.
     let shallow: [number, number, number] = [0.19, 0.52, 0.72];
     let mid: [number, number, number] = [0.08, 0.30, 0.54];
     let deep: [number, number, number] = [0.02, 0.10, 0.28];
@@ -98,23 +109,13 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
       deep = [0.01, 0.06, 0.18];
     }
 
-    let r: number;
-    let g: number;
-    let b: number;
-
     if (depth < 0.35) {
       const t = depth / 0.35;
-      r = lerp(shallow[0], mid[0], t);
-      g = lerp(shallow[1], mid[1], t);
-      b = lerp(shallow[2], mid[2], t);
-    } else {
-      const t = (depth - 0.35) / 0.65;
-      r = lerp(mid[0], deep[0], t);
-      g = lerp(mid[1], deep[1], t);
-      b = lerp(mid[2], deep[2], t);
+      return blend(shallow, mid, t);
     }
 
-    return [r, g, b];
+    const t = (depth - 0.35) / 0.65;
+    return blend(mid, deep, t);
   }
 
   function sampleLandColor(cell: any, h: number): [number, number, number] {
@@ -123,67 +124,57 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     const snow = typeof cell.snowCover === "number" ? clamp01(cell.snowCover) : 0;
     const elev = clamp01(Math.max(0, h - seaLevel) * 2.0);
 
-    // Base biome-style interpretation from climate, but more restrained.
-    let r = 0.40;
-    let g = 0.48;
-    let b = 0.32;
+    // Continuous terrain-driven anchors
+    const arid: [number, number, number] = [0.76, 0.66, 0.42];
+    const steppe: [number, number, number] = [0.63, 0.67, 0.38];
+    const grass: [number, number, number] = [0.48, 0.63, 0.34];
+    const temperate: [number, number, number] = [0.24, 0.50, 0.24];
+    const coolForest: [number, number, number] = [0.28, 0.47, 0.29];
+    const tropical: [number, number, number] = [0.14, 0.40, 0.18];
+    const tundra: [number, number, number] = [0.54, 0.58, 0.52];
+    const rock: [number, number, number] = [0.58, 0.57, 0.53];
+    const ice: [number, number, number] = [0.82, 0.87, 0.92];
 
-    // Convert normalized temp to rough Celsius-like scale for snow cues
+    // Moisture and warmth weights
+    const dry = 1 - rainfall;
+    const warm = temp;
+    const cold = 1 - temp;
+
+    // Start from vegetation/moisture blend instead of hard buckets
+    let rgb = grass;
+
+    // Dryness gradually pushes toward arid/steppe
+    rgb = blend(rgb, steppe, clamp01((dry - 0.35) / 0.30));
+    rgb = blend(rgb, arid, clamp01((dry - 0.62) / 0.28));
+
+    // Warm/wet gradually pushes toward tropical
+    const tropicality = clamp01((warm - 0.58) / 0.30) * clamp01((rainfall - 0.55) / 0.30);
+    rgb = blend(rgb, tropical, tropicality);
+
+    // Coolness gradually pushes toward cool forest / tundra
+    const coolness = clamp01((0.45 - warm) / 0.30);
+    rgb = blend(rgb, coolForest, coolness * clamp01((rainfall - 0.35) / 0.35));
+
+    const tundraFactor = clamp01((0.22 - warm) / 0.20);
+    rgb = blend(rgb, tundra, tundraFactor);
+
+    // Elevation should read as rock, not instantly white
+    const mountain = clamp01((elev - 0.40) / 0.45);
+    rgb = blend(rgb, rock, mountain * 0.45);
+
+    // Snow should be a tint/veil, not a giant class switch
     const tempC = -22 + temp * 50;
-    const permanentIce = tempC < -17 ? clamp01((-17 - tempC) / 10) : 0;
+    const permanentIce = tempC < -17 ? clamp01((-17 - tempC) / 12) : 0;
+    const iceFactor = clamp01(Math.max(snow * 0.75, permanentIce * 0.85));
 
-    // Only very cold / truly alpine areas go close to white.
-    if (snow > 0.88 || permanentIce > 0.35 || elev > 0.94) {
-      const iceFactor = clamp01(Math.max(snow, permanentIce, elev > 0.94 ? 1.0 : 0.0));
-      r = lerp(0.70, 0.83, iceFactor);
-      g = lerp(0.74, 0.87, iceFactor);
-      b = lerp(0.78, 0.92, iceFactor);
-    } else if (temp < 0.18) {
-      // cold scrub / tundra stone
-      r = 0.54;
-      g = 0.58;
-      b = 0.52;
-    } else if (rainfall < 0.12) {
-      // driest deserts
-      r = 0.76;
-      g = 0.66;
-      b = 0.42;
-    } else if (rainfall < 0.24) {
-      // dry steppe / semi-arid
-      r = 0.63;
-      g = 0.67;
-      b = 0.38;
-    } else if (rainfall < 0.46) {
-      // grasslands / temperate fields
-      r = 0.48;
-      g = 0.63;
-      b = 0.34;
-    } else if (temp < 0.38) {
-      // cool forest
-      r = 0.28;
-      g = 0.47;
-      b = 0.29;
-    } else if (temp > 0.64 && rainfall > 0.62) {
-      // lush tropical
-      r = 0.14;
-      g = 0.40;
-      b = 0.18;
-    } else {
-      // temperate forest / mixed vegetation
-      r = 0.24;
-      g = 0.50;
-      b = 0.24;
-    }
+    // Stronger only at very high elevations or very high snow
+    const whitenStrength =
+      iceFactor * 0.55 +
+      clamp01((elev - 0.88) / 0.12) * 0.35;
 
-    // Slight elevation desaturation/lift, not chalky white
-    if (elev > 0.34) {
-      const mountain = clamp01((elev - 0.34) / 0.66);
-      r = lerp(r, 0.58, mountain * 0.16);
-      g = lerp(g, 0.57, mountain * 0.16);
-      b = lerp(b, 0.53, mountain * 0.16);
-    }
+    rgb = blend(rgb, ice, clamp01(whitenStrength));
 
-    return [r, g, b];
+    return rgb;
   }
 
   function applyStickerTint(
@@ -196,47 +187,19 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
       typeof cell?.editBiomeId === "number" &&
       cell.editBiomeId !== cell.baseBiomeId
     ) {
-      return [
-        lerp(rgb[0], overlay[0], 0.28),
-        lerp(rgb[1], overlay[1], 0.28),
-        lerp(rgb[2], overlay[2], 0.28),
-      ];
+      return blend(rgb, overlay, 0.28);
     }
     return rgb;
   }
 
+  // In raw Generate debugging, country borders should not visually drive evaluation.
   function applyCountryBorderTint(
     rgb: [number, number, number],
-    row: number,
-    col: number,
-    cell: any
+    _row: number,
+    _col: number,
+    _cell: any
   ): [number, number, number] {
-    if (!cell || cell.isWater || cell.countryId == null) return rgb;
-
-    const myId = cell.countryId;
-    let diffCount = 0;
-
-    const neighbors: Array<{ dr: number; dc: number }> = [
-      { dr: -1, dc: 0 }, { dr: 1, dc: 0 }, { dr: 0, dc: -1 }, { dr: 0, dc: 1 },
-      { dr: -1, dc: -1 }, { dr: -1, dc: 1 }, { dr: 1, dc: -1 }, { dr: 1, dc: 1 },
-    ];
-
-    for (const n of neighbors) {
-      const nr = clampRow(row + n.dr);
-      const nc = wrapCol(col + n.dc);
-      const nCell = cells[nr * width + nc];
-      const nid = nCell?.countryId;
-      if (nid != null && nid !== myId) diffCount++;
-    }
-
-    if (diffCount <= 0) return rgb;
-
-    const strength = clamp01(diffCount / 7) * 0.12;
-    return [
-      lerp(rgb[0], 0.18, strength),
-      lerp(rgb[1], 0.20, strength),
-      lerp(rgb[2], 0.22, strength),
-    ];
+    return rgb;
   }
 
   function sampleFromRowCol(row: number, col: number): [number, number, number] {
