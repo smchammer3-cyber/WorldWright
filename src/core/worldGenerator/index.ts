@@ -1,15 +1,23 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 LAND COVERAGE + CLUSTER MERGE)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 DIAGNOSTIC BUILD)
 // File: src/core/worldGenerator/index.ts
 //
-// Goals:
-// - explicit land coverage targeting
-// - connected landmass growth and cluster merge
-// - reduced pole/cap dominance
-// - no frontier queue sorting
-// - tectonics influence terrain after silhouette exists
+// PURPOSE OF THIS BUILD:
+// - preserve current generator behavior as much as possible
+// - add stage-based diagnostics only
+// - allow fixed-seed debugging
+// - prove the first bad stage before rewriting logic
+//
+// DEBUG STAGES:
+// - FINAL: normal current output
+// - LANDFIELD: visualize scalar land field
+// - MASK_PRE: thresholded land mask before merge/regrowth
+// - MASK_POST: land mask after cleanup/merge/coverage enforcement
+// - HEIGHT: raw baseHeight after terrain shaping, before downstream interpretation
+//
+// IMPORTANT:
 // - generator does NOT own post-generation recompute
-// - RAW DEBUG PATH: do NOT generate countries here
+// - countries intentionally remain empty for raw Generate debugging
 // ========================================================
 
 import {
@@ -57,6 +65,23 @@ type ClusterSeed = {
   strength: number;
 };
 
+type DebugStage = 'FINAL' | 'LANDFIELD' | 'MASK_PRE' | 'MASK_POST' | 'HEIGHT';
+
+// ========================================================
+// DEBUG CONTROLS
+// ========================================================
+//
+// Set DEBUG_STAGE to one of:
+// 'FINAL' | 'LANDFIELD' | 'MASK_PRE' | 'MASK_POST' | 'HEIGHT'
+//
+// Set DEBUG_LOCK_SEED to true to force a single repeatable seed during testing.
+// This obeys the debugging rule to keep one fixed seed.
+// ========================================================
+
+const DEBUG_STAGE: DebugStage = 'FINAL';
+const DEBUG_LOCK_SEED = false;
+const DEBUG_FIXED_SEED: number | string = 123456;
+
 export function createDefaultGeneratorParams(): GeneratorParams {
   return {
     width: 256,
@@ -79,7 +104,8 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const width = clampInt(params.width, 32, 1024);
   const height = clampInt(params.height, 16, 512);
 
-  const seedUint = seedToUint32(params.seed);
+  const effectiveSeed = DEBUG_LOCK_SEED ? DEBUG_FIXED_SEED : params.seed;
+  const seedUint = seedToUint32(effectiveSeed);
   const rng = mulberry32(seedUint);
   const nowIso = new Date().toISOString();
 
@@ -118,8 +144,8 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       f.boundaryType === BoundaryType.CONVERGENT
         ? clamp01(f.boundaryStrength * 0.9)
         : f.boundaryType === BoundaryType.DIVERGENT
-        ? clamp01(f.boundaryStrength * 0.45)
-        : clamp01(f.boundaryStrength * 0.15);
+          ? clamp01(f.boundaryStrength * 0.45)
+          : clamp01(f.boundaryStrength * 0.15);
   }
 
   const northPoleSample = buildPoleSample(fields[0], rng);
@@ -131,13 +157,69 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const targetLandFraction = computeTargetLandFraction(params.styleMode, seaBias, targetContinentCount);
   const clusterSeeds = createClusterSeeds(width, height, targetContinentCount, rng, fields);
 
-  // Build scalar land field
   const landField = buildLandField(width, height, seedUint, rng, clusterSeeds, fields, params.styleMode);
 
-  // Choose threshold to hit explicit target land coverage (excluding pole rows)
-  const threshold = chooseThresholdForLandFraction(landField, width, height, targetLandFraction);
+  if (DEBUG_STAGE === 'LANDFIELD') {
+    const debugCells = cloneCells(cells);
 
+    let minV = Number.POSITIVE_INFINITY;
+    let maxV = Number.NEGATIVE_INFINITY;
+    for (let r = 1; r < height - 1; r++) {
+      for (let c = 0; c < width; c++) {
+        const v = landField[r * width + c];
+        if (v < minV) minV = v;
+        if (v > maxV) maxV = v;
+      }
+    }
+    const range = Math.max(1e-9, maxV - minV);
+
+    for (let r = 0; r < height; r++) {
+      for (let c = 0; c < width; c++) {
+        const idx = r * width + c;
+        const v = landField[idx];
+        const t = clamp01((v - minV) / range);
+        debugCells[idx].baseHeight = lerp(-0.6, 0.6, t);
+      }
+    }
+
+    return buildDebugWorld({
+      width,
+      height,
+      seaLevel: 0,
+      cells: debugCells,
+      plates,
+      nowIso,
+      params,
+      effectiveSeed,
+      styleMode: params.styleMode,
+    });
+  }
+
+  const threshold = chooseThresholdForLandFraction(landField, width, height, targetLandFraction);
   let landMask = thresholdField(landField, width, height, threshold);
+
+  if (DEBUG_STAGE === 'MASK_PRE') {
+    const debugCells = cloneCells(cells);
+
+    for (let i = 0; i < debugCells.length; i++) {
+      debugCells[i].baseHeight = landMask[i] === 1 ? 0.35 : -0.35;
+      debugCells[i].temperature = landMask[i] === 1 ? 0.55 : 0.35;
+      debugCells[i].rainfall = landMask[i] === 1 ? 0.45 : 0.55;
+      debugCells[i].snowCover = 0;
+    }
+
+    return buildDebugWorld({
+      width,
+      height,
+      seaLevel: 0,
+      cells: debugCells,
+      plates,
+      nowIso,
+      params,
+      effectiveSeed,
+      styleMode: params.styleMode,
+    });
+  }
 
   // ----------------------------------------------------
   // STEP 3: connected component cleanup + merge
@@ -146,9 +228,31 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   landMask = mergeNearbyLandmasses(landMask, width, height, fields, rng, targetContinentCount);
   landMask = enforceLandCoverageTarget(landMask, width, height, fields, rng, targetLandFraction);
 
-  // Keep poles safe and low-dominance
   clearPoleRows(landMask, width, height);
   weakenNearPoleRows(landMask, width, height, rng);
+
+  if (DEBUG_STAGE === 'MASK_POST') {
+    const debugCells = cloneCells(cells);
+
+    for (let i = 0; i < debugCells.length; i++) {
+      debugCells[i].baseHeight = landMask[i] === 1 ? 0.35 : -0.35;
+      debugCells[i].temperature = landMask[i] === 1 ? 0.55 : 0.35;
+      debugCells[i].rainfall = landMask[i] === 1 ? 0.45 : 0.55;
+      debugCells[i].snowCover = 0;
+    }
+
+    return buildDebugWorld({
+      width,
+      height,
+      seaLevel: 0,
+      cells: debugCells,
+      plates,
+      nowIso,
+      params,
+      effectiveSeed,
+      styleMode: params.styleMode,
+    });
+  }
 
   // ----------------------------------------------------
   // STEP 4: convert silhouette + tectonics into terrain
@@ -306,6 +410,20 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     cells[(height - 1) * width + c].baseHeight = southPoleSample.baseHeight;
   }
 
+  if (DEBUG_STAGE === 'HEIGHT') {
+    return buildDebugWorld({
+      width,
+      height,
+      seaLevel: globalSeaLevel,
+      cells: cloneCells(cells),
+      plates,
+      nowIso,
+      params,
+      effectiveSeed,
+      styleMode: params.styleMode,
+    });
+  }
+
   // ----------------------------------------------------
   // STEP 6: climate seed fields
   // ----------------------------------------------------
@@ -344,17 +462,17 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
         tect.boundaryType === BoundaryType.CONVERGENT
           ? 0.03
           : tect.boundaryType === BoundaryType.DIVERGENT
-          ? -0.02
-          : 0;
+            ? -0.02
+            : 0;
 
       cell.temperature = clamp01(
         0.16 +
-          equatorWarmth * 0.68 +
-          tempNoise * (0.08 + climateVar01 * 0.08) +
-          tempOffset01 +
-          coastBoost * 0.03 -
-          elevCooling -
-          polarCooling
+        equatorWarmth * 0.68 +
+        tempNoise * (0.08 + climateVar01 * 0.08) +
+        tempOffset01 +
+        coastBoost * 0.03 -
+        elevCooling -
+        polarCooling
       );
 
       const hadleyWet = Math.exp(-Math.pow(absLat01 * 2.2, 2));
@@ -362,13 +480,13 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
       cell.rainfall = clamp01(
         0.20 +
-          hadleyWet * 0.30 -
-          subtropicDry * 0.18 +
-          rainNoise * (0.12 + climateVar01 * 0.08) +
-          moisture01 * 0.18 +
-          coastBoost +
-          tectonicMoisture -
-          elevAboveSea * 0.08
+        hadleyWet * 0.30 -
+        subtropicDry * 0.18 +
+        rainNoise * (0.12 + climateVar01 * 0.08) +
+        moisture01 * 0.18 +
+        coastBoost +
+        tectonicMoisture -
+        elevAboveSea * 0.08
       );
 
       const biome = pickBiome(cell.temperature, cell.rainfall);
@@ -380,6 +498,8 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       cell.flowDirection = null;
       cell.flowAccumulation = 0;
       cell.basinId = null;
+      cell.snowCover = 0;
+      cell.isWater = cell.baseHeight < globalSeaLevel;
     }
   }
 
@@ -453,7 +573,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     metadata: {
       id: `w_${params.styleMode}_${width}x${height}_${seedUint}`,
       name: 'Untitled World',
-      seed: String(params.seed),
+      seed: String(effectiveSeed),
       schemaVersion: 'v3',
       version: 'v1.3',
       styleMode: params.styleMode,
@@ -466,6 +586,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
     parameters: {
       ...params,
+      seed: effectiveSeed,
       seaLevel: params.seaLevel,
     },
   };
@@ -474,6 +595,69 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   // worldSession.createWorld(...) owns normalize -> recompute -> validate -> publish.
   // RAW DEBUG: countries intentionally left empty so Generate preview shows terrain only.
   return world;
+}
+
+// ========================================================
+// DEBUG WORLD HELPERS
+// ========================================================
+
+function buildDebugWorld(args: {
+  width: number;
+  height: number;
+  seaLevel: number;
+  cells: Cell[];
+  plates: any[];
+  nowIso: string;
+  params: GeneratorParams;
+  effectiveSeed: string | number;
+  styleMode: GeneratorParams['styleMode'];
+}): WorldBrain {
+  const { width, height, seaLevel, cells, plates, nowIso, params, effectiveSeed, styleMode } = args;
+
+  for (let i = 0; i < cells.length; i++) {
+    cells[i].isWater = cells[i].baseHeight < seaLevel;
+    cells[i].baseBiomeId = cells[i].isWater ? 0 : 5;
+    cells[i].editBiomeId = cells[i].baseBiomeId;
+    cells[i].flowDirection = null;
+    cells[i].flowAccumulation = 0;
+    cells[i].basinId = null;
+  }
+
+  return {
+    gridWidth: width,
+    gridHeight: height,
+    seaLevel,
+    cells,
+    plates,
+    rivers: [],
+    countries: [],
+    cultures: [],
+    cultureRegions: [],
+    cities: [],
+    locations: [],
+    stickers: [],
+    metadata: {
+      id: `w_debug_${styleMode}_${width}x${height}_${seedToUint32(effectiveSeed)}`,
+      name: 'Debug World',
+      seed: String(effectiveSeed),
+      schemaVersion: 'v3',
+      version: 'v1.3-debug',
+      styleMode,
+      gridWidth: width,
+      gridHeight: height,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      seaLevel,
+    },
+    parameters: {
+      ...params,
+      seed: effectiveSeed,
+    },
+  };
+}
+
+function cloneCells(cells: Cell[]): Cell[] {
+  return cells.map((cell) => ({ ...cell }));
 }
 
 // ========================================================
@@ -766,8 +950,8 @@ function enforceLandCoverageTarget(
           tect.plateType === PlateType.CONTINENTAL
             ? 0.10
             : tect.boundaryType === BoundaryType.CONVERGENT
-            ? 0.06
-            : 0;
+              ? 0.06
+              : 0;
 
         if (rng() < 0.18 + landFrac * 0.34 + bias) {
           grow[idx] = 1;
