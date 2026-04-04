@@ -78,7 +78,7 @@ type DebugStage = 'FINAL' | 'LANDFIELD' | 'MASK_PRE' | 'MASK_POST' | 'HEIGHT';
 // This obeys the debugging rule to keep one fixed seed.
 // ========================================================
 
-const DEBUG_STAGE: DebugStage = "LANDFIELD";
+const DEBUG_STAGE: DebugStage = "HEIGHT";
 const DEBUG_LOCK_SEED = true;
 const DEBUG_FIXED_SEED: number | string = 123456;
 
