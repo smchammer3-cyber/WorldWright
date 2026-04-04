@@ -1,5 +1,4 @@
 import type { WorldBrain, Sticker, City, Country, River } from '../worldSchema';
-import { recomputeWorld } from '../worldRecompute';
 
 // Terrain brush tools supported by the WorldAction system.
 // RAISE increases height, LOWER decreases height, FLATTEN brings heights towards
@@ -23,118 +22,6 @@ export type TerrainStrokeAction = {
   strength: number;
 };
 
-export type WorldAction =
-  | TerrainStrokeAction
-  | StickerApplyAction
-  | AddCityAction
-  | AddCountryAction
-  | AddRiverAction
-  | RemoveRiverAction
-  | SetLakeLevelAction;
-
-/**
- * Apply a single WorldAction to the provided world. This function mutates
- * world.cells in place but does not perform recomputation; callers should
- * invoke recomputeWorld() themselves after the action. Defensive checks are
- * performed on action payloads to avoid exceptions and to keep edits
- * deterministic.
- */
-export function applyWorldAction(world: WorldBrain, action: WorldAction): void {
-  switch (action.type) {
-    case 'TERRAIN_STROKE': {
-      const { tool, center, radius, strength } = action as TerrainStrokeAction;
-      if (!world || !Array.isArray(world.cells)) return;
-      const gridWidth = world.gridWidth;
-      const gridHeight = world.gridHeight;
-      const cells = world.cells;
-
-      // Clamp parameters to safe ranges.
-      const rad = Math.max(1, Math.floor(Number.isFinite(radius) ? radius : 1));
-      const str = Number.isFinite(strength) && strength >= 0 ? strength : 0;
-
-      // Precompute the target height for flatten/smooth actions.
-      let targetHeight = 0;
-      let count = 0;
-      if (tool === 'FLATTEN' || tool === 'SMOOTH') {
-        for (let dr = -rad; dr <= rad; dr++) {
-          const r = center.row + dr;
-          if (r < 0 || r >= gridHeight) continue;
-          for (let dc = -rad; dc <= rad; dc++) {
-            const dist = Math.sqrt(dr * dr + dc * dc);
-            if (dist > radius) continue;
-            const c = center.col + dc;
-            const cc = ((c % gridWidth) + gridWidth) % gridWidth;
-            const idx = r * gridWidth + cc;
-            const cell = cells[idx];
-            const h = cell.baseHeight + (cell.editHeightDelta || 0);
-            targetHeight += h;
-            count++;
-          }
-        }
-        if (count > 0) targetHeight /= count;
-      }
-
-      for (let dr = -rad; dr <= rad; dr++) {
-        const r = center.row + dr;
-        if (r < 0 || r >= gridHeight) continue;
-        for (let dc = -rad; dc <= rad; dc++) {
-          const dist = Math.sqrt(dr * dr + dc * dc);
-          if (dist > radius) continue;
-          const c = center.col + dc;
-          const cc = ((c % gridWidth) + gridWidth) % gridWidth;
-          const idx = r * gridWidth + cc;
-          const cell = cells[idx];
-          const weight = (radius - dist) / radius;
-
-          if (tool === 'RAISE') {
-            cell.editHeightDelta = (cell.editHeightDelta || 0) + str * weight;
-          } else if (tool === 'LOWER') {
-            cell.editHeightDelta = (cell.editHeightDelta || 0) - str * weight;
-          } else if (tool === 'FLATTEN' || tool === 'SMOOTH') {
-            const current = cell.baseHeight + (cell.editHeightDelta || 0);
-            const delta = (targetHeight - current) * str * weight;
-            cell.editHeightDelta = (cell.editHeightDelta || 0) + delta;
-          }
-        }
-      }
-      return;
-    }
-
-    case 'STICKER_APPLY':
-      applySticker(world, action as StickerApplyAction);
-      recomputeWorld(world, ['STICKER_EDIT']);
-      return;
-
-    case 'ADD_CITY':
-      applyAddCity(world, action as AddCityAction);
-      recomputeWorld(world, ['TERRAIN_EDIT']);
-      return;
-
-    case 'ADD_COUNTRY':
-      applyAddCountry(world, action as AddCountryAction);
-      recomputeWorld(world, ['TERRAIN_EDIT']);
-      return;
-
-    case 'ADD_RIVER':
-      applyAddRiver(world, action as AddRiverAction);
-      recomputeWorld(world, ['TERRAIN_EDIT']);
-      return;
-
-    case 'REMOVE_RIVER':
-      applyRemoveRiver(world, action as RemoveRiverAction);
-      recomputeWorld(world, ['TERRAIN_EDIT']);
-      return;
-
-    case 'SET_LAKE_LEVEL':
-      applySetLakeLevel(world, action as SetLakeLevelAction);
-      recomputeWorld(world, ['TERRAIN_EDIT']);
-      return;
-
-    default:
-      return;
-  }
-}
-
 export type StickerApplyAction = { type: 'STICKER_APPLY'; sticker: Sticker };
 
 export type AddCityAction = { type: 'ADD_CITY'; city: City };
@@ -145,7 +32,136 @@ export type AddRiverAction = { type: 'ADD_RIVER'; river: River };
 
 export type RemoveRiverAction = { type: 'REMOVE_RIVER'; riverId: number };
 
-export type SetLakeLevelAction = { type: 'SET_LAKE_LEVEL'; cellIndex: number; newLevel: number };
+export type SetLakeLevelAction = {
+  type: 'SET_LAKE_LEVEL';
+  cellIndex: number;
+  newLevel: number;
+};
+
+export type WorldAction =
+  | TerrainStrokeAction
+  | StickerApplyAction
+  | AddCityAction
+  | AddCountryAction
+  | AddRiverAction
+  | RemoveRiverAction
+  | SetLakeLevelAction;
+
+/**
+ * Apply a single WorldAction to the provided world.
+ *
+ * IMPORTANT ARCHITECTURE RULE:
+ * This function mutates world state only.
+ * It does NOT perform recomputation.
+ *
+ * The sole orchestration owner for recompute/validate/history/publish is
+ * worldSession. This keeps action application deterministic and prevents
+ * duplicate recompute passes.
+ */
+export function applyWorldAction(world: WorldBrain, action: WorldAction): void {
+  switch (action.type) {
+    case 'TERRAIN_STROKE': {
+      applyTerrainStroke(world, action);
+      return;
+    }
+
+    case 'STICKER_APPLY':
+      applySticker(world, action);
+      return;
+
+    case 'ADD_CITY':
+      applyAddCity(world, action);
+      return;
+
+    case 'ADD_COUNTRY':
+      applyAddCountry(world, action);
+      return;
+
+    case 'ADD_RIVER':
+      applyAddRiver(world, action);
+      return;
+
+    case 'REMOVE_RIVER':
+      applyRemoveRiver(world, action);
+      return;
+
+    case 'SET_LAKE_LEVEL':
+      applySetLakeLevel(world, action);
+      return;
+
+    default:
+      return;
+  }
+}
+
+function applyTerrainStroke(world: WorldBrain, action: TerrainStrokeAction): void {
+  const { tool, center, radius, strength } = action;
+  if (!world || !Array.isArray(world.cells)) return;
+
+  const gridWidth = world.gridWidth;
+  const gridHeight = world.gridHeight;
+  const cells = world.cells;
+
+  const rad = Math.max(1, Math.floor(Number.isFinite(radius) ? radius : 1));
+  const str = Number.isFinite(strength) && strength >= 0 ? strength : 0;
+
+  let targetHeight = 0;
+  let count = 0;
+
+  if (tool === 'FLATTEN' || tool === 'SMOOTH') {
+    for (let dr = -rad; dr <= rad; dr++) {
+      const r = center.row + dr;
+      if (r < 0 || r >= gridHeight) continue;
+
+      for (let dc = -rad; dc <= rad; dc++) {
+        const dist = Math.sqrt(dr * dr + dc * dc);
+        if (dist > radius) continue;
+
+        const c = center.col + dc;
+        const cc = ((c % gridWidth) + gridWidth) % gridWidth;
+        const idx = r * gridWidth + cc;
+        const cell = cells[idx];
+        const h =
+          (typeof cell.baseHeight === 'number' ? cell.baseHeight : 0) +
+          (typeof cell.editHeightDelta === 'number' ? cell.editHeightDelta : 0);
+
+        targetHeight += h;
+        count++;
+      }
+    }
+
+    if (count > 0) targetHeight /= count;
+  }
+
+  for (let dr = -rad; dr <= rad; dr++) {
+    const r = center.row + dr;
+    if (r < 0 || r >= gridHeight) continue;
+
+    for (let dc = -rad; dc <= rad; dc++) {
+      const dist = Math.sqrt(dr * dr + dc * dc);
+      if (dist > radius) continue;
+
+      const c = center.col + dc;
+      const cc = ((c % gridWidth) + gridWidth) % gridWidth;
+      const idx = r * gridWidth + cc;
+      const cell = cells[idx];
+      const weight = (radius - dist) / radius;
+
+      if (tool === 'RAISE') {
+        cell.editHeightDelta = (cell.editHeightDelta || 0) + str * weight;
+      } else if (tool === 'LOWER') {
+        cell.editHeightDelta = (cell.editHeightDelta || 0) - str * weight;
+      } else if (tool === 'FLATTEN' || tool === 'SMOOTH') {
+        const current =
+          (typeof cell.baseHeight === 'number' ? cell.baseHeight : 0) +
+          (typeof cell.editHeightDelta === 'number' ? cell.editHeightDelta : 0);
+
+        const delta = (targetHeight - current) * str * weight;
+        cell.editHeightDelta = (cell.editHeightDelta || 0) + delta;
+      }
+    }
+  }
+}
 
 function applySticker(world: WorldBrain, action: StickerApplyAction): void {
   const { sticker } = action;
@@ -203,38 +219,23 @@ function applyAddCountry(world: WorldBrain, action: AddCountryAction): void {
   world.countries.push(action.country);
 }
 
-function pointInPolygon(point: { lat: number; lon: number }, polygon: { lat: number; lon: number }[]): boolean {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].lon;
-    const yi = polygon[i].lat;
-    const xj = polygon[j].lon;
-    const yj = polygon[j].lat;
-
-    const intersect = yi > point.lat !== yj > point.lat && point.lon < ((xj - xi) * (point.lat - yi)) / (yj - yi + 1e-12) + xi;
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
 function applyAddRiver(world: WorldBrain, action: AddRiverAction): void {
   world.rivers = world.rivers ?? [];
   world.rivers.push(action.river);
 }
 
 function applyRemoveRiver(world: WorldBrain, action: RemoveRiverAction): void {
-  world.rivers = (world.rivers ?? []).filter(r => r.id !== action.riverId);
+  world.rivers = (world.rivers ?? []).filter((r) => r.id !== action.riverId);
 }
 
 function applySetLakeLevel(world: WorldBrain, action: SetLakeLevelAction): void {
-  // Find all cells in the same basin and raise/lower by delta
   const cell = world.cells[action.cellIndex];
   if (!cell) return;
-  
+
   const basinId = cell.basinId;
-  const currentLevel = cell.baseHeight + cell.editHeightDelta;
+  const currentLevel = (cell.baseHeight || 0) + (cell.editHeightDelta || 0);
   const delta = action.newLevel - currentLevel;
-  
+
   if (basinId != null) {
     for (const c of world.cells) {
       if (c.basinId === basinId) {
@@ -242,6 +243,28 @@ function applySetLakeLevel(world: WorldBrain, action: SetLakeLevelAction): void 
       }
     }
   }
+}
+
+function pointInPolygon(
+  point: { lat: number; lon: number },
+  polygon: { lat: number; lon: number }[]
+): boolean {
+  let inside = false;
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lon;
+    const yi = polygon[i].lat;
+    const xj = polygon[j].lon;
+    const yj = polygon[j].lat;
+
+    const intersect =
+      yi > point.lat !== yj > point.lat &&
+      point.lon < ((xj - xi) * (point.lat - yi)) / (yj - yi + 1e-12) + xi;
+
+    if (intersect) inside = !inside;
+  }
+
+  return inside;
 }
 
 // Alias used by worldEditor; maintained for backward compatibility.
