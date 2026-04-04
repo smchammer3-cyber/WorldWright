@@ -45,8 +45,8 @@ export type GeneratorParams = {
 type Vec3 = [number, number, number];
 type DebugStage = 'FINAL' | 'LANDFIELD' | 'MASK_PRE' | 'MASK_POST' | 'HEIGHT';
 
-const DEBUG_STAGE: DebugStage = 'MASK_PRE';
-const DEBUG_LOCK_SEED = true;
+const DEBUG_STAGE: DebugStage = 'FINAL';
+const DEBUG_LOCK_SEED = false;
 const DEBUG_FIXED_SEED: number | string = 123456;
 
 export function createDefaultGeneratorParams(): GeneratorParams {
@@ -630,6 +630,8 @@ function buildLandField(
 
   for (let r = 1; r < height - 1; r++) {
     const lat = 90 - ((r + 0.5) / height) * 180;
+    const absLat01 = Math.abs(lat) / 90;
+    const poleFade = smoothstep(0.90, 1.0, absLat01);
 
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
@@ -643,34 +645,36 @@ function buildLandField(
       const breakup = sphereFbm(offsetVec(dir, -1.2, -0.4, 1.0), seedUint, 7.5, 2);
 
       const noiseOwner =
-        largeA * 0.40 +
-        largeB * 0.34 +
-        medium * 0.12 +
-        breakup * 0.04;
+        largeA * 0.46 +
+        largeB * 0.36 +
+        medium * 0.13 +
+        breakup * 0.05;
 
       let tectonicModulation = 0;
 
       if (tect.plateType === PlateType.CONTINENTAL) {
-        tectonicModulation += lerp(0.01, 0.055, 1 - tect.distanceToBoundary);
+        tectonicModulation += 0.010;
       } else {
-        tectonicModulation -= lerp(0.01, 0.045, 1 - tect.distanceToBoundary);
+        tectonicModulation -= 0.010;
       }
 
       if (tect.boundaryType === BoundaryType.CONVERGENT) {
-        tectonicModulation += lerp(0.015, 0.07, tect.boundaryStrength);
+        tectonicModulation += 0.010 * tect.boundaryStrength;
       } else if (tect.boundaryType === BoundaryType.DIVERGENT) {
-        tectonicModulation -= lerp(0.01, 0.05, tect.boundaryStrength);
+        tectonicModulation -= 0.008 * tect.boundaryStrength;
       } else if (tect.boundaryType === BoundaryType.TRANSFORM) {
-        tectonicModulation += lerp(-0.01, 0.012, tect.boundaryStrength);
+        tectonicModulation += 0.002 * tect.boundaryStrength;
       }
 
-      let value = noiseOwner + tectonicModulation;
+      let value =
+        noiseOwner +
+        tectonicModulation * (1 - poleFade * 0.65);
 
       if (styleMode === 'FANTASY') value += 0.03;
       if (styleMode === 'STYLIZED') value += 0.02;
       if (styleMode === 'ALIEN') value += (rng() - 0.5) * 0.03;
 
-      value += (rng() - 0.5) * 0.018;
+      value += (rng() - 0.5) * 0.012;
       field[idx] = value;
     }
   }
