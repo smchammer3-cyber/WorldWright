@@ -1,5 +1,5 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 CAP-STABLE PARAM-SENSITIVE)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 PER-COLUMN POLE CONTINUATION)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
@@ -8,8 +8,9 @@
 // - keep broad terrain silhouette noise-led
 // - keep tectonics as refinement instead of direct continent ownership
 // - remove manufactured pole cap ownership
-// - stabilize the spherical cap band explicitly at the very end
-// - restore stronger visible parameter leverage without regressing to the old blob logic
+// - remove final row-mean polar collapse
+// - replace it with per-column pole continuation only
+// - restore stronger visible parameter leverage without regressing to old blob logic
 // ========================================================
 
 import {
@@ -84,7 +85,6 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const moisture01 = clamp01(params.moistureLevel / 100);
   const tempOffset01 = (params.temperatureOffset / 100) * 0.22;
 
-  // Stronger visible leverage than the current weak-feeling builds
   const plateAmp = lerp(0.35, 1.30, clamp01(params.plateActivity / 100));
   const seaBias = clamp01(params.seaLevel / 100);
   const globalSeaLevel = lerp(-0.10, 0.14, seaBias);
@@ -196,7 +196,6 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   landMask = mergeNearbyLandmasses(landMask, width, height, rng, targetContinentCount);
   landMask = enforceLandCoverageTarget(landMask, width, height, rng, targetLandFraction);
 
-  // Minimal pole mask control only. Do not author terrain caps here.
   clearPoleRows(landMask, width, height);
   weakenNearPoleRows(landMask, width, height, rng);
 
@@ -225,7 +224,6 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   // ----------------------------------------------------
   // STEP 4: convert silhouette + tectonics into terrain
   // ----------------------------------------------------
-  // Important: do NOT author the poles specially here.
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
@@ -251,7 +249,6 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const detailNoise = sphereFbm(offsetVec(dir, -0.8, 1.0, -0.4), seedUint, 4.2, 3);
       const oceanNoise = sphereFbm(offsetVec(dir, -1.1, -0.7, 0.6), seedUint, 2.0, 2);
 
-      // Stronger macro ownership again
       const macroTerrain = largeA * 0.16 + largeB * 0.14 + medium * 0.06 + breakup * 0.02;
 
       const convergentRelief =
@@ -357,12 +354,9 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
 
   // ----------------------------------------------------
-  // STEP 6: FINAL SPHERICAL CAP STABILIZATION
+  // STEP 6: PER-COLUMN POLE CONTINUATION ONLY
   // ----------------------------------------------------
-  // This is the actual ring-killer:
-  // collapse the cap band to behave like a converging spherical cap,
-  // not a normal wrapped equirectangular row neighborhood.
-  stabilizePolarCaps(cells, width, height);
+  continuePolarColumns(cells, width, height);
 
   if (DEBUG_STAGE === 'HEIGHT') {
     return buildDebugWorld({
@@ -948,41 +942,35 @@ function weakenNearPoleRows(
 // TERRAIN / CLIMATE HELPERS
 // ========================================================
 
-function stabilizePolarCaps(cells: Cell[], width: number, height: number): void {
-  // Collapse variance as a converging spherical cap, not a manufactured sampled cap.
-  const north1Mean = averageRowHeight(cells, width, 1);
-  const south1Mean = averageRowHeight(cells, width, height - 2);
-  const north2Mean = averageRowHeight(cells, width, 2);
-  const south2Mean = averageRowHeight(cells, width, height - 3);
+function continuePolarColumns(cells: Cell[], width: number, height: number): void {
+  // Per-column continuation only:
+  // do NOT flatten whole rows to shared means.
+  //
+  // Row 0 continues from row 1 by column.
+  // Last row continues from row height-2 by column.
+  //
+  // A very light blend is applied to row 1 / row 2 toward their same-column
+  // southern/northern neighbors only, never toward a row-wide mean.
+
+  if (height < 4) return;
 
   for (let c = 0; c < width; c++) {
-    const n1 = 1 * width + c;
-    const n2 = 2 * width + c;
-    const s1 = (height - 2) * width + c;
-    const s2 = (height - 3) * width + c;
+    const north0 = 0 * width + c;
+    const north1 = 1 * width + c;
+    const north2 = 2 * width + c;
 
-    cells[n1].baseHeight = lerp(cells[n1].baseHeight, north1Mean, 0.86);
-    cells[n2].baseHeight = lerp(cells[n2].baseHeight, north2Mean, 0.44);
+    const south0 = (height - 1) * width + c;
+    const south1 = (height - 2) * width + c;
+    const south2 = (height - 3) * width + c;
 
-    cells[s1].baseHeight = lerp(cells[s1].baseHeight, south1Mean, 0.86);
-    cells[s2].baseHeight = lerp(cells[s2].baseHeight, south2Mean, 0.44);
+    // Light local continuation, not circular averaging.
+    cells[north1].baseHeight = lerp(cells[north1].baseHeight, cells[north2].baseHeight, 0.18);
+    cells[south1].baseHeight = lerp(cells[south1].baseHeight, cells[south2].baseHeight, 0.18);
+
+    // Pole rows copy their own column's adjacent row only.
+    cells[north0].baseHeight = cells[north1].baseHeight;
+    cells[south0].baseHeight = cells[south1].baseHeight;
   }
-
-  const northPole = averageRowHeight(cells, width, 1);
-  const southPole = averageRowHeight(cells, width, height - 2);
-
-  for (let c = 0; c < width; c++) {
-    cells[c].baseHeight = northPole;
-    cells[(height - 1) * width + c].baseHeight = southPole;
-  }
-}
-
-function averageRowHeight(cells: Cell[], width: number, row: number): number {
-  let sum = 0;
-  for (let c = 0; c < width; c++) {
-    sum += cells[row * width + c].baseHeight;
-  }
-  return width > 0 ? sum / width : 0;
 }
 
 function applyHybridTectonicInfluence(
