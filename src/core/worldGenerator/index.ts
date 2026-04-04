@@ -1,5 +1,5 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 PER-COLUMN POLE CONTINUATION)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 REDUCED POLAR REGULARIZATION)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
@@ -7,10 +7,9 @@
 // - follow blueprint order: tectonics -> terrain -> climate -> biomes -> hydrology
 // - keep broad terrain silhouette noise-led
 // - keep tectonics as refinement instead of direct continent ownership
-// - remove manufactured pole cap ownership
-// - remove final row-mean polar collapse
-// - replace it with per-column pole continuation only
-// - restore stronger visible parameter leverage without regressing to old blob logic
+// - remove excessive polar regularization
+// - reduce polar damping and pole-specific smoothing behavior
+// - preserve stronger visible parameter leverage without regressing to old blob logic
 // ========================================================
 
 import {
@@ -196,8 +195,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   landMask = mergeNearbyLandmasses(landMask, width, height, rng, targetContinentCount);
   landMask = enforceLandCoverageTarget(landMask, width, height, rng, targetLandFraction);
 
-  clearPoleRows(landMask, width, height);
-  weakenNearPoleRows(landMask, width, height, rng);
+  // Removed explicit polar row clearing and weakening to avoid visible rings.
 
   if (DEBUG_STAGE === 'MASK_POST') {
     const debugCells = cloneCells(cells);
@@ -235,7 +233,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const dir = latLonToUnitVector(lat, lon);
 
       const absLat01 = Math.abs(lat) / 90;
-      const capDamp = smoothstep(0.92, 1.0, absLat01);
+      const capDamp = Math.pow(absLat01, 1.5);
 
       const coastalFactor = computeLocalLandFraction(landMask, width, height, r, c, 2);
       const coastBand = 1 - Math.abs(coastalFactor - 0.5) * 2;
@@ -276,7 +274,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
           0.02 +
           inlandFactor * 0.62 +
           macroTerrain +
-          detailNoise * 0.05 * (1 - capDamp * 0.75) +
+          detailNoise * 0.05 * (1 - capDamp * 0.3) +
           continentalRefine +
           convergentRelief +
           divergentRelief * 0.28 +
@@ -290,7 +288,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
           -0.16 -
           (0.18 + (1 - coastalFactor) * 0.56) +
           macroTerrain * 0.18 +
-          oceanNoise * 0.04 * (1 - capDamp * 0.65) +
+          oceanNoise * 0.04 * (1 - capDamp * 0.2) +
           continentalRefine * 0.12 +
           divergentRelief +
           transformRelief * 0.14 -
@@ -330,14 +328,14 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
         const lat = 90 - ((r + 0.5) / height) * 180;
         const absLat01 = Math.abs(lat) / 90;
-        const capDamp = smoothstep(0.93, 1.0, absLat01);
+        const capDamp = Math.pow(absLat01, 1.5);
 
         const nearSea = Math.abs(cell.baseHeight - globalSeaLevel) < 0.12;
         const coastPreserve = nearSea ? 0.36 : 1.0;
 
-        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.92, capDamp);
+        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.98, capDamp);
         const noiseBreakup =
-          (rng() - 0.5) * 0.0045 * (1 - smoothness) * (1 - capDamp * 0.15);
+          (rng() - 0.5) * 0.0045 * (1 - smoothness) * (1 - capDamp * 0.05);
 
         nextHeights[idx] = clamp(
           cell.baseHeight + (avg - cell.baseHeight) * localSmooth * coastPreserve + noiseBreakup,
@@ -910,6 +908,7 @@ function getLandComponents(
   return components;
 }
 
+// Kept for compatibility if needed elsewhere, but not used in generate pass.
 function clearPoleRows(mask: Uint8Array, width: number, height: number): void {
   for (let c = 0; c < width; c++) {
     mask[c] = 0;
@@ -917,6 +916,7 @@ function clearPoleRows(mask: Uint8Array, width: number, height: number): void {
   }
 }
 
+// Kept for compatibility if needed elsewhere, but not used in generate pass.
 function weakenNearPoleRows(
   mask: Uint8Array,
   width: number,
@@ -943,15 +943,6 @@ function weakenNearPoleRows(
 // ========================================================
 
 function continuePolarColumns(cells: Cell[], width: number, height: number): void {
-  // Per-column continuation only:
-  // do NOT flatten whole rows to shared means.
-  //
-  // Row 0 continues from row 1 by column.
-  // Last row continues from row height-2 by column.
-  //
-  // A very light blend is applied to row 1 / row 2 toward their same-column
-  // southern/northern neighbors only, never toward a row-wide mean.
-
   if (height < 4) return;
 
   for (let c = 0; c < width; c++) {
@@ -963,11 +954,9 @@ function continuePolarColumns(cells: Cell[], width: number, height: number): voi
     const south1 = (height - 2) * width + c;
     const south2 = (height - 3) * width + c;
 
-    // Light local continuation, not circular averaging.
     cells[north1].baseHeight = lerp(cells[north1].baseHeight, cells[north2].baseHeight, 0.18);
     cells[south1].baseHeight = lerp(cells[south1].baseHeight, cells[south2].baseHeight, 0.18);
 
-    // Pole rows copy their own column's adjacent row only.
     cells[north0].baseHeight = cells[north1].baseHeight;
     cells[south0].baseHeight = cells[south1].baseHeight;
   }
