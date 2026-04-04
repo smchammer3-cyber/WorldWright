@@ -1,13 +1,13 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 GROWTH-BASED STABILIZE)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 CLUSTERED GROWTH PASS)
 // File: src/core/worldGenerator/index.ts
 //
 // Goals:
-// - replace blob-driven silhouette generation with growth-based landmasses
-// - keep tectonics as an influence layer, not visible partition geometry
-// - reduce wedges / pearls / bead-chain artifacts
-// - preserve current repo contract for schema/session/recompute flow
-// - keep pole handling deterministic and safer for globe rendering
+// - replace territory/ownership growth with cheaper clustered land growth
+// - avoid queue.sort() / frontier priority expansion
+// - keep tectonics as influence after silhouette creation
+// - reduce wedges, radial sectors, and polar dominance
+// - preserve repo contract with recompute/session/storage/render flow
 // ========================================================
 
 import {
@@ -44,10 +44,10 @@ export type GeneratorParams = {
 
 type Vec3 = [number, number, number];
 
-type GrowthSeed = {
+type ClusterSeed = {
   row: number;
   col: number;
-  targetSize: number;
+  radius: number;
   strength: number;
 };
 
@@ -55,12 +55,6 @@ type PoleSample = {
   baseHeight: number;
   plateId: number;
   plateType: PlateType;
-};
-
-type QueueNode = {
-  idx: number;
-  score: number;
-  continentId: number;
 };
 
 export function createDefaultGeneratorParams(): GeneratorParams {
@@ -91,7 +85,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
   const seaBias = clamp01(params.seaLevel / 100);
   const globalSeaLevel = lerp(-0.08, 0.12, seaBias);
-  const plateAmp = lerp(0.45, 1.10, clamp01(params.plateActivity / 100));
+  const plateAmp = lerp(0.45, 1.05, clamp01(params.plateActivity / 100));
   const age01 = clamp01(params.planetAge / 100);
   const erosion01 = clamp01(params.erosionIntensity / 100);
   const smoothness = (age01 + erosion01) * 0.5;
@@ -129,30 +123,26 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
 
   // ----------------------------------------------------
-  // STEP 2: continent growth seeds
+  // STEP 2: clustered continent seeds
   // ----------------------------------------------------
-  const growthSeeds = createGrowthSeeds(width, height, targetContinentCount, rng, fields);
-  const ownership = new Int16Array(width * height);
-  ownership.fill(-1);
-
+  const clusterSeeds = createClusterSeeds(width, height, targetContinentCount, rng, fields);
   const northPoleSample = buildPoleSample(fields[0], rng);
   const southPoleSample = buildPoleSample(fields[(height - 1) * width], rng);
 
   // ----------------------------------------------------
-  // STEP 3: growth-based landmass ownership
+  // STEP 3: cheap clustered landmask build
   // ----------------------------------------------------
-  const continentMask = growContinents(
+  const landMask = buildClusteredLandMask(
     width,
     height,
+    clusterSeeds,
     fields,
-    growthSeeds,
-    ownership,
     rng,
     params.styleMode
   );
 
   // ----------------------------------------------------
-  // STEP 4: convert ownership + tectonics into terrain
+  // STEP 4: convert clustered mask + tectonics into terrain
   // ----------------------------------------------------
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
@@ -180,61 +170,59 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       const absLat01 = Math.abs(lat) / 90;
       const poleProximity = smoothstep(0.82, 1.0, absLat01);
 
-      const isLandCore = continentMask[idx] > 0;
-      const coastalFactor = computeLocalLandFraction(continentMask, width, height, r, c, 2);
+      const maskValue = landMask[idx];
+      const isLandCore = maskValue > 0.50;
+      const coastalFactor = computeLocalLandFraction(landMask, width, height, r, c, 2);
       const coastBand = 1 - Math.abs(coastalFactor - 0.5) * 2;
       const inlandFactor = clamp01((coastalFactor - 0.45) / 0.55);
 
-      const macroNoise = sphereFbm(offsetVec(dir, 1.3, -0.3, 0.8), seedUint, 1.3, 3);
-      const detailNoise = sphereFbm(offsetVec(dir, -0.8, 1.1, -0.4), seedUint, 4.5, 3);
-      const coastNoise = sphereFbm(offsetVec(dir, 0.4, 1.8, 0.2), seedUint, 8.5, 2);
-      const oceanNoise = sphereFbm(offsetVec(dir, -1.2, -0.7, 0.6), seedUint, 2.0, 2);
+      const macroNoise = sphereFbm(offsetVec(dir, 1.2, -0.3, 0.8), seedUint, 1.25, 3);
+      const detailNoise = sphereFbm(offsetVec(dir, -0.8, 1.0, -0.4), seedUint, 4.2, 3);
+      const coastNoise = sphereFbm(offsetVec(dir, 0.4, 1.7, 0.2), seedUint, 8.0, 2);
+      const oceanNoise = sphereFbm(offsetVec(dir, -1.1, -0.7, 0.6), seedUint, 2.0, 2);
 
-      const continentalBias = tect.plateType === PlateType.CONTINENTAL ? 0.05 : -0.03;
+      const continentalBias = tect.plateType === PlateType.CONTINENTAL ? 0.04 : -0.025;
 
       const convergentRelief =
         tect.boundaryType === BoundaryType.CONVERGENT
-          ? lerp(0.01, 0.10, tect.boundaryStrength) * (1 - tect.distanceToBoundary * 0.8)
+          ? lerp(0.01, 0.085, tect.boundaryStrength) * (1 - tect.distanceToBoundary * 0.8)
           : 0;
 
       const divergentRelief =
         tect.boundaryType === BoundaryType.DIVERGENT
-          ? lerp(-0.05, 0.01, tect.boundaryStrength) * (1 - tect.distanceToBoundary * 0.75)
+          ? lerp(-0.045, 0.008, tect.boundaryStrength) * (1 - tect.distanceToBoundary * 0.75)
           : 0;
 
       const transformRelief =
         tect.boundaryType === BoundaryType.TRANSFORM
-          ? lerp(-0.005, 0.012, tect.boundaryStrength)
+          ? lerp(-0.004, 0.010, tect.boundaryStrength)
           : 0;
 
       if (isLandCore) {
-        // Growth-based land masses:
-        // inlandFactor gives continent interior, coastBand encourages shelf / coast breakup
         let h =
-          0.04 +
-          inlandFactor * 0.60 +
-          macroNoise * 0.10 +
-          detailNoise * 0.05 +
-          coastNoise * 0.035 * coastBand +
+          0.03 +
+          inlandFactor * 0.58 +
+          macroNoise * 0.09 +
+          detailNoise * 0.045 +
+          coastNoise * 0.03 * coastBand +
           continentalBias +
           convergentRelief +
-          divergentRelief * 0.4 +
-          transformRelief * 0.5 -
-          poleProximity * 0.12 -
+          divergentRelief * 0.35 +
+          transformRelief * 0.45 -
+          poleProximity * 0.11 -
           globalSeaLevel;
 
-        // Carve some bays/peninsulas along coastal zones only
-        h -= coastBand * Math.max(0, 0.09 - detailNoise * 0.08);
+        h -= coastBand * Math.max(0, 0.08 - detailNoise * 0.07);
 
         cell.baseHeight = clamp(h, -1.4, 1.6);
       } else {
         let h =
           -0.14 -
-          (0.20 + (1 - coastalFactor) * 0.58) +
-          oceanNoise * 0.04 +
-          continentalBias * 0.25 +
+          (0.18 + (1 - coastalFactor) * 0.56) +
+          oceanNoise * 0.035 +
+          continentalBias * 0.2 +
           divergentRelief +
-          transformRelief * 0.25 -
+          transformRelief * 0.2 -
           poleProximity * 0.08 -
           globalSeaLevel * 0.18;
 
@@ -244,14 +232,14 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
 
   // ----------------------------------------------------
-  // STEP 5: tectonic uplift moderation + coastal smoothing
+  // STEP 5: tectonic uplift moderation + coast-preserving smoothing
   // ----------------------------------------------------
   applyHybridTectonicInfluence(cells, fields, plateAmp);
   blendCapAdjacentRows(cells, width, height, 1, northPoleSample.baseHeight, southPoleSample.baseHeight);
   blendCapAdjacentRows(cells, width, height, 2, northPoleSample.baseHeight, southPoleSample.baseHeight);
 
   const smoothingPasses = Math.max(2, Math.round(lerp(2, 5, smoothness)));
-  const smoothingStrength = lerp(0.07, 0.22, smoothness);
+  const smoothingStrength = lerp(0.07, 0.21, smoothness);
 
   for (let pass = 0; pass < smoothingPasses; pass++) {
     const nextHeights = new Array<number>(cells.length);
@@ -285,10 +273,10 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
         const poleProximity = smoothstep(68 / 90, 1.0, Math.abs(lat) / 90);
 
         const nearSea = Math.abs(cell.baseHeight - globalSeaLevel) < 0.12;
-        const coastPreserve = nearSea ? 0.36 : 1.0;
-        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.48, poleProximity);
+        const coastPreserve = nearSea ? 0.38 : 1.0;
+        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.50, poleProximity);
         const noiseBreakup =
-          (rng() - 0.5) * 0.006 * (1 - smoothness) * (1 - poleProximity * 0.75);
+          (rng() - 0.5) * 0.0055 * (1 - smoothness) * (1 - poleProximity * 0.75);
 
         nextHeights[idx] = clamp(
           cell.baseHeight + (avg - cell.baseHeight) * localSmooth * coastPreserve + noiseBreakup,
@@ -472,155 +460,151 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   return world;
 }
 
-function createGrowthSeeds(
+function createClusterSeeds(
   width: number,
   height: number,
   count: number,
   rng: () => number,
   fields: TectonicsField[]
-): GrowthSeed[] {
-  const seeds: GrowthSeed[] = [];
-  const totalCells = width * height;
-  const targetLandFraction = lerp(0.22, 0.42, clamp01(count / 12));
-  const totalLandTarget = Math.floor(totalCells * targetLandFraction);
+): ClusterSeed[] {
+  const seeds: ClusterSeed[] = [];
+  const minRow = Math.max(1, Math.floor(height * 0.12));
+  const maxRow = Math.min(height - 2, Math.floor(height * 0.88));
 
   for (let i = 0; i < count; i++) {
-    let row = 0;
+    let row = minRow;
     let col = 0;
 
-    // Avoid extreme poles and prefer continental-friendly tectonic fields
     for (let tries = 0; tries < 40; tries++) {
-      row = clampInt(Math.floor(lerp(height * 0.12, height * 0.88, rng())), 1, height - 2);
+      row = clampInt(Math.floor(lerp(minRow, maxRow, rng())), 1, height - 2);
       col = clampInt(Math.floor(rng() * width), 0, width - 1);
-      const f = fields[row * width + col];
-      const polePenalty = Math.abs((row / Math.max(1, height - 1)) - 0.5);
-      const good =
-        (f.plateType === PlateType.CONTINENTAL || rng() > 0.35) &&
-        polePenalty < 0.42;
+
+      const field = fields[row * width + col];
+      const nearEquator = Math.abs((row / Math.max(1, height - 1)) - 0.5) < 0.40;
+      const good = nearEquator && (field.plateType === PlateType.CONTINENTAL || rng() > 0.35);
       if (good) break;
     }
 
-    const share = totalLandTarget / count;
     seeds.push({
       row,
       col,
-      targetSize: Math.max(300, Math.floor(share * lerp(0.75, 1.25, rng()))),
-      strength: lerp(0.9, 1.18, rng()),
+      radius: lerp(7, 18, rng()),
+      strength: lerp(0.82, 1.18, rng()),
     });
   }
 
   return seeds;
 }
 
-function growContinents(
+function buildClusteredLandMask(
   width: number,
   height: number,
+  seeds: ClusterSeed[],
   fields: TectonicsField[],
-  seeds: GrowthSeed[],
-  ownership: Int16Array,
   rng: () => number,
   styleMode: GeneratorParams['styleMode']
 ): Uint8Array {
   const total = width * height;
-  const mask = new Uint8Array(total);
+  const field = new Float32Array(total);
 
-  const queue: QueueNode[] = [];
-  const grownCounts = new Int32Array(seeds.length);
+  // Initial cluster influence
+  for (let r = 1; r < height - 1; r++) {
+    for (let c = 0; c < width; c++) {
+      const idx = r * width + c;
+      const tect = fields[idx];
 
-  for (let i = 0; i < seeds.length; i++) {
-    const s = seeds[i];
-    const idx = s.row * width + s.col;
-    queue.push({ idx, score: 9999, continentId: i });
-  }
+      let value = tect.plateType === PlateType.CONTINENTAL ? 0.12 : -0.10;
 
-  while (queue.length > 0) {
-    queue.sort((a, b) => b.score - a.score);
-    const node = queue.shift()!;
-    const idx = node.idx;
-    if (ownership[idx] !== -1) continue;
-
-    const continent = seeds[node.continentId];
-    if (grownCounts[node.continentId] >= continent.targetSize) continue;
-
-    ownership[idx] = node.continentId;
-    mask[idx] = 1;
-    grownCounts[node.continentId]++;
-
-    const row = Math.floor(idx / width);
-    const col = idx % width;
-
-    const neighbors = getNeighbors(width, height, row, col);
-
-    for (const nIdx of neighbors) {
-      if (ownership[nIdx] !== -1) continue;
-
-      const nr = Math.floor(nIdx / width);
-      const nc = nIdx % width;
-      const f = fields[nIdx];
-
-      const dr = nr - continent.row;
-      const rawDc = Math.abs(nc - continent.col);
-      const dc = Math.min(rawDc, width - rawDc);
-      const dist = Math.sqrt(dr * dr + dc * dc);
-
-      const continentalBias = f.plateType === PlateType.CONTINENTAL ? 0.9 : -0.35;
-      const boundaryBias =
-        f.boundaryType === BoundaryType.CONVERGENT
-          ? lerp(0.1, 0.8, f.boundaryStrength)
-          : f.boundaryType === BoundaryType.DIVERGENT
-          ? lerp(-0.75, 0.08, f.boundaryStrength)
-          : f.boundaryType === BoundaryType.TRANSFORM
-          ? lerp(-0.15, 0.18, f.boundaryStrength)
-          : 0;
-
-      const noise = (rng() - 0.5) * 0.7;
-      const styleBias =
-        styleMode === 'FANTASY'
-          ? 0.15
-          : styleMode === 'STYLIZED'
-          ? 0.08
-          : styleMode === 'ALIEN'
-          ? (rng() - 0.5) * 0.2
-          : 0;
-
-      const score =
-        continent.strength * 3.2 -
-        dist * 0.055 +
-        continentalBias +
-        boundaryBias +
-        styleBias +
-        noise;
-
-      // Only expand if plausibly valuable
-      if (score > -1.25) {
-        queue.push({ idx: nIdx, score, continentId: node.continentId });
+      if (tect.boundaryType === BoundaryType.CONVERGENT) {
+        value += lerp(0.02, 0.12, tect.boundaryStrength);
+      } else if (tect.boundaryType === BoundaryType.DIVERGENT) {
+        value -= lerp(0.03, 0.12, tect.boundaryStrength);
       }
+
+      for (const seed of seeds) {
+        const dr = r - seed.row;
+        const rawDc = Math.abs(c - seed.col);
+        const dc = Math.min(rawDc, width - rawDc);
+        const dist = Math.sqrt(dr * dr + dc * dc);
+        const influence = Math.max(0, 1 - dist / Math.max(1, seed.radius));
+        value += influence * seed.strength;
+      }
+
+      if (styleMode === 'FANTASY') value += 0.05;
+      if (styleMode === 'STYLIZED') value += 0.03;
+      if (styleMode === 'ALIEN') value += (rng() - 0.5) * 0.08;
+
+      value += (rng() - 0.5) * 0.12;
+      field[idx] = value;
     }
   }
 
-  // Coastal nibbling pass to reduce inflated blobs
-  const carvePasses = 2;
-  for (let pass = 0; pass < carvePasses; pass++) {
+  // Fixed-pass cellular growth / erosion.
+  // Cheap and avoids queue-sort / sector territory fill.
+  const passes = 5;
+  for (let pass = 0; pass < passes; pass++) {
+    const next = new Float32Array(field);
+
+    for (let r = 1; r < height - 1; r++) {
+      for (let c = 0; c < width; c++) {
+        const idx = r * width + c;
+        let neighborSum = 0;
+        let neighborCount = 0;
+
+        for (let dr = -1; dr <= 1; dr++) {
+          const rr = r + dr;
+          if (rr < 0 || rr >= height) continue;
+
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const cc = (c + dc + width) % width;
+            neighborSum += field[rr * width + cc];
+            neighborCount++;
+          }
+        }
+
+        const avg = neighborCount > 0 ? neighborSum / neighborCount : 0;
+        const cur = field[idx];
+        const blend = pass < 3 ? 0.32 : 0.22;
+        next[idx] = cur * (1 - blend) + avg * blend;
+      }
+    }
+
+    field.set(next);
+  }
+
+  // Threshold to land/water mask
+  const mask = new Uint8Array(total);
+  for (let r = 1; r < height - 1; r++) {
+    for (let c = 0; c < width; c++) {
+      const idx = r * width + c;
+      mask[idx] = field[idx] > 0.62 ? 1 : 0;
+    }
+  }
+
+  // Coastal carve pass
+  for (let pass = 0; pass < 2; pass++) {
     const next = new Uint8Array(mask);
 
     for (let r = 1; r < height - 1; r++) {
       for (let c = 0; c < width; c++) {
         const idx = r * width + c;
-        if (mask[idx] === 0) continue;
-
         const landFrac = computeLocalLandFraction(mask, width, height, r, c, 2);
-        const f = fields[idx];
+        const tect = fields[idx];
 
-        // Coastal cells near divergent/oceanic influence get carved more often
-        const carveBias =
-          (landFrac < 0.62 ? 1 : 0) +
-          (f.boundaryType === BoundaryType.DIVERGENT ? 0.8 : 0) +
-          (f.plateType === PlateType.OCEANIC ? 0.5 : 0);
+        if (mask[idx] === 1) {
+          const coastal = landFrac > 0.18 && landFrac < 0.82;
+          const carveBias =
+            (tect.boundaryType === BoundaryType.DIVERGENT ? 0.03 : 0) +
+            (tect.plateType === PlateType.OCEANIC ? 0.02 : 0);
 
-        if (landFrac > 0.18 && landFrac < 0.82) {
-          const chance = 0.045 + carveBias * 0.03;
-          if (rng() < chance) {
+          if (coastal && rng() < 0.04 + carveBias) {
             next[idx] = 0;
+          }
+        } else {
+          const accreteBias = tect.plateType === PlateType.CONTINENTAL ? 0.02 : 0;
+          if (landFrac > 0.54 && rng() < 0.025 + accreteBias) {
+            next[idx] = 1;
           }
         }
       }
@@ -629,48 +613,13 @@ function growContinents(
     mask.set(next);
   }
 
-  // Small shelf/island accretion so coasts don't look clipped
-  for (let r = 1; r < height - 1; r++) {
-    for (let c = 0; c < width; c++) {
-      const idx = r * width + c;
-      if (mask[idx] === 1) continue;
-
-      const landFrac = computeLocalLandFraction(mask, width, height, r, c, 1);
-      const f = fields[idx];
-      if (
-        landFrac > 0.50 &&
-        f.plateType === PlateType.CONTINENTAL &&
-        rng() < 0.08
-      ) {
-        mask[idx] = 1;
-      }
-    }
-  }
-
-  // Hard pole rows stay out of general growth mask
+  // keep poles clean
   for (let c = 0; c < width; c++) {
     mask[c] = 0;
     mask[(height - 1) * width + c] = 0;
   }
 
   return mask;
-}
-
-function getNeighbors(width: number, height: number, row: number, col: number): number[] {
-  const out: number[] = [];
-
-  for (let dr = -1; dr <= 1; dr++) {
-    const rr = row + dr;
-    if (rr < 0 || rr >= height) continue;
-
-    for (let dc = -1; dc <= 1; dc++) {
-      if (dr === 0 && dc === 0) continue;
-      const cc = (col + dc + width) % width;
-      out.push(rr * width + cc);
-    }
-  }
-
-  return out;
 }
 
 function computeLocalLandFraction(
@@ -701,7 +650,7 @@ function computeLocalLandFraction(
 function buildPoleSample(tect: TectonicsField, rng: () => number): PoleSample {
   const baseHeight =
     tect.plateType === PlateType.CONTINENTAL
-      ? lerp(0.02, 0.18, rng())
+      ? lerp(0.02, 0.16, rng())
       : lerp(-0.22, -0.05, rng());
 
   return {
@@ -724,16 +673,16 @@ function applyHybridTectonicInfluence(
     let delta = 0;
 
     if (tect.boundaryType === BoundaryType.CONVERGENT) {
-      delta = lerp(0.012, 0.085, tect.boundaryStrength);
-      if (tect.plateType === PlateType.CONTINENTAL) delta *= 1.18;
+      delta = lerp(0.012, 0.080, tect.boundaryStrength);
+      if (tect.plateType === PlateType.CONTINENTAL) delta *= 1.16;
     } else if (tect.boundaryType === BoundaryType.DIVERGENT) {
-      delta = lerp(-0.035, 0.008, tect.boundaryStrength);
+      delta = lerp(-0.032, 0.008, tect.boundaryStrength);
     } else if (tect.boundaryType === BoundaryType.TRANSFORM) {
       delta = lerp(-0.004, 0.010, tect.boundaryStrength);
     } else {
       delta =
         tect.plateType === PlateType.CONTINENTAL
-          ? lerp(0.003, 0.016, 1 - tect.distanceToBoundary)
+          ? lerp(0.003, 0.014, 1 - tect.distanceToBoundary)
           : lerp(-0.010, 0.004, 1 - tect.distanceToBoundary);
     }
 
@@ -865,10 +814,6 @@ function sphereValueNoise(v: Vec3, f: number, salt: number, seed: number): numbe
 
 function offsetVec(dir: Vec3, ox: number, oy: number, oz: number): Vec3 {
   return normalize3([dir[0] + ox, dir[1] + oy, dir[2] + oz]);
-}
-
-function dot3(a: Vec3, b: Vec3): number {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
 function normalize3(v: Vec3): Vec3 {
