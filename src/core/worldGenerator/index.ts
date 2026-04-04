@@ -9,6 +9,7 @@
 // - no frontier queue sorting
 // - tectonics influence terrain after silhouette exists
 // - generator does NOT own post-generation recompute
+// - RAW DEBUG PATH: do NOT generate countries here
 // ========================================================
 
 import {
@@ -20,7 +21,6 @@ import {
   PlateType,
   BoundaryType,
 } from '../worldSchema';
-import { generateCountries } from '../countryGenerator';
 import {
   buildTectonicsField,
   type TectonicsField,
@@ -472,8 +472,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
   // IMPORTANT:
   // worldSession.createWorld(...) owns normalize -> recompute -> validate -> publish.
-  world.countries = generateCountries(world, targetContinentCount);
-
+  // RAW DEBUG: countries intentionally left empty so Generate preview shows terrain only.
   return world;
 }
 
@@ -666,7 +665,6 @@ function removeTinyIslandsAndExpandCoasts(
     }
   }
 
-  // one gentle accretion pass
   for (let r = 1; r < height - 1; r++) {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
@@ -751,7 +749,6 @@ function enforceLandCoverageTarget(
 
   let fraction = currentFraction();
 
-  // grow if under target
   let safety = 0;
   while (fraction < targetFraction && safety < 8) {
     const grow = new Uint8Array(next);
@@ -783,7 +780,6 @@ function enforceLandCoverageTarget(
     safety++;
   }
 
-  // lightly prune if above target by too much
   safety = 0;
   while (fraction > targetFraction + 0.03 && safety < 5) {
     const prune = new Uint8Array(next);

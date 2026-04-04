@@ -17,13 +17,6 @@ type Props = {
   style?: React.CSSProperties;
 };
 
-type Label = {
-  name: string;
-  lat: number;
-  lon: number;
-  el: HTMLDivElement;
-};
-
 type GlobeRuntime = {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
@@ -32,8 +25,6 @@ type GlobeRuntime = {
   material: THREE.MeshStandardMaterial;
   geometry: THREE.BufferGeometry;
   textureCanvas: HTMLCanvasElement;
-  labelsOverlay: HTMLDivElement;
-  labels: Label[];
   animationFrameId: number | null;
   texture: THREE.Texture | null;
   normalTexture: THREE.Texture | null;
@@ -52,9 +43,6 @@ export default function Globe3D({ world, preview, className, style }: Props) {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const meshRotationRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // ----------------------------------------------------
-  // Mount scene once
-  // ----------------------------------------------------
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -79,13 +67,6 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     renderer.setPixelRatio(window.devicePixelRatio || 1);
     renderer.setSize(width, height, false);
     el.appendChild(renderer.domElement);
-
-    const labelsOverlay = document.createElement('div');
-    labelsOverlay.style.position = 'absolute';
-    labelsOverlay.style.inset = '0px';
-    labelsOverlay.style.pointerEvents = 'none';
-    labelsOverlay.style.zIndex = '2';
-    el.appendChild(labelsOverlay);
 
     const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
     scene.add(hemi);
@@ -120,8 +101,6 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       material,
       geometry,
       textureCanvas,
-      labelsOverlay,
-      labels: [],
       animationFrameId: null,
       texture: null,
       normalTexture: null,
@@ -197,9 +176,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       rt.isPointerDown = false;
       try {
         renderer.domElement.releasePointerCapture(ev.pointerId);
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
 
     function onWheel(ev: WheelEvent) {
@@ -236,7 +213,6 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         rt.velY *= 0.92;
       }
 
-      updateLabelsOverlay(rt);
       rt.renderer.render(rt.scene, rt.camera);
       rt.animationFrameId = requestAnimationFrame(animate);
     }
@@ -255,9 +231,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         renderer.domElement.removeEventListener('pointerup', onPointerUp as any);
         renderer.domElement.removeEventListener('pointercancel', onPointerUp as any);
         renderer.domElement.removeEventListener('wheel', onWheel as any);
-      } catch {
-        // ignore
-      }
+      } catch {}
 
       if (rt?.animationFrameId) cancelAnimationFrame(rt.animationFrameId);
 
@@ -267,32 +241,14 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         rt?.material?.dispose();
         rt?.geometry?.dispose();
         rt?.renderer?.dispose();
-      } catch {
-        // ignore
-      }
+      } catch {}
 
       if (renderer.domElement.parentElement) {
         renderer.domElement.parentElement.removeChild(renderer.domElement);
       }
-
-      if (labelsOverlay.parentElement) {
-        labelsOverlay.parentElement.removeChild(labelsOverlay);
-      }
     };
   }, []);
 
-  // ----------------------------------------------------
-  // Update labels when world countries change
-  // ----------------------------------------------------
-  useEffect(() => {
-    const rt = runtimeRef.current;
-    if (!rt) return;
-    initLabels(rt, world);
-  }, [world]);
-
-  // ----------------------------------------------------
-  // Update preview texture only when preview changes
-  // ----------------------------------------------------
   useEffect(() => {
     const rt = runtimeRef.current;
     if (!rt || !preview) return;
@@ -308,9 +264,6 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     rt.mountedPreviewKey = previewKey;
   }, [preview]);
 
-  // ----------------------------------------------------
-  // Update normal map only when world grid changes
-  // ----------------------------------------------------
   useEffect(() => {
     const rt = runtimeRef.current;
     if (!rt) return;
@@ -437,91 +390,6 @@ function buildSphereGeometry(widthSegments: number, heightSegments: number): THR
   geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
 
   return geom;
-}
-
-function initLabels(rt: GlobeRuntime, world: WorldBrain): void {
-  while (rt.labelsOverlay.firstChild) rt.labelsOverlay.removeChild(rt.labelsOverlay.firstChild);
-  rt.labels.length = 0;
-
-  const maxLabels = 12;
-  const countries = Array.isArray(world.countries) ? world.countries.slice(0, maxLabels) : [];
-
-  for (const c of countries) {
-    const poly = c.polygons?.[0] || [];
-    const { lat, lon } = computeCentroid(poly);
-
-    const el = document.createElement('div');
-    el.style.position = 'absolute';
-    el.style.transform = 'translate(-50%, -50%)';
-    el.style.padding = '3px 6px';
-    el.style.borderRadius = '6px';
-    el.style.border = '1px solid rgba(0,0,0,0.35)';
-    el.style.background = 'rgba(0,0,0,0.6)';
-    el.style.color = 'rgba(255,255,255,0.95)';
-    el.style.fontSize = '11px';
-    el.style.whiteSpace = 'nowrap';
-    el.textContent = c.name;
-
-    rt.labelsOverlay.appendChild(el);
-    rt.labels.push({ name: c.name, lat, lon, el });
-  }
-}
-
-function computeCentroid(poly: { lat: number; lon: number }[]): { lat: number; lon: number } {
-  if (!poly || poly.length === 0) return { lat: 0, lon: 0 };
-  let lat = 0;
-  let lon = 0;
-  for (const p of poly) {
-    lat += p.lat;
-    lon += p.lon;
-  }
-  return { lat: lat / poly.length, lon: lon / poly.length };
-}
-
-function latLonToSphere(lat: number, lon: number): THREE.Vector3 {
-  const v = (90 - lat) / 180;
-  const u = (lon + 180) / 360;
-  const phi = v * Math.PI;
-  const theta = u * Math.PI * 2;
-  const x = -Math.sin(phi) * Math.cos(theta);
-  const y = Math.cos(phi);
-  const z = Math.sin(phi) * Math.sin(theta);
-  return new THREE.Vector3(x, y, z);
-}
-
-function updateLabelsOverlay(rt: GlobeRuntime): void {
-  const mesh = rt.mesh;
-  const camera = rt.camera;
-  const renderer = rt.renderer;
-
-  mesh.updateMatrixWorld();
-
-  const camDir = new THREE.Vector3();
-  camera.getWorldDirection(camDir);
-
-  const w = renderer.domElement.width;
-  const h = renderer.domElement.height;
-
-  for (const lbl of rt.labels) {
-    const p = latLonToSphere(lbl.lat, lbl.lon);
-    p.applyEuler(mesh.rotation);
-
-    const facing = p.dot(camDir);
-    if (facing <= 0) {
-      lbl.el.style.display = 'none';
-      continue;
-    }
-
-    lbl.el.style.display = 'block';
-
-    const wp = p.clone().multiplyScalar(1.0);
-    const sp = wp.project(camera);
-    const sx = (sp.x * 0.5 + 0.5) * w;
-    const sy = (-sp.y * 0.5 + 0.5) * h;
-
-    lbl.el.style.left = `${sx}px`;
-    lbl.el.style.top = `${sy}px`;
-  }
 }
 
 function clamp(x: number, lo: number, hi: number): number {
