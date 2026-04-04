@@ -1,19 +1,16 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 DIAGNOSTIC BUILD)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 LAND FIELD REWORK)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
-// - preserve current generator behavior as much as possible
-// - add stage-based diagnostics only
-// - allow fixed-seed debugging
-// - prove the first bad stage before rewriting logic
+// - restore normal generator operation (debug reset to normal)
+// - keep the current generator pipeline structure
+// - rework only the upstream land-field stage
 //
-// DEBUG STAGES:
-// - FINAL: normal current output
-// - LANDFIELD: visualize scalar land field
-// - MASK_PRE: thresholded land mask before merge/regrowth
-// - MASK_POST: land mask after cleanup/merge/coverage enforcement
-// - HEIGHT: raw baseHeight after terrain shaping, before downstream interpretation
+// CHANGES IN THIS VERSION:
+// - DEBUG reset to normal
+// - createClusterSeeds(...) reworked to reduce circular blob ownership
+// - buildLandField(...) reworked so tectonics biases the field instead of owning it
 //
 // IMPORTANT:
 // - generator does NOT own post-generation recompute
@@ -70,16 +67,11 @@ type DebugStage = 'FINAL' | 'LANDFIELD' | 'MASK_PRE' | 'MASK_POST' | 'HEIGHT';
 // ========================================================
 // DEBUG CONTROLS
 // ========================================================
-//
-// Set DEBUG_STAGE to one of:
-// 'FINAL' | 'LANDFIELD' | 'MASK_PRE' | 'MASK_POST' | 'HEIGHT'
-//
-// Set DEBUG_LOCK_SEED to true to force a single repeatable seed during testing.
-// This obeys the debugging rule to keep one fixed seed.
+// Reset to normal production behavior.
 // ========================================================
 
-const DEBUG_STAGE: DebugStage = "HEIGHT";
-const DEBUG_LOCK_SEED = true;
+const DEBUG_STAGE: DebugStage = 'FINAL';
+const DEBUG_LOCK_SEED = false;
 const DEBUG_FIXED_SEED: number | string = 123456;
 
 export function createDefaultGeneratorParams(): GeneratorParams {
@@ -156,7 +148,6 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   // ----------------------------------------------------
   const targetLandFraction = computeTargetLandFraction(params.styleMode, seaBias, targetContinentCount);
   const clusterSeeds = createClusterSeeds(width, height, targetContinentCount, rng, fields);
-
   const landField = buildLandField(width, height, seedUint, rng, clusterSeeds, fields, params.styleMode);
 
   if (DEBUG_STAGE === 'LANDFIELD') {
@@ -690,35 +681,66 @@ function createClusterSeeds(
   const seeds: ClusterSeed[] = [];
 
   const bands = [
-    [0.18, 0.34],
-    [0.38, 0.62],
-    [0.66, 0.82],
+    [0.22, 0.36],
+    [0.40, 0.60],
+    [0.64, 0.78],
   ];
+
+  const minSeparation = Math.max(10, Math.floor(Math.min(width, height) * 0.12));
 
   for (let i = 0; i < count; i++) {
     const band = bands[i % bands.length];
-    let row = 1;
-    let col = 0;
+    let row = Math.floor(height * 0.5);
+    let col = Math.floor(rng() * width);
+    let picked = false;
 
-    for (let tries = 0; tries < 50; tries++) {
+    for (let tries = 0; tries < 64; tries++) {
       const frac = lerp(band[0], band[1], rng());
-      row = clampInt(Math.floor(frac * (height - 1)), 1, height - 2);
+      const testRow = clampInt(Math.floor(frac * (height - 1)), 2, height - 3);
+      const testCol = clampInt(Math.floor(rng() * width), 0, width - 1);
+      const field = fields[testRow * width + testCol];
+
+      const tectonicFit =
+        field.plateType === PlateType.CONTINENTAL
+          ? 1
+          : field.boundaryType === BoundaryType.CONVERGENT
+            ? 0.7
+            : 0.2;
+
+      if (tectonicFit < 0.35 && rng() < 0.75) {
+        continue;
+      }
+
+      let tooClose = false;
+      for (const seed of seeds) {
+        const dr = testRow - seed.row;
+        const rawDc = Math.abs(testCol - seed.col);
+        const dc = Math.min(rawDc, width - rawDc);
+        const dist = Math.sqrt(dr * dr + dc * dc);
+        if (dist < minSeparation) {
+          tooClose = true;
+          break;
+        }
+      }
+
+      if (tooClose) continue;
+
+      row = testRow;
+      col = testCol;
+      picked = true;
+      break;
+    }
+
+    if (!picked) {
+      row = clampInt(Math.floor(lerp(0.30, 0.70, rng()) * (height - 1)), 2, height - 3);
       col = clampInt(Math.floor(rng() * width), 0, width - 1);
-
-      const field = fields[row * width + col];
-      const good =
-        field.plateType === PlateType.CONTINENTAL ||
-        field.boundaryType === BoundaryType.CONVERGENT ||
-        rng() > 0.45;
-
-      if (good) break;
     }
 
     seeds.push({
       row,
       col,
-      radius: lerp(10, 24, rng()),
-      strength: lerp(0.90, 1.25, rng()),
+      radius: lerp(7, 15, rng()),
+      strength: lerp(0.18, 0.38, rng()),
     });
   }
 
@@ -739,7 +761,8 @@ function buildLandField(
   for (let r = 1; r < height - 1; r++) {
     const lat = 90 - ((r + 0.5) / height) * 180;
     const absLat01 = Math.abs(lat) / 90;
-    const polePenalty = smoothstep(0.82, 1.0, absLat01) * 0.28;
+    const lonBandPenalty = smoothstep(0.82, 1.0, absLat01) * 0.42;
+    const polarKill = smoothstep(0.90, 1.0, absLat01) * 0.55;
 
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
@@ -747,37 +770,58 @@ function buildLandField(
       const lon = ((c + 0.5) / width) * 360 - 180;
       const dir = latLonToUnitVector(lat, lon);
 
-      let value = 0;
+      const baseMacro = sphereFbm(offsetVec(dir, 1.1, -0.2, 0.7), seedUint, 0.9, 4);
+      const baseShape = sphereFbm(offsetVec(dir, -0.9, 1.3, -0.5), seedUint, 1.8, 4);
+      const breakup = sphereFbm(offsetVec(dir, 0.3, 1.7, 0.1), seedUint, 4.4, 3);
+      const fine = sphereFbm(offsetVec(dir, -1.2, -0.4, 1.0), seedUint, 8.5, 2);
 
-      if (tect.plateType === PlateType.CONTINENTAL) value += 0.22;
-      else value -= 0.08;
+      // Noise is the owner now.
+      let value =
+        baseMacro * 0.46 +
+        baseShape * 0.30 +
+        breakup * 0.11 +
+        fine * 0.04;
+
+      // Tectonics is bias only, not ownership.
+      let tectonicBias = 0;
+      if (tect.plateType === PlateType.CONTINENTAL) tectonicBias += 0.08;
+      else tectonicBias -= 0.04;
 
       if (tect.boundaryType === BoundaryType.CONVERGENT) {
-        value += lerp(0.04, 0.16, tect.boundaryStrength);
+        tectonicBias += lerp(0.02, 0.07, tect.boundaryStrength);
       } else if (tect.boundaryType === BoundaryType.DIVERGENT) {
-        value -= lerp(0.03, 0.12, tect.boundaryStrength);
+        tectonicBias -= lerp(0.01, 0.05, tect.boundaryStrength);
       }
 
+      value += tectonicBias;
+
+      // Soft continent encouragement from seeds, not circular stamp ownership.
+      let seedBias = 0;
       for (const seed of seeds) {
-        const dr = r - seed.row;
-        const rawDc = Math.abs(c - seed.col);
-        const dc = Math.min(rawDc, width - rawDc);
-        const dist = Math.sqrt(dr * dr + dc * dc);
-        const influence = Math.max(0, 1 - dist / Math.max(1, seed.radius));
-        value += influence * seed.strength;
+        const seedLat = 90 - ((seed.row + 0.5) / height) * 180;
+        const seedLon = ((seed.col + 0.5) / width) * 360 - 180;
+        const seedDir = latLonToUnitVector(seedLat, seedLon);
+        const dot =
+          dir[0] * seedDir[0] +
+          dir[1] * seedDir[1] +
+          dir[2] * seedDir[2];
+
+        // Great-circle proximity in a soft form.
+        const proximity = clamp01((dot - 0.86) / 0.14);
+        seedBias += smoothstep(proximity) * seed.strength;
       }
 
-      const macro = sphereFbm(offsetVec(dir, 1.3, -0.4, 0.6), seedUint, 1.3, 3);
-      const detail = sphereFbm(offsetVec(dir, -0.7, 1.0, -0.5), seedUint, 3.3, 3);
+      value += seedBias;
 
-      value += macro * 0.26 + detail * 0.10;
-      value -= polePenalty;
+      // Stronger early polar suppression.
+      value -= lonBandPenalty;
+      value -= polarKill;
 
-      if (styleMode === 'FANTASY') value += 0.05;
-      if (styleMode === 'STYLIZED') value += 0.03;
-      if (styleMode === 'ALIEN') value += (rng() - 0.5) * 0.06;
+      if (styleMode === 'FANTASY') value += 0.03;
+      if (styleMode === 'STYLIZED') value += 0.02;
+      if (styleMode === 'ALIEN') value += (rng() - 0.5) * 0.03;
 
-      value += (rng() - 0.5) * 0.06;
+      value += (rng() - 0.5) * 0.02;
       field[idx] = value;
     }
   }
