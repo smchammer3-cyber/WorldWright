@@ -1,5 +1,5 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 NOISE-LED SILHOUETTE)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 DERIVED POLE CAPS)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
@@ -7,7 +7,7 @@
 // - follow blueprint order: tectonics -> terrain -> climate -> biomes -> hydrology
 // - make broad terrain silhouette noise-led
 // - make tectonics refine rather than directly own continent silhouette
-// - reduce plate-territory continents and polar silhouette artifacts
+// - derive poles from surrounding terrain instead of stamping cap ownership
 //
 // IMPORTANT:
 // - generator does NOT own post-generation recompute
@@ -45,12 +45,6 @@ export type GeneratorParams = {
 };
 
 type Vec3 = [number, number, number];
-
-type PoleSample = {
-  baseHeight: number;
-  plateId: number;
-  plateType: PlateType;
-};
 
 type DebugStage = 'FINAL' | 'LANDFIELD' | 'MASK_PRE' | 'MASK_POST' | 'HEIGHT';
 
@@ -127,9 +121,6 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
           ? clamp01(f.boundaryStrength * 0.45)
           : clamp01(f.boundaryStrength * 0.15);
   }
-
-  const northPoleSample = buildPoleSample(fields[0], rng);
-  const southPoleSample = buildPoleSample(fields[(height - 1) * width], rng);
 
   // ----------------------------------------------------
   // STEP 2: noise-led broad land plausibility
@@ -235,23 +226,15 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   // ----------------------------------------------------
   // STEP 4: convert silhouette + tectonics into terrain
   // ----------------------------------------------------
+  // Do NOT stamp pole rows here. Let them derive from nearby terrain later.
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
       const cell = cells[idx];
       const tect = fields[idx];
 
-      if (r === 0) {
-        cell.baseHeight = northPoleSample.baseHeight;
-        cell.plateId = northPoleSample.plateId;
-        cell.plateType = northPoleSample.plateType;
-        continue;
-      }
-
-      if (r === height - 1) {
-        cell.baseHeight = southPoleSample.baseHeight;
-        cell.plateId = southPoleSample.plateId;
-        cell.plateType = southPoleSample.plateType;
+      if (r === 0 || r === height - 1) {
+        cell.baseHeight = 0;
         continue;
       }
 
@@ -320,14 +303,15 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
 
   // ----------------------------------------------------
-  // STEP 5: tectonic moderation + coast-preserving smoothing
+  // STEP 5: tectonic moderation + smoothing
   // ----------------------------------------------------
   applyHybridTectonicInfluence(cells, fields, plateAmp);
-  blendCapAdjacentRows(cells, width, height, 1, northPoleSample.baseHeight, southPoleSample.baseHeight);
-  blendCapAdjacentRows(cells, width, height, 2, northPoleSample.baseHeight, southPoleSample.baseHeight);
+
+  // Derive first cap-adjacent rows from their interior neighbors before smoothing
+  deriveCapAdjacentRows(cells, width, height);
 
   const smoothingPasses = Math.max(2, Math.round(lerp(2, 5, smoothness)));
-  const smoothingStrength = lerp(0.07, 0.19, smoothness);
+  const smoothingStrength = lerp(0.07, 0.18, smoothness);
 
   for (let pass = 0; pass < smoothingPasses; pass++) {
     const nextHeights = new Array<number>(cells.length);
@@ -337,13 +321,8 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
         const idx = r * width + c;
         const cell = cells[idx];
 
-        if (r === 0) {
-          nextHeights[idx] = northPoleSample.baseHeight;
-          continue;
-        }
-
-        if (r === height - 1) {
-          nextHeights[idx] = southPoleSample.baseHeight;
+        if (r === 0 || r === height - 1) {
+          nextHeights[idx] = cell.baseHeight;
           continue;
         }
 
@@ -359,13 +338,15 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
             cells[r * width + east].baseHeight) / 4;
 
         const lat = 90 - ((r + 0.5) / height) * 180;
-        const poleProximity = smoothstep(72 / 90, 1.0, Math.abs(lat) / 90);
+        const absLat01 = Math.abs(lat) / 90;
 
+        // Much gentler pole-specific behavior
+        const extremePoleBand = smoothstep(0.93, 1.0, absLat01);
         const nearSea = Math.abs(cell.baseHeight - globalSeaLevel) < 0.12;
         const coastPreserve = nearSea ? 0.34 : 1.0;
-        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.55, poleProximity);
+        const localSmooth = lerp(smoothingStrength, smoothingStrength * 0.85, extremePoleBand);
         const noiseBreakup =
-          (rng() - 0.5) * 0.005 * (1 - smoothness) * (1 - poleProximity * 0.7);
+          (rng() - 0.5) * 0.005 * (1 - smoothness) * (1 - extremePoleBand * 0.35);
 
         nextHeights[idx] = clamp(
           cell.baseHeight + (avg - cell.baseHeight) * localSmooth * coastPreserve + noiseBreakup,
@@ -379,12 +360,13 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       cells[i].baseHeight = nextHeights[i];
       cells[i].surfaceAge = clamp01(0.18 + age01 * 0.72 + (rng() - 0.5) * 0.08);
     }
+
+    // Re-derive pole-adjacent rows lightly after each smoothing pass
+    deriveCapAdjacentRowsLight(cells, width, height);
   }
 
-  for (let c = 0; c < width; c++) {
-    cells[c].baseHeight = northPoleSample.baseHeight;
-    cells[(height - 1) * width + c].baseHeight = southPoleSample.baseHeight;
-  }
+  // Derive final pole rows from adjacent rows ONCE, at the end
+  derivePoleRowsFromAdjacent(cells, width, height);
 
   if (DEBUG_STAGE === 'HEIGHT') {
     return buildDebugWorld({
@@ -443,12 +425,12 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
       cell.temperature = clamp01(
         0.16 +
-        equatorWarmth * 0.68 +
-        tempNoise * (0.08 + climateVar01 * 0.08) +
-        tempOffset01 +
-        coastBoost * 0.03 -
-        elevCooling -
-        polarCooling
+          equatorWarmth * 0.68 +
+          tempNoise * (0.08 + climateVar01 * 0.08) +
+          tempOffset01 +
+          coastBoost * 0.03 -
+          elevCooling -
+          polarCooling
       );
 
       const hadleyWet = Math.exp(-Math.pow(absLat01 * 2.2, 2));
@@ -456,13 +438,13 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
 
       cell.rainfall = clamp01(
         0.20 +
-        hadleyWet * 0.30 -
-        subtropicDry * 0.18 +
-        rainNoise * (0.12 + climateVar01 * 0.08) +
-        moisture01 * 0.18 +
-        coastBoost +
-        tectonicMoisture -
-        elevAboveSea * 0.08
+          hadleyWet * 0.30 -
+          subtropicDry * 0.18 +
+          rainNoise * (0.12 + climateVar01 * 0.08) +
+          moisture01 * 0.18 +
+          coastBoost +
+          tectonicMoisture -
+          elevAboveSea * 0.08
       );
 
       const biome = pickBiome(cell.temperature, cell.rainfall);
@@ -981,17 +963,49 @@ function weakenNearPoleRows(
 // TERRAIN + CLIMATE HELPERS
 // ========================================================
 
-function buildPoleSample(tect: TectonicsField, rng: () => number): PoleSample {
-  const baseHeight =
-    tect.plateType === PlateType.CONTINENTAL
-      ? lerp(0.00, 0.10, rng())
-      : lerp(-0.22, -0.08, rng());
+function deriveCapAdjacentRows(cells: Cell[], width: number, height: number): void {
+  // Row 1 derives from row 2, row 2 remains naturally generated.
+  // South equivalent too.
+  for (let c = 0; c < width; c++) {
+    const north1 = 1 * width + c;
+    const north2 = 2 * width + c;
+    cells[north1].baseHeight = lerp(cells[north1].baseHeight, cells[north2].baseHeight, 0.55);
 
-  return {
-    baseHeight,
-    plateId: tect.plateId,
-    plateType: tect.plateType,
-  };
+    const south1 = (height - 2) * width + c;
+    const south2 = (height - 3) * width + c;
+    cells[south1].baseHeight = lerp(cells[south1].baseHeight, cells[south2].baseHeight, 0.55);
+  }
+}
+
+function deriveCapAdjacentRowsLight(cells: Cell[], width: number, height: number): void {
+  for (let c = 0; c < width; c++) {
+    const north1 = 1 * width + c;
+    const north2 = 2 * width + c;
+    cells[north1].baseHeight = lerp(cells[north1].baseHeight, cells[north2].baseHeight, 0.20);
+
+    const south1 = (height - 2) * width + c;
+    const south2 = (height - 3) * width + c;
+    cells[south1].baseHeight = lerp(cells[south1].baseHeight, cells[south2].baseHeight, 0.20);
+  }
+}
+
+function derivePoleRowsFromAdjacent(cells: Cell[], width: number, height: number): void {
+  // Final poles derived from the adjacent ring, not a single tectonic owner.
+  const northAvg = averageRowHeight(cells, width, 1);
+  const southAvg = averageRowHeight(cells, width, height - 2);
+
+  for (let c = 0; c < width; c++) {
+    cells[c].baseHeight = northAvg;
+    cells[(height - 1) * width + c].baseHeight = southAvg;
+  }
+}
+
+function averageRowHeight(cells: Cell[], width: number, row: number): number {
+  let sum = 0;
+  for (let c = 0; c < width; c++) {
+    sum += cells[row * width + c].baseHeight;
+  }
+  return width > 0 ? sum / width : 0;
 }
 
 function applyHybridTectonicInfluence(
@@ -1021,29 +1035,6 @@ function applyHybridTectonicInfluence(
     }
 
     cell.baseHeight = clamp(cell.baseHeight + delta * plateAmp, -1.6, 1.7);
-  }
-}
-
-function blendCapAdjacentRows(
-  cells: Cell[],
-  width: number,
-  height: number,
-  rowDistance: 1 | 2,
-  northHeight: number,
-  southHeight: number
-): void {
-  const northRow = rowDistance;
-  const southRow = height - 1 - rowDistance;
-
-  const northBlend = rowDistance === 1 ? 0.44 : 0.18;
-  const southBlend = rowDistance === 1 ? 0.44 : 0.18;
-
-  for (let c = 0; c < width; c++) {
-    const nIdx = northRow * width + c;
-    cells[nIdx].baseHeight = lerp(cells[nIdx].baseHeight, northHeight, northBlend);
-
-    const sIdx = southRow * width + c;
-    cells[sIdx].baseHeight = lerp(cells[sIdx].baseHeight, southHeight, southBlend);
   }
 }
 
