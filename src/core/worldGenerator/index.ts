@@ -7,7 +7,8 @@
 // - avoid queue.sort() / frontier priority expansion
 // - keep tectonics as influence after silhouette creation
 // - reduce wedges, radial sectors, and polar dominance
-// - preserve repo contract with recompute/session/storage/render flow
+// - preserve repo contract with session/storage/render flow
+// - IMPORTANT: generator does NOT own post-generation recompute
 // ========================================================
 
 import {
@@ -19,7 +20,6 @@ import {
   PlateType,
   BoundaryType,
 } from '../worldSchema';
-import { recomputeWorld } from '../worldRecompute';
 import { generateCountries } from '../countryGenerator';
 import {
   buildTectonicsField,
@@ -454,7 +454,10 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     },
   };
 
-  recomputeWorld(world, ['GENERATED']);
+  // NOTE:
+  // Post-generation recompute is intentionally NOT run here.
+  // worldSession.createWorld(...) is the orchestration owner for:
+  // normalize -> recompute -> validate -> publish live world.
   world.countries = generateCountries(world, targetContinentCount);
 
   return world;
@@ -507,7 +510,6 @@ function buildClusteredLandMask(
   const total = width * height;
   const field = new Float32Array(total);
 
-  // Initial cluster influence
   for (let r = 1; r < height - 1; r++) {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
@@ -539,8 +541,6 @@ function buildClusteredLandMask(
     }
   }
 
-  // Fixed-pass cellular growth / erosion.
-  // Cheap and avoids queue-sort / sector territory fill.
   const passes = 5;
   for (let pass = 0; pass < passes; pass++) {
     const next = new Float32Array(field);
@@ -573,7 +573,6 @@ function buildClusteredLandMask(
     field.set(next);
   }
 
-  // Threshold to land/water mask
   const mask = new Uint8Array(total);
   for (let r = 1; r < height - 1; r++) {
     for (let c = 0; c < width; c++) {
@@ -582,7 +581,6 @@ function buildClusteredLandMask(
     }
   }
 
-  // Coastal carve pass
   for (let pass = 0; pass < 2; pass++) {
     const next = new Uint8Array(mask);
 
@@ -613,7 +611,6 @@ function buildClusteredLandMask(
     mask.set(next);
   }
 
-  // keep poles clean
   for (let c = 0; c < width; c++) {
     mask[c] = 0;
     mask[(height - 1) * width + c] = 0;
