@@ -1,5 +1,5 @@
 // ========================================================
-// WORLDWRIGHT -- PLANET RENDERER (V1.4 CONTINUOUS TERRAIN DEBUG)
+// WORLDWRIGHT -- PLANET RENDERER (V1.4 CONTINUOUS OCEAN PROOF)
 // File: src/core/planetRenderer.ts
 //
 // Goals:
@@ -8,6 +8,8 @@
 // - keep oceans readable without overwhelming continents
 // - reduce over-harsh polar/ice whitening
 // - keep raw Generate debugging visually honest
+// - PROOF STEP: remove oceanDepthClass color branching and
+//   use a continuous ocean depth gradient only
 // ========================================================
 
 import type { WorldBrain } from "./worldSchema";
@@ -88,26 +90,16 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     ];
   }
 
-  function sampleOceanColor(cell: any, h: number): [number, number, number] {
+  function sampleOceanColor(_cell: any, h: number): [number, number, number] {
     const depth = clamp01((seaLevel - h) * 1.5);
-    const cls = cell?.oceanDepthClass ?? null;
 
-    let shallow: [number, number, number] = [0.19, 0.52, 0.72];
-    let mid: [number, number, number] = [0.08, 0.30, 0.54];
-    let deep: [number, number, number] = [0.02, 0.10, 0.28];
-
-    if (cls === "SHELF") {
-      shallow = [0.24, 0.58, 0.75];
-    } else if (cls === "RIDGE") {
-      shallow = [0.17, 0.48, 0.68];
-      mid = [0.07, 0.28, 0.50];
-    } else if (cls === "SLOPE") {
-      mid = [0.07, 0.26, 0.46];
-    } else if (cls === "ABYSSAL") {
-      deep = [0.02, 0.08, 0.23];
-    } else if (cls === "TRENCH") {
-      deep = [0.01, 0.06, 0.18];
-    }
+    // PROOF STEP:
+    // Ignore oceanDepthClass entirely and render oceans from a single
+    // continuous depth gradient. If the multi-colored polar rings weaken,
+    // then ocean depth class coloring was a major visual amplifier.
+    const shallow: [number, number, number] = [0.20, 0.54, 0.73];
+    const mid: [number, number, number] = [0.08, 0.30, 0.53];
+    const deep: [number, number, number] = [0.02, 0.09, 0.24];
 
     if (depth < 0.35) {
       const t = depth / 0.35;
@@ -124,7 +116,6 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     const snow = typeof cell.snowCover === "number" ? clamp01(cell.snowCover) : 0;
     const elev = clamp01(Math.max(0, h - seaLevel) * 2.0);
 
-    // Continuous terrain-driven anchors
     const arid: [number, number, number] = [0.76, 0.66, 0.42];
     const steppe: [number, number, number] = [0.63, 0.67, 0.38];
     const grass: [number, number, number] = [0.48, 0.63, 0.34];
@@ -135,39 +126,30 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     const rock: [number, number, number] = [0.58, 0.57, 0.53];
     const ice: [number, number, number] = [0.82, 0.87, 0.92];
 
-    // Moisture and warmth weights
     const dry = 1 - rainfall;
     const warm = temp;
-    const cold = 1 - temp;
 
-    // Start from vegetation/moisture blend instead of hard buckets
     let rgb = grass;
 
-    // Dryness gradually pushes toward arid/steppe
     rgb = blend(rgb, steppe, clamp01((dry - 0.35) / 0.30));
     rgb = blend(rgb, arid, clamp01((dry - 0.62) / 0.28));
 
-    // Warm/wet gradually pushes toward tropical
     const tropicality = clamp01((warm - 0.58) / 0.30) * clamp01((rainfall - 0.55) / 0.30);
     rgb = blend(rgb, tropical, tropicality);
 
-    // Coolness gradually pushes toward cool forest / tundra
     const coolness = clamp01((0.45 - warm) / 0.30);
     rgb = blend(rgb, coolForest, coolness * clamp01((rainfall - 0.35) / 0.35));
 
     const tundraFactor = clamp01((0.22 - warm) / 0.20);
     rgb = blend(rgb, tundra, tundraFactor);
 
-    // Elevation should read as rock, not instantly white
     const mountain = clamp01((elev - 0.40) / 0.45);
     rgb = blend(rgb, rock, mountain * 0.45);
 
-    // Snow should be a tint/veil, not a giant class switch
     const tempC = -22 + temp * 50;
     const permanentIce = tempC < -17 ? clamp01((-17 - tempC) / 12) : 0;
     const iceFactor = clamp01(Math.max(snow * 0.75, permanentIce * 0.85));
 
-    // Stronger only at very high elevations or very high snow
     const whitenStrength =
       iceFactor * 0.55 +
       clamp01((elev - 0.88) / 0.12) * 0.35;
@@ -192,7 +174,6 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     return rgb;
   }
 
-  // In raw Generate debugging, country borders should not visually drive evaluation.
   function applyCountryBorderTint(
     rgb: [number, number, number],
     _row: number,
