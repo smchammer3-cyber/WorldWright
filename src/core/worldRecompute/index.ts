@@ -1,12 +1,13 @@
 // ========================================================
-// WORLDWRIGHT -- RECOMPUTE PIPELINE (V1.3 CLIMATE / BIOME POLISH PASS)
+// WORLDWRIGHT -- RECOMPUTE PIPELINE (V1.3 DERIVATION LOCK)
 // File: src/core/worldRecompute/index.ts
 //
 // Goals:
-// - preserve generated climate much more strongly
-// - reduce east-west banding
-// - reduce snow / alpine over-application
-// - keep recompute as refinement, not a second generator
+// - keep recompute as derivation/refinement, not a second generator
+// - preserve terrain silhouette created by worldGenerator
+// - recompute only derived fields after generate/load/edit/sim
+// - reduce climate flattening and biome overreach
+// - keep rivers/hydrology consistent without reshaping terrain
 // ========================================================
 
 import type { WorldBrain } from '../worldSchema';
@@ -20,7 +21,6 @@ export type RecomputeReason =
   | 'STICKER_EDIT';
 
 type RecomputeProfile = {
-  smoothLandmask: boolean;
   recomputeClimateStage: boolean;
   recomputeHydrologyStage: boolean;
   recomputeRiverStage: boolean;
@@ -38,7 +38,6 @@ function getRecomputeProfile(reasons: RecomputeReason[]): RecomputeProfile {
     has('SEA_LEVEL_CHANGED')
   ) {
     return {
-      smoothLandmask: false,
       recomputeClimateStage: true,
       recomputeHydrologyStage: true,
       recomputeRiverStage: true,
@@ -49,7 +48,6 @@ function getRecomputeProfile(reasons: RecomputeReason[]): RecomputeProfile {
 
   if (has('TERRAIN_EDIT')) {
     return {
-      smoothLandmask: false,
       recomputeClimateStage: true,
       recomputeHydrologyStage: true,
       recomputeRiverStage: true,
@@ -60,7 +58,6 @@ function getRecomputeProfile(reasons: RecomputeReason[]): RecomputeProfile {
 
   if (has('STICKER_EDIT')) {
     return {
-      smoothLandmask: false,
       recomputeClimateStage: false,
       recomputeHydrologyStage: false,
       recomputeRiverStage: false,
@@ -70,7 +67,6 @@ function getRecomputeProfile(reasons: RecomputeReason[]): RecomputeProfile {
   }
 
   return {
-    smoothLandmask: false,
     recomputeClimateStage: true,
     recomputeHydrologyStage: true,
     recomputeRiverStage: true,
@@ -86,11 +82,7 @@ export function recomputeWorld(
   const profile = getRecomputeProfile(reasons);
 
   recomputeIsWater(world);
-
-  if (profile.smoothLandmask) {
-    smoothLandmaskNearSeaLevel(world, 1);
-    recomputeIsWater(world);
-  }
+  recomputeOceanDepthClasses(world);
 
   if (profile.recomputeClimateStage) {
     recomputeClimate(world);
@@ -116,36 +108,41 @@ export function recomputeWorld(
 function recomputeIsWater(world: WorldBrain): void {
   const sea = world.seaLevel;
   for (const cell of world.cells) {
-    const h = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
+    const h = totalHeight(cell);
     cell.isWater = h < sea;
   }
 }
 
-function recomputeSnow(world: WorldBrain): void {
+function recomputeOceanDepthClasses(world: WorldBrain): void {
+  const sea = world.seaLevel;
+
   for (const cell of world.cells) {
-    const h = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
-    const elevAboveSea = Math.max(0, h - world.seaLevel);
-    const t = clamp01(cell.temperature);
-    const r = clamp01(cell.rainfall);
+    const h = totalHeight(cell);
+    const depth = sea - h;
 
-    const tempC = -22 + t * 50;
+    if (!cell.isWater) {
+      cell.oceanDepthClass = null;
+      continue;
+    }
 
-    const seasonalSnow = tempC < -3 ? clamp01((-3 - tempC) / 9) : 0;
-    const permanentIce = tempC < -17 ? clamp01((-17 - tempC) / 10) : 0;
-    const alpineBoost = clamp01((elevAboveSea - 0.28) * 0.55);
-    const moistureFactor = lerp(0.40, 0.90, r);
-
-    let snow = Math.max(permanentIce, seasonalSnow * moistureFactor);
-    snow = clamp01(snow + alpineBoost * 0.16);
-
-    cell.snowCover = snow;
+    if (depth > 0.70) {
+      cell.oceanDepthClass = 'TRENCH';
+    } else if (depth > 0.42) {
+      cell.oceanDepthClass = 'ABYSSAL';
+    } else if (depth > 0.20) {
+      cell.oceanDepthClass = 'SLOPE';
+    } else if (depth > 0.08) {
+      cell.oceanDepthClass = 'RIDGE';
+    } else {
+      cell.oceanDepthClass = 'SHELF';
+    }
   }
 }
 
 /**
- * Preserve generator climate strongly. Recompute only nudges toward
- * physically sensible large-scale behavior; it should not flatten the world
- * back into broad latitudinal bands.
+ * Recompute climate as a conservative refinement stage.
+ * It nudges values toward large-scale physical plausibility
+ * without erasing the generator’s local structure.
  */
 function recomputeClimate(world: WorldBrain): void {
   const gw = world.gridWidth;
@@ -168,6 +165,14 @@ function recomputeClimate(world: WorldBrain): void {
     typeof (world.parameters as any)?.temperatureOffset === 'number'
       ? (((world.parameters as any).temperatureOffset as number) / 100) * 0.18
       : 0;
+
+  const oldTemp = new Float32Array(cells.length);
+  const oldRain = new Float32Array(cells.length);
+
+  for (let i = 0; i < cells.length; i++) {
+    oldTemp[i] = clamp01(typeof cells[i].temperature === 'number' ? cells[i].temperature : 0.5);
+    oldRain[i] = clamp01(typeof cells[i].rainfall === 'number' ? cells[i].rainfall : 0.5);
+  }
 
   function oceanProximityAt(row: number, col: number, radius = 4): number {
     let count = 0;
@@ -193,10 +198,10 @@ function recomputeClimate(world: WorldBrain): void {
     for (let step = 1; step <= 6; step++) {
       const westCol = ((col - step) % gw + gw) % gw;
       const idx = row * gw + westCol;
-      const cell = cells[idx];
-      if (!cell) continue;
+      const c = cells[idx];
+      if (!c) continue;
 
-      const h = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta - sea;
+      const h = totalHeight(c) - sea;
       if (h > 0.14) shadow += h * (1 / step);
     }
 
@@ -218,16 +223,11 @@ function recomputeClimate(world: WorldBrain): void {
       const cell = cells[idx];
       if (!cell) continue;
 
-      const h = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
+      const h = totalHeight(cell);
       const elevAboveSea = Math.max(0, h - sea);
       const elevCooling = clamp01(elevAboveSea * 0.50);
       const oceanProx = oceanProximityAt(r, c, 4);
       const rainShadow = rainShadowAt(r, c);
-
-      const priorTemp =
-        typeof cell.temperature === 'number' ? clamp01(cell.temperature) : 0.5;
-      const priorRain =
-        typeof cell.rainfall === 'number' ? clamp01(cell.rainfall) : 0.5;
 
       const targetTemp = clamp01(
         latWarmth * 0.75 +
@@ -247,104 +247,45 @@ function recomputeClimate(world: WorldBrain): void {
           rainShadow * 0.15
       );
 
-      // Much stronger preservation of generator climate
-      cell.temperature = clamp01(priorTemp * 0.82 + targetTemp * 0.18);
-      cell.rainfall = clamp01(priorRain * 0.80 + targetRain * 0.20);
-
-      // Minimal neighbor consistency pass -- enough to reduce hard seams,
-      // not enough to flatten structure.
-      if (r > 0 && r < gh - 1) {
-        const north = cells[(r - 1) * gw + c];
-        const south = cells[(r + 1) * gw + c];
-        if (north && south) {
-          cell.temperature = clamp01(
-            cell.temperature * 0.95 +
-              ((north.temperature + south.temperature) * 0.5) * 0.05
-          );
-          cell.rainfall = clamp01(
-            cell.rainfall * 0.95 +
-              ((north.rainfall + south.rainfall) * 0.5) * 0.05
-          );
-        }
-      }
+      // Strong preservation of generator-produced variation
+      cell.temperature = clamp01(oldTemp[idx] * 0.84 + targetTemp * 0.16);
+      cell.rainfall = clamp01(oldRain[idx] * 0.82 + targetRain * 0.18);
     }
   }
-}
 
-function smoothLandmaskNearSeaLevel(
-  world: WorldBrain,
-  iterations: number = 1
-): void {
-  const gw = world.gridWidth;
-  const gh = world.gridHeight;
-  const cells = world.cells;
-  const sea = world.seaLevel;
-  const epsilon = 0.012;
-  const margin = 0.003;
+  // Very light 4-neighbor seam reduction, but never enough to flatten maps
+  const nextTemp = new Float32Array(cells.length);
+  const nextRain = new Float32Array(cells.length);
 
-  for (let pass = 0; pass < iterations; pass++) {
-    for (let r = 0; r < gh; r++) {
-      for (let c = 0; c < gw; c++) {
-        const idx = r * gw + c;
-        const cell = cells[idx];
-        if (!cell) continue;
+  for (let r = 0; r < gh; r++) {
+    for (let c = 0; c < gw; c++) {
+      const idx = r * gw + c;
 
-        const h = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
-        const isWater = h < sea;
+      const north = Math.max(0, r - 1);
+      const south = Math.min(gh - 1, r + 1);
+      const west = (c - 1 + gw) % gw;
+      const east = (c + 1) % gw;
 
-        let landNeighbors = 0;
-        let waterNeighbors = 0;
+      const neighborTemp =
+        (cells[north * gw + c].temperature +
+          cells[south * gw + c].temperature +
+          cells[r * gw + west].temperature +
+          cells[r * gw + east].temperature) / 4;
 
-        const north = r - 1;
-        const south = r + 1;
-        const west = (c - 1 + gw) % gw;
-        const east = (c + 1) % gw;
+      const neighborRain =
+        (cells[north * gw + c].rainfall +
+          cells[south * gw + c].rainfall +
+          cells[r * gw + west].rainfall +
+          cells[r * gw + east].rainfall) / 4;
 
-        if (north >= 0) {
-          const hn =
-            cells[north * gw + c].baseHeight +
-            cells[north * gw + c].editHeightDelta +
-            cells[north * gw + c].simHeightDelta;
-          hn < sea ? waterNeighbors++ : landNeighbors++;
-        }
-
-        if (south < gh) {
-          const hs =
-            cells[south * gw + c].baseHeight +
-            cells[south * gw + c].editHeightDelta +
-            cells[south * gw + c].simHeightDelta;
-          hs < sea ? waterNeighbors++ : landNeighbors++;
-        }
-
-        {
-          const hw =
-            cells[r * gw + west].baseHeight +
-            cells[r * gw + west].editHeightDelta +
-            cells[r * gw + west].simHeightDelta;
-          hw < sea ? waterNeighbors++ : landNeighbors++;
-        }
-
-        {
-          const he =
-            cells[r * gw + east].baseHeight +
-            cells[r * gw + east].editHeightDelta +
-            cells[r * gw + east].simHeightDelta;
-          he < sea ? waterNeighbors++ : landNeighbors++;
-        }
-
-        const majorityWater = waterNeighbors > landNeighbors;
-        const majorityLand = landNeighbors > waterNeighbors;
-        const dist = Math.abs(h - sea);
-
-        if (dist > epsilon) continue;
-
-        if (isWater && majorityLand) {
-          cell.simHeightDelta += dist + margin;
-        } else if (!isWater && majorityWater) {
-          cell.simHeightDelta -= dist + margin;
-        }
-      }
+      nextTemp[idx] = clamp01(cells[idx].temperature * 0.96 + neighborTemp * 0.04);
+      nextRain[idx] = clamp01(cells[idx].rainfall * 0.96 + neighborRain * 0.04);
     }
+  }
+
+  for (let i = 0; i < cells.length; i++) {
+    cells[i].temperature = nextTemp[i];
+    cells[i].rainfall = nextRain[i];
   }
 }
 
@@ -355,7 +296,7 @@ function recomputeHydrology(world: WorldBrain): void {
 
   function heightOf(i: number) {
     const c = cells[i];
-    return c ? c.baseHeight + c.editHeightDelta + c.simHeightDelta : 0;
+    return c ? totalHeight(c) : 0;
   }
 
   for (const cell of cells) {
@@ -439,51 +380,6 @@ function recomputeHydrology(world: WorldBrain): void {
   }
 }
 
-function recomputeBiomes(world: WorldBrain): void {
-  const sea = world.seaLevel;
-
-  for (const cell of world.cells) {
-    if (!cell) continue;
-
-    if (cell.isWater) {
-      cell.baseBiomeId = 0;
-      continue;
-    }
-
-    const h = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
-    const elev = Math.max(0, h - sea);
-    const t = clamp01(cell.temperature);
-    const r = clamp01(cell.rainfall);
-
-    if (cell.snowCover > 0.84 || elev > 0.88) {
-      cell.baseBiomeId = 6;
-      continue;
-    }
-
-    if (t < 0.13) {
-      cell.baseBiomeId = r < 0.28 ? 1 : 2;
-      continue;
-    }
-
-    if (r < 0.13) {
-      cell.baseBiomeId = t > 0.58 ? 8 : 4;
-      continue;
-    }
-
-    if (r < 0.27) {
-      cell.baseBiomeId = t > 0.62 ? 9 : 3;
-      continue;
-    }
-
-    if (r > 0.68) {
-      cell.baseBiomeId = t > 0.62 ? 10 : 7;
-      continue;
-    }
-
-    cell.baseBiomeId = 5;
-  }
-}
-
 function recomputeRivers(world: WorldBrain): void {
   const cells = world.cells;
   const gw = world.gridWidth;
@@ -545,6 +441,82 @@ function recomputeRivers(world: WorldBrain): void {
     mouthCellIndex: r.mouthCellIndex,
     path: r.path,
   }));
+}
+
+function recomputeSnow(world: WorldBrain): void {
+  for (const cell of world.cells) {
+    const h = totalHeight(cell);
+    const elevAboveSea = Math.max(0, h - world.seaLevel);
+    const t = clamp01(cell.temperature);
+    const r = clamp01(cell.rainfall);
+
+    const tempC = -22 + t * 50;
+
+    const seasonalSnow = tempC < -3 ? clamp01((-3 - tempC) / 9) : 0;
+    const permanentIce = tempC < -17 ? clamp01((-17 - tempC) / 10) : 0;
+    const alpineBoost = clamp01((elevAboveSea - 0.30) * 0.48);
+    const moistureFactor = lerp(0.40, 0.90, r);
+
+    let snow = Math.max(permanentIce, seasonalSnow * moistureFactor);
+    snow = clamp01(snow + alpineBoost * 0.13);
+
+    cell.snowCover = snow;
+  }
+}
+
+function recomputeBiomes(world: WorldBrain): void {
+  const sea = world.seaLevel;
+
+  for (const cell of world.cells) {
+    if (!cell) continue;
+
+    if (cell.isWater) {
+      cell.baseBiomeId = 0;
+      continue;
+    }
+
+    // Preserve explicit sticker override if present
+    if (typeof cell.editBiomeId === 'number' && cell.editBiomeId !== cell.baseBiomeId) {
+      cell.baseBiomeId = cell.editBiomeId;
+      continue;
+    }
+
+    const h = totalHeight(cell);
+    const elev = Math.max(0, h - sea);
+    const t = clamp01(cell.temperature);
+    const r = clamp01(cell.rainfall);
+
+    if (cell.snowCover > 0.86 || elev > 0.92) {
+      cell.baseBiomeId = 6;
+      continue;
+    }
+
+    if (t < 0.13) {
+      cell.baseBiomeId = r < 0.28 ? 1 : 2;
+      continue;
+    }
+
+    if (r < 0.13) {
+      cell.baseBiomeId = t > 0.58 ? 8 : 4;
+      continue;
+    }
+
+    if (r < 0.27) {
+      cell.baseBiomeId = t > 0.62 ? 9 : 3;
+      continue;
+    }
+
+    if (r > 0.68) {
+      cell.baseBiomeId = t > 0.62 ? 10 : 7;
+      continue;
+    }
+
+    cell.baseBiomeId = 5;
+  }
+}
+
+function totalHeight(cell: WorldBrain['cells'][number]): number {
+  return cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
 }
 
 function clamp01(x: number): number {
