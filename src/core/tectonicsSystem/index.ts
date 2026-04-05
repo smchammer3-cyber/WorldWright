@@ -1,17 +1,18 @@
 // ========================================================
-// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 SPHERICAL OWNERSHIP / LOCAL BOUNDARY PROXIMITY)
+// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 CONTINUOUS INFLUENCE FIELD)
 // File: src/core/tectonicsSystem/index.ts
 //
 // Purpose:
 // - provide a tectonic field source of truth
-// - keep spherical plate ownership
-// - classify boundaries using relative plate motion
-// - replace projected BFS boundary distance with local angular boundary proximity
+// - keep spherical seed placement
+// - replace hard Voronoi-like plate ownership with soft overlapping influence
+// - classify boundaries from blended competing plate influences
+// - expose smoother uplift / boundary / distance fields to worldGenerator
 //
 // Notes:
-// - Ownership remains nearest plate seed on the sphere.
-// - Boundary cells are still derived from actual unlike-plate adjacency.
-// - distanceToBoundary is now a local geometric heuristic, not BFS steps.
+// - We still emit a dominant plateId/plateType for compatibility.
+// - But all per-cell tectonic shaping now comes from continuous influence,
+//   not from a hard nearest-seed partition.
 // ========================================================
 
 import type { Plate, PlateType, BoundaryType } from '../worldSchema';
@@ -52,6 +53,11 @@ export interface TectonicsResult {
   fields: TectonicsField[];
   seeds: PlateSeed[];
 }
+
+type RankedInfluence = {
+  plateId: number;
+  weight: number;
+};
 
 export function generatePlates(
   gridWidth: number,
@@ -109,11 +115,14 @@ export function assignPlatesToCells(
       : createPlateSeeds(gridWidth, gridHeight, plates, mulberry32(123456789));
 
   const fields: TectonicsField[] = new Array(cells.length);
-  const plateMap = new Array<number>(cells.length).fill(-1);
   const cellDirs: Vec3[] = new Array(cells.length);
 
+  // Wider falloff = softer continuous overlap instead of hard ownership cells.
+  const influenceSigma = 0.52;
+  const plateWeightsPerCell: RankedInfluence[][] = new Array(cells.length);
+
   // ----------------------------------------------------
-  // Ownership by nearest spherical seed
+  // Continuous plate influence solve
   // ----------------------------------------------------
   for (let row = 0; row < gridHeight; row++) {
     const lat = rowToLat(row, gridHeight);
@@ -121,162 +130,96 @@ export function assignPlatesToCells(
     for (let col = 0; col < gridWidth; col++) {
       const idx = row * gridWidth + col;
       const lon = colToLon(col, gridWidth);
-      const cellDir = latLonToUnitVector(lat, lon);
-      cellDirs[idx] = cellDir;
+      const dir = latLonToUnitVector(lat, lon);
+      cellDirs[idx] = dir;
 
-      let bestSeed = localSeeds[0];
-      let bestDot = -Infinity;
+      const ranked = computeRankedPlateInfluences(dir, localSeeds, influenceSigma);
+      plateWeightsPerCell[idx] = ranked;
 
-      for (const seed of localSeeds) {
-        const d = dot3(cellDir, seed.dir);
-        if (d > bestDot) {
-          bestDot = d;
-          bestSeed = seed;
-        }
-      }
+      const top = ranked[0];
+      const second = ranked[1] ?? ranked[0];
 
-      plateMap[idx] = bestSeed.plateId;
-      const plate = plates[bestSeed.plateId];
+      const dominantPlate = plates[top.plateId];
+      const dominanceGap = clamp01(top.weight - second.weight);
+      const ambiguity = clamp01(1 - dominanceGap);
 
       fields[idx] = {
-        plateId: bestSeed.plateId,
-        plateType: plate.type,
+        plateId: top.plateId,
+        plateType: dominantPlate.type,
         boundaryType: BoundaryTypeEnum.NONE as BoundaryType,
         upliftRate: 0,
-        boundaryStrength: 0,
+        boundaryStrength: ambiguity * 0.55,
         compression: 0,
-        distanceToBoundary: 1,
+        distanceToBoundary: 1 - ambiguity,
         isBoundary: false,
       };
     }
   }
 
   // ----------------------------------------------------
-  // Detect actual boundary cells and classify them
+  // Boundary classification from competing influences
   // ----------------------------------------------------
-  const boundaryIndices: number[] = [];
-
   for (let row = 0; row < gridHeight; row++) {
     for (let col = 0; col < gridWidth; col++) {
       const idx = row * gridWidth + col;
-      const myPlateId = plateMap[idx];
-      const myPlate = plates[myPlateId];
+      const ranked = plateWeightsPerCell[idx];
+      const top = ranked[0];
+      const second = ranked[1] ?? ranked[0];
       const myDir = cellDirs[idx];
 
-      const neighborIndices = getNeighborIndices(row, col, gridWidth, gridHeight);
+      const dominantPlate = plates[top.plateId];
+      const rivalPlate = plates[second.plateId];
 
-      let strongestBoundaryType: BoundaryType = BoundaryTypeEnum.NONE as BoundaryType;
-      let strongestBoundaryScore = 0;
-      let strongestCompression = 0;
-      let unlikeNeighborCount = 0;
+      const dominanceGap = clamp01(top.weight - second.weight);
+      const ambiguity = clamp01(1 - dominanceGap);
 
-      for (const nIdx of neighborIndices) {
-        const nPlateId = plateMap[nIdx];
-        if (nPlateId === myPlateId) continue;
+      const topSeed = localSeeds[top.plateId];
+      const secondSeed = localSeeds[second.plateId];
 
-        unlikeNeighborCount++;
-        const nPlate = plates[nPlateId];
-        const nDir = cellDirs[nIdx];
+      const topNormal = normalize2(projectNeighborDirectionToLocalTangent(myDir, topSeed.dir));
+      const secondNormal = normalize2(projectNeighborDirectionToLocalTangent(myDir, secondSeed.dir));
 
-        const normal = normalize2(projectNeighborDirectionToLocalTangent(myDir, nDir));
+      // Blend normals so the field remains continuous.
+      const blendedNormal = normalize2([
+        topNormal[0] * top.weight - secondNormal[0] * second.weight,
+        topNormal[1] * top.weight - secondNormal[1] * second.weight,
+      ]);
 
-        const relativeVelocity: Vec2 = [
-          myPlate.velocity[0] - nPlate.velocity[0],
-          myPlate.velocity[1] - nPlate.velocity[1],
-        ];
+      const relativeVelocity: Vec2 = [
+        dominantPlate.velocity[0] - rivalPlate.velocity[0],
+        dominantPlate.velocity[1] - rivalPlate.velocity[1],
+      ];
 
-        const convergence = -dot2(relativeVelocity, normal);
-        const boundaryType = classifyBoundary(myPlate.type, nPlate.type, convergence);
-        const boundaryScore = Math.abs(convergence);
+      const convergence = -dot2(relativeVelocity, blendedNormal);
+      const boundaryType = classifyBoundary(
+        dominantPlate.type,
+        rivalPlate.type,
+        convergence
+      );
 
-        if (boundaryScore > strongestBoundaryScore) {
-          strongestBoundaryScore = boundaryScore;
-          strongestBoundaryType = boundaryType;
-          strongestCompression = clamp(convergence, -1, 1);
-        }
-      }
+      // Turn soft competition into smooth boundary strength.
+      const rivalry = clamp01(
+        second.weight / Math.max(1e-9, top.weight + second.weight)
+      );
+      const localBoundaryStrength = clamp01(
+        ambiguity * 0.72 + rivalry * 0.28
+      );
+      const isBoundary = localBoundaryStrength > 0.18;
 
-      if (unlikeNeighborCount > 0) {
-        const field = fields[idx];
-        field.isBoundary = true;
-        field.boundaryType = strongestBoundaryType;
-        field.compression = strongestCompression;
-        field.boundaryStrength = clamp01(
-          unlikeNeighborCount / Math.max(1, neighborIndices.length) * 0.55 +
-            strongestBoundaryScore * 0.45
-        );
-        field.distanceToBoundary = 0;
-        field.upliftRate = computeUpliftRate(
-          strongestBoundaryType,
-          strongestCompression,
-          field.boundaryStrength,
-          myPlate.type
-        );
-
-        boundaryIndices.push(idx);
-      }
-    }
-  }
-
-  // ----------------------------------------------------
-  // Local angular boundary proximity heuristic
-  // ----------------------------------------------------
-  // This replaces projected-grid BFS step distance.
-  // We search within a bounded row window and measure true angular distance
-  // to actual boundary cells, then normalize that to 0..1.
-  //
-  // Result:
-  // - boundary cells remain 0
-  // - nearby cells get smooth geometric falloff
-  // - polar projection step artifacts are reduced
-  // ----------------------------------------------------
-  const maxAngularDistance = Math.PI * 0.22; // local tectonic influence radius
-  const searchRowRadius = Math.max(8, Math.floor(gridHeight * 0.14));
-
-  for (let row = 0; row < gridHeight; row++) {
-    for (let col = 0; col < gridWidth; col++) {
-      const idx = row * gridWidth + col;
       const field = fields[idx];
-
-      if (field.isBoundary) continue;
-
-      const myPlateId = field.plateId;
-      const myDir = cellDirs[idx];
-
-      let bestAngular = Infinity;
-      let localBoundaryStrength = 0;
-
-      const rMin = Math.max(0, row - searchRowRadius);
-      const rMax = Math.min(gridHeight - 1, row + searchRowRadius);
-
-      for (let rr = rMin; rr <= rMax; rr++) {
-        for (let cc = 0; cc < gridWidth; cc++) {
-          const bIdx = rr * gridWidth + cc;
-          const bField = fields[bIdx];
-          if (!bField.isBoundary) continue;
-          if (bField.plateId !== myPlateId) continue;
-
-          const d = angularDistance(myDir, cellDirs[bIdx]);
-          if (d < bestAngular) {
-            bestAngular = d;
-          }
-
-          if (d <= maxAngularDistance) {
-            localBoundaryStrength = Math.max(
-              localBoundaryStrength,
-              bField.boundaryStrength * clamp01(1 - d / maxAngularDistance)
-            );
-          }
-        }
-      }
-
-      if (Number.isFinite(bestAngular)) {
-        field.distanceToBoundary = clamp01(bestAngular / maxAngularDistance);
-        field.boundaryStrength = Math.max(field.boundaryStrength, localBoundaryStrength);
-      } else {
-        field.distanceToBoundary = 1;
-        field.boundaryStrength = Math.max(field.boundaryStrength, 0);
-      }
+      field.boundaryType = isBoundary
+        ? boundaryType
+        : (BoundaryTypeEnum.NONE as BoundaryType);
+      field.compression = isBoundary ? clamp(convergence, -1, 1) : 0;
+      field.boundaryStrength = Math.max(field.boundaryStrength, localBoundaryStrength);
+      field.distanceToBoundary = clamp01(1 - localBoundaryStrength);
+      field.isBoundary = isBoundary;
+      field.upliftRate = computeUpliftRate(
+        field.boundaryType,
+        field.compression,
+        field.boundaryStrength,
+        dominantPlate.type
+      );
     }
   }
 
@@ -288,7 +231,7 @@ export function assignPlatesToCells(
     if (field.isBoundary) continue;
 
     if (field.plateType === PlateTypeEnum.CONTINENTAL) {
-      field.upliftRate = lerp(0.04, 0.12, 1 - field.distanceToBoundary);
+      field.upliftRate = lerp(0.04, 0.11, 1 - field.distanceToBoundary);
     } else {
       field.upliftRate = lerp(-0.10, -0.03, 1 - field.distanceToBoundary);
     }
@@ -391,16 +334,51 @@ function createPlateSeeds(
   return seeds;
 }
 
+function computeRankedPlateInfluences(
+  dir: Vec3,
+  seeds: PlateSeed[],
+  sigma: number
+): RankedInfluence[] {
+  const weights: RankedInfluence[] = [];
+
+  let total = 0;
+  for (const seed of seeds) {
+    const d = angularDistance(dir, seed.dir);
+    const w = gaussianFalloff(d, sigma);
+    weights.push({ plateId: seed.plateId, weight: w });
+    total += w;
+  }
+
+  const norm = Math.max(1e-9, total);
+  for (const item of weights) {
+    item.weight /= norm;
+  }
+
+  weights.sort((a, b) => b.weight - a.weight);
+  return weights;
+}
+
+function gaussianFalloff(distance: number, sigma: number): number {
+  const x = distance / Math.max(1e-9, sigma);
+  return Math.exp(-0.5 * x * x);
+}
+
 function classifyBoundary(
   a: PlateType,
   b: PlateType,
   convergence: number
 ): BoundaryType {
-  if (convergence > 0.06) {
-    return BoundaryTypeEnum.CONVERGENT as BoundaryType;
+  const aOceanic = a === PlateTypeEnum.OCEANIC;
+  const bOceanic = b === PlateTypeEnum.OCEANIC;
+  const mixed = aOceanic !== bOceanic;
+
+  if (convergence > 0.04) {
+    return mixed || (!aOceanic && !bOceanic)
+      ? (BoundaryTypeEnum.CONVERGENT as BoundaryType)
+      : (BoundaryTypeEnum.CONVERGENT as BoundaryType);
   }
 
-  if (convergence < -0.05) {
+  if (convergence < -0.035) {
     return BoundaryTypeEnum.DIVERGENT as BoundaryType;
   }
 
@@ -416,44 +394,22 @@ function computeUpliftRate(
   const strength = clamp01(boundaryStrength);
 
   if (boundaryType === BoundaryTypeEnum.CONVERGENT) {
-    const base = 0.35 + strength * 0.55 + Math.max(0, compression) * 0.20;
+    const base = 0.30 + strength * 0.48 + Math.max(0, compression) * 0.18;
     return plateType === PlateTypeEnum.CONTINENTAL
       ? clamp(base, -1, 1)
-      : clamp(base * 0.70, -1, 1);
+      : clamp(base * 0.72, -1, 1);
   }
 
   if (boundaryType === BoundaryTypeEnum.DIVERGENT) {
     const ridgeLift = plateType === PlateTypeEnum.OCEANIC ? 0.10 : 0.04;
-    return clamp(-0.10 + ridgeLift + compression * 0.10 + strength * 0.18, -1, 1);
+    return clamp(-0.10 + ridgeLift + compression * 0.08 + strength * 0.14, -1, 1);
   }
 
   if (boundaryType === BoundaryTypeEnum.TRANSFORM) {
-    return clamp(0.02 + strength * 0.06, -1, 1);
+    return clamp(0.015 + strength * 0.05, -1, 1);
   }
 
   return 0;
-}
-
-function getNeighborIndices(
-  row: number,
-  col: number,
-  gridWidth: number,
-  gridHeight: number
-): number[] {
-  const neighbors: number[] = [];
-
-  for (let dr = -1; dr <= 1; dr++) {
-    const rr = row + dr;
-    if (rr < 0 || rr >= gridHeight) continue;
-
-    for (let dc = -1; dc <= 1; dc++) {
-      if (dr === 0 && dc === 0) continue;
-      const cc = (col + dc + gridWidth) % gridWidth;
-      neighbors.push(rr * gridWidth + cc);
-    }
-  }
-
-  return neighbors;
 }
 
 function rowToLat(row: number, gridHeight: number): number {
