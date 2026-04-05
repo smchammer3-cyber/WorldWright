@@ -1,14 +1,11 @@
 // ========================================================
-// WORLDWRIGHT -- PLANET RENDERER (V1.4 TERRAIN-ONLY PROOF)
+// WORLDWRIGHT -- PLANET RENDERER (V1.3 RAW HEIGHT PROOF MODE)
 // File: src/core/planetRenderer.ts
 //
-// Goals:
-// - interpret world data more continuously and less bucket-like
-// - keep raw Generate debugging visually honest
-// - PROOF STEP:
-//   * ignore oceanDepthClass color branching
-//   * ignore rainfall / temperature / snow land tinting
-//   * render both ocean and land primarily from height/elevation
+// Purpose:
+// - isolate renderer/recompute responsibility for the bullseye
+// - render ONLY from raw total height and sea level
+// - ignore climate, rainfall, snow, biome paint, stickers, and borders
 // ========================================================
 
 import type { WorldBrain } from "./worldSchema";
@@ -31,8 +28,8 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     typeof world.seaLevel === "number"
       ? world.seaLevel
       : typeof world.metadata?.seaLevel === "number"
-        ? world.metadata.seaLevel
-        : 0;
+      ? world.metadata.seaLevel
+      : 0;
 
   const cells = Array.isArray(world.cells) ? world.cells : [];
 
@@ -51,30 +48,15 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
 
   function totalHeightAtCell(cell: any): number {
     if (!cell) return 0;
-    const base = typeof cell.baseHeight === "number" ? cell.baseHeight : 0;
+    const base =
+      typeof cell.baseHeight === "number"
+        ? cell.baseHeight
+        : typeof cell.height === "number"
+        ? cell.height
+        : 0;
     const editDelta = typeof cell.editHeightDelta === "number" ? cell.editHeightDelta : 0;
     const simDelta = typeof cell.simHeightDelta === "number" ? cell.simHeightDelta : 0;
     return base + editDelta + simDelta;
-  }
-
-  function toRGBA255(rgb: [number, number, number]): [number, number, number, number] {
-    return [
-      clamp255(Math.round(rgb[0] * 255)),
-      clamp255(Math.round(rgb[1] * 255)),
-      clamp255(Math.round(rgb[2] * 255)),
-      255,
-    ];
-  }
-
-  function stickerOverlayColor(editBiomeId: number | undefined): [number, number, number] | null {
-    switch (editBiomeId) {
-      case 1: return [0.80, 0.86, 0.92];
-      case 3: return [0.66, 0.74, 0.44];
-      case 4: return [0.82, 0.70, 0.44];
-      case 5: return [0.22, 0.52, 0.26];
-      case 6: return [0.58, 0.58, 0.62];
-      default: return null;
-    }
   }
 
   function blend(
@@ -89,80 +71,34 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     ];
   }
 
-  function sampleOceanColor(_cell: any, h: number): [number, number, number] {
-    const depth = clamp01((seaLevel - h) * 1.5);
+  function oceanColorFromHeight(h: number): [number, number, number] {
+    const depth = clamp01((seaLevel - h) * 1.7);
 
-    const shallow: [number, number, number] = [0.20, 0.54, 0.73];
-    const mid: [number, number, number] = [0.08, 0.30, 0.53];
-    const deep: [number, number, number] = [0.02, 0.09, 0.24];
+    const shallow: [number, number, number] = [0.18, 0.48, 0.68];
+    const mid: [number, number, number] = [0.09, 0.30, 0.52];
+    const deep: [number, number, number] = [0.03, 0.12, 0.32];
 
-    if (depth < 0.35) {
-      const t = depth / 0.35;
-      return blend(shallow, mid, t);
+    if (depth < 0.4) {
+      return blend(shallow, mid, depth / 0.4);
     }
-
-    const t = (depth - 0.35) / 0.65;
-    return blend(mid, deep, t);
+    return blend(mid, deep, (depth - 0.4) / 0.6);
   }
 
-  function sampleLandColor(_cell: any, h: number): [number, number, number] {
-    const elev = clamp01(Math.max(0, h - seaLevel) * 2.0);
+  function landColorFromHeight(h: number): [number, number, number] {
+    const elev = clamp01((h - seaLevel) * 2.2);
 
-    // Terrain-only proof:
-    // beach -> lowland -> upland -> rock -> icecap
     const beach: [number, number, number] = [0.78, 0.70, 0.52];
-    const lowland: [number, number, number] = [0.44, 0.60, 0.34];
-    const upland: [number, number, number] = [0.34, 0.50, 0.28];
-    const highland: [number, number, number] = [0.48, 0.52, 0.42];
-    const rock: [number, number, number] = [0.58, 0.57, 0.53];
-    const ice: [number, number, number] = [0.82, 0.87, 0.92];
+    const low: [number, number, number] = [0.44, 0.60, 0.34];
+    const mid: [number, number, number] = [0.34, 0.50, 0.28];
+    const high: [number, number, number] = [0.48, 0.52, 0.42];
+    const rock: [number, number, number] = [0.60, 0.60, 0.66];
+    const snow: [number, number, number] = [0.84, 0.89, 0.95];
 
-    if (elev < 0.08) {
-      const t = elev / 0.08;
-      return blend(beach, lowland, t);
-    }
-
-    if (elev < 0.35) {
-      const t = (elev - 0.08) / 0.27;
-      return blend(lowland, upland, t);
-    }
-
-    if (elev < 0.62) {
-      const t = (elev - 0.35) / 0.27;
-      return blend(upland, highland, t);
-    }
-
-    if (elev < 0.86) {
-      const t = (elev - 0.62) / 0.24;
-      return blend(highland, rock, t);
-    }
-
-    const t = (elev - 0.86) / 0.14;
-    return blend(rock, ice, clamp01(t));
-  }
-
-  function applyStickerTint(
-    rgb: [number, number, number],
-    cell: any
-  ): [number, number, number] {
-    const overlay = stickerOverlayColor(cell?.editBiomeId);
-    if (
-      overlay &&
-      typeof cell?.editBiomeId === "number" &&
-      cell.editBiomeId !== cell.baseBiomeId
-    ) {
-      return blend(rgb, overlay, 0.28);
-    }
-    return rgb;
-  }
-
-  function applyCountryBorderTint(
-    rgb: [number, number, number],
-    _row: number,
-    _col: number,
-    _cell: any
-  ): [number, number, number] {
-    return rgb;
+    if (elev < 0.08) return blend(beach, low, elev / 0.08);
+    if (elev < 0.32) return blend(low, mid, (elev - 0.08) / 0.24);
+    if (elev < 0.60) return blend(mid, high, (elev - 0.32) / 0.28);
+    if (elev < 0.84) return blend(high, rock, (elev - 0.60) / 0.24);
+    return blend(rock, snow, (elev - 0.84) / 0.16);
   }
 
   function sampleFromRowCol(row: number, col: number): [number, number, number] {
@@ -175,16 +111,16 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     if (!cell) return [1, 0, 1];
 
     const h = totalHeightAtCell(cell);
-    const isWater = h < seaLevel;
+    return h < seaLevel ? oceanColorFromHeight(h) : landColorFromHeight(h);
+  }
 
-    let rgb = isWater
-      ? sampleOceanColor(cell, h)
-      : sampleLandColor(cell, h);
-
-    rgb = applyStickerTint(rgb, cell);
-    rgb = applyCountryBorderTint(rgb, r, c, cell);
-
-    return rgb;
+  function toRGBA255(rgb: [number, number, number]): [number, number, number, number] {
+    return [
+      clamp255(Math.round(rgb[0] * 255)),
+      clamp255(Math.round(rgb[1] * 255)),
+      clamp255(Math.round(rgb[2] * 255)),
+      255,
+    ];
   }
 
   function sampleRGBAFromRowCol(row: number, col: number): [number, number, number, number] {
