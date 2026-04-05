@@ -1,424 +1,290 @@
 // ========================================================
-// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 CONTINUOUS INFLUENCE FIELD)
-// File: src/core/tectonicsSystem/index.ts
+// WORLDWRIGHT -- PLANET RENDERER (V1.5 POLE-SAFE TERRAIN PROOF)
+// File: src/core/planetRenderer.ts
 //
-// Purpose:
-// - provide a tectonic field source of truth
-// - keep spherical seed placement
-// - replace hard Voronoi-like plate ownership with soft overlapping influence
-// - classify boundaries from blended competing plate influences
-// - expose smoother uplift / boundary / distance fields to worldGenerator
+// Goals:
+// - keep raw Generate debugging visually honest
+// - keep terrain-only proof coloring
+// - remove visible polar bullseye/ring artifacts in globe preview
+// - make globe sampling pole-safe instead of exposing equirectangular pole compression
 //
-// Notes:
-// - We still emit a dominant plateId/plateType for compatibility.
-// - But all per-cell tectonic shaping now comes from continuous influence,
-//   not from a hard nearest-seed partition.
+// Strategy:
+// - Map/minimap remain straightforward row/col equirectangular sampling.
+// - Globe sampling becomes direction-based and pole-safe.
+// - Near the poles, longitude influence is collapsed so many compressed longitudes
+//   do not show up as circular rings on the globe cap.
 // ========================================================
 
-import type { Plate, PlateType, BoundaryType } from '../worldSchema';
-import {
-  PlateType as PlateTypeEnum,
-  BoundaryType as BoundaryTypeEnum,
-} from '../worldSchema';
+import type { WorldBrain } from "./worldSchema";
 
-type Vec2 = [number, number];
+export type PlanetPreview = {
+  width: number;
+  height: number;
+  seaLevel: number;
+  rgba: Uint8ClampedArray;
+  colorAt: (x: number, y: number) => [number, number, number, number];
+  minimapColorAt: (x: number, y: number) => [number, number, number, number];
+  sampleGlobeColor: (cellIndex: number) => [number, number, number, number];
+  sampleMinimapColor: (cellIndex: number) => [number, number, number, number];
+};
+
 type Vec3 = [number, number, number];
 
-type PlateSeed = {
-  plateId: number;
-  row: number;
-  col: number;
-  lat: number;
-  lon: number;
-  dir: Vec3;
-  type: PlateType;
-  velocity: Vec2;
-  driftAxis: Vec2;
-  elevationBias: number;
-};
+export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
+  const width = world.gridWidth;
+  const height = world.gridHeight;
+  const seaLevel =
+    typeof world.seaLevel === "number"
+      ? world.seaLevel
+      : typeof world.metadata?.seaLevel === "number"
+        ? world.metadata.seaLevel
+        : 0;
 
-export interface TectonicsField {
-  plateId: number;
-  plateType: PlateType;
-  boundaryType: BoundaryType;
-  upliftRate: number;
-  boundaryStrength: number;
-  compression: number;
-  distanceToBoundary: number;
-  isBoundary: boolean;
-}
+  const cells = Array.isArray(world.cells) ? world.cells : [];
 
-export interface TectonicsResult {
-  plates: Plate[];
-  fields: TectonicsField[];
-  seeds: PlateSeed[];
-}
-
-type RankedInfluence = {
-  plateId: number;
-  weight: number;
-};
-
-export function generatePlates(
-  gridWidth: number,
-  gridHeight: number,
-  plateCount: number,
-  rng: () => number
-): Plate[] {
-  const count = Math.max(2, Math.floor(plateCount));
-  const continentalTarget = Math.max(1, Math.round(count * 0.42));
-
-  const plates: Plate[] = [];
-
-  for (let i = 0; i < count; i++) {
-    const isContinental = i < continentalTarget;
-
-    const angle = rng() * Math.PI * 2;
-    const speed = isContinental
-      ? 0.04 + rng() * 0.08
-      : 0.06 + rng() * 0.10;
-
-    plates.push({
-      id: i,
-      type: isContinental ? PlateTypeEnum.CONTINENTAL : PlateTypeEnum.OCEANIC,
-      velocity: [Math.cos(angle) * speed, Math.sin(angle) * speed],
-    });
+  function wrapCol(c: number): number {
+    if (width === 0) return 0;
+    const m = c % width;
+    return m < 0 ? m + width : m;
   }
 
-  return shuffleInPlace(plates, rng);
-}
+  function clampRow(r: number): number {
+    if (height === 0) return 0;
+    if (r < 0) return 0;
+    if (r >= height) return height - 1;
+    return r;
+  }
 
-export function buildTectonicsField(
-  gridWidth: number,
-  gridHeight: number,
-  cells: any[],
-  plateCount: number,
-  rng: () => number
-): TectonicsResult {
-  const plates = generatePlates(gridWidth, gridHeight, plateCount, rng);
-  const seeds = createPlateSeeds(gridWidth, gridHeight, plates, rng);
-  const fields = assignPlatesToCells(gridWidth, gridHeight, cells, plates, seeds);
+  function totalHeightAtCell(cell: any): number {
+    if (!cell) return 0;
+    const base = typeof cell.baseHeight === "number" ? cell.baseHeight : 0;
+    const editDelta = typeof cell.editHeightDelta === "number" ? cell.editHeightDelta : 0;
+    const simDelta = typeof cell.simHeightDelta === "number" ? cell.simHeightDelta : 0;
+    return base + editDelta + simDelta;
+  }
 
-  return { plates, fields, seeds };
-}
+  function toRGBA255(rgb: [number, number, number]): [number, number, number, number] {
+    return [
+      clamp255(Math.round(rgb[0] * 255)),
+      clamp255(Math.round(rgb[1] * 255)),
+      clamp255(Math.round(rgb[2] * 255)),
+      255,
+    ];
+  }
 
-export function assignPlatesToCells(
-  gridWidth: number,
-  gridHeight: number,
-  cells: any[],
-  plates: Plate[],
-  seeds?: PlateSeed[]
-): TectonicsField[] {
-  const localSeeds =
-    seeds && seeds.length === plates.length
-      ? seeds
-      : createPlateSeeds(gridWidth, gridHeight, plates, mulberry32(123456789));
-
-  const fields: TectonicsField[] = new Array(cells.length);
-  const cellDirs: Vec3[] = new Array(cells.length);
-
-  // Wider falloff = softer continuous overlap instead of hard ownership cells.
-  const influenceSigma = 0.52;
-  const plateWeightsPerCell: RankedInfluence[][] = new Array(cells.length);
-
-  // ----------------------------------------------------
-  // Continuous plate influence solve
-  // ----------------------------------------------------
-  for (let row = 0; row < gridHeight; row++) {
-    const lat = rowToLat(row, gridHeight);
-
-    for (let col = 0; col < gridWidth; col++) {
-      const idx = row * gridWidth + col;
-      const lon = colToLon(col, gridWidth);
-      const dir = latLonToUnitVector(lat, lon);
-      cellDirs[idx] = dir;
-
-      const ranked = computeRankedPlateInfluences(dir, localSeeds, influenceSigma);
-      plateWeightsPerCell[idx] = ranked;
-
-      const top = ranked[0];
-      const second = ranked[1] ?? ranked[0];
-
-      const dominantPlate = plates[top.plateId];
-      const dominanceGap = clamp01(top.weight - second.weight);
-      const ambiguity = clamp01(1 - dominanceGap);
-
-      fields[idx] = {
-        plateId: top.plateId,
-        plateType: dominantPlate.type,
-        boundaryType: BoundaryTypeEnum.NONE as BoundaryType,
-        upliftRate: 0,
-        boundaryStrength: ambiguity * 0.55,
-        compression: 0,
-        distanceToBoundary: 1 - ambiguity,
-        isBoundary: false,
-      };
+  function stickerOverlayColor(editBiomeId: number | undefined): [number, number, number] | null {
+    switch (editBiomeId) {
+      case 1: return [0.80, 0.86, 0.92];
+      case 3: return [0.66, 0.74, 0.44];
+      case 4: return [0.82, 0.70, 0.44];
+      case 5: return [0.22, 0.52, 0.26];
+      case 6: return [0.58, 0.58, 0.62];
+      default: return null;
     }
   }
 
-  // ----------------------------------------------------
-  // Boundary classification from competing influences
-  // ----------------------------------------------------
-  for (let row = 0; row < gridHeight; row++) {
-    for (let col = 0; col < gridWidth; col++) {
-      const idx = row * gridWidth + col;
-      const ranked = plateWeightsPerCell[idx];
-      const top = ranked[0];
-      const second = ranked[1] ?? ranked[0];
-      const myDir = cellDirs[idx];
-
-      const dominantPlate = plates[top.plateId];
-      const rivalPlate = plates[second.plateId];
-
-      const dominanceGap = clamp01(top.weight - second.weight);
-      const ambiguity = clamp01(1 - dominanceGap);
-
-      const topSeed = localSeeds[top.plateId];
-      const secondSeed = localSeeds[second.plateId];
-
-      const topNormal = normalize2(projectNeighborDirectionToLocalTangent(myDir, topSeed.dir));
-      const secondNormal = normalize2(projectNeighborDirectionToLocalTangent(myDir, secondSeed.dir));
-
-      // Blend normals so the field remains continuous.
-      const blendedNormal = normalize2([
-        topNormal[0] * top.weight - secondNormal[0] * second.weight,
-        topNormal[1] * top.weight - secondNormal[1] * second.weight,
-      ]);
-
-      const relativeVelocity: Vec2 = [
-        dominantPlate.velocity[0] - rivalPlate.velocity[0],
-        dominantPlate.velocity[1] - rivalPlate.velocity[1],
-      ];
-
-      const convergence = -dot2(relativeVelocity, blendedNormal);
-      const boundaryType = classifyBoundary(
-        dominantPlate.type,
-        rivalPlate.type,
-        convergence
-      );
-
-      // Turn soft competition into smooth boundary strength.
-      const rivalry = clamp01(
-        second.weight / Math.max(1e-9, top.weight + second.weight)
-      );
-      const localBoundaryStrength = clamp01(
-        ambiguity * 0.72 + rivalry * 0.28
-      );
-      const isBoundary = localBoundaryStrength > 0.18;
-
-      const field = fields[idx];
-      field.boundaryType = isBoundary
-        ? boundaryType
-        : (BoundaryTypeEnum.NONE as BoundaryType);
-      field.compression = isBoundary ? clamp(convergence, -1, 1) : 0;
-      field.boundaryStrength = Math.max(field.boundaryStrength, localBoundaryStrength);
-      field.distanceToBoundary = clamp01(1 - localBoundaryStrength);
-      field.isBoundary = isBoundary;
-      field.upliftRate = computeUpliftRate(
-        field.boundaryType,
-        field.compression,
-        field.boundaryStrength,
-        dominantPlate.type
-      );
-    }
+  function blend(
+    a: [number, number, number],
+    b: [number, number, number],
+    t: number
+  ): [number, number, number] {
+    return [
+      lerp(a[0], b[0], t),
+      lerp(a[1], b[1], t),
+      lerp(a[2], b[2], t),
+    ];
   }
 
-  // ----------------------------------------------------
-  // Interior continental support / oceanic basin tendency
-  // ----------------------------------------------------
-  for (let i = 0; i < fields.length; i++) {
-    const field = fields[i];
-    if (field.isBoundary) continue;
+  function sampleOceanColor(_cell: any, h: number): [number, number, number] {
+    const depth = clamp01((seaLevel - h) * 1.5);
 
-    if (field.plateType === PlateTypeEnum.CONTINENTAL) {
-      field.upliftRate = lerp(0.04, 0.11, 1 - field.distanceToBoundary);
-    } else {
-      field.upliftRate = lerp(-0.10, -0.03, 1 - field.distanceToBoundary);
-    }
-  }
+    const shallow: [number, number, number] = [0.20, 0.54, 0.73];
+    const mid: [number, number, number] = [0.08, 0.30, 0.53];
+    const deep: [number, number, number] = [0.02, 0.09, 0.24];
 
-  return fields;
-}
-
-export function applyTectonicUplift(
-  cells: any[],
-  tectonicsFields: TectonicsField[],
-  plateAmp: number = 1.0
-): void {
-  for (let i = 0; i < cells.length; i++) {
-    const cell = cells[i];
-    const tectonic = tectonicsFields[i];
-    if (!cell || !tectonic) continue;
-
-    const strength = tectonic.upliftRate * plateAmp;
-
-    if (tectonic.boundaryType === BoundaryTypeEnum.CONVERGENT) {
-      cell.baseHeight += strength * 0.18;
-    } else if (tectonic.boundaryType === BoundaryTypeEnum.DIVERGENT) {
-      cell.baseHeight += strength * 0.10;
-    } else if (tectonic.boundaryType === BoundaryTypeEnum.TRANSFORM) {
-      cell.baseHeight += strength * 0.04;
-    } else {
-      cell.baseHeight += strength * 0.03;
-    }
-  }
-}
-
-function createPlateSeeds(
-  gridWidth: number,
-  gridHeight: number,
-  plates: Plate[],
-  rng: () => number
-): PlateSeed[] {
-  const seeds: PlateSeed[] = [];
-  const minAngularDistance = 0.42;
-
-  for (const plate of plates) {
-    let bestRow = Math.floor(rng() * gridHeight);
-    let bestCol = Math.floor(rng() * gridWidth);
-    let bestLat = rowToLat(bestRow, gridHeight);
-    let bestLon = colToLon(bestCol, gridWidth);
-    let bestDir = latLonToUnitVector(bestLat, bestLon);
-    let bestScore = -Infinity;
-
-    for (let attempt = 0; attempt < 48; attempt++) {
-      const row = Math.floor(rng() * gridHeight);
-      const col = Math.floor(rng() * gridWidth);
-      const lat = rowToLat(row, gridHeight);
-      const lon = colToLon(col, gridWidth);
-      const dir = latLonToUnitVector(lat, lon);
-
-      let nearest = Infinity;
-      for (const seed of seeds) {
-        const d = angularDistance(dir, seed.dir);
-        nearest = Math.min(nearest, d);
-      }
-
-      const equatorBias =
-        plate.type === PlateTypeEnum.CONTINENTAL
-          ? 1 - Math.abs(row / Math.max(1, gridHeight - 1) - 0.5) * 2 * 0.18
-          : 1;
-
-      const score = (seeds.length === 0 ? minAngularDistance : nearest) * equatorBias;
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestRow = row;
-        bestCol = col;
-        bestLat = lat;
-        bestLon = lon;
-        bestDir = dir;
-      }
+    if (depth < 0.35) {
+      const t = depth / 0.35;
+      return blend(shallow, mid, t);
     }
 
-    const angle = rng() * Math.PI * 2;
-    const driftAxis: Vec2 = [Math.cos(angle), Math.sin(angle)];
-
-    seeds.push({
-      plateId: plate.id,
-      row: bestRow,
-      col: bestCol,
-      lat: bestLat,
-      lon: bestLon,
-      dir: bestDir,
-      type: plate.type,
-      velocity: [plate.velocity[0], plate.velocity[1]],
-      driftAxis,
-      elevationBias:
-        plate.type === PlateTypeEnum.CONTINENTAL
-          ? 0.10 + rng() * 0.12
-          : -0.16 + rng() * 0.08,
-    });
+    const t = (depth - 0.35) / 0.65;
+    return blend(mid, deep, t);
   }
 
-  return seeds;
+  function sampleLandColor(_cell: any, h: number): [number, number, number] {
+    const elev = clamp01(Math.max(0, h - seaLevel) * 2.0);
+
+    // Terrain-only proof:
+    // beach -> lowland -> upland -> highland -> rock -> icecap
+    const beach: [number, number, number] = [0.78, 0.70, 0.52];
+    const lowland: [number, number, number] = [0.44, 0.60, 0.34];
+    const upland: [number, number, number] = [0.34, 0.50, 0.28];
+    const highland: [number, number, number] = [0.48, 0.52, 0.42];
+    const rock: [number, number, number] = [0.58, 0.57, 0.53];
+    const ice: [number, number, number] = [0.82, 0.87, 0.92];
+
+    if (elev < 0.08) {
+      const t = elev / 0.08;
+      return blend(beach, lowland, t);
+    }
+
+    if (elev < 0.35) {
+      const t = (elev - 0.08) / 0.27;
+      return blend(lowland, upland, t);
+    }
+
+    if (elev < 0.62) {
+      const t = (elev - 0.35) / 0.27;
+      return blend(upland, highland, t);
+    }
+
+    if (elev < 0.86) {
+      const t = (elev - 0.62) / 0.24;
+      return blend(highland, rock, t);
+    }
+
+    const t = (elev - 0.86) / 0.14;
+    return blend(rock, ice, clamp01(t));
+  }
+
+  function applyStickerTint(
+    rgb: [number, number, number],
+    cell: any
+  ): [number, number, number] {
+    const overlay = stickerOverlayColor(cell?.editBiomeId);
+    if (
+      overlay &&
+      typeof cell?.editBiomeId === "number" &&
+      cell.editBiomeId !== cell.baseBiomeId
+    ) {
+      return blend(rgb, overlay, 0.28);
+    }
+    return rgb;
+  }
+
+  function applyCountryBorderTint(
+    rgb: [number, number, number],
+    _row: number,
+    _col: number,
+    _cell: any
+  ): [number, number, number] {
+    return rgb;
+  }
+
+  function sampleFromRowCol(row: number, col: number): [number, number, number] {
+    if (height === 0 || width === 0) return [1, 0, 1];
+
+    const r = clampRow(row);
+    const c = wrapCol(col);
+    const idx = r * width + c;
+    const cell = cells[idx];
+    if (!cell) return [1, 0, 1];
+
+    const h = totalHeightAtCell(cell);
+    const isWater = h < seaLevel;
+
+    let rgb = isWater
+      ? sampleOceanColor(cell, h)
+      : sampleLandColor(cell, h);
+
+    rgb = applyStickerTint(rgb, cell);
+    rgb = applyCountryBorderTint(rgb, r, c, cell);
+
+    return rgb;
+  }
+
+  function sampleRGBAFromRowCol(row: number, col: number): [number, number, number, number] {
+    return toRGBA255(sampleFromRowCol(row, col));
+  }
+
+  function rowColToDir(row: number, col: number): Vec3 {
+    const lat = 90 - ((row + 0.5) / height) * 180;
+    const lon = ((col + 0.5) / width) * 360 - 180;
+    return latLonToUnitVector(lat, lon);
+  }
+
+  function dirToLatLon(dir: Vec3): { lat: number; lon: number } {
+    const y = clamp(dir[1], -1, 1);
+    const lat = Math.asin(y) * 180 / Math.PI;
+    const lon = Math.atan2(dir[2], dir[0]) * 180 / Math.PI;
+    return { lat, lon };
+  }
+
+  function latLonToRowCol(lat: number, lon: number): { row: number; col: number } {
+    const normalizedLon = normalizeLongitude(lon);
+    const row = ((90 - lat) / 180) * height - 0.5;
+    const col = ((normalizedLon + 180) / 360) * width - 0.5;
+    return { row, col };
+  }
+
+  function sampleFromDirection(dir: Vec3): [number, number, number] {
+    // Pole-safe globe sampling:
+    // near the poles, collapse longitude so compressed equirectangular longitudes
+    // do not appear as circular bullseye rings on the globe cap.
+    const { lat, lon } = dirToLatLon(normalize3(dir));
+    const absLat = Math.abs(lat);
+    const poleCollapseStart = 84;
+    const poleCollapseFull = 89.2;
+
+    let sampleLon = lon;
+    if (absLat >= poleCollapseStart) {
+      const t = clamp01((absLat - poleCollapseStart) / (poleCollapseFull - poleCollapseStart));
+      sampleLon = lerp(lon, 0, t);
+    }
+
+    const rc = latLonToRowCol(lat, sampleLon);
+    return sampleFromRowCol(Math.round(rc.row), Math.round(rc.col));
+  }
+
+  function sampleGlobeRGBAFromCellIndex(cellIndex: number): [number, number, number, number] {
+    if (!Number.isInteger(cellIndex) || cellIndex < 0 || cellIndex >= cells.length) {
+      return [255, 0, 255, 255];
+    }
+
+    const row = Math.floor(cellIndex / width);
+    const col = cellIndex % width;
+    const dir = rowColToDir(row, col);
+    return toRGBA255(sampleFromDirection(dir));
+  }
+
+  const rgba = rasterizeToBytes(width, height, (x, y) => {
+    const col = Math.floor(x);
+    const row = Math.floor(y);
+    return sampleRGBAFromRowCol(row, col);
+  });
+
+  return {
+    width,
+    height,
+    seaLevel,
+    rgba,
+    colorAt: (x, y) => {
+      const col = Math.floor(x);
+      const row = Math.floor(y);
+      return sampleRGBAFromRowCol(row, col);
+    },
+    minimapColorAt: (x, y) => {
+      const col = Math.floor(x);
+      const row = Math.floor(y);
+      return sampleRGBAFromRowCol(row, col);
+    },
+    sampleGlobeColor: (cellIndex) => {
+      return sampleGlobeRGBAFromCellIndex(cellIndex);
+    },
+    sampleMinimapColor: (cellIndex) => {
+      const idx = Number.isInteger(cellIndex) ? cellIndex : -1;
+      const row = idx < 0 ? -1 : Math.floor(idx / width);
+      const col = idx < 0 ? -1 : idx % width;
+      return sampleRGBAFromRowCol(row, col);
+    },
+  };
 }
 
-function computeRankedPlateInfluences(
-  dir: Vec3,
-  seeds: PlateSeed[],
-  sigma: number
-): RankedInfluence[] {
-  const weights: RankedInfluence[] = [];
-
-  let total = 0;
-  for (const seed of seeds) {
-    const d = angularDistance(dir, seed.dir);
-    const w = gaussianFalloff(d, sigma);
-    weights.push({ plateId: seed.plateId, weight: w });
-    total += w;
-  }
-
-  const norm = Math.max(1e-9, total);
-  for (const item of weights) {
-    item.weight /= norm;
-  }
-
-  weights.sort((a, b) => b.weight - a.weight);
-  return weights;
+export function makePlanetPreviewFromWorldBrain(world: WorldBrain): PlanetPreview {
+  return buildPlanetPreview(world);
 }
 
-function gaussianFalloff(distance: number, sigma: number): number {
-  const x = distance / Math.max(1e-9, sigma);
-  return Math.exp(-0.5 * x * x);
-}
-
-function classifyBoundary(
-  a: PlateType,
-  b: PlateType,
-  convergence: number
-): BoundaryType {
-  const aOceanic = a === PlateTypeEnum.OCEANIC;
-  const bOceanic = b === PlateTypeEnum.OCEANIC;
-  const mixed = aOceanic !== bOceanic;
-
-  if (convergence > 0.04) {
-    return mixed || (!aOceanic && !bOceanic)
-      ? (BoundaryTypeEnum.CONVERGENT as BoundaryType)
-      : (BoundaryTypeEnum.CONVERGENT as BoundaryType);
-  }
-
-  if (convergence < -0.035) {
-    return BoundaryTypeEnum.DIVERGENT as BoundaryType;
-  }
-
-  return BoundaryTypeEnum.TRANSFORM as BoundaryType;
-}
-
-function computeUpliftRate(
-  boundaryType: BoundaryType,
-  compression: number,
-  boundaryStrength: number,
-  plateType: PlateType
-): number {
-  const strength = clamp01(boundaryStrength);
-
-  if (boundaryType === BoundaryTypeEnum.CONVERGENT) {
-    const base = 0.30 + strength * 0.48 + Math.max(0, compression) * 0.18;
-    return plateType === PlateTypeEnum.CONTINENTAL
-      ? clamp(base, -1, 1)
-      : clamp(base * 0.72, -1, 1);
-  }
-
-  if (boundaryType === BoundaryTypeEnum.DIVERGENT) {
-    const ridgeLift = plateType === PlateTypeEnum.OCEANIC ? 0.10 : 0.04;
-    return clamp(-0.10 + ridgeLift + compression * 0.08 + strength * 0.14, -1, 1);
-  }
-
-  if (boundaryType === BoundaryTypeEnum.TRANSFORM) {
-    return clamp(0.015 + strength * 0.05, -1, 1);
-  }
-
-  return 0;
-}
-
-function rowToLat(row: number, gridHeight: number): number {
-  return 90 - ((row + 0.5) / gridHeight) * 180;
-}
-
-function colToLon(col: number, gridWidth: number): number {
-  return ((col + 0.5) / gridWidth) * 360 - 180;
-}
+export const PlanetRenderer = { buildPlanetPreview };
 
 function latLonToUnitVector(latDeg: number, lonDeg: number): Vec3 {
   const lat = (latDeg * Math.PI) / 180;
@@ -427,44 +293,11 @@ function latLonToUnitVector(latDeg: number, lonDeg: number): Vec3 {
   return [cosLat * Math.cos(lon), Math.sin(lat), cosLat * Math.sin(lon)];
 }
 
-function dot2(a: Vec2, b: Vec2): number {
-  return a[0] * b[0] + a[1] * b[1];
-}
-
-function dot3(a: Vec3, b: Vec3): number {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-}
-
-function angularDistance(a: Vec3, b: Vec3): number {
-  return Math.acos(clamp(dot3(a, b), -1, 1));
-}
-
-function projectNeighborDirectionToLocalTangent(fromDir: Vec3, toDir: Vec3): Vec2 {
-  const east = normalize3([-fromDir[2], 0, fromDir[0]]);
-  const north = normalize3(cross3(fromDir, east));
-  const delta: Vec3 = [
-    toDir[0] - fromDir[0],
-    toDir[1] - fromDir[1],
-    toDir[2] - fromDir[2],
-  ];
-
-  const eastComp = dot3(delta, east);
-  const northComp = dot3(delta, north);
-
-  return [eastComp, northComp];
-}
-
-function cross3(a: Vec3, b: Vec3): Vec3 {
-  return [
-    a[1] * b[2] - a[2] * b[1],
-    a[2] * b[0] - a[0] * b[2],
-    a[0] * b[1] - a[1] * b[0],
-  ];
-}
-
-function normalize2(v: Vec2): Vec2 {
-  const len = Math.hypot(v[0], v[1]) || 1;
-  return [v[0] / len, v[1] / len];
+function normalizeLongitude(lon: number): number {
+  let x = lon;
+  while (x < -180) x += 360;
+  while (x >= 180) x -= 360;
+  return x;
 }
 
 function normalize3(v: Vec3): Vec3 {
@@ -472,33 +305,72 @@ function normalize3(v: Vec3): Vec3 {
   return [v[0] / len, v[1] / len, v[2] / len];
 }
 
-function clamp(x: number, lo: number, hi: number): number {
-  return x < lo ? lo : x > hi ? hi : x;
+function clamp01(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return n < 0 ? 0 : n > 1 ? 1 : n;
 }
 
-function clamp01(x: number): number {
-  return clamp(x, 0, 1);
+function clamp255(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return n < 0 ? 0 : n > 255 ? 255 : n;
+}
+
+function clamp(n: number, lo: number, hi: number): number {
+  if (!Number.isFinite(n)) return lo;
+  return n < lo ? lo : n > hi ? hi : n;
 }
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-function shuffleInPlace<T>(arr: T[], rng: () => number): T[] {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    const tmp = arr[i];
-    arr[i] = arr[j];
-    arr[j] = tmp;
+function rasterizeToBytes(
+  w: number,
+  h: number,
+  sample: (x: number, y: number) => [number, number, number, number]
+): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(w * h * 4);
+  let o = 0;
+
+  for (let y = 0; y < h; y++) {
+    const sy = y + 0.5;
+    for (let x = 0; x < w; x++) {
+      const sx = x + 0.5;
+      const rgba = sample(sx, sy);
+      out[o++] = rgba[0] | 0;
+      out[o++] = rgba[1] | 0;
+      out[o++] = rgba[2] | 0;
+      out[o++] = rgba[3] | 0;
+    }
   }
-  return arr;
+
+  return out;
 }
 
-function mulberry32(a: number): () => number {
-  return function () {
-    let t = (a += 0x6d2b79f5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+export function rasterizePlanetPreview(
+  preview: PlanetPreview,
+  outW: number,
+  outH: number
+): Uint8ClampedArray {
+  const w = Math.max(1, Math.floor(outW));
+  const h = Math.max(1, Math.floor(outH));
+  return rasterizeToBytes(w, h, (x, y) => {
+    const sx = (x / w) * preview.width;
+    const sy = (y / h) * preview.height;
+    return preview.colorAt(sx, sy);
+  });
+}
+
+export function rasterizeMinimapPreview(
+  preview: PlanetPreview,
+  outW: number,
+  outH: number
+): Uint8ClampedArray {
+  const w = Math.max(1, Math.floor(outW));
+  const h = Math.max(1, Math.floor(outH));
+  return rasterizeToBytes(w, h, (x, y) => {
+    const sx = (x / w) * preview.width;
+    const sy = (y / h) * preview.height;
+    return preview.minimapColorAt(sx, sy);
+  });
 }
