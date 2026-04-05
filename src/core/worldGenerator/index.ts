@@ -1,5 +1,5 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 REDUCED POLAR REGULARIZATION)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 POLAR CAP CONTINUITY FIX)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
@@ -10,6 +10,7 @@
 // - remove excessive polar regularization
 // - reduce polar damping and pole-specific smoothing behavior
 // - preserve stronger visible parameter leverage without regressing to old blob logic
+// - fix pole fan / sunburst artifacts without restoring bullseye behavior
 // ========================================================
 
 import {
@@ -195,8 +196,6 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   landMask = mergeNearbyLandmasses(landMask, width, height, rng, targetContinentCount);
   landMask = enforceLandCoverageTarget(landMask, width, height, rng, targetLandFraction);
 
-  // Removed explicit polar row clearing and weakening to avoid visible rings.
-
   if (DEBUG_STAGE === 'MASK_POST') {
     const debugCells = cloneCells(cells);
     for (let i = 0; i < debugCells.length; i++) {
@@ -352,9 +351,9 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
 
   // ----------------------------------------------------
-  // STEP 6: PER-COLUMN POLE CONTINUATION ONLY
+  // STEP 6: BLENDED POLAR CAP CONTINUATION
   // ----------------------------------------------------
-  continuePolarColumns(cells, width, height);
+  continuePolarCapsBlended(cells, width, height);
 
   if (DEBUG_STAGE === 'HEIGHT') {
     return buildDebugWorld({
@@ -946,23 +945,76 @@ function weakenNearPoleRows(
 // TERRAIN / CLIMATE HELPERS
 // ========================================================
 
-function continuePolarColumns(cells: Cell[], width: number, height: number): void {
-  if (height < 4) return;
+function wrappedRowLocalMean(cells: Cell[], width: number, row: number, col: number, radius: number): number {
+  let sum = 0;
+  let count = 0;
+
+  for (let dc = -radius; dc <= radius; dc++) {
+    const cc = (col + dc + width) % width;
+    sum += cells[row * width + cc].baseHeight;
+    count++;
+  }
+
+  return count > 0 ? sum / count : cells[row * width + col].baseHeight;
+}
+
+function continuePolarCapsBlended(cells: Cell[], width: number, height: number): void {
+  if (height < 6) return;
+
+  const northRow0 = 0;
+  const northRow1 = 1;
+  const northRow2 = 2;
+  const northRow3 = 3;
+
+  const southRow0 = height - 1;
+  const southRow1 = height - 2;
+  const southRow2 = height - 3;
+  const southRow3 = height - 4;
+
+  const nextNorth0 = new Array<number>(width);
+  const nextNorth1 = new Array<number>(width);
+  const nextNorth2 = new Array<number>(width);
+
+  const nextSouth0 = new Array<number>(width);
+  const nextSouth1 = new Array<number>(width);
+  const nextSouth2 = new Array<number>(width);
 
   for (let c = 0; c < width; c++) {
-    const north0 = 0 * width + c;
-    const north1 = 1 * width + c;
-    const north2 = 2 * width + c;
+    const northMean1 = wrappedRowLocalMean(cells, width, northRow1, c, 2);
+    const northMean2 = wrappedRowLocalMean(cells, width, northRow2, c, 2);
+    const northMean3 = wrappedRowLocalMean(cells, width, northRow3, c, 3);
 
-    const south0 = (height - 1) * width + c;
-    const south1 = (height - 2) * width + c;
-    const south2 = (height - 3) * width + c;
+    const southMean1 = wrappedRowLocalMean(cells, width, southRow1, c, 2);
+    const southMean2 = wrappedRowLocalMean(cells, width, southRow2, c, 2);
+    const southMean3 = wrappedRowLocalMean(cells, width, southRow3, c, 3);
 
-    cells[north1].baseHeight = lerp(cells[north1].baseHeight, cells[north2].baseHeight, 0.18);
-    cells[south1].baseHeight = lerp(cells[south1].baseHeight, cells[south2].baseHeight, 0.18);
+    const north2Base = cells[northRow2 * width + c].baseHeight;
+    const north1Base = cells[northRow1 * width + c].baseHeight;
 
-    cells[north0].baseHeight = cells[north1].baseHeight;
-    cells[south0].baseHeight = cells[south1].baseHeight;
+    const south2Base = cells[southRow2 * width + c].baseHeight;
+    const south1Base = cells[southRow1 * width + c].baseHeight;
+
+    // Light smoothing at row 2 / row height-3
+    nextNorth2[c] = lerp(north2Base, (northMean2 * 0.72 + northMean3 * 0.28), 0.18);
+    nextSouth2[c] = lerp(south2Base, (southMean2 * 0.72 + southMean3 * 0.28), 0.18);
+
+    // Stronger smoothing toward the interior ring at row 1 / row height-2
+    nextNorth1[c] = lerp(north1Base, (northMean1 * 0.40 + northMean2 * 0.60), 0.42);
+    nextSouth1[c] = lerp(south1Base, (southMean1 * 0.40 + southMean2 * 0.60), 0.42);
+
+    // Pole row becomes a blended continuation of row 1, not a fully independent per-column carry
+    nextNorth0[c] = lerp(nextNorth1[c], northMean1, 0.55);
+    nextSouth0[c] = lerp(nextSouth1[c], southMean1, 0.55);
+  }
+
+  for (let c = 0; c < width; c++) {
+    cells[northRow2 * width + c].baseHeight = nextNorth2[c];
+    cells[northRow1 * width + c].baseHeight = nextNorth1[c];
+    cells[northRow0 * width + c].baseHeight = nextNorth0[c];
+
+    cells[southRow2 * width + c].baseHeight = nextSouth2[c];
+    cells[southRow1 * width + c].baseHeight = nextSouth1[c];
+    cells[southRow0 * width + c].baseHeight = nextSouth0[c];
   }
 }
 
