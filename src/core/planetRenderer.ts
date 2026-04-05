@@ -1,14 +1,18 @@
 // ========================================================
-// WORLDWRIGHT -- PLANET RENDERER (V1.4 TERRAIN-ONLY PROOF)
+// WORLDWRIGHT -- PLANET RENDERER (V1.5 POLE-SAFE TERRAIN PROOF)
 // File: src/core/planetRenderer.ts
 //
 // Goals:
-// - interpret world data more continuously and less bucket-like
 // - keep raw Generate debugging visually honest
-// - PROOF STEP:
-//   * ignore oceanDepthClass color branching
-//   * ignore rainfall / temperature / snow land tinting
-//   * render both ocean and land primarily from height/elevation
+// - keep terrain-only proof coloring
+// - remove visible polar bullseye/ring artifacts in globe preview
+// - make globe sampling pole-safe instead of exposing equirectangular pole compression
+//
+// Strategy:
+// - Map/minimap remain straightforward row/col equirectangular sampling.
+// - Globe sampling becomes direction-based and pole-safe.
+// - Near the poles, longitude influence is collapsed so many compressed longitudes
+//   do not show up as circular rings on the globe cap.
 // ========================================================
 
 import type { WorldBrain } from "./worldSchema";
@@ -23,6 +27,8 @@ export type PlanetPreview = {
   sampleGlobeColor: (cellIndex: number) => [number, number, number, number];
   sampleMinimapColor: (cellIndex: number) => [number, number, number, number];
 };
+
+type Vec3 = [number, number, number];
 
 export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
   const width = world.gridWidth;
@@ -109,7 +115,7 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     const elev = clamp01(Math.max(0, h - seaLevel) * 2.0);
 
     // Terrain-only proof:
-    // beach -> lowland -> upland -> rock -> icecap
+    // beach -> lowland -> upland -> highland -> rock -> icecap
     const beach: [number, number, number] = [0.78, 0.70, 0.52];
     const lowland: [number, number, number] = [0.44, 0.60, 0.34];
     const upland: [number, number, number] = [0.34, 0.50, 0.28];
@@ -191,6 +197,56 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
     return toRGBA255(sampleFromRowCol(row, col));
   }
 
+  function rowColToDir(row: number, col: number): Vec3 {
+    const lat = 90 - ((row + 0.5) / height) * 180;
+    const lon = ((col + 0.5) / width) * 360 - 180;
+    return latLonToUnitVector(lat, lon);
+  }
+
+  function dirToLatLon(dir: Vec3): { lat: number; lon: number } {
+    const y = clamp(dir[1], -1, 1);
+    const lat = Math.asin(y) * 180 / Math.PI;
+    const lon = Math.atan2(dir[2], dir[0]) * 180 / Math.PI;
+    return { lat, lon };
+  }
+
+  function latLonToRowCol(lat: number, lon: number): { row: number; col: number } {
+    const normalizedLon = normalizeLongitude(lon);
+    const row = ((90 - lat) / 180) * height - 0.5;
+    const col = ((normalizedLon + 180) / 360) * width - 0.5;
+    return { row, col };
+  }
+
+  function sampleFromDirection(dir: Vec3): [number, number, number] {
+    // Pole-safe globe sampling:
+    // near the poles, collapse longitude so compressed equirectangular longitudes
+    // do not appear as circular bullseye rings on the globe cap.
+    const { lat, lon } = dirToLatLon(normalize3(dir));
+    const absLat = Math.abs(lat);
+    const poleCollapseStart = 84;
+    const poleCollapseFull = 89.2;
+
+    let sampleLon = lon;
+    if (absLat >= poleCollapseStart) {
+      const t = clamp01((absLat - poleCollapseStart) / (poleCollapseFull - poleCollapseStart));
+      sampleLon = lerp(lon, 0, t);
+    }
+
+    const rc = latLonToRowCol(lat, sampleLon);
+    return sampleFromRowCol(Math.round(rc.row), Math.round(rc.col));
+  }
+
+  function sampleGlobeRGBAFromCellIndex(cellIndex: number): [number, number, number, number] {
+    if (!Number.isInteger(cellIndex) || cellIndex < 0 || cellIndex >= cells.length) {
+      return [255, 0, 255, 255];
+    }
+
+    const row = Math.floor(cellIndex / width);
+    const col = cellIndex % width;
+    const dir = rowColToDir(row, col);
+    return toRGBA255(sampleFromDirection(dir));
+  }
+
   const rgba = rasterizeToBytes(width, height, (x, y) => {
     const col = Math.floor(x);
     const row = Math.floor(y);
@@ -213,10 +269,7 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
       return sampleRGBAFromRowCol(row, col);
     },
     sampleGlobeColor: (cellIndex) => {
-      const idx = Number.isInteger(cellIndex) ? cellIndex : -1;
-      const row = idx < 0 ? -1 : Math.floor(idx / width);
-      const col = idx < 0 ? -1 : idx % width;
-      return sampleRGBAFromRowCol(row, col);
+      return sampleGlobeRGBAFromCellIndex(cellIndex);
     },
     sampleMinimapColor: (cellIndex) => {
       const idx = Number.isInteger(cellIndex) ? cellIndex : -1;
@@ -233,6 +286,25 @@ export function makePlanetPreviewFromWorldBrain(world: WorldBrain): PlanetPrevie
 
 export const PlanetRenderer = { buildPlanetPreview };
 
+function latLonToUnitVector(latDeg: number, lonDeg: number): Vec3 {
+  const lat = (latDeg * Math.PI) / 180;
+  const lon = (lonDeg * Math.PI) / 180;
+  const cosLat = Math.cos(lat);
+  return [cosLat * Math.cos(lon), Math.sin(lat), cosLat * Math.sin(lon)];
+}
+
+function normalizeLongitude(lon: number): number {
+  let x = lon;
+  while (x < -180) x += 360;
+  while (x >= 180) x -= 360;
+  return x;
+}
+
+function normalize3(v: Vec3): Vec3 {
+  const len = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / len, v[1] / len, v[2] / len];
+}
+
 function clamp01(n: number): number {
   if (!Number.isFinite(n)) return 0;
   return n < 0 ? 0 : n > 1 ? 1 : n;
@@ -241,6 +313,11 @@ function clamp01(n: number): number {
 function clamp255(n: number): number {
   if (!Number.isFinite(n)) return 0;
   return n < 0 ? 0 : n > 255 ? 255 : n;
+}
+
+function clamp(n: number, lo: number, hi: number): number {
+  if (!Number.isFinite(n)) return lo;
+  return n < lo ? lo : n > hi ? hi : n;
 }
 
 function lerp(a: number, b: number, t: number): number {
