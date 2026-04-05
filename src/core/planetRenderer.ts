@@ -1,10 +1,10 @@
 // ========================================================
-// WORLDWRIGHT -- PLANET RENDERER (V1.3 RAW HEIGHT PROOF MODE)
+// WORLDWRIGHT -- PLANET RENDERER (V1.3 RAW HEIGHT CALIBRATED)
 // File: src/core/planetRenderer.ts
 //
 // Purpose:
-// - isolate renderer/recompute responsibility for the bullseye
-// - render ONLY from raw total height and sea level
+// - keep bullseye-proof raw-height rendering
+// - calibrate land colors so normal land does not read as all-mountain
 // - ignore climate, rainfall, snow, biome paint, stickers, and borders
 // ========================================================
 
@@ -72,33 +72,34 @@ export function buildPlanetPreview(world: WorldBrain): PlanetPreview {
   }
 
   function oceanColorFromHeight(h: number): [number, number, number] {
-    const depth = clamp01((seaLevel - h) * 1.7);
+    const depth = clamp01((seaLevel - h) * 1.15);
 
-    const shallow: [number, number, number] = [0.18, 0.48, 0.68];
-    const mid: [number, number, number] = [0.09, 0.30, 0.52];
-    const deep: [number, number, number] = [0.03, 0.12, 0.32];
+    const shallow: [number, number, number] = [0.22, 0.54, 0.74];
+    const mid: [number, number, number] = [0.10, 0.33, 0.56];
+    const deep: [number, number, number] = [0.03, 0.12, 0.30];
 
-    if (depth < 0.4) {
-      return blend(shallow, mid, depth / 0.4);
+    if (depth < 0.45) {
+      return blend(shallow, mid, depth / 0.45);
     }
-    return blend(mid, deep, (depth - 0.4) / 0.6);
+    return blend(mid, deep, (depth - 0.45) / 0.55);
   }
 
   function landColorFromHeight(h: number): [number, number, number] {
-    const elev = clamp01((h - seaLevel) * 2.2);
+    // Softer normalization than the repo's current *2.2 ramp.
+    const elev = clamp01((h - seaLevel) * 1.15);
 
     const beach: [number, number, number] = [0.78, 0.70, 0.52];
-    const low: [number, number, number] = [0.44, 0.60, 0.34];
-    const mid: [number, number, number] = [0.34, 0.50, 0.28];
-    const high: [number, number, number] = [0.48, 0.52, 0.42];
-    const rock: [number, number, number] = [0.60, 0.60, 0.66];
-    const snow: [number, number, number] = [0.84, 0.89, 0.95];
+    const coastalPlain: [number, number, number] = [0.56, 0.68, 0.40];
+    const lowland: [number, number, number] = [0.40, 0.58, 0.30];
+    const upland: [number, number, number] = [0.34, 0.48, 0.28];
+    const highland: [number, number, number] = [0.46, 0.50, 0.40];
+    const rock: [number, number, number] = [0.58, 0.58, 0.56];
 
-    if (elev < 0.08) return blend(beach, low, elev / 0.08);
-    if (elev < 0.32) return blend(low, mid, (elev - 0.08) / 0.24);
-    if (elev < 0.60) return blend(mid, high, (elev - 0.32) / 0.28);
-    if (elev < 0.84) return blend(high, rock, (elev - 0.60) / 0.24);
-    return blend(rock, snow, (elev - 0.84) / 0.16);
+    if (elev < 0.06) return blend(beach, coastalPlain, elev / 0.06);
+    if (elev < 0.22) return blend(coastalPlain, lowland, (elev - 0.06) / 0.16);
+    if (elev < 0.52) return blend(lowland, upland, (elev - 0.22) / 0.30);
+    if (elev < 0.82) return blend(upland, highland, (elev - 0.52) / 0.30);
+    return blend(highland, rock, (elev - 0.82) / 0.18);
   }
 
   function sampleFromRowCol(row: number, col: number): [number, number, number] {
