@@ -303,7 +303,7 @@ function createTextureFromPreview(rt: GlobeRuntime, preview: PlanetPreview): THR
   if (!ctx) throw new Error('Failed to create texture canvas 2D context');
 
   if (preview.rgba && preview.rgba instanceof Uint8ClampedArray) {
-    const img = new ImageData(preview.rgba, w, h);
+    const img = new ImageData(new Uint8ClampedArray(preview.rgba), w, h);
     ctx.putImageData(img, 0, 0);
   } else {
     const img = ctx.createImageData(w, h);
@@ -350,40 +350,4 @@ function buildSphereGeometry(widthSegments: number, heightSegments: number): THR
     const v = latIndex / heightSegments;
     const phi = v * Math.PI;
 
-    for (let lonIndex = 0; lonIndex <= widthSegments; lonIndex++) {
-      const u = lonIndex / widthSegments;
-      const theta = u * Math.PI * 2;
-
-      const x = -Math.sin(phi) * Math.cos(theta);
-      const y = Math.cos(phi);
-      const z = Math.sin(phi) * Math.sin(theta);
-
-      vertices.push(x, y, z);
-      normals.push(x, y, z);
-      uvs.push(u, v);
-    }
-  }
-
-  for (let latIndex = 0; latIndex < heightSegments; latIndex++) {
-    for (let lonIndex = 0; lonIndex < widthSegments; lonIndex++) {
-      const a = latIndex * (widthSegments + 1) + lonIndex;
-      const b = a + widthSegments + 1;
-      const c = a + 1;
-      const d = b + 1;
-
-      indices.push(a, b, c);
-      indices.push(b, d, c);
-    }
-  }
-
-  geom.setIndex(indices);
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-  geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-
-  return geom;
-}
-
-function clamp(x: number, lo: number, hi: number): number {
-  return x < lo ? lo : x > hi ? hi : x;
-}
+    for (let lonIndex = 
