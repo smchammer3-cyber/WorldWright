@@ -1,18 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { WorldBrain } from '../core/worldSchema';
+import type { PlanetPreview } from '../core/planetRenderer';
 import { generateNormalMap, normalMapToCanvas } from '../core/normalMapGenerator';
-
-type PlanetPreviewLike = {
-  width: number;
-  height: number;
-  rgba: Uint8ClampedArray;
-  sampleGlobeColor?: (cellIndex: number) => [number, number, number, number];
-};
 
 type Props = {
   world: WorldBrain;
-  preview?: PlanetPreviewLike;
+  preview?: PlanetPreview | null;
   className?: string;
   style?: React.CSSProperties;
 };
@@ -297,7 +291,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
   return <div ref={containerRef} className={className} style={{ width: '100%', height: '100%', ...style }} />;
 }
 
-function createTextureFromPreview(rt: GlobeRuntime, preview: PlanetPreviewLike): THREE.Texture {
+function createTextureFromPreview(rt: GlobeRuntime, preview: PlanetPreview): THREE.Texture {
   const w = preview.width;
   const h = preview.height;
 
@@ -320,9 +314,7 @@ function createTextureFromPreview(rt: GlobeRuntime, preview: PlanetPreviewLike):
       for (let tx = 0; tx < w; tx++) {
         const col = tx % w;
         const cellIndex = row * w + col;
-        const rgba = preview.sampleGlobeColor
-          ? preview.sampleGlobeColor(cellIndex)
-          : [255, 0, 255, 255];
+        const rgba = preview.sampleGlobeColor(cellIndex);
         const pixelIndex = (ty * w + tx) * 4;
         d[pixelIndex + 0] = rgba[0];
         d[pixelIndex + 1] = rgba[1];
