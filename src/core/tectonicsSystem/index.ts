@@ -1,5 +1,5 @@
 // ========================================================
-// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 MACRO CLUSTER SEEDS)
+// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 MACRO PROVINCE OWNERSHIP)
 // File: src/core/tectonicsSystem/index.ts
 //
 // Purpose:
@@ -9,11 +9,13 @@
 // - make tectonic-driving sliders matter at the source
 // - expose smoother uplift / boundary / distance fields to worldGenerator
 //
-// This pass is a surgical fix to seed placement:
-// - preserve the existing plate field / boundary solve
-// - add macro continental centers driven by continentCount
-// - bias continental plates toward those centers
-// - bias oceanic plates away from those centers
+// This pass is a surgical fix to macro province ownership:
+// - preserve the existing seed clustering work
+// - preserve the existing boundary / uplift solve
+// - strengthen continental province stickiness
+// - strengthen oceanic basin ownership
+// - reduce how much the smooth influence solve washes different seeds into
+//   the same broad macro arrangement
 // ========================================================
 
 import type { Plate, PlateType, BoundaryType } from '../worldSchema';
@@ -156,6 +158,9 @@ export function assignPlatesToCells(
   const influenceSigma = resolved.influenceSigma;
   const plateWeightsPerCell: RankedInfluence[][] = new Array(cells.length);
 
+  // ----------------------------------------------------
+  // Continuous plate influence solve with macro province weighting
+  // ----------------------------------------------------
   for (let row = 0; row < gridHeight; row++) {
     const lat = rowToLat(row, gridHeight);
 
@@ -165,14 +170,19 @@ export function assignPlatesToCells(
       const dir = latLonToUnitVector(lat, lon);
       cellDirs[idx] = dir;
 
-      const ranked = computeRankedPlateInfluences(dir, localSeeds, influenceSigma);
+      const ranked = computeRankedPlateInfluencesWeighted(
+        dir,
+        localSeeds,
+        influenceSigma,
+        resolved
+      );
       plateWeightsPerCell[idx] = ranked;
 
       const top = ranked[0];
       const second = ranked[1] ?? ranked[0];
 
       const dominantPlate = plates[top.plateId];
-      const dominanceGap = clamp01(top.weight - second.weight);
+      const dominanceGap = clamp01((top.weight - second.weight) * 1.25);
       const ambiguity = clamp01(1 - dominanceGap);
 
       fields[idx] = {
@@ -180,14 +190,17 @@ export function assignPlatesToCells(
         plateType: dominantPlate.type,
         boundaryType: BoundaryTypeEnum.NONE as BoundaryType,
         upliftRate: 0,
-        boundaryStrength: ambiguity * lerp(0.48, 0.70, resolved.activityStrength),
+        boundaryStrength: ambiguity * lerp(0.42, 0.64, resolved.activityStrength),
         compression: 0,
-        distanceToBoundary: 1 - ambiguity,
+        distanceToBoundary: clamp01(1 - dominanceGap),
         isBoundary: false,
       };
     }
   }
 
+  // ----------------------------------------------------
+  // Boundary classification from competing influences
+  // ----------------------------------------------------
   for (let row = 0; row < gridHeight; row++) {
     for (let col = 0; col < gridWidth; col++) {
       const idx = row * gridWidth + col;
@@ -199,7 +212,7 @@ export function assignPlatesToCells(
       const dominantPlate = plates[top.plateId];
       const rivalPlate = plates[second.plateId];
 
-      const dominanceGap = clamp01(top.weight - second.weight);
+      const dominanceGap = clamp01((top.weight - second.weight) * 1.25);
       const ambiguity = clamp01(1 - dominanceGap);
 
       const topSeed = localSeeds[top.plateId];
@@ -231,8 +244,8 @@ export function assignPlatesToCells(
       );
 
       const localBoundaryStrength = clamp01(
-        ambiguity * lerp(0.64, 0.82, resolved.activityStrength) +
-        rivalry * lerp(0.20, 0.34, resolved.activityStrength)
+        ambiguity * lerp(0.58, 0.78, resolved.activityStrength) +
+        rivalry * lerp(0.16, 0.28, resolved.activityStrength)
       );
 
       const isBoundary = localBoundaryStrength > resolved.boundaryThreshold;
@@ -255,6 +268,9 @@ export function assignPlatesToCells(
     }
   }
 
+  // ----------------------------------------------------
+  // Interior continental support / oceanic basin tendency
+  // ----------------------------------------------------
   for (let i = 0; i < fields.length; i++) {
     const field = fields[i];
     if (field.isBoundary) continue;
@@ -263,14 +279,14 @@ export function assignPlatesToCells(
 
     if (field.plateType === PlateTypeEnum.CONTINENTAL) {
       field.upliftRate = lerp(
-        lerp(0.025, 0.050, resolved.continentalBiasStrength),
-        lerp(0.095, 0.155, resolved.continentalBiasStrength),
+        lerp(0.035, 0.070, resolved.continentalBiasStrength),
+        lerp(0.11, 0.19, resolved.continentalBiasStrength),
         interiorFactor
       );
     } else {
       field.upliftRate = lerp(
-        lerp(-0.14, -0.09, resolved.activityStrength),
-        lerp(-0.06, -0.02, resolved.activityStrength),
+        lerp(-0.18, -0.12, resolved.activityStrength),
+        lerp(-0.08, -0.03, resolved.activityStrength),
         interiorFactor
       );
     }
@@ -457,17 +473,42 @@ function macroCenterAffinity(dir: Vec3, centers: MacroCenter[]): number {
   return clamp01(best);
 }
 
-function computeRankedPlateInfluences(
+function computeRankedPlateInfluencesWeighted(
   dir: Vec3,
   seeds: PlateSeed[],
-  sigma: number
+  sigma: number,
+  resolved: ResolvedTectonicsOptions
 ): RankedInfluence[] {
   const weights: RankedInfluence[] = [];
 
   let total = 0;
   for (const seed of seeds) {
     const d = angularDistance(dir, seed.dir);
-    const w = gaussianFalloff(d, sigma);
+
+    const macroAffinity = macroCenterAffinity(dir, [{
+      dir: seed.dir,
+      weight: 1,
+    }]);
+
+    const typeSigma =
+      seed.type === PlateTypeEnum.CONTINENTAL
+        ? sigma * lerp(1.18, 1.40, resolved.continentalBiasStrength)
+        : sigma * lerp(0.82, 0.94, resolved.activityStrength);
+
+    const base = gaussianFalloff(d, typeSigma);
+
+    const provinceBias =
+      seed.type === PlateTypeEnum.CONTINENTAL
+        ? lerp(0.92, 1.42, macroAffinity)
+        : lerp(1.18, 0.76, macroAffinity);
+
+    const interiorBias =
+      seed.type === PlateTypeEnum.CONTINENTAL
+        ? lerp(1.00, 1.22, resolved.continentalBiasStrength)
+        : lerp(1.00, 1.10, resolved.activityStrength);
+
+    const w = base * provinceBias * interiorBias;
+
     weights.push({ plateId: seed.plateId, weight: w });
     total += w;
   }
