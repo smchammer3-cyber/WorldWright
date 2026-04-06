@@ -1,5 +1,5 @@
 // ========================================================
-// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 MACRO PROVINCE OWNERSHIP)
+// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 OWNERSHIP CLEANUP)
 // File: src/core/tectonicsSystem/index.ts
 //
 // Purpose:
@@ -9,13 +9,11 @@
 // - make tectonic-driving sliders matter at the source
 // - expose smoother uplift / boundary / distance fields to worldGenerator
 //
-// This pass is a surgical fix to macro province ownership:
-// - preserve the existing seed clustering work
-// - preserve the existing boundary / uplift solve
-// - strengthen continental province stickiness
-// - strengthen oceanic basin ownership
-// - reduce how much the smooth influence solve washes different seeds into
-//   the same broad macro arrangement
+// Ownership cleanup in this pass:
+// - plateActivity stays owned by tectonics
+// - continentCount is removed from tectonic slider ownership
+// - tectonics now uses internal geological logic for continental share / centers
+// - visible major landmass count can now be owned by worldGenerator
 // ========================================================
 
 import type { Plate, PlateType, BoundaryType } from '../worldSchema';
@@ -64,7 +62,6 @@ export interface TectonicsResult {
 
 export type TectonicsBuildOptions = {
   plateActivity: number; // 0-100
-  continentCount: number; // 1-12
 };
 
 type RankedInfluence = {
@@ -74,12 +71,12 @@ type RankedInfluence = {
 
 type ResolvedTectonicsOptions = {
   plateActivity01: number;
-  continentCount: number;
   continentalTarget: number;
   influenceSigma: number;
   boundaryThreshold: number;
   activityStrength: number;
   continentalBiasStrength: number;
+  macroCenterCount: number;
 };
 
 export function generatePlates(
@@ -334,7 +331,7 @@ function createPlateSeeds(
     gridWidth,
     gridHeight,
     rng,
-    resolved.continentCount
+    resolved.macroCenterCount
   );
 
   for (const plate of plates) {
@@ -363,7 +360,7 @@ function createPlateSeeds(
 
       const equatorBias =
         plate.type === PlateTypeEnum.CONTINENTAL
-          ? 1 - equatorDistance * lerp(0.10, 0.26, resolved.continentalBiasStrength)
+          ? 1 - equatorDistance * lerp(0.10, 0.22, resolved.continentalBiasStrength)
           : 1 - (1 - equatorDistance) * lerp(0.02, 0.08, resolved.activityStrength);
 
       const centerAffinity = macroCenterAffinity(dir, macroCenters);
@@ -416,11 +413,10 @@ function createMacroContinentalCenters(
   gridWidth: number,
   gridHeight: number,
   rng: () => number,
-  continentCount: number
+  centerCount: number
 ): MacroCenter[] {
-  const centerCount = clampInt(Math.round(lerp(2, 5, clamp01((continentCount - 1) / 11))), 2, 5);
   const centers: MacroCenter[] = [];
-  const minAngular = lerp(0.85, 0.42, clamp01((continentCount - 1) / 11));
+  const minAngular = lerp(0.85, 0.50, clamp01((centerCount - 2) / 3));
 
   for (let i = 0; i < centerCount; i++) {
     let bestDir: Vec3 = [1, 0, 0];
@@ -485,14 +481,16 @@ function computeRankedPlateInfluencesWeighted(
   for (const seed of seeds) {
     const d = angularDistance(dir, seed.dir);
 
-    const macroAffinity = macroCenterAffinity(dir, [{
-      dir: seed.dir,
-      weight: 1,
-    }]);
+    const macroAffinity = macroCenterAffinity(dir, [
+      {
+        dir: seed.dir,
+        weight: 1,
+      },
+    ]);
 
     const typeSigma =
       seed.type === PlateTypeEnum.CONTINENTAL
-        ? sigma * lerp(1.18, 1.40, resolved.continentalBiasStrength)
+        ? sigma * lerp(1.18, 1.34, resolved.continentalBiasStrength)
         : sigma * lerp(0.82, 0.94, resolved.activityStrength);
 
     const base = gaussianFalloff(d, typeSigma);
@@ -504,7 +502,7 @@ function computeRankedPlateInfluencesWeighted(
 
     const interiorBias =
       seed.type === PlateTypeEnum.CONTINENTAL
-        ? lerp(1.00, 1.22, resolved.continentalBiasStrength)
+        ? lerp(1.00, 1.20, resolved.continentalBiasStrength)
         : lerp(1.00, 1.10, resolved.activityStrength);
 
     const w = base * provinceBias * interiorBias;
@@ -574,15 +572,16 @@ function computeUpliftRate(
   }
 
   if (boundaryType === BoundaryTypeEnum.DIVERGENT) {
-    const ridgeLift = plateType === PlateTypeEnum.OCEANIC
-      ? lerp(0.06, 0.14, activityStrength)
-      : lerp(0.02, 0.06, activityStrength);
+    const ridgeLift =
+      plateType === PlateTypeEnum.OCEANIC
+        ? lerp(0.06, 0.14, activityStrength)
+        : lerp(0.02, 0.06, activityStrength);
 
     return clamp(
       lerp(-0.14, -0.07, activityStrength) +
-      ridgeLift +
-      compression * lerp(0.04, 0.10, activityStrength) +
-      strength * lerp(0.08, 0.18, activityStrength),
+        ridgeLift +
+        compression * lerp(0.04, 0.10, activityStrength) +
+        strength * lerp(0.08, 0.18, activityStrength),
       -1,
       1
     );
@@ -591,7 +590,7 @@ function computeUpliftRate(
   if (boundaryType === BoundaryTypeEnum.TRANSFORM) {
     return clamp(
       lerp(0.008, 0.024, activityStrength) +
-      strength * lerp(0.02, 0.07, activityStrength),
+        strength * lerp(0.02, 0.07, activityStrength),
       -1,
       1
     );
@@ -605,22 +604,21 @@ function resolveTectonicsOptions(
   options: TectonicsBuildOptions
 ): ResolvedTectonicsOptions {
   const plateActivity01 = clamp01(options.plateActivity / 100);
-  const continentCount = clampInt(options.continentCount, 1, 12);
 
   const continentalTarget = clampInt(
-    Math.round(lerp(plateCount * 0.26, plateCount * 0.58, continentCount / 12)),
+    Math.round(lerp(plateCount * 0.28, plateCount * 0.46, 0.5)),
     1,
     Math.max(1, plateCount - 1)
   );
 
   return {
     plateActivity01,
-    continentCount,
     continentalTarget,
     influenceSigma: lerp(0.62, 0.36, plateActivity01),
     boundaryThreshold: lerp(0.26, 0.12, plateActivity01),
     activityStrength: plateActivity01,
-    continentalBiasStrength: clamp01((continentCount - 1) / 11),
+    continentalBiasStrength: lerp(0.45, 0.75, plateActivity01),
+    macroCenterCount: clampInt(Math.round(lerp(3, 4, plateActivity01)), 2, 5),
   };
 }
 
