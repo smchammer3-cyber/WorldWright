@@ -247,7 +247,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     const rt = runtimeRef.current;
     if (!rt || !preview) return;
 
-    const previewKey = `${preview.width}x${preview.height}:${preview.rgba?.length ?? 0}`;
+    const previewKey = buildPreviewKey(preview);
     if (rt.mountedPreviewKey === previewKey) return;
 
     const texture = createTextureFromPreview(rt, preview);
@@ -289,6 +289,21 @@ export default function Globe3D({ world, preview, className, style }: Props) {
   }, [world]);
 
   return <div ref={containerRef} className={className} style={{ width: '100%', height: '100%', ...style }} />;
+}
+
+function buildPreviewKey(preview: PlanetPreview): string {
+  const len = preview.rgba?.length ?? 0;
+  let hash = 2166136261 >>> 0;
+
+  if (preview.rgba && preview.rgba instanceof Uint8ClampedArray) {
+    const step = Math.max(1, Math.floor(preview.rgba.length / 2048));
+    for (let i = 0; i < preview.rgba.length; i += step) {
+      hash ^= preview.rgba[i];
+      hash = Math.imul(hash, 16777619);
+    }
+  }
+
+  return `${preview.width}x${preview.height}:${len}:${hash >>> 0}`;
 }
 
 function createTextureFromPreview(rt: GlobeRuntime, preview: PlanetPreview): THREE.Texture {
