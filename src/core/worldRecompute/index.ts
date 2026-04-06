@@ -11,6 +11,7 @@
 // ========================================================
 
 import type { WorldBrain } from '../worldSchema';
+import { OceanDepthClass } from '../worldSchema';
 
 export type RecomputeReason =
   | 'GENERATED'
@@ -126,15 +127,15 @@ function recomputeOceanDepthClasses(world: WorldBrain): void {
     }
 
     if (depth > 0.70) {
-      cell.oceanDepthClass = 'TRENCH';
+      cell.oceanDepthClass = OceanDepthClass.TRENCH;
     } else if (depth > 0.42) {
-      cell.oceanDepthClass = 'ABYSSAL';
+      cell.oceanDepthClass = OceanDepthClass.ABYSSAL;
     } else if (depth > 0.20) {
-      cell.oceanDepthClass = 'SLOPE';
+      cell.oceanDepthClass = OceanDepthClass.SLOPE;
     } else if (depth > 0.08) {
-      cell.oceanDepthClass = 'RIDGE';
+      cell.oceanDepthClass = OceanDepthClass.RIDGE;
     } else {
-      cell.oceanDepthClass = 'SHELF';
+      cell.oceanDepthClass = OceanDepthClass.SHELF;
     }
   }
 }
