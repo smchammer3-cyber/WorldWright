@@ -1,5 +1,5 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 GENERATOR LANDMASS OWNERSHIP REBALANCE)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 DE-SURGERY PASS)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
@@ -7,8 +7,9 @@
 // - follow blueprint order: tectonics -> terrain -> climate -> biomes -> hydrology
 // - turn debug mode off for normal generation testing
 // - make tectonic provinces the primary broad land/ocean scaffold
-// - keep continentCount generator-owned as a major exposed landmass target
-// - rebalance merge/split/regrowth so worlds do not collapse into giant blobs
+// - keep continentCount generator-owned as a soft major-landmass bias
+// - reduce binary post-threshold surgery
+// - remove carve-style continent forcing that creates fake voids
 // - preserve polar-cap continuation behavior
 // ========================================================
 
@@ -220,12 +221,10 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
 
   // ----------------------------------------------------
-  // STEP 3: continentCount-aware cleanup / landmass shaping
+  // STEP 3: light cleanup only
   // ----------------------------------------------------
   landMask = removeTinyIslandsAndExpandCoasts(landMask, width, height, rng, targetContinentCount);
-  landMask = splitOversizedLandmasses(landMask, width, height, rng, targetContinentCount);
   landMask = mergeNearbyLandmasses(landMask, width, height, rng, targetContinentCount);
-  landMask = shapeLandmassCount(landMask, width, height, rng, targetContinentCount);
   landMask = enforceLandCoverageTarget(landMask, width, height, rng, targetLandFraction, targetContinentCount);
 
   if (DEBUG_STAGE === 'MASK_POST') {
@@ -807,7 +806,7 @@ function thresholdField(
 }
 
 // ========================================================
-// CONNECTED COMPONENT CLEANUP / MERGE / SPLIT / LANDMASS SHAPING
+// LIGHT CLEANUP ONLY
 // ========================================================
 
 function removeTinyIslandsAndExpandCoasts(
@@ -832,7 +831,7 @@ function removeTinyIslandsAndExpandCoasts(
     }
   }
 
-  const coastGrowChance = lerp(0.10, 0.05, count01);
+  const coastGrowChance = lerp(0.06, 0.03, count01);
 
   for (let r = 1; r < height - 1; r++) {
     for (let c = 0; c < width; c++) {
@@ -840,69 +839,11 @@ function removeTinyIslandsAndExpandCoasts(
       if (next[idx] === 1) continue;
 
       const landFrac = computeLocalLandFraction(next, width, height, r, c, 1);
-      if (landFrac > 0.66 && rng() < coastGrowChance) next[idx] = 1;
+      if (landFrac > 0.70 && rng() < coastGrowChance) next[idx] = 1;
     }
   }
 
   weakenNearPoleRows(next, width, height, rng);
-  return next;
-}
-
-function splitOversizedLandmasses(
-  mask: Uint8Array,
-  width: number,
-  height: number,
-  rng: () => number,
-  targetContinentCount: number
-): Uint8Array {
-  let next = new Uint8Array(mask);
-  const count01 = clamp01((targetContinentCount - 1) / 11);
-  if (count01 < 0.35) return next;
-
-  const totalInterior = (height - 2) * width;
-  const oversizedThreshold = Math.floor(totalInterior * lerp(0.22, 0.10, count01));
-  const passes = clampInt(Math.round(lerp(1, 4, count01)), 1, 4);
-
-  for (let pass = 0; pass < passes; pass++) {
-    const components = getLandComponents(next, width, height);
-    const largest = components[0];
-    if (!largest || largest.length < oversizedThreshold) break;
-
-    const carve = new Uint8Array(next);
-
-    for (const idx of largest) {
-      const r = Math.floor(idx / width);
-      const c = idx % width;
-      if (r <= 1 || r >= height - 2) continue;
-
-      const local1 = computeLocalLandFraction(next, width, height, r, c, 1);
-      const local2 = computeLocalLandFraction(next, width, height, r, c, 2);
-      const local3 = computeLocalLandFraction(next, width, height, r, c, 3);
-
-      const neckLike =
-        local1 > 0.34 && local1 < 0.72 &&
-        local2 > 0.54 && local2 < 0.86 &&
-        local3 > 0.60;
-
-      const verticalContrast = Math.abs(
-        computeLocalLandFraction(next, width, height, r - 1, c, 1) -
-        computeLocalLandFraction(next, width, height, r + 1, c, 1)
-      );
-      const horizontalContrast = Math.abs(
-        computeLocalLandFraction(next, width, height, r, (c - 1 + width) % width, 1) -
-        computeLocalLandFraction(next, width, height, r, (c + 1) % width, 1)
-      );
-
-      const likelyPassage = neckLike && (verticalContrast > 0.10 || horizontalContrast > 0.10);
-
-      if (likelyPassage && rng() < lerp(0.05, 0.16, count01)) {
-        carve[idx] = 0;
-      }
-    }
-
-    next = carve;
-  }
-
   return next;
 }
 
@@ -917,13 +858,13 @@ function mergeNearbyLandmasses(
   const count01 = clamp01((targetContinentCount - 1) / 11);
 
   const desiredUpperBound = clampInt(
-    targetContinentCount + Math.round(lerp(1, 3, count01)),
+    targetContinentCount + Math.round(lerp(1, 2, count01)),
     2,
     18
   );
 
-  const passCount = clampInt(Math.round(lerp(2, 0, count01)), 0, 2);
-  const bridgeChance = lerp(0.06, 0.015, count01);
+  const passCount = clampInt(Math.round(lerp(1, 0, count01)), 0, 1);
+  const bridgeChance = lerp(0.03, 0.008, count01);
 
   for (let pass = 0; pass < passCount; pass++) {
     const components = getLandComponents(next, width, height);
@@ -939,50 +880,13 @@ function mergeNearbyLandmasses(
         const landFracNear = computeLocalLandFraction(next, width, height, r, c, 2);
         const landFracFar = computeLocalLandFraction(next, width, height, r, c, 3);
 
-        if (landFracNear > 0.38 && landFracFar > 0.54) {
+        if (landFracNear > 0.42 && landFracFar > 0.58) {
           if (rng() < bridgeChance) bridge[idx] = 1;
         }
       }
     }
 
     next = bridge;
-  }
-
-  return next;
-}
-
-function shapeLandmassCount(
-  mask: Uint8Array,
-  width: number,
-  height: number,
-  rng: () => number,
-  targetContinentCount: number
-): Uint8Array {
-  let next = new Uint8Array(mask);
-  const count01 = clamp01((targetContinentCount - 1) / 11);
-  const majorThreshold = Math.max(24, Math.floor((width * height) * 0.0020));
-
-  const currentComponents = getLandComponents(next, width, height);
-  const majorComponents = currentComponents.filter((c) => c.length >= majorThreshold);
-
-  // If too many major masses and count is low, gently absorb weak small components.
-  if (majorComponents.length > targetContinentCount + 2 && count01 < 0.45) {
-    const absorb = new Uint8Array(next);
-
-    for (const comp of currentComponents) {
-      if (comp.length >= majorThreshold) continue;
-
-      for (const idx of comp) {
-        const r = Math.floor(idx / width);
-        const c = idx % width;
-        const local = computeLocalLandFraction(next, width, height, r, c, 2);
-        if (local < 0.48 || rng() < 0.45) {
-          absorb[idx] = 0;
-        }
-      }
-    }
-
-    next = absorb;
   }
 
   return next;
@@ -1014,7 +918,7 @@ function enforceLandCoverageTarget(
   let fraction = currentFraction();
   let safety = 0;
 
-  while (fraction < targetFraction - 0.04 && safety < 3) {
+  while (fraction < targetFraction - 0.04 && safety < 2) {
     const grow = new Uint8Array(next);
 
     for (let r = 1; r < height - 1; r++) {
@@ -1023,9 +927,9 @@ function enforceLandCoverageTarget(
         if (next[idx] === 1) continue;
 
         const landFrac = computeLocalLandFraction(next, width, height, r, c, 2);
-        if (landFrac <= 0.36) continue;
+        if (landFrac <= 0.40) continue;
 
-        const growChance = lerp(0.07, 0.035, count01) + landFrac * lerp(0.08, 0.04, count01);
+        const growChance = lerp(0.04, 0.02, count01) + landFrac * lerp(0.05, 0.03, count01);
         if (rng() < growChance) {
           grow[idx] = 1;
         }
@@ -1038,7 +942,7 @@ function enforceLandCoverageTarget(
   }
 
   safety = 0;
-  while (fraction > targetFraction + 0.05 && safety < 3) {
+  while (fraction > targetFraction + 0.05 && safety < 2) {
     const prune = new Uint8Array(next);
 
     for (let r = 1; r < height - 1; r++) {
@@ -1049,7 +953,7 @@ function enforceLandCoverageTarget(
         const landFrac = computeLocalLandFraction(next, width, height, r, c, 1);
         if (landFrac >= lerp(0.48, 0.32, count01)) continue;
 
-        const pruneChance = lerp(0.10, 0.18, count01);
+        const pruneChance = lerp(0.08, 0.14, count01);
         if (rng() < pruneChance) prune[idx] = 0;
       }
     }
