@@ -1,18 +1,19 @@
 // ========================================================
-// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 CONTINUOUS INFLUENCE FIELD)
+// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 SLIDER-AWARE FIELD)
 // File: src/core/tectonicsSystem/index.ts
 //
 // Purpose:
 // - provide a tectonic field source of truth
 // - keep spherical seed placement
-// - replace hard Voronoi-like plate ownership with soft overlapping influence
-// - classify boundaries from blended competing plate influences
+// - keep continuous overlapping influence instead of hard Voronoi ownership
+// - make tectonic-driving sliders matter at the source
 // - expose smoother uplift / boundary / distance fields to worldGenerator
 //
 // Notes:
 // - We still emit a dominant plateId/plateType for compatibility.
-// - But all per-cell tectonic shaping now comes from continuous influence,
-//   not from a hard nearest-seed partition.
+// - Broad terrain ownership is still in worldGenerator.
+// - This pass makes the tectonic field itself slider-aware so the next
+//   generator pass can consume more meaningful upstream structure.
 // ========================================================
 
 import type { Plate, PlateType, BoundaryType } from '../worldSchema';
@@ -54,19 +55,45 @@ export interface TectonicsResult {
   seeds: PlateSeed[];
 }
 
+export type TectonicsBuildOptions = {
+  plateActivity: number; // 0-100
+  continentCount: number; // 1-12
+};
+
 type RankedInfluence = {
   plateId: number;
   weight: number;
+};
+
+type ResolvedTectonicsOptions = {
+  plateActivity01: number;
+  continentCount: number;
+  continentalTarget: number;
+  influenceSigma: number;
+  boundaryThreshold: number;
+  activityStrength: number;
+  continentalBiasStrength: number;
 };
 
 export function generatePlates(
   gridWidth: number,
   gridHeight: number,
   plateCount: number,
-  rng: () => number
+  rng: () => number,
+  options: TectonicsBuildOptions
 ): Plate[] {
+  void gridWidth;
+  void gridHeight;
+
+  const resolved = resolveTectonicsOptions(plateCount, options);
   const count = Math.max(2, Math.floor(plateCount));
-  const continentalTarget = Math.max(1, Math.round(count * 0.42));
+  const continentalTarget = clampInt(resolved.continentalTarget, 1, Math.max(1, count - 1));
+
+  const activity01 = resolved.plateActivity01;
+  const continentalSpeedMin = lerp(0.025, 0.070, activity01);
+  const continentalSpeedMax = lerp(0.070, 0.150, activity01);
+  const oceanicSpeedMin = lerp(0.040, 0.095, activity01);
+  const oceanicSpeedMax = lerp(0.095, 0.185, activity01);
 
   const plates: Plate[] = [];
 
@@ -75,8 +102,8 @@ export function generatePlates(
 
     const angle = rng() * Math.PI * 2;
     const speed = isContinental
-      ? 0.04 + rng() * 0.08
-      : 0.06 + rng() * 0.10;
+      ? lerp(continentalSpeedMin, continentalSpeedMax, rng())
+      : lerp(oceanicSpeedMin, oceanicSpeedMax, rng());
 
     plates.push({
       id: i,
@@ -93,11 +120,12 @@ export function buildTectonicsField(
   gridHeight: number,
   cells: any[],
   plateCount: number,
-  rng: () => number
+  rng: () => number,
+  options: TectonicsBuildOptions
 ): TectonicsResult {
-  const plates = generatePlates(gridWidth, gridHeight, plateCount, rng);
-  const seeds = createPlateSeeds(gridWidth, gridHeight, plates, rng);
-  const fields = assignPlatesToCells(gridWidth, gridHeight, cells, plates, seeds);
+  const plates = generatePlates(gridWidth, gridHeight, plateCount, rng, options);
+  const seeds = createPlateSeeds(gridWidth, gridHeight, plates, rng, options);
+  const fields = assignPlatesToCells(gridWidth, gridHeight, cells, plates, options, seeds);
 
   return { plates, fields, seeds };
 }
@@ -107,18 +135,20 @@ export function assignPlatesToCells(
   gridHeight: number,
   cells: any[],
   plates: Plate[],
+  options: TectonicsBuildOptions,
   seeds?: PlateSeed[]
 ): TectonicsField[] {
+  const resolved = resolveTectonicsOptions(plates.length, options);
+
   const localSeeds =
     seeds && seeds.length === plates.length
       ? seeds
-      : createPlateSeeds(gridWidth, gridHeight, plates, mulberry32(123456789));
+      : createPlateSeeds(gridWidth, gridHeight, plates, mulberry32(123456789), options);
 
   const fields: TectonicsField[] = new Array(cells.length);
   const cellDirs: Vec3[] = new Array(cells.length);
 
-  // Wider falloff = softer continuous overlap instead of hard ownership cells.
-  const influenceSigma = 0.52;
+  const influenceSigma = resolved.influenceSigma;
   const plateWeightsPerCell: RankedInfluence[][] = new Array(cells.length);
 
   // ----------------------------------------------------
@@ -148,7 +178,7 @@ export function assignPlatesToCells(
         plateType: dominantPlate.type,
         boundaryType: BoundaryTypeEnum.NONE as BoundaryType,
         upliftRate: 0,
-        boundaryStrength: ambiguity * 0.55,
+        boundaryStrength: ambiguity * lerp(0.48, 0.70, resolved.activityStrength),
         compression: 0,
         distanceToBoundary: 1 - ambiguity,
         isBoundary: false,
@@ -179,7 +209,6 @@ export function assignPlatesToCells(
       const topNormal = normalize2(projectNeighborDirectionToLocalTangent(myDir, topSeed.dir));
       const secondNormal = normalize2(projectNeighborDirectionToLocalTangent(myDir, secondSeed.dir));
 
-      // Blend normals so the field remains continuous.
       const blendedNormal = normalize2([
         topNormal[0] * top.weight - secondNormal[0] * second.weight,
         topNormal[1] * top.weight - secondNormal[1] * second.weight,
@@ -194,17 +223,20 @@ export function assignPlatesToCells(
       const boundaryType = classifyBoundary(
         dominantPlate.type,
         rivalPlate.type,
-        convergence
+        convergence,
+        resolved.activityStrength
       );
 
-      // Turn soft competition into smooth boundary strength.
       const rivalry = clamp01(
         second.weight / Math.max(1e-9, top.weight + second.weight)
       );
+
       const localBoundaryStrength = clamp01(
-        ambiguity * 0.72 + rivalry * 0.28
+        ambiguity * lerp(0.64, 0.82, resolved.activityStrength) +
+        rivalry * lerp(0.20, 0.34, resolved.activityStrength)
       );
-      const isBoundary = localBoundaryStrength > 0.18;
+
+      const isBoundary = localBoundaryStrength > resolved.boundaryThreshold;
 
       const field = fields[idx];
       field.boundaryType = isBoundary
@@ -218,7 +250,8 @@ export function assignPlatesToCells(
         field.boundaryType,
         field.compression,
         field.boundaryStrength,
-        dominantPlate.type
+        dominantPlate.type,
+        resolved.activityStrength
       );
     }
   }
@@ -230,10 +263,20 @@ export function assignPlatesToCells(
     const field = fields[i];
     if (field.isBoundary) continue;
 
+    const interiorFactor = 1 - field.distanceToBoundary;
+
     if (field.plateType === PlateTypeEnum.CONTINENTAL) {
-      field.upliftRate = lerp(0.04, 0.11, 1 - field.distanceToBoundary);
+      field.upliftRate = lerp(
+        lerp(0.025, 0.050, resolved.continentalBiasStrength),
+        lerp(0.095, 0.155, resolved.continentalBiasStrength),
+        interiorFactor
+      );
     } else {
-      field.upliftRate = lerp(-0.10, -0.03, 1 - field.distanceToBoundary);
+      field.upliftRate = lerp(
+        lerp(-0.14, -0.09, resolved.activityStrength),
+        lerp(-0.06, -0.02, resolved.activityStrength),
+        interiorFactor
+      );
     }
   }
 
@@ -268,10 +311,12 @@ function createPlateSeeds(
   gridWidth: number,
   gridHeight: number,
   plates: Plate[],
-  rng: () => number
+  rng: () => number,
+  options: TectonicsBuildOptions
 ): PlateSeed[] {
+  const resolved = resolveTectonicsOptions(plates.length, options);
   const seeds: PlateSeed[] = [];
-  const minAngularDistance = 0.42;
+  const minAngularDistance = lerp(0.34, 0.50, resolved.activityStrength);
 
   for (const plate of plates) {
     let bestRow = Math.floor(rng() * gridHeight);
@@ -281,7 +326,7 @@ function createPlateSeeds(
     let bestDir = latLonToUnitVector(bestLat, bestLon);
     let bestScore = -Infinity;
 
-    for (let attempt = 0; attempt < 48; attempt++) {
+    for (let attempt = 0; attempt < 56; attempt++) {
       const row = Math.floor(rng() * gridHeight);
       const col = Math.floor(rng() * gridWidth);
       const lat = rowToLat(row, gridHeight);
@@ -294,10 +339,13 @@ function createPlateSeeds(
         nearest = Math.min(nearest, d);
       }
 
+      const normalizedRow = row / Math.max(1, gridHeight - 1);
+      const equatorDistance = Math.abs(normalizedRow - 0.5) * 2;
+
       const equatorBias =
         plate.type === PlateTypeEnum.CONTINENTAL
-          ? 1 - Math.abs(row / Math.max(1, gridHeight - 1) - 0.5) * 2 * 0.18
-          : 1;
+          ? 1 - equatorDistance * lerp(0.12, 0.34, resolved.continentalBiasStrength)
+          : 1 - (1 - equatorDistance) * lerp(0.02, 0.10, resolved.activityStrength);
 
       const score = (seeds.length === 0 ? minAngularDistance : nearest) * equatorBias;
 
@@ -326,8 +374,8 @@ function createPlateSeeds(
       driftAxis,
       elevationBias:
         plate.type === PlateTypeEnum.CONTINENTAL
-          ? 0.10 + rng() * 0.12
-          : -0.16 + rng() * 0.08,
+          ? lerp(0.08, 0.18, resolved.continentalBiasStrength) + rng() * 0.05
+          : lerp(-0.18, -0.08, resolved.activityStrength) + rng() * 0.04,
     });
   }
 
@@ -366,19 +414,23 @@ function gaussianFalloff(distance: number, sigma: number): number {
 function classifyBoundary(
   a: PlateType,
   b: PlateType,
-  convergence: number
+  convergence: number,
+  activityStrength: number
 ): BoundaryType {
   const aOceanic = a === PlateTypeEnum.OCEANIC;
   const bOceanic = b === PlateTypeEnum.OCEANIC;
   const mixed = aOceanic !== bOceanic;
 
-  if (convergence > 0.04) {
+  const convergentThreshold = lerp(0.06, 0.025, activityStrength);
+  const divergentThreshold = lerp(-0.05, -0.02, activityStrength);
+
+  if (convergence > convergentThreshold) {
     return mixed || (!aOceanic && !bOceanic)
       ? (BoundaryTypeEnum.CONVERGENT as BoundaryType)
       : (BoundaryTypeEnum.CONVERGENT as BoundaryType);
   }
 
-  if (convergence < -0.035) {
+  if (convergence < divergentThreshold) {
     return BoundaryTypeEnum.DIVERGENT as BoundaryType;
   }
 
@@ -389,27 +441,71 @@ function computeUpliftRate(
   boundaryType: BoundaryType,
   compression: number,
   boundaryStrength: number,
-  plateType: PlateType
+  plateType: PlateType,
+  activityStrength: number
 ): number {
   const strength = clamp01(boundaryStrength);
 
   if (boundaryType === BoundaryTypeEnum.CONVERGENT) {
-    const base = 0.30 + strength * 0.48 + Math.max(0, compression) * 0.18;
+    const base =
+      lerp(0.22, 0.34, activityStrength) +
+      strength * lerp(0.34, 0.58, activityStrength) +
+      Math.max(0, compression) * lerp(0.10, 0.24, activityStrength);
+
     return plateType === PlateTypeEnum.CONTINENTAL
       ? clamp(base, -1, 1)
-      : clamp(base * 0.72, -1, 1);
+      : clamp(base * lerp(0.62, 0.80, activityStrength), -1, 1);
   }
 
   if (boundaryType === BoundaryTypeEnum.DIVERGENT) {
-    const ridgeLift = plateType === PlateTypeEnum.OCEANIC ? 0.10 : 0.04;
-    return clamp(-0.10 + ridgeLift + compression * 0.08 + strength * 0.14, -1, 1);
+    const ridgeLift = plateType === PlateTypeEnum.OCEANIC
+      ? lerp(0.06, 0.14, activityStrength)
+      : lerp(0.02, 0.06, activityStrength);
+
+    return clamp(
+      lerp(-0.14, -0.07, activityStrength) +
+      ridgeLift +
+      compression * lerp(0.04, 0.10, activityStrength) +
+      strength * lerp(0.08, 0.18, activityStrength),
+      -1,
+      1
+    );
   }
 
   if (boundaryType === BoundaryTypeEnum.TRANSFORM) {
-    return clamp(0.015 + strength * 0.05, -1, 1);
+    return clamp(
+      lerp(0.008, 0.024, activityStrength) +
+      strength * lerp(0.02, 0.07, activityStrength),
+      -1,
+      1
+    );
   }
 
   return 0;
+}
+
+function resolveTectonicsOptions(
+  plateCount: number,
+  options: TectonicsBuildOptions
+): ResolvedTectonicsOptions {
+  const plateActivity01 = clamp01(options.plateActivity / 100);
+  const continentCount = clampInt(options.continentCount, 1, 12);
+
+  const continentalTarget = clampInt(
+    Math.round(lerp(plateCount * 0.26, plateCount * 0.58, continentCount / 12)),
+    1,
+    Math.max(1, plateCount - 1)
+  );
+
+  return {
+    plateActivity01,
+    continentCount,
+    continentalTarget,
+    influenceSigma: lerp(0.62, 0.36, plateActivity01),
+    boundaryThreshold: lerp(0.26, 0.12, plateActivity01),
+    activityStrength: plateActivity01,
+    continentalBiasStrength: clamp01((continentCount - 1) / 11),
+  };
 }
 
 function rowToLat(row: number, gridHeight: number): number {
@@ -478,6 +574,10 @@ function clamp(x: number, lo: number, hi: number): number {
 
 function clamp01(x: number): number {
   return clamp(x, 0, 1);
+}
+
+function clampInt(x: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, Math.floor(x)));
 }
 
 function lerp(a: number, b: number, t: number): number {
