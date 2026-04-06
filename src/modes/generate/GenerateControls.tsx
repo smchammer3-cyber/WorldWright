@@ -14,6 +14,12 @@ function clampInt(n: number, lo: number, hi: number) {
   return x < lo ? lo : x > hi ? hi : x;
 }
 
+function normalizeWidthToHeight(width: number): { width: number; height: number } {
+  const safeWidth = clampInt(width, 64, 1024);
+  const safeHeight = Math.floor(safeWidth / 2);
+  return { width: safeWidth, height: safeHeight };
+}
+
 function Row({
   label,
   children,
@@ -30,10 +36,12 @@ function Row({
 }
 
 export default function GenerateControls({ onGenerate, onSave, saving, disabled }: Props) {
-  const defaults: GeneratorParams = useMemo(
-    () => ({
-      width: 256,
-      height: 128,
+  const defaults: GeneratorParams = useMemo(() => {
+    const resolution = normalizeWidthToHeight(256);
+
+    return {
+      width: resolution.width,
+      height: resolution.height,
       seaLevel: 50,
       plateActivity: 55,
       axisTilt: 23,
@@ -45,9 +53,8 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
       continentCount: 5,
       seed: Math.floor(Math.random() * 1_000_000_000),
       styleMode: "EARTHLIKE",
-    }),
-    []
-  );
+    };
+  }, []);
 
   const [params, setParams] = useState<GeneratorParams>(defaults);
 
@@ -59,10 +66,9 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
 
   // Real-time updates: regenerate world whenever parameters change
   useEffect(() => {
-    // Debounce rapid changes to avoid excessive regeneration
     const timer = setTimeout(() => {
       onGenerate(params);
-    }, 300); // 300ms debounce for smooth slider dragging
+    }, 300);
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -70,6 +76,36 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
 
   function set<K extends keyof GeneratorParams>(key: K, value: GeneratorParams[K]) {
     setParams((p) => ({ ...p, [key]: value }));
+  }
+
+  function setWidthAndDerivedHeight(widthValue: number) {
+    const resolution = normalizeWidthToHeight(widthValue);
+    setParams((p) => ({
+      ...p,
+      width: resolution.width,
+      height: resolution.height,
+    }));
+  }
+
+  function buildClampedParams(p: GeneratorParams): GeneratorParams {
+    const resolution = normalizeWidthToHeight(p.width);
+
+    return {
+      ...p,
+      width: resolution.width,
+      height: resolution.height,
+      seaLevel: clampInt(p.seaLevel, 0, 100),
+      plateActivity: clampInt(p.plateActivity, 0, 100),
+      axisTilt: clampInt(p.axisTilt, 0, 100),
+      planetAge: clampInt(p.planetAge, 0, 100),
+      climateVar: clampInt(p.climateVar, 0, 100),
+      moistureLevel: clampInt(p.moistureLevel, 0, 100),
+      temperatureOffset: clampInt(p.temperatureOffset, -50, 50),
+      erosionIntensity: clampInt(p.erosionIntensity, 0, 100),
+      continentCount: clampInt(p.continentCount, 1, 12),
+      seed: typeof p.seed === "string" ? p.seed : clampInt(p.seed, 0, 2_147_483_647),
+      styleMode: p.styleMode,
+    };
   }
 
   return (
@@ -80,7 +116,9 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
         <div style={{ display: "flex", gap: 8 }}>
           <input
             value={params.seed}
-            onChange={(e) => set("seed", clampInt(parseInt(e.target.value || "0", 10), 0, 2_147_483_647))}
+            onChange={(e) =>
+              set("seed", clampInt(parseInt(e.target.value || "0", 10), 0, 2_147_483_647))
+            }
             style={{ flex: 1, padding: 8, borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)" }}
             inputMode="numeric"
           />
@@ -107,28 +145,31 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
       </Row>
 
       <Row label={`Resolution: ${params.width}×${params.height}`}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <div>
-            <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 6 }}>Width</div>
-            <input
-              value={params.width}
-              onChange={(e) => set("width", clampInt(parseInt(e.target.value || "0", 10), 64, 1024))}
-              style={{ width: "100%", padding: 8, borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)" }}
-              inputMode="numeric"
-            />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 6 }}>Height</div>
-            <input
-              value={params.height}
-              onChange={(e) => set("height", clampInt(parseInt(e.target.value || "0", 10), 32, 1024))}
-              style={{ width: "100%", padding: 8, borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)" }}
-              inputMode="numeric"
-            />
-          </div>
+        <div>
+          <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 6 }}>Width</div>
+          <input
+            value={params.width}
+            onChange={(e) => setWidthAndDerivedHeight(parseInt(e.target.value || "0", 10))}
+            style={{ width: "100%", padding: 8, borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)" }}
+            inputMode="numeric"
+          />
         </div>
+
+        <div
+          style={{
+            marginTop: 8,
+            padding: 8,
+            borderRadius: 10,
+            background: "rgba(0,0,0,0.04)",
+            fontSize: 12,
+            opacity: 0.8,
+          }}
+        >
+          Height is automatically derived at 2:1 equirectangular ratio: <strong>{params.height}</strong>
+        </div>
+
         <div style={{ fontSize: 11, opacity: 0.65, marginTop: 6 }}>
-          Note: larger resolutions generate slower (CPU preview).
+          Resolution is locked to a 2:1 world grid to preserve correct equirectangular geometry.
         </div>
       </Row>
 
@@ -192,7 +233,7 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
         />
       </Row>
 
-      <Row label={`Temperature Offset (-50 to +50): ${params.temperatureOffset > 0 ? '+' : ''}${params.temperatureOffset}`}>
+      <Row label={`Temperature Offset (-50 to +50): ${params.temperatureOffset > 0 ? "+" : ""}${params.temperatureOffset}`}>
         <input
           type="range"
           min={-50}
@@ -224,24 +265,7 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
 
       <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
         <button
-          onClick={() =>
-            onGenerate({
-              ...params,
-              width: clampInt(params.width, 64, 1024),
-              height: clampInt(params.height, 32, 1024),
-              seaLevel: clampInt(params.seaLevel, 0, 100),
-              plateActivity: clampInt(params.plateActivity, 0, 100),
-              axisTilt: clampInt(params.axisTilt, 0, 100),
-              planetAge: clampInt(params.planetAge, 0, 100),
-              climateVar: clampInt(params.climateVar, 0, 100),
-              moistureLevel: clampInt(params.moistureLevel, 0, 100),
-              temperatureOffset: clampInt(params.temperatureOffset, -50, 50),
-              erosionIntensity: clampInt(params.erosionIntensity, 0, 100),
-              continentCount: clampInt(params.continentCount, 1, 12),
-              seed: typeof params.seed === 'string' ? params.seed : clampInt(params.seed, 0, 2_147_483_647),
-              styleMode: params.styleMode,
-            })
-          }
+          onClick={() => onGenerate(buildClampedParams(params))}
           style={{
             flex: 1,
             padding: "10px 12px",
