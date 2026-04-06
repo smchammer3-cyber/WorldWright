@@ -1,5 +1,5 @@
 // ========================================================
-// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 SLIDER-AWARE FIELD)
+// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 MACRO CLUSTER SEEDS)
 // File: src/core/tectonicsSystem/index.ts
 //
 // Purpose:
@@ -9,11 +9,11 @@
 // - make tectonic-driving sliders matter at the source
 // - expose smoother uplift / boundary / distance fields to worldGenerator
 //
-// Notes:
-// - We still emit a dominant plateId/plateType for compatibility.
-// - Broad terrain ownership is still in worldGenerator.
-// - This pass makes the tectonic field itself slider-aware so the next
-//   generator pass can consume more meaningful upstream structure.
+// This pass is a surgical fix to seed placement:
+// - preserve the existing plate field / boundary solve
+// - add macro continental centers driven by continentCount
+// - bias continental plates toward those centers
+// - bias oceanic plates away from those centers
 // ========================================================
 
 import type { Plate, PlateType, BoundaryType } from '../worldSchema';
@@ -36,6 +36,11 @@ type PlateSeed = {
   velocity: Vec2;
   driftAxis: Vec2;
   elevationBias: number;
+};
+
+type MacroCenter = {
+  dir: Vec3;
+  weight: number;
 };
 
 export interface TectonicsField {
@@ -151,9 +156,6 @@ export function assignPlatesToCells(
   const influenceSigma = resolved.influenceSigma;
   const plateWeightsPerCell: RankedInfluence[][] = new Array(cells.length);
 
-  // ----------------------------------------------------
-  // Continuous plate influence solve
-  // ----------------------------------------------------
   for (let row = 0; row < gridHeight; row++) {
     const lat = rowToLat(row, gridHeight);
 
@@ -186,9 +188,6 @@ export function assignPlatesToCells(
     }
   }
 
-  // ----------------------------------------------------
-  // Boundary classification from competing influences
-  // ----------------------------------------------------
   for (let row = 0; row < gridHeight; row++) {
     for (let col = 0; col < gridWidth; col++) {
       const idx = row * gridWidth + col;
@@ -256,9 +255,6 @@ export function assignPlatesToCells(
     }
   }
 
-  // ----------------------------------------------------
-  // Interior continental support / oceanic basin tendency
-  // ----------------------------------------------------
   for (let i = 0; i < fields.length; i++) {
     const field = fields[i];
     if (field.isBoundary) continue;
@@ -318,6 +314,13 @@ function createPlateSeeds(
   const seeds: PlateSeed[] = [];
   const minAngularDistance = lerp(0.34, 0.50, resolved.activityStrength);
 
+  const macroCenters = createMacroContinentalCenters(
+    gridWidth,
+    gridHeight,
+    rng,
+    resolved.continentCount
+  );
+
   for (const plate of plates) {
     let bestRow = Math.floor(rng() * gridHeight);
     let bestCol = Math.floor(rng() * gridWidth);
@@ -326,7 +329,7 @@ function createPlateSeeds(
     let bestDir = latLonToUnitVector(bestLat, bestLon);
     let bestScore = -Infinity;
 
-    for (let attempt = 0; attempt < 56; attempt++) {
+    for (let attempt = 0; attempt < 72; attempt++) {
       const row = Math.floor(rng() * gridHeight);
       const col = Math.floor(rng() * gridWidth);
       const lat = rowToLat(row, gridHeight);
@@ -344,10 +347,21 @@ function createPlateSeeds(
 
       const equatorBias =
         plate.type === PlateTypeEnum.CONTINENTAL
-          ? 1 - equatorDistance * lerp(0.12, 0.34, resolved.continentalBiasStrength)
-          : 1 - (1 - equatorDistance) * lerp(0.02, 0.10, resolved.activityStrength);
+          ? 1 - equatorDistance * lerp(0.10, 0.26, resolved.continentalBiasStrength)
+          : 1 - (1 - equatorDistance) * lerp(0.02, 0.08, resolved.activityStrength);
 
-      const score = (seeds.length === 0 ? minAngularDistance : nearest) * equatorBias;
+      const centerAffinity = macroCenterAffinity(dir, macroCenters);
+      const macroBias =
+        plate.type === PlateTypeEnum.CONTINENTAL
+          ? lerp(0.35, 0.95, centerAffinity)
+          : lerp(0.95, 0.30, centerAffinity);
+
+      const spacingScore = seeds.length === 0 ? minAngularDistance : nearest;
+
+      const score =
+        spacingScore * 1.35 +
+        equatorBias * 0.55 +
+        macroBias * lerp(0.55, 1.05, resolved.continentalBiasStrength);
 
       if (score > bestScore) {
         bestScore = score;
@@ -380,6 +394,67 @@ function createPlateSeeds(
   }
 
   return seeds;
+}
+
+function createMacroContinentalCenters(
+  gridWidth: number,
+  gridHeight: number,
+  rng: () => number,
+  continentCount: number
+): MacroCenter[] {
+  const centerCount = clampInt(Math.round(lerp(2, 5, clamp01((continentCount - 1) / 11))), 2, 5);
+  const centers: MacroCenter[] = [];
+  const minAngular = lerp(0.85, 0.42, clamp01((continentCount - 1) / 11));
+
+  for (let i = 0; i < centerCount; i++) {
+    let bestDir: Vec3 = [1, 0, 0];
+    let bestScore = -Infinity;
+
+    for (let attempt = 0; attempt < 64; attempt++) {
+      const row = Math.floor(rng() * gridHeight);
+      const col = Math.floor(rng() * gridWidth);
+      const lat = rowToLat(row, gridHeight);
+      const lon = colToLon(col, gridWidth);
+      const dir = latLonToUnitVector(lat, lon);
+
+      let nearest = Infinity;
+      for (const c of centers) {
+        nearest = Math.min(nearest, angularDistance(dir, c.dir));
+      }
+
+      const normalizedRow = row / Math.max(1, gridHeight - 1);
+      const equatorDistance = Math.abs(normalizedRow - 0.5) * 2;
+      const equatorBias = 1 - equatorDistance * 0.22;
+
+      const spacing = centers.length === 0 ? minAngular : nearest;
+      const score = spacing * 1.6 + equatorBias * 0.4;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestDir = dir;
+      }
+    }
+
+    centers.push({
+      dir: bestDir,
+      weight: lerp(0.85, 1.15, rng()),
+    });
+  }
+
+  return centers;
+}
+
+function macroCenterAffinity(dir: Vec3, centers: MacroCenter[]): number {
+  if (centers.length === 0) return 0.5;
+
+  let best = 0;
+  for (const center of centers) {
+    const d = angularDistance(dir, center.dir);
+    const affinity = Math.exp(-0.5 * Math.pow(d / 0.72, 2)) * center.weight;
+    if (affinity > best) best = affinity;
+  }
+
+  return clamp01(best);
 }
 
 function computeRankedPlateInfluences(
