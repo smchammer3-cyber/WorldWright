@@ -1,5 +1,5 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 TECTONIC OWNERSHIP PASS)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 GENERATOR LANDMASS OWNERSHIP)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
@@ -7,6 +7,7 @@
 // - follow blueprint order: tectonics -> terrain -> climate -> biomes -> hydrology
 // - turn debug mode off for normal generation testing
 // - make tectonic provinces the primary broad land/ocean scaffold
+// - keep continentCount generator-owned as a major exposed landmass target
 // - demote seeded macro noise to breakup / refinement only
 // - preserve polar-cap continuation behavior
 // ========================================================
@@ -94,7 +95,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const globalSeaLevel = lerp(-0.10, 0.14, seaBias);
 
   const targetContinentCount = clampInt(params.continentCount, 1, 12);
-  const plateCount = Math.max(targetContinentCount + 5, Math.round(targetContinentCount * 2.5));
+  const plateCount = Math.max(8, Math.round(lerp(9, 20, clamp01((targetContinentCount - 1) / 11))));
 
   const cells: Cell[] = new Array(width * height);
   for (let i = 0; i < cells.length; i++) cells[i] = createEmptyCell(i);
@@ -110,7 +111,6 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     rng,
     {
       plateActivity: params.plateActivity,
-      continentCount: params.continentCount,
     }
   );
 
@@ -133,7 +133,8 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
 
   // ----------------------------------------------------
-  // STEP 2: broad land plausibility (tectonics-owned)
+  // STEP 2: broad land plausibility (tectonics-owned scaffold,
+  //         generator-owned landmass exposure target)
   // ----------------------------------------------------
   const targetLandFraction = computeTargetLandFraction(
     params.styleMode,
@@ -220,11 +221,12 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
 
   // ----------------------------------------------------
-  // STEP 3: light geometric cleanup only
+  // STEP 3: continentCount-aware mask cleanup / landmass shaping
   // ----------------------------------------------------
-  landMask = removeTinyIslandsAndExpandCoasts(landMask, width, height, rng);
+  landMask = removeTinyIslandsAndExpandCoasts(landMask, width, height, rng, targetContinentCount);
   landMask = mergeNearbyLandmasses(landMask, width, height, rng, targetContinentCount);
-  landMask = enforceLandCoverageTarget(landMask, width, height, rng, targetLandFraction);
+  landMask = shapeLandmassCount(landMask, width, height, rng, targetContinentCount);
+  landMask = enforceLandCoverageTarget(landMask, width, height, rng, targetLandFraction, targetContinentCount);
 
   if (DEBUG_STAGE === 'MASK_POST') {
     const debugCells = cloneCells(cells);
@@ -657,7 +659,6 @@ function buildLandField(
   continentCount: number
 ): Float32Array {
   const field = new Float32Array(width * height);
-
   const continentCount01 = clamp01((continentCount - 1) / 11);
 
   for (let r = 1; r < height - 1; r++) {
@@ -671,7 +672,6 @@ function buildLandField(
       const lon = ((c + 0.5) / width) * 360 - 180;
       const dir = latLonToUnitVector(lat, lon);
 
-      // Broad scaffold should be tectonic-owned, not noise-owned.
       const continentCore =
         tect.plateType === PlateType.CONTINENTAL
           ? lerp(0.22, 0.42, 1 - tect.distanceToBoundary)
@@ -710,7 +710,6 @@ function buildLandField(
         provinceBias -
         basinBias * 0.90;
 
-      // Seeded noise is now only refinement / breakup.
       const breakupLarge = sphereFbm(offsetVec(dir, 1.1, -0.2, 0.7), seedUint, 0.90, 3);
       const breakupMedium = sphereFbm(offsetVec(dir, -0.9, 1.3, -0.5), seedUint, 2.1, 3);
       const breakupFine = sphereFbm(offsetVec(dir, -1.2, -0.4, 1.0), seedUint, 6.5, 2);
@@ -741,7 +740,6 @@ function buildLandField(
             : lerp(-0.08, -0.02, 1 - tect.distanceToBoundary);
       }
 
-      // Mild count-aware spread only as secondary support.
       const countBias =
         tect.plateType === PlateType.CONTINENTAL
           ? lerp(-0.02, 0.05, continentCount01)
@@ -808,23 +806,29 @@ function thresholdField(
     }
   }
 
+  clearPoleRows(mask, width, height);
   return mask;
 }
 
 // ========================================================
-// CONNECTED COMPONENT CLEANUP / MERGE
+// CONNECTED COMPONENT CLEANUP / MERGE / LANDMASS COUNT SHAPING
 // ========================================================
 
 function removeTinyIslandsAndExpandCoasts(
   mask: Uint8Array,
   width: number,
   height: number,
-  rng: () => number
+  rng: () => number,
+  targetContinentCount: number
 ): Uint8Array {
   const next = new Uint8Array(mask);
-
   const components = getLandComponents(mask, width, height);
-  const minKeepSize = Math.max(12, Math.floor((width * height) * 0.0008));
+
+  const count01 = clamp01((targetContinentCount - 1) / 11);
+  const minKeepSize = Math.max(
+    10,
+    Math.floor((width * height) * lerp(0.0022, 0.00045, count01))
+  );
 
   for (const comp of components) {
     if (comp.length < minKeepSize) {
@@ -832,16 +836,19 @@ function removeTinyIslandsAndExpandCoasts(
     }
   }
 
+  const coastGrowChance = lerp(0.18, 0.08, count01);
+
   for (let r = 1; r < height - 1; r++) {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
       if (next[idx] === 1) continue;
 
       const landFrac = computeLocalLandFraction(next, width, height, r, c, 1);
-      if (landFrac > 0.62 && rng() < 0.14) next[idx] = 1;
+      if (landFrac > 0.62 && rng() < coastGrowChance) next[idx] = 1;
     }
   }
 
+  weakenNearPoleRows(next, width, height, rng);
   return next;
 }
 
@@ -853,10 +860,20 @@ function mergeNearbyLandmasses(
   targetContinentCount: number
 ): Uint8Array {
   let next = new Uint8Array(mask);
+  const count01 = clamp01((targetContinentCount - 1) / 11);
 
-  for (let pass = 0; pass < 2; pass++) {
+  const desiredUpperBound = clampInt(
+    targetContinentCount + Math.round(lerp(1, 5, count01)),
+    2,
+    20
+  );
+
+  const passCount = clampInt(Math.round(lerp(4, 1, count01)), 1, 4);
+  const bridgeChance = lerp(0.18, 0.04, count01);
+
+  for (let pass = 0; pass < passCount; pass++) {
     const components = getLandComponents(next, width, height);
-    if (components.length <= Math.max(targetContinentCount + 4, 6)) break;
+    if (components.length <= desiredUpperBound) break;
 
     const bridge = new Uint8Array(next);
 
@@ -868,8 +885,8 @@ function mergeNearbyLandmasses(
         const landFracNear = computeLocalLandFraction(next, width, height, r, c, 2);
         const landFracFar = computeLocalLandFraction(next, width, height, r, c, 3);
 
-        if (landFracNear > 0.30 && landFracFar > 0.46) {
-          if (rng() < 0.08) bridge[idx] = 1;
+        if (landFracNear > 0.28 && landFracFar > 0.42) {
+          if (rng() < bridgeChance) bridge[idx] = 1;
         }
       }
     }
@@ -880,14 +897,89 @@ function mergeNearbyLandmasses(
   return next;
 }
 
+function shapeLandmassCount(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  rng: () => number,
+  targetContinentCount: number
+): Uint8Array {
+  let next = new Uint8Array(mask);
+  const components = getLandComponents(next, width, height);
+
+  const majorThreshold = Math.max(
+    24,
+    Math.floor((width * height) * 0.0022)
+  );
+
+  const majorComponents = components.filter((c) => c.length >= majorThreshold);
+  const count01 = clamp01((targetContinentCount - 1) / 11);
+
+  // Too few major landmasses: carve weak necks in giant masses when count is high.
+  if (majorComponents.length < targetContinentCount && count01 > 0.45) {
+    const carvePasses = clampInt(Math.round(lerp(0, 3, count01)), 0, 3);
+
+    for (let pass = 0; pass < carvePasses; pass++) {
+      const currentComponents = getLandComponents(next, width, height);
+      const currentMajor = currentComponents.filter((c) => c.length >= majorThreshold);
+      if (currentMajor.length >= targetContinentCount) break;
+
+      const largest = currentMajor[0];
+      if (!largest || largest.length < majorThreshold * 2) break;
+
+      const carve = new Uint8Array(next);
+
+      for (const idx of largest) {
+        const r = Math.floor(idx / width);
+        const c = idx % width;
+        if (r <= 1 || r >= height - 2) continue;
+
+        const local1 = computeLocalLandFraction(next, width, height, r, c, 1);
+        const local2 = computeLocalLandFraction(next, width, height, r, c, 2);
+
+        const neckLike = local1 > 0.40 && local1 < 0.78 && local2 > 0.60 && local2 < 0.88;
+        if (neckLike && rng() < lerp(0.03, 0.11, count01)) {
+          carve[idx] = 0;
+        }
+      }
+
+      next = carve;
+    }
+  }
+
+  // Too many major landmasses: merge bias already handled above, but absorb tiny fragments.
+  if (targetContinentCount <= 3) {
+    const currentComponents = getLandComponents(next, width, height);
+    const absorb = new Uint8Array(next);
+
+    for (const comp of currentComponents) {
+      if (comp.length >= majorThreshold) continue;
+      for (const idx of comp) {
+        const r = Math.floor(idx / width);
+        const c = idx % width;
+        const local = computeLocalLandFraction(next, width, height, r, c, 2);
+        if (local < 0.52 || rng() < 0.55) {
+          absorb[idx] = 0;
+        }
+      }
+    }
+
+    next = absorb;
+  }
+
+  return next;
+}
+
 function enforceLandCoverageTarget(
   mask: Uint8Array,
   width: number,
   height: number,
   rng: () => number,
-  targetFraction: number
+  targetFraction: number,
+  targetContinentCount: number
 ): Uint8Array {
   let next = new Uint8Array(mask);
+  const count01 = clamp01((targetContinentCount - 1) / 11);
 
   function currentFraction(): number {
     let land = 0;
@@ -904,7 +996,7 @@ function enforceLandCoverageTarget(
   let fraction = currentFraction();
   let safety = 0;
 
-  while (fraction < targetFraction - 0.05 && safety < 3) {
+  while (fraction < targetFraction - 0.05 && safety < 4) {
     const grow = new Uint8Array(next);
 
     for (let r = 1; r < height - 1; r++) {
@@ -913,9 +1005,10 @@ function enforceLandCoverageTarget(
         if (next[idx] === 1) continue;
 
         const landFrac = computeLocalLandFraction(next, width, height, r, c, 2);
-        if (landFrac <= 0.34) continue;
+        if (landFrac <= 0.30) continue;
 
-        if (rng() < 0.08 + landFrac * 0.12) {
+        const growChance = lerp(0.15, 0.07, count01) + landFrac * lerp(0.14, 0.08, count01);
+        if (rng() < growChance) {
           grow[idx] = 1;
         }
       }
@@ -927,7 +1020,7 @@ function enforceLandCoverageTarget(
   }
 
   safety = 0;
-  while (fraction > targetFraction + 0.06 && safety < 2) {
+  while (fraction > targetFraction + 0.06 && safety < 3) {
     const prune = new Uint8Array(next);
 
     for (let r = 1; r < height - 1; r++) {
@@ -936,9 +1029,10 @@ function enforceLandCoverageTarget(
         if (next[idx] === 0) continue;
 
         const landFrac = computeLocalLandFraction(next, width, height, r, c, 1);
-        if (landFrac >= 0.40) continue;
+        if (landFrac >= lerp(0.52, 0.34, count01)) continue;
 
-        if (rng() < 0.12) prune[idx] = 0;
+        const pruneChance = lerp(0.10, 0.18, count01);
+        if (rng() < pruneChance) prune[idx] = 0;
       }
     }
 
