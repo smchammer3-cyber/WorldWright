@@ -1,13 +1,13 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 MACRO SILHOUETTE LEVERAGE PASS)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 MACRO SCAFFOLD PASS)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
 // - keep worldGenerator as the sole owner of generation
 // - follow blueprint order: tectonics -> terrain -> climate -> biomes -> hydrology
-// - strengthen tectonic ownership of broad land silhouette
-// - let land fraction be a bias, not a hard normalization lock
-// - reduce cleanup passes from re-gluing macro continents too aggressively
+// - add a true macro continent scaffold before thresholding
+// - let continentCount affect macro topology directly
+// - keep tectonic local refinement and noise as secondary layers
 // - preserve polar-cap continuation behavior
 // - preserve current debug stages
 // ========================================================
@@ -80,9 +80,6 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const erosion01 = clamp01(params.erosionIntensity / 100);
   const plateActivity01 = clamp01(params.plateActivity / 100);
 
-  // Clean separation:
-  // - age controls terrain maturity / relief character
-  // - erosion controls smoothing passes
   const terrainMaturity = age01;
   const terrainSharpness = lerp(1.10, 0.82, terrainMaturity);
   const erosionPasses = Math.max(1, Math.round(lerp(1, 6, erosion01)));
@@ -137,7 +134,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   }
 
   // ----------------------------------------------------
-  // STEP 2: broad land plausibility (tectonics-led hybrid)
+  // STEP 2: broad land plausibility (macro scaffold first)
   // ----------------------------------------------------
   const targetLandFraction = computeTargetLandFraction(
     params.styleMode,
@@ -152,7 +149,8 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     rng,
     fields,
     params.styleMode,
-    plateActivity01
+    plateActivity01,
+    targetContinentCount
   );
 
   if (DEBUG_STAGE === 'LANDFIELD') {
@@ -656,9 +654,14 @@ function buildLandField(
   rng: () => number,
   fields: TectonicsField[],
   styleMode: GeneratorParams['styleMode'],
-  plateActivity01: number
+  plateActivity01: number,
+  continentCount: number
 ): Float32Array {
   const field = new Float32Array(width * height);
+
+  const macroFreqA = lerp(0.42, 0.86, clamp01((continentCount - 1) / 11));
+  const macroFreqB = lerp(0.65, 1.18, clamp01((continentCount - 1) / 11));
+  const clusterSharpness = lerp(0.85, 1.30, clamp01((continentCount - 1) / 11));
 
   for (let r = 1; r < height - 1; r++) {
     const lat = 90 - ((r + 0.5) / height) * 180;
@@ -671,47 +674,81 @@ function buildLandField(
       const lon = ((c + 0.5) / width) * 360 - 180;
       const dir = latLonToUnitVector(lat, lon);
 
+      // Macro scaffold first: broad continent cores vs ocean basins
+      const macroA = sphereFbm(offsetVec(dir, 1.6, -0.5, 0.8), seedUint, macroFreqA, 3);
+      const macroB = sphereFbm(offsetVec(dir, -1.3, 1.1, -0.7), seedUint, macroFreqB, 3);
+      const macroMix = clamp((macroA * 0.62 + macroB * 0.38) * clusterSharpness, -1, 1);
+
+      const continentCore =
+        tect.plateType === PlateType.CONTINENTAL
+          ? lerp(0.14, 0.28, 1 - tect.distanceToBoundary)
+          : lerp(-0.18, -0.06, 1 - tect.distanceToBoundary);
+
+      const basinBias =
+        tect.plateType === PlateType.OCEANIC
+          ? lerp(0.10, 0.24, 1 - tect.distanceToBoundary)
+          : lerp(-0.08, 0.02, 1 - tect.distanceToBoundary);
+
+      const convergentMacro =
+        tect.boundaryType === BoundaryType.CONVERGENT
+          ? lerp(0.06, 0.18, tect.boundaryStrength)
+          : 0;
+
+      const divergentMacro =
+        tect.boundaryType === BoundaryType.DIVERGENT
+          ? lerp(-0.08, -0.02, tect.boundaryStrength)
+          : 0;
+
+      const macroScaffold =
+        macroMix * 0.34 +
+        continentCore +
+        convergentMacro +
+        divergentMacro -
+        basinBias * 0.65;
+
+      // Secondary local refinement
       const largeA = sphereFbm(offsetVec(dir, 1.1, -0.2, 0.7), seedUint, 0.70, 4);
       const largeB = sphereFbm(offsetVec(dir, -0.9, 1.3, -0.5), seedUint, 1.35, 4);
       const medium = sphereFbm(offsetVec(dir, 0.3, 1.7, 0.1), seedUint, 3.2, 3);
       const breakup = sphereFbm(offsetVec(dir, -1.2, -0.4, 1.0), seedUint, 7.5, 2);
 
       const noiseRefine =
-        largeA * 0.16 +
-        largeB * 0.12 +
-        medium * 0.05 +
-        breakup * 0.02;
+        largeA * 0.10 +
+        largeB * 0.08 +
+        medium * 0.04 +
+        breakup * 0.015;
 
       let tectonicStructure = 0;
 
       if (tect.plateType === PlateType.CONTINENTAL) {
-        tectonicStructure += lerp(0.09, 0.18, plateActivity01);
+        tectonicStructure += lerp(0.07, 0.14, plateActivity01);
       } else {
-        tectonicStructure -= lerp(0.08, 0.16, plateActivity01);
+        tectonicStructure -= lerp(0.06, 0.12, plateActivity01);
       }
 
       if (tect.boundaryType === BoundaryType.CONVERGENT) {
-        tectonicStructure += lerp(0.08, 0.22, plateActivity01) * tect.boundaryStrength;
+        tectonicStructure += lerp(0.06, 0.16, plateActivity01) * tect.boundaryStrength;
       } else if (tect.boundaryType === BoundaryType.DIVERGENT) {
-        tectonicStructure -= lerp(0.06, 0.16, plateActivity01) * tect.boundaryStrength;
+        tectonicStructure -= lerp(0.05, 0.12, plateActivity01) * tect.boundaryStrength;
       } else if (tect.boundaryType === BoundaryType.TRANSFORM) {
-        tectonicStructure += lerp(0.010, 0.028, plateActivity01) * tect.boundaryStrength;
+        tectonicStructure += lerp(0.008, 0.020, plateActivity01) * tect.boundaryStrength;
       } else {
         tectonicStructure +=
           tect.plateType === PlateType.CONTINENTAL
-            ? lerp(0.05, 0.12, 1 - tect.distanceToBoundary)
-            : lerp(-0.08, -0.02, 1 - tect.distanceToBoundary);
+            ? lerp(0.04, 0.10, 1 - tect.distanceToBoundary)
+            : lerp(-0.06, -0.015, 1 - tect.distanceToBoundary);
       }
 
       let value =
-        tectonicStructure * (1 - poleFade * 0.65) +
+        macroScaffold * (1 - poleFade * 0.68) +
+        tectonicStructure * 0.52 * (1 - poleFade * 0.65) +
         noiseRefine;
 
       if (styleMode === 'FANTASY') value += 0.03;
       if (styleMode === 'STYLIZED') value += 0.02;
       if (styleMode === 'ALIEN') value += (rng() - 0.5) * 0.03;
 
-      value += (rng() - 0.5) * 0.008;
+      value += (rng() - 0.5) * 0.006;
       field[idx] = value;
     }
   }
@@ -953,7 +990,6 @@ function getLandComponents(
   return components;
 }
 
-// Kept for compatibility if needed elsewhere, but not used in generate pass.
 function clearPoleRows(mask: Uint8Array, width: number, height: number): void {
   for (let c = 0; c < width; c++) {
     mask[c] = 0;
@@ -961,7 +997,6 @@ function clearPoleRows(mask: Uint8Array, width: number, height: number): void {
   }
 }
 
-// Kept for compatibility if needed elsewhere, but not used in generate pass.
 function weakenNearPoleRows(
   mask: Uint8Array,
   width: number,
