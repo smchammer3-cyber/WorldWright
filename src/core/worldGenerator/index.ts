@@ -1,5 +1,5 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 DE-SURGERY PASS)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.3 REDUCED PLATEACTIVITY SILHOUETTE CONTROL)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
@@ -10,6 +10,7 @@
 // - keep continentCount generator-owned as a soft major-landmass bias
 // - reduce binary post-threshold surgery
 // - remove carve-style continent forcing that creates fake voids
+// - reduce plateActivity influence on silhouette while preserving relief influence
 // - preserve polar-cap continuation behavior
 // ========================================================
 
@@ -658,6 +659,10 @@ function buildLandField(
   const field = new Float32Array(width * height);
   const count01 = clamp01((continentCount - 1) / 11);
 
+  // Dampen plateActivity influence specifically for silhouette formation.
+  // plateActivity should still matter more later in terrain relief.
+  const silhouetteActivity = lerp(0.30, 0.65, plateActivity01);
+
   for (let r = 1; r < height - 1; r++) {
     const lat = 90 - ((r + 0.5) / height) * 180;
     const absLat01 = Math.abs(lat) / 90;
@@ -681,23 +686,23 @@ function buildLandField(
 
       const convergentMacro =
         tect.boundaryType === BoundaryType.CONVERGENT
-          ? lerp(0.08, 0.18, tect.boundaryStrength)
+          ? lerp(0.04, 0.10, tect.boundaryStrength) * silhouetteActivity
           : 0;
 
       const divergentMacro =
         tect.boundaryType === BoundaryType.DIVERGENT
-          ? lerp(-0.12, -0.03, tect.boundaryStrength)
+          ? lerp(-0.06, -0.015, tect.boundaryStrength) * silhouetteActivity
           : 0;
 
       const transformMacro =
         tect.boundaryType === BoundaryType.TRANSFORM
-          ? lerp(-0.006, 0.016, tect.boundaryStrength)
+          ? lerp(-0.003, 0.008, tect.boundaryStrength) * silhouetteActivity
           : 0;
 
       const provinceBias =
         tect.plateType === PlateType.CONTINENTAL
-          ? lerp(0.04, 0.10, plateActivity01)
-          : lerp(-0.08, -0.03, plateActivity01);
+          ? lerp(0.015, 0.035, silhouetteActivity)
+          : lerp(-0.03, -0.012, silhouetteActivity);
 
       const breakupLarge = sphereFbm(offsetVec(dir, 1.1, -0.2, 0.7), seedUint, 1.0, 3);
       const breakupMedium = sphereFbm(offsetVec(dir, -0.9, 1.3, -0.5), seedUint, 2.6, 3);
@@ -711,22 +716,22 @@ function buildLandField(
       let tectonicStructure = 0;
 
       if (tect.plateType === PlateType.CONTINENTAL) {
-        tectonicStructure += lerp(0.05, 0.12, plateActivity01);
+        tectonicStructure += lerp(0.018, 0.045, silhouetteActivity);
       } else {
-        tectonicStructure -= lerp(0.06, 0.12, plateActivity01);
+        tectonicStructure -= lerp(0.022, 0.045, silhouetteActivity);
       }
 
       if (tect.boundaryType === BoundaryType.CONVERGENT) {
-        tectonicStructure += lerp(0.06, 0.16, plateActivity01) * tect.boundaryStrength;
+        tectonicStructure += lerp(0.020, 0.050, silhouetteActivity) * tect.boundaryStrength;
       } else if (tect.boundaryType === BoundaryType.DIVERGENT) {
-        tectonicStructure -= lerp(0.05, 0.12, plateActivity01) * tect.boundaryStrength;
+        tectonicStructure -= lerp(0.018, 0.045, silhouetteActivity) * tect.boundaryStrength;
       } else if (tect.boundaryType === BoundaryType.TRANSFORM) {
-        tectonicStructure += lerp(0.004, 0.016, plateActivity01) * tect.boundaryStrength;
+        tectonicStructure += lerp(0.002, 0.006, silhouetteActivity) * tect.boundaryStrength;
       } else {
         tectonicStructure +=
           tect.plateType === PlateType.CONTINENTAL
-            ? lerp(0.03, 0.10, 1 - tect.distanceToBoundary)
-            : lerp(-0.06, -0.02, 1 - tect.distanceToBoundary);
+            ? lerp(0.012, 0.030, 1 - tect.distanceToBoundary)
+            : lerp(-0.020, -0.006, 1 - tect.distanceToBoundary);
       }
 
       const countBias =
@@ -742,7 +747,7 @@ function buildLandField(
           provinceBias -
           basinBias * 0.82) *
           (1 - poleFade * 0.70) +
-        tectonicStructure * 0.46 * (1 - poleFade * 0.66) +
+        tectonicStructure * 0.22 * (1 - poleFade * 0.66) +
         countBias +
         noiseRefine;
 
