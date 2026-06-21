@@ -3,7 +3,7 @@ import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/co
 import { worldSession } from '../src/core/worldSession';
 import { validateWorld } from '../src/core/worldValidation';
 import type { TerrainStrokeAction } from '../src/core/worldActions';
-import type { WorldBrain } from '../src/core/worldSchema';
+import type { City, WorldBrain } from '../src/core/worldSchema';
 
 function makeTestWorld(seed: number | string = 'world-session-spine-test'): WorldBrain {
   const params = createDefaultGeneratorParams();
@@ -23,6 +23,22 @@ function editHeightSnapshot(world: WorldBrain): number[] {
 
 function baseHeightSnapshot(world: WorldBrain): number[] {
   return world.cells.map((cell) => cell.baseHeight);
+}
+
+function makeTestCity(world: WorldBrain, id = 'city-action-test'): City {
+  const cell = world.cells.find((candidate) => !candidate.isWater) ?? world.cells[0];
+  return {
+    id,
+    name: 'Action Test City',
+    cellIndex: cell.index,
+    population: 1000,
+    type: 'TOWN',
+    populationTier: 2,
+    isCapital: false,
+    economicRoles: ['TRADE'],
+    tags: [],
+    description: '',
+  };
 }
 
 function countChangedCells(before: number[], after: number[]): number {
@@ -117,6 +133,48 @@ describe('World Spine characterization', () => {
     const afterSingleUndo = worldSession.getWorld();
     expect(afterSingleUndo).not.toBeNull();
     expect(editHeightSnapshot(afterSingleUndo!)).toEqual(initialEditHeights);
+  });
+
+  it('applies ADD_CITY through worldSession.apply with undo/redo without changing baseHeight', async () => {
+    await worldSession.loadWorld(makeTestWorld('session-add-city'));
+    const loaded = worldSession.getWorld();
+    expect(loaded).not.toBeNull();
+
+    const beforeCityCount = loaded!.cities.length;
+    const beforeBaseHeights = baseHeightSnapshot(loaded!);
+    const city = makeTestCity(loaded!);
+
+    worldSession.apply({ type: 'ADD_CITY', city });
+    const after = worldSession.getWorld();
+    expect(after).not.toBeNull();
+
+    expect(after!.cities).toHaveLength(beforeCityCount + 1);
+    expect(after!.cities[beforeCityCount]).toMatchObject({
+      id: city.id,
+      name: city.name,
+      cellIndex: city.cellIndex,
+      type: city.type,
+    });
+    expect(baseHeightSnapshot(after!)).toEqual(beforeBaseHeights);
+    expect(validateWorld(after!)).toEqual([]);
+
+    worldSession.undo();
+    const undone = worldSession.getWorld();
+    expect(undone).not.toBeNull();
+    expect(undone!.cities).toHaveLength(beforeCityCount);
+    expect(baseHeightSnapshot(undone!)).toEqual(beforeBaseHeights);
+
+    worldSession.redo();
+    const redone = worldSession.getWorld();
+    expect(redone).not.toBeNull();
+    expect(redone!.cities).toHaveLength(beforeCityCount + 1);
+    expect(redone!.cities[beforeCityCount]).toMatchObject({
+      id: city.id,
+      name: city.name,
+      cellIndex: city.cellIndex,
+      type: city.type,
+    });
+    expect(baseHeightSnapshot(redone!)).toEqual(beforeBaseHeights);
   });
 
   it('characterizes applyCommittedLocalEdit as a legacy whole-world bypass path', async () => {
