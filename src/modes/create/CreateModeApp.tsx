@@ -159,9 +159,10 @@ export default function CreateModeApp() {
     const landCells = world.cells.filter((c) => !c.isWater);
     if (landCells.length === 0) return;
 
+    const gridWidth = world.gridWidth;
+    const gridHeight = world.gridHeight;
+    const cells = world.cells;
     const randomCell = landCells[Math.floor(Math.random() * landCells.length)];
-    const workingWorld: WorldBrain = structuredCloneSafe(world);
-
     const newCity: any = {
       id: `city_${Date.now()}`,
       name: "City",
@@ -173,21 +174,21 @@ export default function CreateModeApp() {
       economicRoles: ["TRADE"],
       tags: [],
       description: "",
-      countryId: workingWorld.countries?.[0]?.id,
-      cultureId: workingWorld.cultures?.[0]?.id,
+      countryId: world.countries?.[0]?.id,
+      cultureId: world.cultures?.[0]?.id,
     };
 
-    const row = Math.floor(randomCell.index / workingWorld.gridWidth);
-    const col = randomCell.index % workingWorld.gridWidth;
+    const row = Math.floor(randomCell.index / gridWidth);
+    const col = randomCell.index % gridWidth;
 
     let nearCoast = false;
     for (let dr = -1; dr <= 1; dr++) {
       for (let dc = -1; dc <= 1; dc++) {
         const nr = row + dr;
-        if (nr < 0 || nr >= workingWorld.gridHeight) continue;
-        const nc = ((col + dc) % workingWorld.gridWidth + workingWorld.gridWidth) % workingWorld.gridWidth;
-        const nidx = nr * workingWorld.gridWidth + nc;
-        if (workingWorld.cells[nidx]?.isWater) {
+        if (nr < 0 || nr >= gridHeight) continue;
+        const nc = ((col + dc) % gridWidth + gridWidth) % gridWidth;
+        const nidx = nr * gridWidth + nc;
+        if (cells[nidx]?.isWater) {
           nearCoast = true;
         }
       }
@@ -197,11 +198,7 @@ export default function CreateModeApp() {
       newCity.type = "PORT";
     }
 
-    workingWorld.cities = workingWorld.cities || [];
-    workingWorld.cities.push(newCity);
-
-    recomputeWorld(workingWorld, ["TERRAIN_EDIT"]);
-    worldSession.applyCommittedLocalEdit(workingWorld);
+    worldSession.apply({ type: "ADD_CITY", city: newCity });
   }
 
   const toolGroups: ToolGroup[] = [
