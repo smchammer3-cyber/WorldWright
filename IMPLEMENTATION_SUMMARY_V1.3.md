@@ -1,3 +1,9 @@
+STATUS: HISTORICAL IMPLEMENTATION CLAIM — NOT CANONICAL
+
+This document is preserved for project history only. It may contain optimistic, stale, or incomplete claims about implementation status. Do not use it as authority for architecture, planet realism, rendering quality, hydrology completeness, World Spine compliance, or feature completion.
+
+Current authority is defined in docs/AUTHORITY_MAP.md.
+
 # IMPLEMENTATION SUMMARY — V1.3 FEATURE BUILD-OUT
 **Date:** December 31, 2025  
 **Status:** ✅ ALL PRIORITY ITEMS IMPLEMENTED
