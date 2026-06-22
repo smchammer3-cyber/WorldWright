@@ -6,6 +6,7 @@
 // - render the visible planet from WorldBrain layers, not height alone
 // - keep generator, schema, and WorldBrain ownership unchanged
 // - expose debug preview modes for diagnosing bad planets layer-by-layer
+// - upsample the globe texture so the preview is not raw-grid blocky
 // ========================================================
 
 import {
@@ -59,8 +60,10 @@ export function buildPlanetPreview(
   world: WorldBrain,
   mode: PlanetPreviewMode = "FINAL"
 ): PlanetPreview {
-  const width = world.gridWidth;
-  const height = world.gridHeight;
+  const gridWidth = world.gridWidth;
+  const gridHeight = world.gridHeight;
+  const textureWidth = Math.max(gridWidth, Math.min(1024, gridWidth * 4));
+  const textureHeight = Math.max(gridHeight, Math.min(512, gridHeight * 4));
   const seaLevel =
     typeof world.seaLevel === "number"
       ? world.seaLevel
@@ -72,24 +75,24 @@ export function buildPlanetPreview(
   const riverCells = buildRiverCellSet(world);
 
   function wrapCol(c: number): number {
-    if (width === 0) return 0;
-    const m = c % width;
-    return m < 0 ? m + width : m;
+    if (gridWidth === 0) return 0;
+    const m = c % gridWidth;
+    return m < 0 ? m + gridWidth : m;
   }
 
   function clampRow(r: number): number {
-    if (height === 0) return 0;
+    if (gridHeight === 0) return 0;
     if (r < 0) return 0;
-    if (r >= height) return height - 1;
+    if (r >= gridHeight) return gridHeight - 1;
     return r;
   }
 
   function cellIndex(row: number, col: number): number {
-    return clampRow(row) * width + wrapCol(col);
+    return clampRow(row) * gridWidth + wrapCol(col);
   }
 
   function cellAt(row: number, col: number): Cell | null {
-    if (height === 0 || width === 0) return null;
+    if (gridHeight === 0 || gridWidth === 0) return null;
     return cells[cellIndex(row, col)] ?? null;
   }
 
@@ -119,7 +122,7 @@ export function buildPlanetPreview(
 
     for (let dr = -radius; dr <= radius; dr++) {
       const rr = row + dr;
-      if (rr < 0 || rr >= height) continue;
+      if (rr < 0 || rr >= gridHeight) continue;
 
       for (let dc = -radius; dc <= radius; dc++) {
         total++;
@@ -164,7 +167,7 @@ export function buildPlanetPreview(
       }
     }
 
-    const coastalBlend = smoothstep(0.08, 0.45, localLandFraction(row, col, 1)) * 0.45;
+    const coastalBlend = smoothstep(0.12, 0.55, localLandFraction(row, col, 1)) * 0.26;
     color = mix(color, [0.25, 0.67, 0.73], coastalBlend);
 
     return color;
@@ -180,27 +183,23 @@ export function buildPlanetPreview(
     let color = biomeColorFromId(biomeId);
 
     // Let climate gently influence the biome color without repainting the world.
-    color = mix(color, [0.76, 0.62, 0.36], Math.max(0, 0.55 - rain) * 0.16);
-    color = mix(color, [0.16, 0.43, 0.22], Math.max(0, rain - 0.55) * 0.13);
-    color = mix(color, [0.72, 0.76, 0.70], Math.max(0, 0.26 - temp) * 0.18);
+    color = mix(color, [0.76, 0.62, 0.36], Math.max(0, 0.55 - rain) * 0.13);
+    color = mix(color, [0.16, 0.43, 0.22], Math.max(0, rain - 0.55) * 0.11);
+    color = mix(color, [0.72, 0.76, 0.70], Math.max(0, 0.26 - temp) * 0.12);
 
     // Height gives relief readability, but no longer turns all land into mountain.
-    color = shade(color, lerp(0.92, 1.14, elev));
+    color = shade(color, lerp(0.94, 1.10, elev));
 
-    if (elev > 0.68) {
-      color = mix(color, [0.56, 0.56, 0.52], (elev - 0.68) / 0.32 * 0.32);
+    if (elev > 0.70) {
+      color = mix(color, [0.56, 0.56, 0.52], (elev - 0.70) / 0.30 * 0.24);
     }
 
-    const coastBlend = smoothstep(0.08, 0.45, localWaterFraction(row, col, 1)) * 0.52;
-    color = mix(color, [0.78, 0.70, 0.50], coastBlend);
+    const coastBlend = smoothstep(0.14, 0.56, localWaterFraction(row, col, 1)) * 0.28;
+    color = mix(color, [0.74, 0.68, 0.49], coastBlend);
 
     if (cell.snowCover > 0) {
-      color = mix(color, [0.91, 0.94, 0.91], clamp01(cell.snowCover) * 0.86);
-    }
-
-    const idx = cellIndex(row, col);
-    if (riverCells.has(idx)) {
-      color = mix(color, [0.04, 0.30, 0.62], 0.46);
+      const snowStrength = clamp01((cell.snowCover - 0.18) / 0.82) * 0.56;
+      color = mix(color, [0.86, 0.89, 0.86], snowStrength);
     }
 
     return color;
@@ -250,45 +249,64 @@ export function buildPlanetPreview(
   }
 
   function sampleFromRowCol(row: number, col: number): Rgb {
-    if (height === 0 || width === 0) return [1, 0, 1];
-    return mode === "FINAL" ? finalColor(clampRow(row), wrapCol(col)) : debugColor(clampRow(row), wrapCol(col));
+    if (gridHeight === 0 || gridWidth === 0) return [1, 0, 1];
+    const r = clampRow(Math.floor(row));
+    const c = wrapCol(Math.floor(col));
+    return mode === "FINAL" ? finalColor(r, c) : debugColor(r, c);
+  }
+
+  function sampleSmoothFromGrid(row: number, col: number): Rgb {
+    if (gridHeight === 0 || gridWidth === 0) return [1, 0, 1];
+
+    // Keep hard diagnostic layers crisp. Smooth the visual/readout layers.
+    if (mode === "LAND_WATER" || mode === "PLATES" || mode === "RIVERS") {
+      return sampleFromRowCol(row, col);
+    }
+
+    const r0 = Math.floor(row);
+    const c0 = Math.floor(col);
+    const ty = row - r0;
+    const tx = col - c0;
+
+    const a = sampleFromRowCol(r0, c0);
+    const b = sampleFromRowCol(r0, c0 + 1);
+    const c = sampleFromRowCol(r0 + 1, c0);
+    const d = sampleFromRowCol(r0 + 1, c0 + 1);
+
+    return mix(mix(a, b, tx), mix(c, d, tx), ty);
   }
 
   function sampleRGBAFromRowCol(row: number, col: number): Rgba {
     return toRGBA255(sampleFromRowCol(row, col));
   }
 
-  const rgba = rasterizeToBytes(width, height, (x, y) => {
-    const col = Math.floor(x);
-    const row = Math.floor(y);
-    return sampleRGBAFromRowCol(row, col);
+  function sampleRGBAFromTextureCoord(x: number, y: number): Rgba {
+    const gridCol = (x / textureWidth) * gridWidth;
+    const gridRow = (y / textureHeight) * gridHeight;
+    return toRGBA255(sampleSmoothFromGrid(gridRow, gridCol));
+  }
+
+  const rgba = rasterizeToBytes(textureWidth, textureHeight, (x, y) => {
+    return sampleRGBAFromTextureCoord(x, y);
   });
 
   return {
-    width,
-    height,
+    width: textureWidth,
+    height: textureHeight,
     seaLevel,
     rgba,
-    colorAt: (x, y) => {
-      const col = Math.floor(x);
-      const row = Math.floor(y);
-      return sampleRGBAFromRowCol(row, col);
-    },
-    minimapColorAt: (x, y) => {
-      const col = Math.floor(x);
-      const row = Math.floor(y);
-      return sampleRGBAFromRowCol(row, col);
-    },
+    colorAt: (x, y) => sampleRGBAFromTextureCoord(x, y),
+    minimapColorAt: (x, y) => sampleRGBAFromTextureCoord(x, y),
     sampleGlobeColor: (cellIndex) => {
       const idx = Number.isInteger(cellIndex) ? cellIndex : -1;
-      const row = idx < 0 ? -1 : Math.floor(idx / width);
-      const col = idx < 0 ? -1 : idx % width;
+      const row = idx < 0 ? -1 : Math.floor(idx / gridWidth);
+      const col = idx < 0 ? -1 : idx % gridWidth;
       return sampleRGBAFromRowCol(row, col);
     },
     sampleMinimapColor: (cellIndex) => {
       const idx = Number.isInteger(cellIndex) ? cellIndex : -1;
-      const row = idx < 0 ? -1 : Math.floor(idx / width);
-      const col = idx < 0 ? -1 : idx % width;
+      const row = idx < 0 ? -1 : Math.floor(idx / gridWidth);
+      const col = idx < 0 ? -1 : idx % gridWidth;
       return sampleRGBAFromRowCol(row, col);
     },
   };
@@ -332,13 +350,13 @@ function biomeColorFromId(id: number): Rgb {
     case 5:
       return [0.33, 0.56, 0.28]; // temperate default
     case 6:
-      return [0.72, 0.74, 0.70]; // alpine / ice
+      return [0.68, 0.70, 0.66]; // alpine / ice
     case 7:
       return [0.23, 0.50, 0.31]; // wet forest
     case 8:
-      return [0.75, 0.62, 0.36]; // hot desert
+      return [0.72, 0.60, 0.36]; // hot desert
     case 9:
-      return [0.62, 0.58, 0.30]; // savanna
+      return [0.58, 0.56, 0.30]; // savanna
     case 10:
       return [0.16, 0.43, 0.22]; // tropical forest
     case 0:
