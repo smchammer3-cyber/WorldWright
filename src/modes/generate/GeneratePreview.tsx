@@ -17,6 +17,7 @@ type Props = {
 export default function GeneratePreview({ world, error }: Props) {
   const [previewMode, setPreviewMode] = useState<PlanetPreviewMode>("FINAL");
   const [showDiagnostics, setShowDiagnostics] = useState(true);
+  const activeMode = PLANET_PREVIEW_MODES.find((option) => option.id === previewMode);
 
   const preview = useMemo(() => {
     if (!world) return null;
@@ -35,30 +36,38 @@ export default function GeneratePreview({ world, error }: Props) {
 
   return (
     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", background: "#000" }}>
-      <div style={{ padding: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "rgba(0,0,0,0.7)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ padding: 12, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: "rgba(0,0,0,0.7)", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flexWrap: "wrap" }}>
           <div style={{ fontWeight: 900, color: "#fff" }}>World Preview</div>
           {world && (
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(255,255,255,0.78)" }}>
-              Layer
-              <select
-                value={previewMode}
-                onChange={(event) => setPreviewMode(event.target.value as PlanetPreviewMode)}
-                style={{
-                  background: "rgba(255,255,255,0.10)",
-                  border: "1px solid rgba(255,255,255,0.20)",
-                  borderRadius: 6,
-                  color: "#fff",
-                  padding: "4px 8px",
-                }}
-              >
-                {PLANET_PREVIEW_MODES.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(255,255,255,0.78)", flexWrap: "wrap" }}>
+              <span>Layer</span>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", maxWidth: 560 }}>
+                {PLANET_PREVIEW_MODES.map((option) => {
+                  const selected = option.id === previewMode;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      title={option.label}
+                      onClick={() => setPreviewMode(option.id)}
+                      style={{
+                        background: selected ? "rgba(76, 190, 255, 0.26)" : "rgba(255,255,255,0.10)",
+                        border: selected ? "1px solid rgba(120,210,255,0.62)" : "1px solid rgba(255,255,255,0.18)",
+                        borderRadius: 999,
+                        color: "#fff",
+                        padding: "4px 9px",
+                        fontSize: 11,
+                        fontWeight: selected ? 900 : 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
           {world && diagnostics && (
             <button
@@ -67,11 +76,12 @@ export default function GeneratePreview({ world, error }: Props) {
               style={{
                 background: showDiagnostics ? "rgba(76, 190, 255, 0.22)" : "rgba(255,255,255,0.10)",
                 border: "1px solid rgba(255,255,255,0.20)",
-                borderRadius: 6,
+                borderRadius: 999,
                 color: "#fff",
                 fontSize: 12,
-                padding: "4px 8px",
+                padding: "5px 10px",
                 cursor: "pointer",
+                fontWeight: 900,
               }}
             >
               Diagnostics {diagnostics.summary.problemCount > 0 ? `(${diagnostics.summary.problemCount} issues)` : ""}
@@ -80,8 +90,8 @@ export default function GeneratePreview({ world, error }: Props) {
         </div>
 
         {meta && (
-          <div style={{ fontSize: 12, opacity: 0.75, color: "#fff" }}>
-            {meta.styleMode} • {meta.gridWidth}×{meta.gridHeight} • seed {meta.seed}
+          <div style={{ fontSize: 12, opacity: 0.75, color: "#fff", whiteSpace: "nowrap" }}>
+            {meta.styleMode} • {meta.gridWidth}×{meta.gridHeight} • seed {meta.seed} • {activeMode?.label ?? previewMode}
           </div>
         )}
       </div>
@@ -121,7 +131,7 @@ export default function GeneratePreview({ world, error }: Props) {
                 position: "absolute",
                 left: 12,
                 bottom: 12,
-                width: 360,
+                width: "min(360px, calc(100% - 24px))",
                 maxHeight: "72%",
                 overflow: "auto",
                 padding: 12,
