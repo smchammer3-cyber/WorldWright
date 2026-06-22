@@ -7,6 +7,7 @@ import { recomputeWorld } from '../worldRecompute';
 import { validateWorld } from '../worldValidation';
 import { saveWorld, getWorldById } from '../worldStorage';
 import { cloneWorld, simulateTick } from '../worldSim';
+import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
 
 /**
  * WorldSession encapsulates all live state and editing operations on a single
@@ -143,6 +144,8 @@ class WorldSession {
   async createWorld(params: GeneratorParams): Promise<void> {
     const w = generateWorldFromParams(params);
     this.normalizeWorld(w);
+    recomputeWorld(w, ['GENERATED']);
+    applyGeneratedWorldQualityPass(w);
     recomputeWorld(w, ['GENERATED']);
 
     const errors = validateWorld(w);
