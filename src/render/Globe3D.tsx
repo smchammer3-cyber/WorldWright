@@ -37,6 +37,31 @@ export default function Globe3D({ world, preview, className, style }: Props) {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const meshRotationRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
+  function renderRuntime() {
+    const rt = runtimeRef.current;
+    if (!rt) return;
+    rt.renderer.render(rt.scene, rt.camera);
+  }
+
+  function zoomBy(delta: number) {
+    const rt = runtimeRef.current;
+    if (!rt) return;
+    rt.camera.position.z = clamp(rt.camera.position.z + delta, 1.55, 6.2);
+    renderRuntime();
+  }
+
+  function resetView() {
+    const rt = runtimeRef.current;
+    if (!rt) return;
+    rt.velX = 0;
+    rt.velY = 0;
+    rt.mesh.rotation.x = 0;
+    rt.mesh.rotation.y = 0;
+    meshRotationRef.current = { x: 0, y: 0 };
+    rt.camera.position.z = 2.6;
+    renderRuntime();
+  }
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -58,8 +83,9 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     }
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(window.devicePixelRatio || 1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(width, height, false);
+    renderer.domElement.style.touchAction = 'none';
     el.appendChild(renderer.domElement);
 
     const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
@@ -109,6 +135,18 @@ export default function Globe3D({ world, preview, className, style }: Props) {
 
     runtimeRef.current = runtime;
 
+    function renderOnce() {
+      const rt = runtimeRef.current;
+      if (!rt) return;
+      rt.renderer.render(rt.scene, rt.camera);
+    }
+
+    function requestRender() {
+      const rt = runtimeRef.current;
+      if (!rt || rt.animationFrameId !== null) return;
+      rt.animationFrameId = requestAnimationFrame(animate);
+    }
+
     function onResize() {
       const host = containerRef.current;
       const rt = runtimeRef.current;
@@ -119,6 +157,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       rt.camera.aspect = w / h;
       rt.camera.updateProjectionMatrix();
       rt.renderer.setSize(w, h, false);
+      requestRender();
     }
 
     function toLocalPoint(ev: PointerEvent) {
@@ -129,6 +168,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     function onPointerDown(ev: PointerEvent) {
       const rt = runtimeRef.current;
       if (!rt) return;
+      ev.preventDefault();
       rt.isPointerDown = true;
       renderer.domElement.setPointerCapture(ev.pointerId);
       const p = toLocalPoint(ev);
@@ -141,6 +181,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     function onPointerMove(ev: PointerEvent) {
       const rt = runtimeRef.current;
       if (!rt || !rt.isPointerDown) return;
+      ev.preventDefault();
 
       const p = toLocalPoint(ev);
       const dx = p.x - rt.lastX;
@@ -162,6 +203,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
 
       rt.velX = -dx * sens * 0.6 + rt.velX * 0.4;
       rt.velY = -dy * sens * 0.6 + rt.velY * 0.4;
+      requestRender();
     }
 
     function onPointerUp(ev: PointerEvent) {
@@ -171,14 +213,16 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       try {
         renderer.domElement.releasePointerCapture(ev.pointerId);
       } catch {}
+      requestRender();
     }
 
     function onWheel(ev: WheelEvent) {
       const rt = runtimeRef.current;
       if (!rt) return;
       ev.preventDefault();
-      const delta = ev.deltaY > 0 ? 0.2 : -0.2;
-      rt.camera.position.z = clamp(rt.camera.position.z + delta, 1.6, 6);
+      const delta = ev.deltaY > 0 ? 0.22 : -0.22;
+      rt.camera.position.z = clamp(rt.camera.position.z + delta, 1.55, 6.2);
+      requestRender();
     }
 
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
@@ -192,7 +236,8 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       const rt = runtimeRef.current;
       if (!rt) return;
 
-      if (Math.abs(rt.velX) > 1e-5 || Math.abs(rt.velY) > 1e-5) {
+      const moving = Math.abs(rt.velX) > 1e-5 || Math.abs(rt.velY) > 1e-5;
+      if (moving) {
         rt.mesh.rotation.y += rt.velX;
         rt.mesh.rotation.x = clamp(
           rt.mesh.rotation.x + rt.velY,
@@ -203,15 +248,15 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         meshRotationRef.current.x = rt.mesh.rotation.x;
         meshRotationRef.current.y = rt.mesh.rotation.y;
 
-        rt.velX *= 0.92;
-        rt.velY *= 0.92;
+        rt.velX *= 0.90;
+        rt.velY *= 0.90;
       }
 
-      rt.renderer.render(rt.scene, rt.camera);
-      rt.animationFrameId = requestAnimationFrame(animate);
+      renderOnce();
+      rt.animationFrameId = moving ? requestAnimationFrame(animate) : null;
     }
 
-    animate();
+    requestRender();
 
     return () => {
       const rt = runtimeRef.current;
@@ -227,7 +272,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         renderer.domElement.removeEventListener('wheel', onWheel as any);
       } catch {}
 
-      if (rt?.animationFrameId) cancelAnimationFrame(rt.animationFrameId);
+      if (rt?.animationFrameId !== null) cancelAnimationFrame(rt.animationFrameId);
 
       try {
         rt?.texture?.dispose();
@@ -256,6 +301,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     rt.material.map = texture;
     rt.material.needsUpdate = true;
     rt.mountedPreviewKey = previewKey;
+    renderRuntime();
   }, [preview]);
 
   useEffect(() => {
@@ -274,7 +320,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       normalTexture.magFilter = THREE.LinearFilter;
       normalTexture.minFilter = THREE.LinearMipmapLinearFilter;
       normalTexture.generateMipmaps = true;
-      normalTexture.anisotropy = rt.renderer.capabilities.getMaxAnisotropy();
+      normalTexture.anisotropy = Math.min(rt.renderer.capabilities.getMaxAnisotropy(), 4);
       normalTexture.flipY = false;
       normalTexture.needsUpdate = true;
 
@@ -283,12 +329,58 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       rt.material.normalMap = normalTexture;
       rt.material.needsUpdate = true;
       rt.mountedNormalKey = key;
+      renderRuntime();
     } catch (e) {
       console.warn('[Globe3D] Failed to generate normal map:', e);
     }
   }, [world]);
 
-  return <div ref={containerRef} className={className} style={{ width: '100%', height: '100%', ...style }} />;
+  return (
+    <div className={className} style={{ position: 'relative', width: '100%', height: '100%', ...style }}>
+      <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+      <div
+        style={{
+          position: 'absolute',
+          right: 14,
+          bottom: 14,
+          display: 'flex',
+          gap: 6,
+          padding: 6,
+          borderRadius: 999,
+          background: 'rgba(0,0,0,0.58)',
+          border: '1px solid rgba(255,255,255,0.18)',
+          backdropFilter: 'blur(5px)',
+          zIndex: 5,
+        }}
+      >
+        <GlobeButton label="−" title="Zoom out" onClick={() => zoomBy(0.32)} />
+        <GlobeButton label="Reset" title="Reset globe view" onClick={resetView} wide />
+        <GlobeButton label="+" title="Zoom in" onClick={() => zoomBy(-0.32)} />
+      </div>
+    </div>
+  );
+}
+
+function GlobeButton({ label, title, onClick, wide = false }: { label: string; title: string; onClick: () => void; wide?: boolean }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      style={{
+        minWidth: wide ? 54 : 34,
+        height: 32,
+        border: '1px solid rgba(255,255,255,0.22)',
+        borderRadius: 999,
+        background: 'rgba(255,255,255,0.12)',
+        color: '#fff',
+        fontWeight: 900,
+        cursor: 'pointer',
+      }}
+    >
+      {label}
+    </button>
+  );
 }
 
 function buildPreviewKey(preview: PlanetPreview): string {
@@ -347,7 +439,7 @@ function createTextureFromPreview(rt: GlobeRuntime, preview: PlanetPreview): THR
   tex.magFilter = THREE.LinearFilter;
   tex.minFilter = THREE.LinearMipmapLinearFilter;
   tex.generateMipmaps = true;
-  tex.anisotropy = rt.renderer.capabilities.getMaxAnisotropy();
+  tex.anisotropy = Math.min(rt.renderer.capabilities.getMaxAnisotropy(), 4);
   tex.flipY = false;
   tex.needsUpdate = true;
   return tex;
