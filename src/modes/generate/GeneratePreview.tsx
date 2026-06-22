@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import Globe3D from "../../render/Globe3D";
+import { getDiagnosticContext } from "../../core/worldDiagnosticContext";
 import type { DiagnosticLevel } from "../../core/worldDiagnostics";
 import { computeWorldDiagnostics } from "../../core/worldDiagnostics";
 import type { WorldBrain } from "../../core/worldSchema";
@@ -27,6 +28,11 @@ export default function GeneratePreview({ world, error }: Props) {
   const diagnostics = useMemo(() => {
     if (!world) return null;
     return computeWorldDiagnostics(world);
+  }, [world]);
+
+  const diagnosticContext = useMemo(() => {
+    if (!world) return null;
+    return getDiagnosticContext(world);
   }, [world]);
 
   const meta = useMemo(() => {
@@ -149,6 +155,24 @@ export default function GeneratePreview({ world, error }: Props) {
                   {diagnostics.summary.problemCount} problem • {diagnostics.summary.watchCount} watch
                 </div>
               </div>
+              {diagnosticContext && (
+                <div
+                  style={{
+                    marginBottom: 9,
+                    padding: "6px 8px",
+                    borderRadius: 8,
+                    background: diagnosticContext.mode === "extreme" ? "rgba(255, 190, 80, 0.14)" : "rgba(255,255,255,0.07)",
+                    border: "1px solid rgba(255,255,255,0.11)",
+                    fontSize: 10,
+                    lineHeight: 1.35,
+                    color: "rgba(255,255,255,0.72)",
+                  }}
+                >
+                  <div style={{ color: "#fff", fontWeight: 900 }}>{diagnosticContext.label}</div>
+                  <div>{diagnosticContext.note}</div>
+                  {diagnosticContext.warnings.length > 0 && <div>{diagnosticContext.warnings[0]}</div>}
+                </div>
+              )}
               <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: "6px 8px", fontSize: 11 }}>
                 {diagnostics.metrics.map((metric) => (
                   <React.Fragment key={metric.id}>
@@ -159,7 +183,7 @@ export default function GeneratePreview({ world, error }: Props) {
                 ))}
               </div>
               <div style={{ marginTop: 10, fontSize: 10, lineHeight: 1.35, color: "rgba(255,255,255,0.55)" }}>
-                This panel measures the generated world. It does not fix anything yet; it tells us which layer is failing before we change more math.
+                This panel measures the generated world. Baseline mode is best for judging generator health; extreme sliders are allowed to produce warnings.
               </div>
             </div>
           )}
