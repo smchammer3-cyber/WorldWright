@@ -1,9 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppShell, { ToolGroup } from "../../ui/AppShell";
 import { GeneratorParams } from "../../core/worldGenerator";
 import { worldSession } from "../../core/worldSession";
-import { makePlanetPreviewFromWorldBrain } from "../../core/planetRenderer";
 import { saveWorld } from "../../core/worldStorage";
 
 import GenerateControls from "./GenerateControls";
@@ -15,11 +14,6 @@ export default function GenerateModeApp() {
   const [world, setWorld] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const preview = useMemo(() => {
-    if (!world) return null;
-    return makePlanetPreviewFromWorldBrain(world);
-  }, [world]);
 
   async function handleGenerate(params: GeneratorParams) {
     setError(null);
