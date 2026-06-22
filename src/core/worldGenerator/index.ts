@@ -1,13 +1,13 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.6 TECTONIC FEATURE FIELDS)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.5 NATURALIZED TECTONIC TERRAIN)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
 // - keep worldGenerator as the sole owner of initial generation
 // - keep continuous terrain first, then let sea level flood it
-// - convert raw plate boundaries into geological feature fields
-// - shape mountains, trenches, ridges, shelves, basins, and broken coasts
-// - stop letting raw plate polygons stamp directly into Height/Land/Ocean layers
+// - use tectonics as a geological influence layer, not a visible tile stamp
+// - narrow and vary boundary relief so plates shape mountains/ridges/trenches
+// - add continent breakup, shelves, basins, and subtle texture
 // ========================================================
 
 import {
@@ -45,16 +45,6 @@ type Vec3 = [number, number, number];
 type HeightBuild = {
   heights: Float32Array;
   seaLevel: number;
-};
-
-type TectonicFeatureFields = {
-  mountain: Float32Array;
-  trench: Float32Array;
-  ridge: Float32Array;
-  volcanicArc: Float32Array;
-  fracture: Float32Array;
-  boundary: Float32Array;
-  continentalCrust: Float32Array;
 };
 
 export function createDefaultGeneratorParams(): GeneratorParams {
@@ -159,7 +149,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       name: 'Untitled World',
       seed: String(effectiveSeed),
       schemaVersion: 'v3',
-      version: 'v1.6',
+      version: 'v1.5',
       styleMode: params.styleMode,
       gridWidth: width,
       gridHeight: height,
@@ -189,10 +179,10 @@ function buildContinuousTerrain(args: {
   const age01 = clamp01(params.planetAge / 100);
   const erosion01 = clamp01(params.erosionIntensity / 100);
   const count01 = clamp01((params.continentCount - 1) / 11);
-  const terrainSharpness = lerp(1.18, 0.94, age01);
-  const continentFragmentation = lerp(0.88, 1.46, count01);
-  const reliefSignal = lerp(0.80, 1.24, plateActivity01);
-  const features = buildTectonicFeatureFields(width, height, fields, seedUint, plateActivity01, continentFragmentation);
+  const terrainSharpness = lerp(1.16, 0.92, age01);
+  const tectonicSignal = lerp(0.18, 0.34, plateActivity01);
+  const reliefSignal = lerp(0.75, 1.12, plateActivity01);
+  const continentFragmentation = lerp(0.82, 1.38, count01);
 
   for (let r = 0; r < height; r++) {
     const lat = 90 - ((r + 0.5) / height) * 180;
@@ -204,203 +194,63 @@ function buildContinuousTerrain(args: {
       const tect = fields[idx];
       const lon = ((c + 0.5) / width) * 360 - 180;
       const dir = latLonToUnitVector(lat, lon);
-
-      const broad = sphereFbm(shiftVec(dir, 17.1, -5.3, 8.7), seedUint, 0.58 * continentFragmentation, 4);
-      const regional = sphereFbm(shiftVec(dir, -3.9, 11.8, 2.6), seedUint, 1.50 * continentFragmentation, 4);
-      const breakup = sphereFbm(shiftVec(dir, 6.4, 1.7, -13.2), seedUint, 4.25 * continentFragmentation, 3);
-      const detail = sphereFbm(shiftVec(dir, -12.6, 4.2, 5.9), seedUint, 9.2, 2);
-      const highlandNoise = sphereFbm(shiftVec(dir, 24.0, -6.0, 3.0), seedUint, 2.9, 3);
-      const basinNoise = sphereFbm(shiftVec(dir, -8.8, -2.6, 15.4), seedUint, 2.35, 3);
-
-      const continentalCrust = features.continentalCrust[idx];
-      const oceanCrust = 1 - continentalCrust;
-      const plateInterior = smoothstep(0.22, 0.92, tect.distanceToBoundary);
-      const subtlePlateMemory = tect.plateType === PlateType.CONTINENTAL ? 0.025 : -0.030;
-
-      const continentElevation = lerp(-0.070, 0.235, continentalCrust);
-      const oceanElevation = lerp(-0.310, -0.115, continentalCrust);
-      const crustalElevation = continentElevation * continentalCrust + oceanElevation * oceanCrust;
-
-      const mountainRelief =
-        features.mountain[idx] * (0.300 + Math.max(0, tect.compression) * 0.120) * reliefSignal;
-      const volcanicRelief = features.volcanicArc[idx] * (0.090 + Math.max(0, detail) * 0.050) * reliefSignal;
-      const ridgeRelief = features.ridge[idx] * (0.095 + Math.max(0, breakup) * 0.030) * reliefSignal;
-      const trenchCut = features.trench[idx] * -0.250 * reliefSignal;
-      const fractureCut = features.fracture[idx] * (regional * 0.035 - 0.020) * reliefSignal;
-
-      const interiorRelief =
-        continentalCrust * (regional * 0.048 + breakup * 0.042 + highlandNoise * 0.036) * plateInterior +
-        oceanCrust * (-0.115 - basinNoise * 0.052) * plateInterior;
-
-      const fineShape = broad * 0.120 + regional * 0.090 + breakup * 0.075 + detail * 0.026;
-      const styleBias =
-        params.styleMode === 'FANTASY'
-          ? 0.030
-          : params.styleMode === 'STYLIZED'
-            ? 0.015
-            : params.styleMode === 'ALIEN'
-              ? detail * 0.030
-              : 0;
-
+      const interiorness = clamp01(tect.distanceToBoundary);
+      const boundaryProximity = clamp01(1 - tect.distanceToBoundary);
+      const boundaryBand = Math.pow(boundaryProximity, 2.4);
+      const innerPlateGate = smoothstep(0.22, 0.92, interiorness);
+      const broad = sphereFbm(shiftVec(dir, 17.1, -5.3, 8.7), seedUint, 0.62 * continentFragmentation, 4);
+      const regional = sphereFbm(shiftVec(dir, -3.9, 11.8, 2.6), seedUint, 1.62 * continentFragmentation, 4);
+      const breakup = sphereFbm(shiftVec(dir, 6.4, 1.7, -13.2), seedUint, 3.85 * continentFragmentation, 3);
+      const detail = sphereFbm(shiftVec(dir, -12.6, 4.2, 5.9), seedUint, 8.6, 2);
+      const boundaryNoise = sphereFbm(shiftVec(dir, 2.9, -18.2, 10.1), seedUint, 5.2, 2);
+      const basinNoise = sphereFbm(shiftVec(dir, -8.8, -2.6, 15.4), seedUint, 2.2, 3);
+      const crustalNoise = broad * 0.52 + regional * 0.30 + breakup * 0.17 + detail * 0.06;
+      const continentKernel = crustalNoise + (tect.plateType === PlateType.CONTINENTAL ? 0.20 : -0.20);
+      const continentalProvince = smoothstep(-0.24, 0.34, continentKernel);
+      const oceanicProvince = 1 - continentalProvince;
+      const continentalBase = tect.plateType === PlateType.CONTINENTAL
+        ? lerp(-0.035, 0.205, continentalProvince) * lerp(0.62, 1.0, innerPlateGate)
+        : lerp(-0.260, -0.095, continentalProvince) * lerp(0.80, 1.0, innerPlateGate);
+      const stableInteriorRelief = tect.plateType === PlateType.CONTINENTAL
+        ? (regional * 0.035 + breakup * 0.030 + detail * 0.018) * innerPlateGate
+        : (-0.105 - basinNoise * 0.040) * oceanicProvince * innerPlateGate;
+      const convergentRelief = tect.boundaryType === BoundaryType.CONVERGENT
+        ? (0.070 + Math.max(0, tect.compression) * 0.155 + boundaryNoise * 0.035) * boundaryBand * reliefSignal
+        : 0;
+      const divergentRelief = tect.boundaryType === BoundaryType.DIVERGENT
+        ? (tect.plateType === PlateType.OCEANIC ? 0.060 + boundaryNoise * 0.020 : -0.055 + boundaryNoise * 0.018) * boundaryBand * reliefSignal
+        : 0;
+      const transformRelief = tect.boundaryType === BoundaryType.TRANSFORM
+        ? (boundaryNoise * 0.025 - 0.012) * boundaryBand * reliefSignal
+        : 0;
+      const trenchCut = tect.boundaryType === BoundaryType.CONVERGENT && tect.plateType === PlateType.OCEANIC
+        ? -0.135 * boundaryBand * reliefSignal
+        : 0;
+      const islandArcBoost = tect.boundaryType === BoundaryType.CONVERGENT && tect.plateType === PlateType.OCEANIC
+        ? Math.max(0, boundaryNoise) * 0.070 * boundaryBand * reliefSignal
+        : 0;
+      const noiseShape = broad * 0.12 + regional * 0.095 + breakup * 0.070 + detail * 0.024;
+      const styleBias = params.styleMode === 'FANTASY'
+        ? 0.030
+        : params.styleMode === 'STYLIZED'
+          ? 0.015
+          : params.styleMode === 'ALIEN'
+            ? detail * 0.030
+            : 0;
       heights[idx] = clamp(
-        (crustalElevation + subtlePlateMemory + interiorRelief + mountainRelief + volcanicRelief + ridgeRelief + trenchCut + fractureCut + fineShape * terrainSharpness + styleBias) *
-          (1 - poleSoftener * 0.10),
+        (continentalBase * tectonicSignal + stableInteriorRelief + convergentRelief + divergentRelief + transformRelief + trenchCut + islandArcBoost + noiseShape * terrainSharpness + styleBias) * (1 - poleSoftener * 0.12),
         -1.4,
         1.5
       );
     }
   }
 
-  smoothHeightField(heights, width, height, Math.max(1, Math.round(lerp(1, 3, erosion01))), lerp(0.040, 0.090, erosion01));
-  addSubtleTerrainTexture(heights, width, height, seedUint, lerp(0.012, 0.025, 1 - erosion01));
+  smoothHeightField(heights, width, height, Math.max(1, Math.round(lerp(1, 3, erosion01))), lerp(0.045, 0.105, erosion01));
+  addSubtleTerrainTexture(heights, width, height, seedUint, lerp(0.012, 0.022, 1 - erosion01));
   const seaLevel = chooseSeaLevelForLandFraction(heights, width, height, targetLandFraction);
-  applyLandformAndBathymetryPass(heights, width, height, seaLevel, fields, features, seedUint, erosion01);
-  addCoastlineBreakup(heights, width, height, seedUint, lerp(0.026, 0.052, 1 - erosion01), seaLevel);
+  applyCoastalShelfShaping(heights, width, height, seaLevel);
+  addCoastlineBreakup(heights, width, height, seedUint, lerp(0.020, 0.045, 1 - erosion01), seaLevel);
   return { heights, seaLevel };
-}
-
-function buildTectonicFeatureFields(
-  width: number,
-  height: number,
-  fields: TectonicsField[],
-  seedUint: number,
-  plateActivity01: number,
-  continentFragmentation: number
-): TectonicFeatureFields {
-  const total = width * height;
-  const mountain = new Float32Array(total);
-  const trench = new Float32Array(total);
-  const ridge = new Float32Array(total);
-  const volcanicArc = new Float32Array(total);
-  const fracture = new Float32Array(total);
-  const boundary = new Float32Array(total);
-  const continentalCrust = new Float32Array(total);
-
-  for (let r = 0; r < height; r++) {
-    const lat = 90 - ((r + 0.5) / height) * 180;
-    for (let c = 0; c < width; c++) {
-      const idx = r * width + c;
-      const f = fields[idx];
-      const lon = ((c + 0.5) / width) * 360 - 180;
-      const dir = latLonToUnitVector(lat, lon);
-      const boundaryNoise = sphereFbm(shiftVec(dir, 31.7, -8.4, 11.2), seedUint, 6.0, 2);
-      const segmentNoise = sphereFbm(shiftVec(dir, -18.5, 16.0, -3.2), seedUint, 2.8, 2);
-      const crustNoise = sphereFbm(shiftVec(dir, 3.7, 28.2, -10.0), seedUint, 1.35 * continentFragmentation, 4);
-      const breakupNoise = sphereFbm(shiftVec(dir, -11.4, 5.8, 18.0), seedUint, 4.7 * continentFragmentation, 3);
-      const activeSegment = smoothstep(-0.22, 0.58, segmentNoise + boundaryNoise * 0.35);
-      const boundaryProximity = Math.pow(clamp01(1 - f.distanceToBoundary), 2.8);
-      const boundaryStrength = clamp01(f.boundaryStrength * activeSegment * (0.70 + plateActivity01 * 0.45));
-
-      boundary[idx] = boundaryProximity * boundaryStrength;
-
-      if (f.boundaryType === BoundaryType.CONVERGENT) {
-        if (f.plateType === PlateType.CONTINENTAL) {
-          mountain[idx] = boundary[idx] * smoothstep(-0.10, 0.40, f.compression + boundaryNoise * 0.20);
-          volcanicArc[idx] = boundary[idx] * Math.max(0, boundaryNoise) * 0.18;
-        } else {
-          trench[idx] = boundary[idx] * smoothstep(-0.05, 0.48, f.compression + 0.10);
-          volcanicArc[idx] = boundary[idx] * smoothstep(-0.05, 0.55, boundaryNoise + segmentNoise * 0.25) * 0.75;
-        }
-      } else if (f.boundaryType === BoundaryType.DIVERGENT) {
-        ridge[idx] = boundary[idx] * (f.plateType === PlateType.OCEANIC ? 0.90 : 0.35);
-      } else if (f.boundaryType === BoundaryType.TRANSFORM) {
-        fracture[idx] = boundary[idx] * 0.48;
-      }
-
-      const plateBias = f.plateType === PlateType.CONTINENTAL ? 0.32 : -0.22;
-      continentalCrust[idx] = smoothstep(-0.35, 0.40, crustNoise * 0.72 + breakupNoise * 0.34 + plateBias + mountain[idx] * 0.18 - trench[idx] * 0.22);
-    }
-  }
-
-  spreadFeatureField(mountain, width, height, 4, 0.62);
-  spreadFeatureField(trench, width, height, 3, 0.56);
-  spreadFeatureField(ridge, width, height, 5, 0.68);
-  spreadFeatureField(volcanicArc, width, height, 3, 0.54);
-  spreadFeatureField(fracture, width, height, 2, 0.45);
-  smoothScalarField(continentalCrust, width, height, 2, 0.22);
-
-  return { mountain, trench, ridge, volcanicArc, fracture, boundary, continentalCrust };
-}
-
-function spreadFeatureField(field: Float32Array, width: number, height: number, passes: number, decay: number): void {
-  for (let pass = 0; pass < passes; pass++) {
-    const next = new Float32Array(field);
-    for (let r = 0; r < height; r++) {
-      for (let c = 0; c < width; c++) {
-        const idx = r * width + c;
-        const west = r * width + ((c - 1 + width) % width);
-        const east = r * width + ((c + 1) % width);
-        const north = Math.max(0, r - 1) * width + c;
-        const south = Math.min(height - 1, r + 1) * width + c;
-        const spread = Math.max(field[west], field[east], field[north], field[south]) * decay;
-        next[idx] = Math.max(next[idx], spread);
-      }
-    }
-    field.set(next);
-  }
-}
-
-function smoothScalarField(field: Float32Array, width: number, height: number, passes: number, strength: number): void {
-  for (let pass = 0; pass < passes; pass++) {
-    const next = new Float32Array(field.length);
-    for (let r = 0; r < height; r++) {
-      for (let c = 0; c < width; c++) {
-        const idx = r * width + c;
-        const avg =
-          (field[Math.max(0, r - 1) * width + c] +
-            field[Math.min(height - 1, r + 1) * width + c] +
-            field[r * width + ((c - 1 + width) % width)] +
-            field[r * width + ((c + 1) % width)]) /
-          4;
-        next[idx] = clamp01(field[idx] + (avg - field[idx]) * strength);
-      }
-    }
-    field.set(next);
-  }
-}
-
-function applyLandformAndBathymetryPass(
-  heights: Float32Array,
-  width: number,
-  height: number,
-  seaLevel: number,
-  fields: TectonicsField[],
-  features: TectonicFeatureFields,
-  seedUint: number,
-  erosion01: number
-): void {
-  const copy = new Float32Array(heights);
-
-  for (let r = 0; r < height; r++) {
-    const lat = 90 - ((r + 0.5) / height) * 180;
-    for (let c = 0; c < width; c++) {
-      const idx = r * width + c;
-      const lon = ((c + 0.5) / width) * 360 - 180;
-      const dir = latLonToUnitVector(lat, lon);
-      const d = copy[idx] - seaLevel;
-      const localLand2 = localFractionAboveSea(copy, width, height, r, c, seaLevel, 2);
-      const localLand5 = localFractionAboveSea(copy, width, height, r, c, seaLevel, 5);
-      const shelf = smoothstep(0.04, 0.55, localLand5) * (1 - smoothstep(0.65, 0.96, localLand2));
-      const deepOcean = smoothstep(0.18, 0.02, localLand5);
-      const rough = sphereFbm(shiftVec(dir, 7.7, -22.0, 4.4), seedUint, 11.0, 2);
-      const tect = fields[idx];
-
-      if (d < 0) {
-        const basinDeepening = deepOcean * (0.070 + Math.max(0, -rough) * 0.030 + features.continentalCrust[idx] * -0.025);
-        const shelfLift = shelf * (0.075 + features.continentalCrust[idx] * 0.040);
-        const ridgeLift = features.ridge[idx] * 0.105;
-        const trenchCut = features.trench[idx] * -0.165;
-        heights[idx] = clamp(copy[idx] + shelfLift + ridgeLift + trenchCut - basinDeepening, -1.4, seaLevel - 0.004);
-      } else {
-        const edgeErosion = (1 - smoothstep(0.22, 0.92, localLand2)) * lerp(0.018, 0.050, erosion01);
-        const mountainLift = features.mountain[idx] * 0.165 + features.volcanicArc[idx] * 0.075;
-        const highlandTexture = rough * 0.025 * smoothstep(0.35, 0.88, features.continentalCrust[idx]);
-        const coastCarve = edgeErosion * (0.70 + Math.max(0, rough) * 0.45);
-        const plateInterior = smoothstep(0.16, 0.85, tect.distanceToBoundary);
-        heights[idx] = clamp(copy[idx] + mountainLift + highlandTexture * plateInterior - coastCarve, seaLevel + 0.002, 1.5);
-      }
-    }
-  }
 }
 
 function smoothHeightField(heights: Float32Array, width: number, height: number, passes: number, strength: number): void {
@@ -437,6 +287,24 @@ function addSubtleTerrainTexture(heights: Float32Array, width: number, height: n
   }
 }
 
+function applyCoastalShelfShaping(heights: Float32Array, width: number, height: number, seaLevel: number): void {
+  const copy = new Float32Array(heights);
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      const idx = r * width + c;
+      const d = copy[idx] - seaLevel;
+      const localLand = localFractionAboveSea(copy, width, height, r, c, seaLevel, 2);
+      if (d < 0 && localLand > 0.10) {
+        heights[idx] = seaLevel + d * lerp(1.0, 0.42, smoothstep(0.10, 0.62, localLand));
+      } else if (d > 0 && localLand < 0.88) {
+        heights[idx] = seaLevel + d * lerp(1.0, 0.76, 1 - smoothstep(0.42, 0.88, localLand));
+      } else if (Math.abs(d) < 0.045) {
+        heights[idx] = seaLevel + d * 0.82;
+      }
+    }
+  }
+}
+
 function addCoastlineBreakup(heights: Float32Array, width: number, height: number, seedUint: number, amount: number, seaLevel: number): void {
   const copy = new Float32Array(heights);
   for (let r = 0; r < height; r++) {
@@ -445,10 +313,10 @@ function addCoastlineBreakup(heights: Float32Array, width: number, height: numbe
       const lon = ((c + 0.5) / width) * 360 - 180;
       const dir = latLonToUnitVector(lat, lon);
       const idx = r * width + c;
-      const coastInfluence = 1 - smoothstep(0.010, 0.20, Math.abs(copy[idx] - seaLevel));
-      const fine = sphereFbm(shiftVec(dir, 19.7, -14.1, 3.3), seedUint, 11.5, 2);
-      const medium = sphereFbm(shiftVec(dir, -4.1, 18.4, -6.7), seedUint, 6.1, 2);
-      heights[idx] = clamp(heights[idx] + (fine * 0.68 + medium * 0.32) * amount * coastInfluence, -1.4, 1.5);
+      const coastInfluence = 1 - smoothstep(0.015, 0.18, Math.abs(copy[idx] - seaLevel));
+      const fine = sphereFbm(shiftVec(dir, 19.7, -14.1, 3.3), seedUint, 10.5, 2);
+      const medium = sphereFbm(shiftVec(dir, -4.1, 18.4, -6.7), seedUint, 5.6, 2);
+      heights[idx] = clamp(heights[idx] + (fine * 0.65 + medium * 0.35) * amount * coastInfluence, -1.4, 1.5);
     }
   }
 }
