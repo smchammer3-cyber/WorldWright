@@ -1,13 +1,13 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.5 NATURALIZED TECTONIC TERRAIN)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.5.1 SEAM DAMPING + LAND RELIEF)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
 // - keep worldGenerator as the sole owner of initial generation
 // - keep continuous terrain first, then let sea level flood it
-// - use tectonics as a geological influence layer, not a visible tile stamp
-// - narrow and vary boundary relief so plates shape mountains/ridges/trenches
-// - add continent breakup, shelves, basins, and subtle texture
+// - reduce direct plate seam imprint in the heightmap
+// - add land-interior relief that does not come from plate borders
+// - add narrow rift/strait cuts to break oversized land slabs
 // ========================================================
 
 import {
@@ -149,7 +149,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       name: 'Untitled World',
       seed: String(effectiveSeed),
       schemaVersion: 'v3',
-      version: 'v1.5',
+      version: 'v1.5.1',
       styleMode: params.styleMode,
       gridWidth: width,
       gridHeight: height,
@@ -176,13 +176,14 @@ function buildContinuousTerrain(args: {
 }): HeightBuild {
   const { width, height, seedUint, fields, params, plateActivity01, targetLandFraction } = args;
   const heights = new Float32Array(width * height);
+
   const age01 = clamp01(params.planetAge / 100);
   const erosion01 = clamp01(params.erosionIntensity / 100);
   const count01 = clamp01((params.continentCount - 1) / 11);
-  const terrainSharpness = lerp(1.16, 0.92, age01);
-  const tectonicSignal = lerp(0.18, 0.34, plateActivity01);
-  const reliefSignal = lerp(0.75, 1.12, plateActivity01);
-  const continentFragmentation = lerp(0.82, 1.38, count01);
+  const terrainSharpness = lerp(1.18, 0.95, age01);
+  const tectonicSignal = lerp(0.09, 0.17, plateActivity01);
+  const reliefSignal = lerp(0.42, 0.72, plateActivity01);
+  const continentFragmentation = lerp(0.90, 1.48, count01);
 
   for (let r = 0; r < height; r++) {
     const lat = 90 - ((r + 0.5) / height) * 180;
@@ -196,40 +197,52 @@ function buildContinuousTerrain(args: {
       const dir = latLonToUnitVector(lat, lon);
       const interiorness = clamp01(tect.distanceToBoundary);
       const boundaryProximity = clamp01(1 - tect.distanceToBoundary);
-      const boundaryBand = Math.pow(boundaryProximity, 2.4);
-      const innerPlateGate = smoothstep(0.22, 0.92, interiorness);
-      const broad = sphereFbm(shiftVec(dir, 17.1, -5.3, 8.7), seedUint, 0.62 * continentFragmentation, 4);
+      const boundaryBand = Math.pow(boundaryProximity, 4.0) * lerp(0.30, 0.20, plateActivity01);
+      const innerPlateGate = smoothstep(0.18, 0.88, interiorness);
+
+      const broad = sphereFbm(shiftVec(dir, 17.1, -5.3, 8.7), seedUint, 0.58 * continentFragmentation, 4);
       const regional = sphereFbm(shiftVec(dir, -3.9, 11.8, 2.6), seedUint, 1.62 * continentFragmentation, 4);
-      const breakup = sphereFbm(shiftVec(dir, 6.4, 1.7, -13.2), seedUint, 3.85 * continentFragmentation, 3);
-      const detail = sphereFbm(shiftVec(dir, -12.6, 4.2, 5.9), seedUint, 8.6, 2);
+      const breakup = sphereFbm(shiftVec(dir, 6.4, 1.7, -13.2), seedUint, 4.15 * continentFragmentation, 3);
+      const detail = sphereFbm(shiftVec(dir, -12.6, 4.2, 5.9), seedUint, 8.9, 2);
       const boundaryNoise = sphereFbm(shiftVec(dir, 2.9, -18.2, 10.1), seedUint, 5.2, 2);
-      const basinNoise = sphereFbm(shiftVec(dir, -8.8, -2.6, 15.4), seedUint, 2.2, 3);
-      const crustalNoise = broad * 0.52 + regional * 0.30 + breakup * 0.17 + detail * 0.06;
-      const continentKernel = crustalNoise + (tect.plateType === PlateType.CONTINENTAL ? 0.20 : -0.20);
-      const continentalProvince = smoothstep(-0.24, 0.34, continentKernel);
+      const basinNoise = sphereFbm(shiftVec(dir, -8.8, -2.6, 15.4), seedUint, 2.3, 3);
+      const highlandNoise = sphereFbm(shiftVec(dir, 24.0, -6.0, 3.0), seedUint, 2.8, 3);
+      const riftNoise = sphereFbm(shiftVec(dir, -28.0, 9.5, 15.0), seedUint, 3.4, 3);
+
+      const crustalNoise = broad * 0.48 + regional * 0.31 + breakup * 0.18 + detail * 0.05;
+      const continentKernel = crustalNoise + (tect.plateType === PlateType.CONTINENTAL ? 0.12 : -0.12);
+      const continentalProvince = smoothstep(-0.26, 0.36, continentKernel);
       const oceanicProvince = 1 - continentalProvince;
+
       const continentalBase = tect.plateType === PlateType.CONTINENTAL
-        ? lerp(-0.035, 0.205, continentalProvince) * lerp(0.62, 1.0, innerPlateGate)
-        : lerp(-0.260, -0.095, continentalProvince) * lerp(0.80, 1.0, innerPlateGate);
+        ? lerp(-0.050, 0.205, continentalProvince) * lerp(0.70, 1.0, innerPlateGate)
+        : lerp(-0.240, -0.085, continentalProvince) * lerp(0.86, 1.0, innerPlateGate);
+
+      const riftLine = 1 - smoothstep(0.025, 0.115, Math.abs(riftNoise + regional * 0.08));
+      const riftGate = smoothstep(-0.05, 0.52, breakup + broad * 0.22);
+      const riftCut = -0.078 * riftLine * riftGate * continentalProvince * innerPlateGate;
+
       const stableInteriorRelief = tect.plateType === PlateType.CONTINENTAL
-        ? (regional * 0.035 + breakup * 0.030 + detail * 0.018) * innerPlateGate
+        ? (regional * 0.060 + breakup * 0.055 + detail * 0.030 + highlandNoise * 0.052 - Math.max(0, -basinNoise) * 0.030) * innerPlateGate
         : (-0.105 - basinNoise * 0.040) * oceanicProvince * innerPlateGate;
+
       const convergentRelief = tect.boundaryType === BoundaryType.CONVERGENT
-        ? (0.070 + Math.max(0, tect.compression) * 0.155 + boundaryNoise * 0.035) * boundaryBand * reliefSignal
+        ? (0.045 + Math.max(0, tect.compression) * 0.080 + boundaryNoise * 0.020) * boundaryBand * reliefSignal
         : 0;
       const divergentRelief = tect.boundaryType === BoundaryType.DIVERGENT
-        ? (tect.plateType === PlateType.OCEANIC ? 0.060 + boundaryNoise * 0.020 : -0.055 + boundaryNoise * 0.018) * boundaryBand * reliefSignal
+        ? (tect.plateType === PlateType.OCEANIC ? 0.040 + boundaryNoise * 0.012 : -0.035 + boundaryNoise * 0.012) * boundaryBand * reliefSignal
         : 0;
       const transformRelief = tect.boundaryType === BoundaryType.TRANSFORM
-        ? (boundaryNoise * 0.025 - 0.012) * boundaryBand * reliefSignal
+        ? (boundaryNoise * 0.012 - 0.006) * boundaryBand * reliefSignal
         : 0;
       const trenchCut = tect.boundaryType === BoundaryType.CONVERGENT && tect.plateType === PlateType.OCEANIC
-        ? -0.135 * boundaryBand * reliefSignal
+        ? -0.070 * boundaryBand * reliefSignal
         : 0;
       const islandArcBoost = tect.boundaryType === BoundaryType.CONVERGENT && tect.plateType === PlateType.OCEANIC
-        ? Math.max(0, boundaryNoise) * 0.070 * boundaryBand * reliefSignal
+        ? Math.max(0, boundaryNoise) * 0.040 * boundaryBand * reliefSignal
         : 0;
-      const noiseShape = broad * 0.12 + regional * 0.095 + breakup * 0.070 + detail * 0.024;
+
+      const noiseShape = broad * 0.125 + regional * 0.110 + breakup * 0.090 + detail * 0.030 + highlandNoise * 0.035;
       const styleBias = params.styleMode === 'FANTASY'
         ? 0.030
         : params.styleMode === 'STYLIZED'
@@ -237,20 +250,61 @@ function buildContinuousTerrain(args: {
           : params.styleMode === 'ALIEN'
             ? detail * 0.030
             : 0;
+
       heights[idx] = clamp(
-        (continentalBase * tectonicSignal + stableInteriorRelief + convergentRelief + divergentRelief + transformRelief + trenchCut + islandArcBoost + noiseShape * terrainSharpness + styleBias) * (1 - poleSoftener * 0.12),
+        (continentalBase * tectonicSignal + stableInteriorRelief + riftCut + convergentRelief + divergentRelief + transformRelief + trenchCut + islandArcBoost + noiseShape * terrainSharpness + styleBias) * (1 - poleSoftener * 0.12),
         -1.4,
         1.5
       );
     }
   }
 
-  smoothHeightField(heights, width, height, Math.max(1, Math.round(lerp(1, 3, erosion01))), lerp(0.045, 0.105, erosion01));
-  addSubtleTerrainTexture(heights, width, height, seedUint, lerp(0.012, 0.022, 1 - erosion01));
+  dampenPlateSeamHeights(heights, fields, width, height, 0.24);
+  smoothHeightField(heights, width, height, Math.max(1, Math.round(lerp(1, 2, erosion01))), lerp(0.030, 0.072, erosion01));
+  addSubtleTerrainTexture(heights, width, height, seedUint, lerp(0.016, 0.030, 1 - erosion01));
   const seaLevel = chooseSeaLevelForLandFraction(heights, width, height, targetLandFraction);
+  carveNearSeaLevelStraits(heights, width, height, seedUint, seaLevel, lerp(0.030, 0.065, 1 - erosion01));
   applyCoastalShelfShaping(heights, width, height, seaLevel);
-  addCoastlineBreakup(heights, width, height, seedUint, lerp(0.020, 0.045, 1 - erosion01), seaLevel);
+  addCoastlineBreakup(heights, width, height, seedUint, lerp(0.025, 0.055, 1 - erosion01), seaLevel);
   return { heights, seaLevel };
+}
+
+function dampenPlateSeamHeights(
+  heights: Float32Array,
+  fields: TectonicsField[],
+  width: number,
+  height: number,
+  strength: number
+): void {
+  const copy = new Float32Array(heights);
+
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      const idx = r * width + c;
+      const plateId = fields[idx].plateId;
+      let crossPlateSum = 0;
+      let crossPlateCount = 0;
+
+      const neighbors = [
+        r * width + ((c - 1 + width) % width),
+        r * width + ((c + 1) % width),
+      ];
+      if (r > 0) neighbors.push((r - 1) * width + c);
+      if (r < height - 1) neighbors.push((r + 1) * width + c);
+
+      for (const nIdx of neighbors) {
+        if (fields[nIdx]?.plateId !== plateId) {
+          crossPlateSum += copy[nIdx];
+          crossPlateCount++;
+        }
+      }
+
+      if (crossPlateCount > 0) {
+        const crossAvg = crossPlateSum / crossPlateCount;
+        heights[idx] = clamp(copy[idx] + (crossAvg - copy[idx]) * strength, -1.4, 1.5);
+      }
+    }
+  }
 }
 
 function smoothHeightField(heights: Float32Array, width: number, height: number, passes: number, strength: number): void {
@@ -287,6 +341,36 @@ function addSubtleTerrainTexture(heights: Float32Array, width: number, height: n
   }
 }
 
+function carveNearSeaLevelStraits(
+  heights: Float32Array,
+  width: number,
+  height: number,
+  seedUint: number,
+  seaLevel: number,
+  amount: number
+): void {
+  const copy = new Float32Array(heights);
+
+  for (let r = 0; r < height; r++) {
+    const lat = 90 - ((r + 0.5) / height) * 180;
+    for (let c = 0; c < width; c++) {
+      const idx = r * width + c;
+      const aboveSea = copy[idx] - seaLevel;
+      if (aboveSea <= 0 || aboveSea > 0.15) continue;
+
+      const lon = ((c + 0.5) / width) * 360 - 180;
+      const dir = latLonToUnitVector(lat, lon);
+      const localLand = localFractionAboveSea(copy, width, height, r, c, seaLevel, 4);
+      const channelNoise = sphereFbm(shiftVec(dir, -31.0, 12.5, -6.0), seedUint, 4.4, 3);
+      const channel = 1 - smoothstep(0.020, 0.095, Math.abs(channelNoise));
+      const localGate = smoothstep(0.35, 0.90, localLand);
+      const cut = channel * localGate * amount;
+
+      heights[idx] = clamp(copy[idx] - cut, -1.4, 1.5);
+    }
+  }
+}
+
 function applyCoastalShelfShaping(heights: Float32Array, width: number, height: number, seaLevel: number): void {
   const copy = new Float32Array(heights);
   for (let r = 0; r < height; r++) {
@@ -313,10 +397,10 @@ function addCoastlineBreakup(heights: Float32Array, width: number, height: numbe
       const lon = ((c + 0.5) / width) * 360 - 180;
       const dir = latLonToUnitVector(lat, lon);
       const idx = r * width + c;
-      const coastInfluence = 1 - smoothstep(0.015, 0.18, Math.abs(copy[idx] - seaLevel));
-      const fine = sphereFbm(shiftVec(dir, 19.7, -14.1, 3.3), seedUint, 10.5, 2);
-      const medium = sphereFbm(shiftVec(dir, -4.1, 18.4, -6.7), seedUint, 5.6, 2);
-      heights[idx] = clamp(heights[idx] + (fine * 0.65 + medium * 0.35) * amount * coastInfluence, -1.4, 1.5);
+      const coastInfluence = 1 - smoothstep(0.012, 0.20, Math.abs(copy[idx] - seaLevel));
+      const fine = sphereFbm(shiftVec(dir, 19.7, -14.1, 3.3), seedUint, 11.2, 2);
+      const medium = sphereFbm(shiftVec(dir, -4.1, 18.4, -6.7), seedUint, 6.0, 2);
+      heights[idx] = clamp(heights[idx] + (fine * 0.66 + medium * 0.34) * amount * coastInfluence, -1.4, 1.5);
     }
   }
 }
