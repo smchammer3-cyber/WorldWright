@@ -1,27 +1,23 @@
 // ========================================================
-// WORLDWRIGHT -- WORLD GENERATOR (V1.3 REDUCED PLATEACTIVITY SILHOUETTE CONTROL)
+// WORLDWRIGHT -- WORLD GENERATOR (V1.4 CONTINUOUS TERRAIN)
 // File: src/core/worldGenerator/index.ts
 //
 // PURPOSE OF THIS BUILD:
-// - keep worldGenerator as the sole owner of generation
-// - follow blueprint order: tectonics -> terrain -> climate -> biomes -> hydrology
-// - turn debug mode off for normal generation testing
-// - make tectonic provinces the primary broad land/ocean scaffold
-// - keep continentCount generator-owned as a soft major-landmass bias
-// - reduce binary post-threshold surgery
-// - remove carve-style continent forcing that creates fake voids
-// - reduce plateActivity influence on silhouette while preserving relief influence
-// - preserve polar-cap continuation behavior
+// - keep worldGenerator as the sole owner of initial generation
+// - build continuous terrain first, then let sea level flood it
+// - use tectonic interiors for broad continents and ocean basins
+// - use boundaries for relief, not as the continent silhouette itself
+// - remove the hard binary land-mask-first terrain path that made slabs/ribbons
 // ========================================================
 
 import {
   WorldBrain,
   Cell,
-  River,
   SurfaceType,
   createEmptyCell,
   PlateType,
   BoundaryType,
+  OceanDepthClass,
 } from '../worldSchema';
 import {
   buildTectonicsField,
@@ -45,11 +41,11 @@ export type GeneratorParams = {
 };
 
 type Vec3 = [number, number, number];
-type DebugStage = 'FINAL' | 'LANDFIELD' | 'MASK_PRE' | 'MASK_POST' | 'HEIGHT';
 
-const DEBUG_STAGE: DebugStage = 'FINAL';
-const DEBUG_LOCK_SEED = false;
-const DEBUG_FIXED_SEED: number | string = 123456;
+type HeightBuild = {
+  heights: Float32Array;
+  seaLevel: number;
+};
 
 export function createDefaultGeneratorParams(): GeneratorParams {
   return {
@@ -72,49 +68,23 @@ export function createDefaultGeneratorParams(): GeneratorParams {
 export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const width = clampInt(params.width, 32, 1024);
   const height = clampInt(params.height, 16, 512);
-
-  const effectiveSeed = DEBUG_LOCK_SEED ? DEBUG_FIXED_SEED : params.seed;
+  const effectiveSeed = params.seed;
   const seedUint = seedToUint32(effectiveSeed);
   const rng = mulberry32(seedUint);
   const nowIso = new Date().toISOString();
 
-  const age01 = clamp01(params.planetAge / 100);
-  const erosion01 = clamp01(params.erosionIntensity / 100);
   const plateActivity01 = clamp01(params.plateActivity / 100);
-
-  const terrainMaturity = age01;
-  const terrainSharpness = lerp(1.10, 0.82, terrainMaturity);
-  const erosionPasses = Math.max(1, Math.round(lerp(1, 6, erosion01)));
-  const erosionStrength = lerp(0.05, 0.20, erosion01);
-
-  const climateVar01 = clamp01(params.climateVar / 100);
-  const tilt01 = clamp01(params.axisTilt / 100);
-  const moisture01 = clamp01(params.moistureLevel / 100);
-  const tempOffset01 = (params.temperatureOffset / 100) * 0.22;
-
-  const plateAmp = lerp(0.30, 1.35, plateActivity01);
   const seaBias = clamp01(params.seaLevel / 100);
-  const globalSeaLevel = lerp(-0.10, 0.14, seaBias);
-
   const targetContinentCount = clampInt(params.continentCount, 1, 12);
+  const targetLandFraction = computeTargetLandFraction(params.styleMode, seaBias, targetContinentCount);
   const plateCount = Math.max(8, Math.round(lerp(9, 20, clamp01((targetContinentCount - 1) / 11))));
 
   const cells: Cell[] = new Array(width * height);
   for (let i = 0; i < cells.length; i++) cells[i] = createEmptyCell(i);
 
-  // ----------------------------------------------------
-  // STEP 1: tectonics base influence
-  // ----------------------------------------------------
-  const tectonics = buildTectonicsField(
-    width,
-    height,
-    cells,
-    plateCount,
-    rng,
-    {
-      plateActivity: params.plateActivity,
-    }
-  );
+  const tectonics = buildTectonicsField(width, height, cells, plateCount, rng, {
+    plateActivity: params.plateActivity,
+  });
 
   const plates = tectonics.plates;
   const fields = tectonics.fields;
@@ -134,405 +104,40 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
           : clamp01(f.boundaryStrength * 0.15);
   }
 
-  // ----------------------------------------------------
-  // STEP 2: broad land plausibility
-  // ----------------------------------------------------
-  const targetLandFraction = computeTargetLandFraction(
-    params.styleMode,
-    seaBias,
-    targetContinentCount
-  );
-
-  const landField = buildLandField(
+  const terrain = buildContinuousTerrain({
     width,
     height,
     seedUint,
-    rng,
     fields,
-    params.styleMode,
+    params,
     plateActivity01,
-    targetContinentCount
-  );
-
-  if (DEBUG_STAGE === 'LANDFIELD') {
-    const debugCells = cloneCells(cells);
-
-    let minV = Number.POSITIVE_INFINITY;
-    let maxV = Number.NEGATIVE_INFINITY;
-    for (let r = 1; r < height - 1; r++) {
-      for (let c = 0; c < width; c++) {
-        const v = landField[r * width + c];
-        if (v < minV) minV = v;
-        if (v > maxV) maxV = v;
-      }
-    }
-    const range = Math.max(1e-9, maxV - minV);
-
-    for (let r = 0; r < height; r++) {
-      for (let c = 0; c < width; c++) {
-        const idx = r * width + c;
-        const v = landField[idx];
-        const t = clamp01((v - minV) / range);
-        debugCells[idx].baseHeight = lerp(-0.6, 0.6, t);
-      }
-    }
-
-    return buildDebugWorld({
-      width,
-      height,
-      seaLevel: 0,
-      cells: debugCells,
-      plates,
-      nowIso,
-      params,
-      effectiveSeed,
-      styleMode: params.styleMode,
-    });
-  }
-
-  const threshold = chooseThresholdForLandFraction(
-    landField,
-    width,
-    height,
     targetLandFraction,
-    rng
-  );
-  let landMask = thresholdField(landField, width, height, threshold);
+  });
 
-  if (DEBUG_STAGE === 'MASK_PRE') {
-    const debugCells = cloneCells(cells);
-    for (let i = 0; i < debugCells.length; i++) {
-      debugCells[i].baseHeight = landMask[i] === 1 ? 0.35 : -0.35;
-      debugCells[i].temperature = landMask[i] === 1 ? 0.55 : 0.35;
-      debugCells[i].rainfall = landMask[i] === 1 ? 0.45 : 0.55;
-      debugCells[i].snowCover = 0;
-    }
-
-    return buildDebugWorld({
-      width,
-      height,
-      seaLevel: 0,
-      cells: debugCells,
-      plates,
-      nowIso,
-      params,
-      effectiveSeed,
-      styleMode: params.styleMode,
-    });
+  for (let i = 0; i < cells.length; i++) {
+    cells[i].baseHeight = terrain.heights[i];
+    cells[i].editHeightDelta = 0;
+    cells[i].simHeightDelta = 0;
+    cells[i].isWater = cells[i].baseHeight < terrain.seaLevel;
+    cells[i].oceanDepthClass = classifyOceanDepth(cells[i].baseHeight, terrain.seaLevel, cells[i].isWater);
+    cells[i].surfaceAge = clamp01(0.18 + clamp01(params.planetAge / 100) * 0.72 + deterministicJitter(seedUint, i, 17) * 0.08);
+    cells[i].surfaceType = cells[i].isWater
+      ? SurfaceType.ALLUVIAL
+      : cells[i].volcanicActivity > 0.55
+        ? SurfaceType.VOLCANIC
+        : SurfaceType.ROCK;
   }
 
-  // ----------------------------------------------------
-  // STEP 3: light cleanup only
-  // ----------------------------------------------------
-  landMask = removeTinyIslandsAndExpandCoasts(landMask, width, height, rng, targetContinentCount);
-  landMask = mergeNearbyLandmasses(landMask, width, height, rng, targetContinentCount);
-  landMask = enforceLandCoverageTarget(landMask, width, height, rng, targetLandFraction, targetContinentCount);
-
-  if (DEBUG_STAGE === 'MASK_POST') {
-    const debugCells = cloneCells(cells);
-    for (let i = 0; i < debugCells.length; i++) {
-      debugCells[i].baseHeight = landMask[i] === 1 ? 0.35 : -0.35;
-      debugCells[i].temperature = landMask[i] === 1 ? 0.55 : 0.35;
-      debugCells[i].rainfall = landMask[i] === 1 ? 0.45 : 0.55;
-      debugCells[i].snowCover = 0;
-    }
-
-    return buildDebugWorld({
-      width,
-      height,
-      seaLevel: 0,
-      cells: debugCells,
-      plates,
-      nowIso,
-      params,
-      effectiveSeed,
-      styleMode: params.styleMode,
-    });
-  }
-
-  // ----------------------------------------------------
-  // STEP 4: convert silhouette + tectonics into terrain
-  // ----------------------------------------------------
-  for (let r = 0; r < height; r++) {
-    for (let c = 0; c < width; c++) {
-      const idx = r * width + c;
-      const cell = cells[idx];
-      const tect = fields[idx];
-
-      const lat = 90 - ((r + 0.5) / height) * 180;
-      const lon = ((c + 0.5) / width) * 360 - 180;
-      const dir = latLonToUnitVector(lat, lon);
-
-      const absLat01 = Math.abs(lat) / 90;
-      const capDamp = Math.pow(absLat01, 1.5);
-
-      const coastalFactor = computeLocalLandFraction(landMask, width, height, r, c, 2);
-      const coastBand = 1 - Math.abs(coastalFactor - 0.5) * 2;
-      const inlandFactor = clamp01((coastalFactor - 0.42) / 0.58);
-      const isLand = landMask[idx] === 1;
-
-      const largeA = sphereFbm(offsetVec(dir, 1.1, -0.2, 0.7), seedUint, 0.70, 4);
-      const largeB = sphereFbm(offsetVec(dir, -0.9, 1.3, -0.5), seedUint, 1.35, 4);
-      const medium = sphereFbm(offsetVec(dir, 0.3, 1.7, 0.1), seedUint, 3.2, 3);
-      const breakup = sphereFbm(offsetVec(dir, -1.2, -0.4, 1.0), seedUint, 7.5, 2);
-      const detailNoise = sphereFbm(offsetVec(dir, -0.8, 1.0, -0.4), seedUint, 4.2, 3);
-      const oceanNoise = sphereFbm(offsetVec(dir, -1.1, -0.7, 0.6), seedUint, 2.0, 2);
-
-      const macroTerrain =
-        (largeA * 0.10 + largeB * 0.08 + medium * 0.03 + breakup * 0.012) *
-        terrainSharpness;
-
-      const convergentRelief =
-        tect.boundaryType === BoundaryType.CONVERGENT
-          ? lerp(0.020, 0.120, tect.boundaryStrength) * (1 - tect.distanceToBoundary * 0.8)
-          : 0;
-
-      const divergentRelief =
-        tect.boundaryType === BoundaryType.DIVERGENT
-          ? lerp(-0.060, 0.012, tect.boundaryStrength) * (1 - tect.distanceToBoundary * 0.75)
-          : 0;
-
-      const transformRelief =
-        tect.boundaryType === BoundaryType.TRANSFORM
-          ? lerp(-0.004, 0.014, tect.boundaryStrength)
-          : 0;
-
-      const continentalRefine =
-        tect.plateType === PlateType.CONTINENTAL
-          ? lerp(0.016, 0.100, 1 - tect.distanceToBoundary)
-          : lerp(-0.045, 0.0, 1 - tect.distanceToBoundary);
-
-      if (isLand) {
-        let h =
-          0.02 +
-          inlandFactor * lerp(0.58, 0.70, 1 - terrainMaturity) +
-          macroTerrain +
-          detailNoise * 0.04 * (1 - capDamp * 0.3) * terrainSharpness +
-          continentalRefine +
-          convergentRelief +
-          divergentRelief * 0.22 +
-          transformRelief * 0.30 -
-          globalSeaLevel;
-
-        h -= coastBand * Math.max(0, 0.05 - detailNoise * 0.04);
-        cell.baseHeight = clamp(h, -1.4, 1.6);
-      } else {
-        let h =
-          -0.16 -
-          (0.18 + (1 - coastalFactor) * 0.56) +
-          macroTerrain * 0.10 +
-          oceanNoise * 0.04 * (1 - capDamp * 0.2) +
-          continentalRefine * 0.08 +
-          divergentRelief +
-          transformRelief * 0.10 -
-          globalSeaLevel * 0.15;
-
-        cell.baseHeight = clamp(h, -1.7, 0.35);
-      }
-    }
-  }
-
-  // ----------------------------------------------------
-  // STEP 5: tectonic moderation + smoothing
-  // ----------------------------------------------------
-  applyHybridTectonicInfluence(cells, fields, plateAmp);
-
-  for (let pass = 0; pass < erosionPasses; pass++) {
-    const nextHeights = new Array<number>(cells.length);
-
-    for (let r = 0; r < height; r++) {
-      for (let c = 0; c < width; c++) {
-        const idx = r * width + c;
-        const cell = cells[idx];
-
-        const north = Math.max(0, r - 1);
-        const south = Math.min(height - 1, r + 1);
-        const west = (c - 1 + width) % width;
-        const east = (c + 1) % width;
-
-        const avg =
-          (cells[north * width + c].baseHeight +
-            cells[south * width + c].baseHeight +
-            cells[r * width + west].baseHeight +
-            cells[r * width + east].baseHeight) / 4;
-
-        const lat = 90 - ((r + 0.5) / height) * 180;
-        const absLat01 = Math.abs(lat) / 90;
-        const capDamp = Math.pow(absLat01, 1.5);
-
-        const nearSea = Math.abs(cell.baseHeight - globalSeaLevel) < 0.12;
-        const coastPreserve = nearSea ? 0.36 : 1.0;
-
-        const localSmooth = lerp(erosionStrength, erosionStrength * 0.98, capDamp);
-        const noiseBreakup =
-          (rng() - 0.5) * 0.0045 * (1 - erosion01) * (1 - capDamp * 0.05);
-
-        nextHeights[idx] = clamp(
-          cell.baseHeight + (avg - cell.baseHeight) * localSmooth * coastPreserve + noiseBreakup,
-          -1.7,
-          1.8
-        );
-      }
-    }
-
-    for (let i = 0; i < cells.length; i++) {
-      cells[i].baseHeight = nextHeights[i];
-      cells[i].surfaceAge = clamp01(0.18 + age01 * 0.72 + (rng() - 0.5) * 0.08);
-    }
-  }
-
-  continuePolarCapsBlended(cells, width, height);
-
-  if (DEBUG_STAGE === 'HEIGHT') {
-    return buildDebugWorld({
-      width,
-      height,
-      seaLevel: globalSeaLevel,
-      cells: cloneCells(cells),
-      plates,
-      nowIso,
-      params,
-      effectiveSeed,
-      styleMode: params.styleMode,
-    });
-  }
-
-  // ----------------------------------------------------
-  // STEP 6: climate seed fields
-  // ----------------------------------------------------
-  const coastalMask = computeCoastalMask(cells, width, height, globalSeaLevel);
-
-  for (let r = 0; r < height; r++) {
-    for (let c = 0; c < width; c++) {
-      const idx = r * width + c;
-      const cell = cells[idx];
-      const tect = fields[idx];
-
-      const lat =
-        r === 0 ? 90 : r === height - 1 ? -90 : 90 - ((r + 0.5) / height) * 180;
-      const lon =
-        r === 0 || r === height - 1 ? 0 : ((c + 0.5) / width) * 360 - 180;
-      const dir = latLonToUnitVector(lat, lon);
-
-      const absLat01 = Math.abs(lat) / 90;
-      const poleProximity = smoothstep(0.86, 1.0, absLat01);
-
-      const equatorWarmth = Math.pow(1 - absLat01, lerp(0.85, 1.15, tilt01));
-      const tempNoise =
-        r === 0 || r === height - 1
-          ? 0
-          : sphereFbm(offsetVec(dir, 0.7, 1.6, -1.1), seedUint, 3.0, 3);
-      const rainNoise =
-        r === 0 || r === height - 1
-          ? 0
-          : sphereFbm(offsetVec(dir, -1.2, 0.5, 1.8), seedUint, 2.8, 3);
-
-      const coastBoost = coastalMask[idx] * 0.15;
-      const elevAboveSea = Math.max(0, cell.baseHeight - globalSeaLevel);
-      const elevCooling = elevAboveSea * 0.28;
-      const polarCooling = poleProximity * 0.13;
-      const tectonicMoisture =
-        tect.boundaryType === BoundaryType.CONVERGENT
-          ? 0.03
-          : tect.boundaryType === BoundaryType.DIVERGENT
-            ? -0.02
-            : 0;
-
-      cell.temperature = clamp01(
-        0.16 +
-          equatorWarmth * 0.68 +
-          tempNoise * (0.08 + climateVar01 * 0.08) +
-          tempOffset01 +
-          coastBoost * 0.03 -
-          elevCooling -
-          polarCooling
-      );
-
-      const hadleyWet = Math.exp(-Math.pow(absLat01 * 2.2, 2));
-      const subtropicDry = Math.exp(-Math.pow((absLat01 - 0.34) * 5.0, 2));
-
-      cell.rainfall = clamp01(
-        0.20 +
-          hadleyWet * 0.30 -
-          subtropicDry * 0.18 +
-          rainNoise * (0.12 + climateVar01 * 0.08) +
-          moisture01 * 0.18 +
-          coastBoost +
-          tectonicMoisture -
-          elevAboveSea * 0.08
-      );
-
-      const biome = pickBiome(cell.temperature, cell.rainfall);
-      cell.baseBiomeId = biome;
-      cell.editBiomeId = biome;
-      cell.surfaceType =
-        cell.plateType === PlateType.OCEANIC ? SurfaceType.ALLUVIAL : SurfaceType.ROCK;
-
-      cell.flowDirection = null;
-      cell.flowAccumulation = 0;
-      cell.basinId = null;
-      cell.snowCover = 0;
-      cell.isWater = cell.baseHeight < globalSeaLevel;
-    }
-  }
-
-  // ----------------------------------------------------
-  // STEP 7: initial hydrology seeds
-  // ----------------------------------------------------
-  for (let r = 0; r < height; r++) {
-    for (let c = 0; c < width; c++) {
-      const idx = r * width + c;
-      const cell = cells[idx];
-      if (cell.baseHeight < globalSeaLevel) continue;
-
-      let bestIdx: number | null = null;
-      let bestH = cell.baseHeight;
-
-      for (let dr = -1; dr <= 1; dr++) {
-        const rr = r + dr;
-        if (rr < 0 || rr >= height) continue;
-
-        for (let dc = -1; dc <= 1; dc++) {
-          if (dr === 0 && dc === 0) continue;
-
-          let cc = c + dc;
-          if (rr === 0 || rr === height - 1) {
-            cc = c;
-          } else {
-            cc = (cc + width) % width;
-          }
-
-          const nIdx = rr * width + cc;
-          const nh = cells[nIdx].baseHeight;
-          if (nh < bestH - 1e-6) {
-            bestH = nh;
-            bestIdx = nIdx;
-          }
-        }
-      }
-
-      if (bestIdx != null) {
-        cell.flowDirection = bestIdx;
-      }
-
-      const rainFactor = clamp01(cell.rainfall || 0.2);
-      const slopeBoost = Math.max(0, (cell.baseHeight - bestH) * 2.1);
-      cell.flowAccumulation = Math.max(
-        1,
-        Math.floor(1 + rainFactor * 9 + slopeBoost * 4 + Math.floor(rng() * 2))
-      );
-    }
-  }
-
-  const rivers: River[] = [];
+  seedClimateAndBiomes(cells, width, height, terrain.seaLevel, seedUint, params);
+  seedHydrology(cells, width, height, terrain.seaLevel, rng);
 
   const world: WorldBrain = {
     gridWidth: width,
     gridHeight: height,
-    seaLevel: globalSeaLevel,
+    seaLevel: terrain.seaLevel,
     cells,
     plates,
-    rivers,
+    rivers: [],
     countries: [],
     cultures: [],
     cultureRegions: [],
@@ -544,13 +149,13 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       name: 'Untitled World',
       seed: String(effectiveSeed),
       schemaVersion: 'v3',
-      version: 'v1.3',
+      version: 'v1.4',
       styleMode: params.styleMode,
       gridWidth: width,
       gridHeight: height,
       createdAt: nowIso,
       updatedAt: nowIso,
-      seaLevel: globalSeaLevel,
+      seaLevel: terrain.seaLevel,
     },
     parameters: {
       ...params,
@@ -562,111 +167,30 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   return world;
 }
 
-// ========================================================
-// DEBUG WORLD HELPERS
-// ========================================================
-
-function buildDebugWorld(args: {
+function buildContinuousTerrain(args: {
   width: number;
   height: number;
-  seaLevel: number;
-  cells: Cell[];
-  plates: any[];
-  nowIso: string;
+  seedUint: number;
+  fields: TectonicsField[];
   params: GeneratorParams;
-  effectiveSeed: string | number;
-  styleMode: GeneratorParams['styleMode'];
-}): WorldBrain {
-  const { width, height, seaLevel, cells, plates, nowIso, params, effectiveSeed, styleMode } = args;
+  plateActivity01: number;
+  targetLandFraction: number;
+}): HeightBuild {
+  const { width, height, seedUint, fields, params, plateActivity01, targetLandFraction } = args;
+  const heights = new Float32Array(width * height);
 
-  for (let i = 0; i < cells.length; i++) {
-    cells[i].isWater = cells[i].baseHeight < seaLevel;
-    cells[i].baseBiomeId = cells[i].isWater ? 0 : 5;
-    cells[i].editBiomeId = cells[i].baseBiomeId;
-    cells[i].flowDirection = null;
-    cells[i].flowAccumulation = 0;
-    cells[i].basinId = null;
-  }
+  const age01 = clamp01(params.planetAge / 100);
+  const erosion01 = clamp01(params.erosionIntensity / 100);
+  const count01 = clamp01((params.continentCount - 1) / 11);
+  const terrainMaturity = age01;
+  const terrainSharpness = lerp(1.12, 0.86, terrainMaturity);
+  const silhouetteActivity = lerp(0.26, 0.58, plateActivity01);
+  const continentFragmentation = lerp(0.70, 1.18, count01);
 
-  return {
-    gridWidth: width,
-    gridHeight: height,
-    seaLevel,
-    cells,
-    plates,
-    rivers: [],
-    countries: [],
-    cultures: [],
-    cultureRegions: [],
-    cities: [],
-    locations: [],
-    stickers: [],
-    metadata: {
-      id: `w_debug_${styleMode}_${width}x${height}_${seedToUint32(effectiveSeed)}`,
-      name: 'Debug World',
-      seed: String(effectiveSeed),
-      schemaVersion: 'v3',
-      version: 'v1.3-debug',
-      styleMode,
-      gridWidth: width,
-      gridHeight: height,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      seaLevel,
-    },
-    parameters: {
-      ...params,
-      seed: effectiveSeed,
-    },
-  };
-}
-
-function cloneCells(cells: Cell[]): Cell[] {
-  return cells.map((cell) => ({ ...cell }));
-}
-
-// ========================================================
-// LAND FIELD + THRESHOLDING
-// ========================================================
-
-function computeTargetLandFraction(
-  styleMode: GeneratorParams['styleMode'],
-  seaBias: number,
-  continentCount: number
-): number {
-  const base = lerp(0.42, 0.22, seaBias);
-  const count01 = clamp01((continentCount - 1) / 11);
-  const continentBonus = lerp(-0.01, 0.03, count01);
-
-  let styleAdjust = 0;
-  if (styleMode === 'FANTASY') styleAdjust = 0.05;
-  if (styleMode === 'STYLIZED') styleAdjust = 0.02;
-  if (styleMode === 'ALIEN') styleAdjust = 0.01;
-
-  return clamp(base + continentBonus + styleAdjust, 0.18, 0.46);
-}
-
-function buildLandField(
-  width: number,
-  height: number,
-  seedUint: number,
-  rng: () => number,
-  fields: TectonicsField[],
-  styleMode: GeneratorParams['styleMode'],
-  plateActivity01: number,
-  continentCount: number
-): Float32Array {
-  const field = new Float32Array(width * height);
-  const count01 = clamp01((continentCount - 1) / 11);
-
-  // Dampen plateActivity influence specifically for silhouette formation.
-  // plateActivity should still matter more later in terrain relief.
-  const silhouetteActivity = lerp(0.30, 0.65, plateActivity01);
-
-  for (let r = 1; r < height - 1; r++) {
+  for (let r = 0; r < height; r++) {
     const lat = 90 - ((r + 0.5) / height) * 180;
     const absLat01 = Math.abs(lat) / 90;
-    const poleFade = smoothstep(0.90, 1.0, absLat01);
+    const poleSoftener = smoothstep(0.88, 1.0, absLat01);
 
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
@@ -674,546 +198,348 @@ function buildLandField(
       const lon = ((c + 0.5) / width) * 360 - 180;
       const dir = latLonToUnitVector(lat, lon);
 
-      const continentCore =
+      // distanceToBoundary is high in stable plate interiors and low near boundaries.
+      // This generator uses interiors for broad land/ocean provinces, and boundaries only for relief.
+      const interiorness = clamp01(tect.distanceToBoundary);
+      const boundaryProximity = clamp01(1 - tect.distanceToBoundary);
+
+      const broad = sphereFbm(shiftVec(dir, 17.1, -5.3, 8.7), seedUint, 0.55 * continentFragmentation, 4);
+      const regional = sphereFbm(shiftVec(dir, -3.9, 11.8, 2.6), seedUint, 1.45 * continentFragmentation, 4);
+      const breakup = sphereFbm(shiftVec(dir, 6.4, 1.7, -13.2), seedUint, 3.35 * continentFragmentation, 3);
+      const detail = sphereFbm(shiftVec(dir, -12.6, 4.2, 5.9), seedUint, 7.8, 2);
+
+      const plateProvince =
         tect.plateType === PlateType.CONTINENTAL
-          ? lerp(0.16, 0.34, 1 - tect.distanceToBoundary)
-          : lerp(-0.26, -0.10, 1 - tect.distanceToBoundary);
+          ? lerp(0.12, 0.42, smoothstep(0.08, 0.92, interiorness))
+          : lerp(-0.18, -0.48, smoothstep(0.08, 0.92, interiorness));
 
-      const basinBias =
-        tect.plateType === PlateType.OCEANIC
-          ? lerp(0.12, 0.28, 1 - tect.distanceToBoundary)
-          : lerp(-0.04, 0.02, 1 - tect.distanceToBoundary);
-
-      const convergentMacro =
+      const boundaryRelief =
         tect.boundaryType === BoundaryType.CONVERGENT
-          ? lerp(0.04, 0.10, tect.boundaryStrength) * silhouetteActivity
-          : 0;
+          ? lerp(0.03, 0.18, tect.boundaryStrength) * boundaryProximity
+          : tect.boundaryType === BoundaryType.DIVERGENT
+            ? lerp(-0.12, -0.025, tect.boundaryStrength) * boundaryProximity
+            : tect.boundaryType === BoundaryType.TRANSFORM
+              ? lerp(-0.015, 0.025, tect.boundaryStrength) * boundaryProximity
+              : 0;
 
-      const divergentMacro =
-        tect.boundaryType === BoundaryType.DIVERGENT
-          ? lerp(-0.06, -0.015, tect.boundaryStrength) * silhouetteActivity
-          : 0;
-
-      const transformMacro =
-        tect.boundaryType === BoundaryType.TRANSFORM
-          ? lerp(-0.003, 0.008, tect.boundaryStrength) * silhouetteActivity
-          : 0;
-
-      const provinceBias =
+      const continentalInteriorRelief =
         tect.plateType === PlateType.CONTINENTAL
-          ? lerp(0.015, 0.035, silhouetteActivity)
-          : lerp(-0.03, -0.012, silhouetteActivity);
+          ? lerp(0.015, 0.065, interiorness) * (1 - boundaryProximity * 0.30)
+          : lerp(-0.020, -0.060, interiorness);
 
-      const breakupLarge = sphereFbm(offsetVec(dir, 1.1, -0.2, 0.7), seedUint, 1.0, 3);
-      const breakupMedium = sphereFbm(offsetVec(dir, -0.9, 1.3, -0.5), seedUint, 2.6, 3);
-      const breakupFine = sphereFbm(offsetVec(dir, -1.2, -0.4, 1.0), seedUint, 7.5, 2);
+      const noiseShape =
+        broad * 0.21 +
+        regional * 0.11 +
+        breakup * 0.050 +
+        detail * 0.018;
 
-      const noiseRefine =
-        breakupLarge * 0.05 +
-        breakupMedium * 0.035 +
-        breakupFine * 0.014;
+      const styleBias =
+        params.styleMode === 'FANTASY'
+          ? 0.035
+          : params.styleMode === 'STYLIZED'
+            ? 0.018
+            : params.styleMode === 'ALIEN'
+              ? detail * 0.025
+              : 0;
 
-      let tectonicStructure = 0;
-
-      if (tect.plateType === PlateType.CONTINENTAL) {
-        tectonicStructure += lerp(0.018, 0.045, silhouetteActivity);
-      } else {
-        tectonicStructure -= lerp(0.022, 0.045, silhouetteActivity);
-      }
-
-      if (tect.boundaryType === BoundaryType.CONVERGENT) {
-        tectonicStructure += lerp(0.020, 0.050, silhouetteActivity) * tect.boundaryStrength;
-      } else if (tect.boundaryType === BoundaryType.DIVERGENT) {
-        tectonicStructure -= lerp(0.018, 0.045, silhouetteActivity) * tect.boundaryStrength;
-      } else if (tect.boundaryType === BoundaryType.TRANSFORM) {
-        tectonicStructure += lerp(0.002, 0.006, silhouetteActivity) * tect.boundaryStrength;
-      } else {
-        tectonicStructure +=
-          tect.plateType === PlateType.CONTINENTAL
-            ? lerp(0.012, 0.030, 1 - tect.distanceToBoundary)
-            : lerp(-0.020, -0.006, 1 - tect.distanceToBoundary);
-      }
-
-      const countBias =
-        tect.plateType === PlateType.CONTINENTAL
-          ? lerp(-0.01, 0.04, count01)
-          : lerp(0.01, -0.04, count01);
-
-      let value =
-        (continentCore +
-          convergentMacro +
-          divergentMacro +
-          transformMacro +
-          provinceBias -
-          basinBias * 0.82) *
-          (1 - poleFade * 0.70) +
-        tectonicStructure * 0.22 * (1 - poleFade * 0.66) +
-        countBias +
-        noiseRefine;
-
-      if (styleMode === 'FANTASY') value += 0.03;
-      if (styleMode === 'STYLIZED') value += 0.02;
-      if (styleMode === 'ALIEN') value += (rng() - 0.5) * 0.03;
-
-      value += (rng() - 0.5) * 0.004;
-      field[idx] = value;
+      heights[idx] = clamp(
+        (plateProvince * silhouetteActivity + continentalInteriorRelief + boundaryRelief + noiseShape * terrainSharpness + styleBias) *
+          (1 - poleSoftener * 0.18),
+        -1.4,
+        1.5
+      );
     }
   }
 
-  return field;
+  smoothHeightField(heights, width, height, Math.max(1, Math.round(lerp(1, 5, erosion01))), lerp(0.06, 0.18, erosion01));
+  addCoastlineBreakup(heights, width, height, seedUint, lerp(0.018, 0.035, 1 - erosion01));
+
+  const seaLevel = chooseSeaLevelForLandFraction(heights, width, height, targetLandFraction);
+
+  // After sea level is chosen, gently spread near-sea heights instead of forcing binary shelves.
+  // This keeps coasts readable without turning the land/water split back into a hard mask.
+  for (let i = 0; i < heights.length; i++) {
+    const d = heights[i] - seaLevel;
+    if (Math.abs(d) < 0.055) {
+      heights[i] = seaLevel + d * 0.78;
+    }
+  }
+
+  return { heights, seaLevel };
 }
 
-function chooseThresholdForLandFraction(
-  field: Float32Array,
+function smoothHeightField(
+  heights: Float32Array,
   width: number,
   height: number,
-  targetFraction: number,
-  rng: () => number
+  passes: number,
+  strength: number
+): void {
+  for (let pass = 0; pass < passes; pass++) {
+    const next = new Float32Array(heights.length);
+
+    for (let r = 0; r < height; r++) {
+      for (let c = 0; c < width; c++) {
+        const idx = r * width + c;
+        const north = Math.max(0, r - 1);
+        const south = Math.min(height - 1, r + 1);
+        const west = (c - 1 + width) % width;
+        const east = (c + 1) % width;
+
+        const avg =
+          (heights[north * width + c] +
+            heights[south * width + c] +
+            heights[r * width + west] +
+            heights[r * width + east]) /
+          4;
+
+        const lat = 90 - ((r + 0.5) / height) * 180;
+        const absLat01 = Math.abs(lat) / 90;
+        const poleDamp = lerp(1, 0.72, smoothstep(0.86, 1.0, absLat01));
+
+        next[idx] = clamp(heights[idx] + (avg - heights[idx]) * strength * poleDamp, -1.4, 1.5);
+      }
+    }
+
+    heights.set(next);
+  }
+}
+
+function addCoastlineBreakup(
+  heights: Float32Array,
+  width: number,
+  height: number,
+  seedUint: number,
+  amount: number
+): void {
+  for (let r = 0; r < height; r++) {
+    const lat = 90 - ((r + 0.5) / height) * 180;
+    for (let c = 0; c < width; c++) {
+      const lon = ((c + 0.5) / width) * 360 - 180;
+      const dir = latLonToUnitVector(lat, lon);
+      const idx = r * width + c;
+      const fine = sphereFbm(shiftVec(dir, 19.7, -14.1, 3.3), seedUint, 10.5, 2);
+      heights[idx] = clamp(heights[idx] + fine * amount, -1.4, 1.5);
+    }
+  }
+}
+
+function computeTargetLandFraction(
+  styleMode: GeneratorParams['styleMode'],
+  seaBias: number,
+  continentCount: number
 ): number {
-  const values: number[] = [];
-  for (let r = 1; r < height - 1; r++) {
-    for (let c = 0; c < width; c++) {
-      values.push(field[r * width + c]);
-    }
-  }
+  const base = lerp(0.43, 0.23, seaBias);
+  const count01 = clamp01((continentCount - 1) / 11);
+  const continentBonus = lerp(-0.015, 0.035, count01);
 
-  values.sort((a, b) => a - b);
+  let styleAdjust = 0;
+  if (styleMode === 'FANTASY') styleAdjust = 0.045;
+  if (styleMode === 'STYLIZED') styleAdjust = 0.018;
+  if (styleMode === 'ALIEN') styleAdjust = 0.010;
 
-  const loosen = 0.025 + rng() * 0.015;
-  const biasedTarget = clamp(targetFraction + (rng() - 0.5) * loosen, 0.16, 0.50);
-
-  const k = clampInt(
-    Math.floor((1 - biasedTarget) * (values.length - 1)),
-    0,
-    values.length - 1
-  );
-
-  return values[k];
+  return clamp(base + continentBonus + styleAdjust, 0.18, 0.48);
 }
 
-function thresholdField(
-  field: Float32Array,
+function chooseSeaLevelForLandFraction(
+  heights: Float32Array,
   width: number,
   height: number,
-  threshold: number
-): Uint8Array {
-  const mask = new Uint8Array(width * height);
+  targetLandFraction: number
+): number {
+  const samples: number[] = [];
 
+  // Exclude only the exact pole rows from the sea-level percentile so projection pinching
+  // does not over-control the whole planet.
   for (let r = 1; r < height - 1; r++) {
     for (let c = 0; c < width; c++) {
-      const idx = r * width + c;
-      mask[idx] = field[idx] >= threshold ? 1 : 0;
+      samples.push(heights[r * width + c]);
     }
   }
 
-  clearPoleRows(mask, width, height);
-  return mask;
+  samples.sort((a, b) => a - b);
+  const k = clampInt(Math.floor((1 - targetLandFraction) * (samples.length - 1)), 0, samples.length - 1);
+  return samples[k] ?? 0;
 }
 
-// ========================================================
-// LIGHT CLEANUP ONLY
-// ========================================================
-
-function removeTinyIslandsAndExpandCoasts(
-  mask: Uint8Array,
+function seedClimateAndBiomes(
+  cells: Cell[],
   width: number,
   height: number,
-  rng: () => number,
-  targetContinentCount: number
-): Uint8Array {
-  const next = new Uint8Array(mask);
-  const components = getLandComponents(mask, width, height);
+  seaLevel: number,
+  seedUint: number,
+  params: GeneratorParams
+): void {
+  const climateVar01 = clamp01(params.climateVar / 100);
+  const tilt01 = clamp01(params.axisTilt / 100);
+  const moisture01 = clamp01(params.moistureLevel / 100);
+  const tempOffset01 = (params.temperatureOffset / 100) * 0.22;
 
-  const count01 = clamp01((targetContinentCount - 1) / 11);
-  const minKeepSize = Math.max(
-    10,
-    Math.floor((width * height) * lerp(0.0018, 0.00045, count01))
-  );
+  for (let r = 0; r < height; r++) {
+    const lat = 90 - ((r + 0.5) / height) * 180;
+    const absLat01 = Math.abs(lat) / 90;
+    const equatorWarmth = Math.pow(1 - absLat01, lerp(0.86, 1.14, tilt01));
+    const hadleyWet = Math.exp(-Math.pow(absLat01 * 2.1, 2));
+    const subtropicDry = Math.exp(-Math.pow((absLat01 - 0.34) * 4.8, 2));
+    const polarDry = smoothstep(0.78, 1.0, absLat01) * 0.10;
 
-  for (const comp of components) {
-    if (comp.length < minKeepSize) {
-      for (const idx of comp) next[idx] = 0;
-    }
-  }
-
-  const coastGrowChance = lerp(0.06, 0.03, count01);
-
-  for (let r = 1; r < height - 1; r++) {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
-      if (next[idx] === 1) continue;
+      const cell = cells[idx];
+      const lon = ((c + 0.5) / width) * 360 - 180;
+      const dir = latLonToUnitVector(lat, lon);
+      const elevAboveSea = Math.max(0, cell.baseHeight - seaLevel);
+      const tempNoise = sphereFbm(shiftVec(dir, 2.3, 7.1, -4.6), seedUint, 2.5, 3);
+      const rainNoise = sphereFbm(shiftVec(dir, -6.2, 3.9, 8.8), seedUint, 2.9, 3);
+      const oceanProx = oceanProximityAt(cells, width, height, r, c, 4);
+      const rainShadow = simpleRainShadow(cells, width, height, r, c, seaLevel);
 
-      const landFrac = computeLocalLandFraction(next, width, height, r, c, 1);
-      if (landFrac > 0.70 && rng() < coastGrowChance) next[idx] = 1;
+      cell.temperature = clamp01(
+        0.13 +
+          equatorWarmth * 0.70 +
+          tempNoise * (0.06 + climateVar01 * 0.08) +
+          oceanProx * 0.035 +
+          tempOffset01 -
+          elevAboveSea * 0.38
+      );
+
+      cell.rainfall = clamp01(
+        0.21 +
+          hadleyWet * 0.29 -
+          subtropicDry * 0.15 -
+          polarDry +
+          rainNoise * (0.10 + climateVar01 * 0.08) +
+          moisture01 * 0.17 +
+          oceanProx * 0.18 -
+          rainShadow * 0.13 -
+          elevAboveSea * 0.06
+      );
+
+      cell.snowCover = computeSnowCover(cell.temperature, cell.rainfall, elevAboveSea);
+      cell.baseBiomeId = cell.isWater ? 0 : pickBiome(cell.temperature, cell.rainfall, cell.snowCover, elevAboveSea);
+      cell.editBiomeId = cell.baseBiomeId;
     }
   }
-
-  weakenNearPoleRows(next, width, height, rng);
-  return next;
 }
 
-function mergeNearbyLandmasses(
-  mask: Uint8Array,
+function seedHydrology(
+  cells: Cell[],
   width: number,
   height: number,
-  rng: () => number,
-  targetContinentCount: number
-): Uint8Array {
-  let next = new Uint8Array(mask);
-  const count01 = clamp01((targetContinentCount - 1) / 11);
-
-  const desiredUpperBound = clampInt(
-    targetContinentCount + Math.round(lerp(1, 2, count01)),
-    2,
-    18
-  );
-
-  const passCount = clampInt(Math.round(lerp(1, 0, count01)), 0, 1);
-  const bridgeChance = lerp(0.03, 0.008, count01);
-
-  for (let pass = 0; pass < passCount; pass++) {
-    const components = getLandComponents(next, width, height);
-    if (components.length <= desiredUpperBound) break;
-
-    const bridge = new Uint8Array(next);
-
-    for (let r = 1; r < height - 1; r++) {
-      for (let c = 0; c < width; c++) {
-        const idx = r * width + c;
-        if (next[idx] === 1) continue;
-
-        const landFracNear = computeLocalLandFraction(next, width, height, r, c, 2);
-        const landFracFar = computeLocalLandFraction(next, width, height, r, c, 3);
-
-        if (landFracNear > 0.42 && landFracFar > 0.58) {
-          if (rng() < bridgeChance) bridge[idx] = 1;
-        }
-      }
-    }
-
-    next = bridge;
-  }
-
-  return next;
-}
-
-function enforceLandCoverageTarget(
-  mask: Uint8Array,
-  width: number,
-  height: number,
-  rng: () => number,
-  targetFraction: number,
-  targetContinentCount: number
-): Uint8Array {
-  let next = new Uint8Array(mask);
-  const count01 = clamp01((targetContinentCount - 1) / 11);
-
-  function currentFraction(): number {
-    let land = 0;
-    let total = 0;
-    for (let r = 1; r < height - 1; r++) {
-      for (let c = 0; c < width; c++) {
-        total++;
-        if (next[r * width + c] === 1) land++;
-      }
-    }
-    return total > 0 ? land / total : 0;
-  }
-
-  let fraction = currentFraction();
-  let safety = 0;
-
-  while (fraction < targetFraction - 0.04 && safety < 2) {
-    const grow = new Uint8Array(next);
-
-    for (let r = 1; r < height - 1; r++) {
-      for (let c = 0; c < width; c++) {
-        const idx = r * width + c;
-        if (next[idx] === 1) continue;
-
-        const landFrac = computeLocalLandFraction(next, width, height, r, c, 2);
-        if (landFrac <= 0.40) continue;
-
-        const growChance = lerp(0.04, 0.02, count01) + landFrac * lerp(0.05, 0.03, count01);
-        if (rng() < growChance) {
-          grow[idx] = 1;
-        }
-      }
-    }
-
-    next = grow;
-    fraction = currentFraction();
-    safety++;
-  }
-
-  safety = 0;
-  while (fraction > targetFraction + 0.05 && safety < 2) {
-    const prune = new Uint8Array(next);
-
-    for (let r = 1; r < height - 1; r++) {
-      for (let c = 0; c < width; c++) {
-        const idx = r * width + c;
-        if (next[idx] === 0) continue;
-
-        const landFrac = computeLocalLandFraction(next, width, height, r, c, 1);
-        if (landFrac >= lerp(0.48, 0.32, count01)) continue;
-
-        const pruneChance = lerp(0.08, 0.14, count01);
-        if (rng() < pruneChance) prune[idx] = 0;
-      }
-    }
-
-    next = prune;
-    fraction = currentFraction();
-    safety++;
-  }
-
-  return next;
-}
-
-function getLandComponents(
-  mask: Uint8Array,
-  width: number,
-  height: number
-): number[][] {
-  const visited = new Uint8Array(mask.length);
-  const components: number[][] = [];
-
-  for (let r = 1; r < height - 1; r++) {
-    for (let c = 0; c < width; c++) {
-      const idx = r * width + c;
-      if (mask[idx] === 0 || visited[idx]) continue;
-
-      const comp: number[] = [];
-      const queue: number[] = [idx];
-      visited[idx] = 1;
-
-      while (queue.length > 0) {
-        const cur = queue.pop()!;
-        comp.push(cur);
-
-        const rr = Math.floor(cur / width);
-        const cc = cur % width;
-
-        for (let dr = -1; dr <= 1; dr++) {
-          const nr = rr + dr;
-          if (nr <= 0 || nr >= height - 1) continue;
-
-          for (let dc = -1; dc <= 1; dc++) {
-            if (dr === 0 && dc === 0) continue;
-            const nc = (cc + dc + width) % width;
-            const ni = nr * width + nc;
-
-            if (mask[ni] === 1 && !visited[ni]) {
-              visited[ni] = 1;
-              queue.push(ni);
-            }
-          }
-        }
-      }
-
-      components.push(comp);
-    }
-  }
-
-  components.sort((a, b) => b.length - a.length);
-  return components;
-}
-
-function clearPoleRows(mask: Uint8Array, width: number, height: number): void {
-  for (let c = 0; c < width; c++) {
-    mask[c] = 0;
-    mask[(height - 1) * width + c] = 0;
-  }
-}
-
-function weakenNearPoleRows(
-  mask: Uint8Array,
-  width: number,
-  height: number,
+  seaLevel: number,
   rng: () => number
 ): void {
-  const rows = [1, 2, height - 2, height - 3].filter((r) => r > 0 && r < height - 1);
-
-  for (const r of rows) {
-    for (let c = 0; c < width; c++) {
-      const idx = r * width + c;
-      if (mask[idx] === 0) continue;
-
-      const landFrac = computeLocalLandFraction(mask, width, height, r, c, 2);
-      if (landFrac < 0.58 && rng() < 0.34) {
-        mask[idx] = 0;
-      }
-    }
-  }
-}
-
-// ========================================================
-// TERRAIN / CLIMATE HELPERS
-// ========================================================
-
-function wrappedRowLocalMean(cells: Cell[], width: number, row: number, col: number, radius: number): number {
-  let sum = 0;
-  let count = 0;
-
-  for (let dc = -radius; dc <= radius; dc++) {
-    const cc = (col + dc + width) % width;
-    sum += cells[row * width + cc].baseHeight;
-    count++;
-  }
-
-  return count > 0 ? sum / count : cells[row * width + col].baseHeight;
-}
-
-function continuePolarCapsBlended(cells: Cell[], width: number, height: number): void {
-  if (height < 6) return;
-
-  const northRow0 = 0;
-  const northRow1 = 1;
-  const northRow2 = 2;
-  const northRow3 = 3;
-
-  const southRow0 = height - 1;
-  const southRow1 = height - 2;
-  const southRow2 = height - 3;
-  const southRow3 = height - 4;
-
-  const nextNorth0 = new Array<number>(width);
-  const nextNorth1 = new Array<number>(width);
-  const nextNorth2 = new Array<number>(width);
-
-  const nextSouth0 = new Array<number>(width);
-  const nextSouth1 = new Array<number>(width);
-  const nextSouth2 = new Array<number>(width);
-
-  for (let c = 0; c < width; c++) {
-    const northMean1 = wrappedRowLocalMean(cells, width, northRow1, c, 2);
-    const northMean2 = wrappedRowLocalMean(cells, width, northRow2, c, 2);
-    const northMean3 = wrappedRowLocalMean(cells, width, northRow3, c, 3);
-
-    const southMean1 = wrappedRowLocalMean(cells, width, southRow1, c, 2);
-    const southMean2 = wrappedRowLocalMean(cells, width, southRow2, c, 2);
-    const southMean3 = wrappedRowLocalMean(cells, width, southRow3, c, 3);
-
-    const north2Base = cells[northRow2 * width + c].baseHeight;
-    const north1Base = cells[northRow1 * width + c].baseHeight;
-
-    const south2Base = cells[southRow2 * width + c].baseHeight;
-    const south1Base = cells[southRow1 * width + c].baseHeight;
-
-    nextNorth2[c] = lerp(north2Base, (northMean2 * 0.72 + northMean3 * 0.28), 0.18);
-    nextSouth2[c] = lerp(south2Base, (southMean2 * 0.72 + southMean3 * 0.28), 0.18);
-
-    nextNorth1[c] = lerp(north1Base, (northMean1 * 0.40 + northMean2 * 0.60), 0.42);
-    nextSouth1[c] = lerp(south1Base, (southMean1 * 0.40 + southMean2 * 0.60), 0.42);
-
-    nextNorth0[c] = lerp(nextNorth1[c], northMean1, 0.55);
-    nextSouth0[c] = lerp(nextSouth1[c], southMean1, 0.55);
-  }
-
-  for (let c = 0; c < width; c++) {
-    cells[northRow2 * width + c].baseHeight = nextNorth2[c];
-    cells[northRow1 * width + c].baseHeight = nextNorth1[c];
-    cells[northRow0 * width + c].baseHeight = nextNorth0[c];
-
-    cells[southRow2 * width + c].baseHeight = nextSouth2[c];
-    cells[southRow1 * width + c].baseHeight = nextSouth1[c];
-    cells[southRow0 * width + c].baseHeight = nextSouth0[c];
-  }
-}
-
-function applyHybridTectonicInfluence(
-  cells: Cell[],
-  fields: TectonicsField[],
-  plateAmp: number
-): void {
-  for (let i = 0; i < cells.length; i++) {
-    const cell = cells[i];
-    const tect = fields[i];
-    if (!cell || !tect) continue;
-
-    let delta = 0;
-
-    if (tect.boundaryType === BoundaryType.CONVERGENT) {
-      delta = lerp(0.014, 0.085, tect.boundaryStrength);
-      if (tect.plateType === PlateType.CONTINENTAL) delta *= 1.16;
-    } else if (tect.boundaryType === BoundaryType.DIVERGENT) {
-      delta = lerp(-0.034, 0.008, tect.boundaryStrength);
-    } else if (tect.boundaryType === BoundaryType.TRANSFORM) {
-      delta = lerp(-0.004, 0.010, tect.boundaryStrength);
-    } else {
-      delta =
-        tect.plateType === PlateType.CONTINENTAL
-          ? lerp(0.003, 0.012, 1 - tect.distanceToBoundary)
-          : lerp(-0.010, 0.004, 1 - tect.distanceToBoundary);
-    }
-
-    cell.baseHeight = clamp(cell.baseHeight + delta * plateAmp, -1.6, 1.7);
-  }
-}
-
-function computeCoastalMask(
-  cells: Cell[],
-  width: number,
-  height: number,
-  seaLevel: number
-): Float32Array {
-  const mask = new Float32Array(cells.length);
+  const neighbors: Array<[number, number]> = [
+    [-1, -1], [-1, 0], [-1, 1],
+    [0, -1],           [0, 1],
+    [1, -1],  [1, 0],  [1, 1],
+  ];
 
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
       const idx = r * width + c;
+      const cell = cells[idx];
+      cell.flowDirection = null;
+      cell.flowAccumulation = cell.isWater ? 0 : 1;
+      cell.basinId = null;
+      if (cell.isWater) continue;
 
-      if (cells[idx].baseHeight < seaLevel) {
-        mask[idx] = 0;
-        continue;
-      }
+      let bestIdx: number | null = null;
+      let bestH = cell.baseHeight;
 
-      let waterNeighbors = 0;
-      let total = 0;
-
-      for (let dr = -2; dr <= 2; dr++) {
+      for (const [dr, dc] of neighbors) {
         const rr = r + dr;
         if (rr < 0 || rr >= height) continue;
-
-        for (let dc = -2; dc <= 2; dc++) {
-          const cc = (c + dc + width) % width;
-          if (dr === 0 && dc === 0) continue;
-          total++;
-          if (cells[rr * width + cc].baseHeight < seaLevel) waterNeighbors++;
+        const cc = (c + dc + width) % width;
+        const nIdx = rr * width + cc;
+        const nh = cells[nIdx].baseHeight;
+        if (nh < bestH - 1e-6) {
+          bestH = nh;
+          bestIdx = nIdx;
         }
       }
 
-      mask[idx] = total > 0 ? waterNeighbors / total : 0;
+      cell.flowDirection = bestIdx;
+      const slopeBoost = Math.max(0, (cell.baseHeight - bestH) * 2.0);
+      cell.flowAccumulation = Math.max(1, Math.floor(1 + cell.rainfall * 8 + slopeBoost * 4 + Math.floor(rng() * 2)));
+      if (cell.baseHeight - seaLevel < 0.03) cell.surfaceType = SurfaceType.ALLUVIAL;
     }
   }
-
-  return mask;
 }
 
-function computeLocalLandFraction(
-  mask: Uint8Array,
+function classifyOceanDepth(height: number, seaLevel: number, isWater: boolean): OceanDepthClass | null {
+  if (!isWater) return null;
+  const depth = seaLevel - height;
+  if (depth > 0.70) return OceanDepthClass.TRENCH;
+  if (depth > 0.42) return OceanDepthClass.ABYSSAL;
+  if (depth > 0.20) return OceanDepthClass.SLOPE;
+  if (depth > 0.08) return OceanDepthClass.RIDGE;
+  return OceanDepthClass.SHELF;
+}
+
+function oceanProximityAt(
+  cells: Cell[],
   width: number,
   height: number,
   row: number,
   col: number,
   radius: number
 ): number {
-  let land = 0;
+  let water = 0;
   let total = 0;
 
   for (let dr = -radius; dr <= radius; dr++) {
-    const rr = row + dr;
-    if (rr < 0 || rr >= height) continue;
+    const r = row + dr;
+    if (r < 0 || r >= height) continue;
 
     for (let dc = -radius; dc <= radius; dc++) {
-      const cc = (col + dc + width) % width;
+      const c = (col + dc + width) % width;
       total++;
-      if (mask[rr * width + cc] === 1) land++;
+      if (cells[r * width + c].isWater) water++;
     }
   }
 
-  return total > 0 ? land / total : 0;
+  return total > 0 ? water / total : 0;
+}
+
+function simpleRainShadow(
+  cells: Cell[],
+  width: number,
+  height: number,
+  row: number,
+  col: number,
+  seaLevel: number
+): number {
+  let shadow = 0;
+
+  for (let step = 1; step <= 5; step++) {
+    const c = (col - step + width) % width;
+    const idx = row * width + c;
+    if (idx < 0 || idx >= cells.length) continue;
+    const h = cells[idx].baseHeight - seaLevel;
+    if (h > 0.12) shadow += h * (1 / step);
+  }
+
+  return clamp01(shadow * 0.65);
+}
+
+function computeSnowCover(temp: number, rain: number, elevAboveSea: number): number {
+  const tempC = -20 + clamp01(temp) * 48;
+  const seasonalSnow = tempC < -5 ? clamp01((-5 - tempC) / 10) : 0;
+  const permanentIce = tempC < -18 ? clamp01((-18 - tempC) / 10) : 0;
+  const alpineBoost = clamp01((elevAboveSea - 0.34) * 0.42);
+  const moistureFactor = lerp(0.35, 0.82, clamp01(rain));
+  return clamp01(Math.max(permanentIce, seasonalSnow * moistureFactor) + alpineBoost * 0.11);
+}
+
+function pickBiome(temp: number, rain: number, snow: number, elevAboveSea: number): number {
+  if (snow > 0.86 || elevAboveSea > 1.00) return 6;
+  if (temp < 0.16) return rain < 0.30 ? 1 : 2;
+  if (temp < 0.34) return rain < 0.32 ? 3 : 4;
+  if (rain < 0.14) return temp > 0.58 ? 8 : 4;
+  if (rain < 0.28) return temp > 0.62 ? 9 : 3;
+  if (rain > 0.68) return temp > 0.62 ? 10 : 7;
+  return 5;
 }
 
 function latLonToUnitVector(latDeg: number, lonDeg: number): Vec3 {
@@ -1223,14 +549,14 @@ function latLonToUnitVector(latDeg: number, lonDeg: number): Vec3 {
   return [cosLat * Math.cos(lon), Math.sin(lat), cosLat * Math.sin(lon)];
 }
 
-function sphereFbm(dir: Vec3, seed: number, frequency: number, octaves: number): number {
+function sphereFbm(v: Vec3, seed: number, frequency: number, octaves: number): number {
   let amp = 1;
   let freq = frequency;
   let sum = 0;
   let norm = 0;
 
   for (let i = 0; i < octaves; i++) {
-    sum += amp * sphereValueNoise(dir, freq, i + 1, seed);
+    sum += amp * sphereValueNoise(v, freq, i + 1, seed);
     norm += amp;
     amp *= 0.5;
     freq *= 2.0;
@@ -1252,9 +578,9 @@ function sphereValueNoise(v: Vec3, f: number, salt: number, seed: number): numbe
   const yf = y - yi;
   const zf = z - zi;
 
-  const u = smoothstep(xf);
-  const vv = smoothstep(yf);
-  const w = smoothstep(zf);
+  const u = smootherstep(xf);
+  const vv = smootherstep(yf);
+  const w = smootherstep(zf);
 
   const c000 = hash3(xi, yi, zi, salt, seed);
   const c100 = hash3(xi + 1, yi, zi, salt, seed);
@@ -1276,38 +602,28 @@ function sphereValueNoise(v: Vec3, f: number, salt: number, seed: number): numbe
   return lerp(y0, y1, w);
 }
 
-function offsetVec(dir: Vec3, ox: number, oy: number, oz: number): Vec3 {
-  return normalize3([dir[0] + ox, dir[1] + oy, dir[2] + oz]);
+function shiftVec(dir: Vec3, ox: number, oy: number, oz: number): Vec3 {
+  // Do not normalize after offsetting. This is a normal noise-space translation;
+  // normalizing after an offset bends the whole sphere toward the offset and creates smears.
+  return [dir[0] + ox, dir[1] + oy, dir[2] + oz];
 }
 
-function normalize3(v: Vec3): Vec3 {
-  const len = Math.hypot(v[0], v[1], v[2]) || 1;
-  return [v[0] / len, v[1] / len, v[2] / len];
+function deterministicJitter(seed: number, index: number, salt: number): number {
+  return hash3(index, salt, index ^ salt, 991, seed) - 0.5;
 }
 
 function hash3(x: number, y: number, z: number, salt: number, seed: number): number {
   let h =
-    Math.imul(x, 374761393) ^
-    Math.imul(y, 668265263) ^
-    Math.imul(z, 2147483647) ^
-    Math.imul(salt, 1597334677) ^
+    Math.imul(x | 0, 374761393) ^
+    Math.imul(y | 0, 668265263) ^
+    Math.imul(z | 0, 2147483647) ^
+    Math.imul(salt | 0, 1597334677) ^
     seed;
 
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   h ^= h >>> 16;
   return (h >>> 0) / 4294967295;
 }
-
-function pickBiome(temp: number, rain: number): number {
-  if (temp < 0.20) return rain < 0.35 ? 1 : 2;
-  if (temp < 0.35) return rain < 0.35 ? 3 : 4;
-  if (temp < 0.60) return rain < 0.30 ? 5 : rain < 0.60 ? 6 : 7;
-  return rain < 0.25 ? 8 : rain < 0.55 ? 9 : 10;
-}
-
-// ========================================================
-// MATH / RNG HELPERS
-// ========================================================
 
 function clamp01(x: number): number {
   return x < 0 ? 0 : x > 1 ? 1 : x;
@@ -1323,6 +639,16 @@ function clampInt(x: number, lo: number, hi: number): number {
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
+}
+
+function smootherstep(t: number): number {
+  const x = clamp01(t);
+  return x * x * x * (x * (x * 6 - 15) + 10);
+}
+
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = clamp01((x - edge0) / Math.max(1e-9, edge1 - edge0));
+  return t * t * (3 - 2 * t);
 }
 
 function seedToUint32(s: string | number): number {
@@ -1343,14 +669,4 @@ function mulberry32(a: number): () => number {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-function smoothstep(edge0OrT: number, edge1?: number, maybeX?: number): number {
-  if (typeof edge1 === 'undefined' || typeof maybeX === 'undefined') {
-    const t = edge0OrT;
-    return t * t * (3 - 2 * t);
-  }
-
-  const t = clamp01((maybeX - edge0OrT) / (edge1 - edge0OrT));
-  return t * t * (3 - 2 * t);
 }
