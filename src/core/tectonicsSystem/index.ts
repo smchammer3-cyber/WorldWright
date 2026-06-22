@@ -1,19 +1,13 @@
 // ========================================================
-// WORLDWRIGHT -- TECTONICS SYSTEM (V1.3 OWNERSHIP CLEANUP)
+// WORLDWRIGHT -- TECTONICS SYSTEM (V1.4 HARD OWNERSHIP)
 // File: src/core/tectonicsSystem/index.ts
 //
 // Purpose:
-// - provide a tectonic field source of truth
-// - keep spherical seed placement
-// - keep continuous overlapping influence instead of hard Voronoi ownership
-// - make tectonic-driving sliders matter at the source
-// - expose smoother uplift / boundary / distance fields to worldGenerator
-//
-// Ownership cleanup in this pass:
-// - plateActivity stays owned by tectonics
-// - continentCount is removed from tectonic slider ownership
-// - tectonics now uses internal geological logic for continental share / centers
-// - visible major landmass count can now be owned by worldGenerator
+// - provide the planet's tectonic skeleton as a source of truth
+// - keep plate IDs stable and lookup-safe
+// - separate hard plate ownership from soft influence values
+// - derive boundaries from neighboring plate ownership, not fuzzy ambiguity
+// - compute true distance-to-boundary by propagation from real boundary cells
 // ========================================================
 
 import type { Plate, PlateType, BoundaryType } from '../worldSchema';
@@ -73,10 +67,10 @@ type ResolvedTectonicsOptions = {
   plateActivity01: number;
   continentalTarget: number;
   influenceSigma: number;
-  boundaryThreshold: number;
   activityStrength: number;
   continentalBiasStrength: number;
   macroCenterCount: number;
+  boundaryInfluenceCells: number;
 };
 
 export function generatePlates(
@@ -99,11 +93,14 @@ export function generatePlates(
   const oceanicSpeedMin = lerp(0.040, 0.095, activity01);
   const oceanicSpeedMax = lerp(0.095, 0.185, activity01);
 
+  const continentalSlots = new Set<number>();
+  for (let i = 0; i < continentalTarget; i++) {
+    continentalSlots.add(Math.round((i * (count - 1)) / Math.max(1, continentalTarget - 1)));
+  }
+
   const plates: Plate[] = [];
-
   for (let i = 0; i < count; i++) {
-    const isContinental = i < continentalTarget;
-
+    const isContinental = continentalSlots.has(i);
     const angle = rng() * Math.PI * 2;
     const speed = isContinental
       ? lerp(continentalSpeedMin, continentalSpeedMax, rng())
@@ -116,7 +113,10 @@ export function generatePlates(
     });
   }
 
-  return shuffleInPlace(plates, rng);
+  // Important: do not shuffle. Several downstream structures intentionally use
+  // plate.id as a stable identifier. Lookup is now ID-safe, but keeping array
+  // order aligned with IDs prevents future accidental index bugs.
+  return plates;
 }
 
 export function buildTectonicsField(
@@ -143,20 +143,21 @@ export function assignPlatesToCells(
   seeds?: PlateSeed[]
 ): TectonicsField[] {
   const resolved = resolveTectonicsOptions(plates.length, options);
+  const plateById = new Map<number, Plate>(plates.map((plate) => [plate.id, plate]));
 
   const localSeeds =
     seeds && seeds.length === plates.length
       ? seeds
       : createPlateSeeds(gridWidth, gridHeight, plates, mulberry32(123456789), options);
+  const seedByPlateId = new Map<number, PlateSeed>(localSeeds.map((seed) => [seed.plateId, seed]));
 
-  const fields: TectonicsField[] = new Array(cells.length);
-  const cellDirs: Vec3[] = new Array(cells.length);
-
-  const influenceSigma = resolved.influenceSigma;
-  const plateWeightsPerCell: RankedInfluence[][] = new Array(cells.length);
+  const total = gridWidth * gridHeight;
+  const fields: TectonicsField[] = new Array(total);
+  const cellDirs: Vec3[] = new Array(total);
+  const plateWeightsPerCell: RankedInfluence[][] = new Array(total);
 
   // ----------------------------------------------------
-  // Continuous plate influence solve with macro province weighting
+  // Pass 1: hard plate ownership from soft influence ranking
   // ----------------------------------------------------
   for (let row = 0; row < gridHeight; row++) {
     const lat = rowToLat(row, gridHeight);
@@ -170,65 +171,59 @@ export function assignPlatesToCells(
       const ranked = computeRankedPlateInfluencesWeighted(
         dir,
         localSeeds,
-        influenceSigma,
+        resolved.influenceSigma,
         resolved
       );
       plateWeightsPerCell[idx] = ranked;
 
       const top = ranked[0];
-      const second = ranked[1] ?? ranked[0];
-
-      const dominantPlate = plates[top.plateId];
-      const dominanceGap = clamp01((top.weight - second.weight) * 1.25);
-      const ambiguity = clamp01(1 - dominanceGap);
+      const dominantPlate = plateById.get(top.plateId) ?? plates[0];
 
       fields[idx] = {
-        plateId: top.plateId,
+        plateId: dominantPlate.id,
         plateType: dominantPlate.type,
         boundaryType: BoundaryTypeEnum.NONE as BoundaryType,
         upliftRate: 0,
-        boundaryStrength: ambiguity * lerp(0.42, 0.64, resolved.activityStrength),
+        boundaryStrength: 0,
         compression: 0,
-        distanceToBoundary: clamp01(1 - dominanceGap),
+        distanceToBoundary: 1,
         isBoundary: false,
       };
     }
   }
 
   // ----------------------------------------------------
-  // Boundary classification from competing influences
+  // Pass 2: real boundaries from neighboring plate ownership
   // ----------------------------------------------------
+  const boundarySeeds: number[] = [];
+
   for (let row = 0; row < gridHeight; row++) {
     for (let col = 0; col < gridWidth; col++) {
       const idx = row * gridWidth + col;
+      const field = fields[idx];
+      const rivalId = findStrongestNeighborPlateId(fields, gridWidth, gridHeight, row, col);
+
+      if (rivalId == null || rivalId === field.plateId) continue;
+
+      const dominantPlate = plateById.get(field.plateId) ?? plates[0];
+      const rivalPlate = plateById.get(rivalId) ?? dominantPlate;
+      const topSeed = seedByPlateId.get(dominantPlate.id);
+      const rivalSeed = seedByPlateId.get(rivalPlate.id);
       const ranked = plateWeightsPerCell[idx];
-      const top = ranked[0];
-      const second = ranked[1] ?? ranked[0];
+      const secondWeight = ranked.find((entry) => entry.plateId === rivalId)?.weight ?? ranked[1]?.weight ?? 0;
+      const topWeight = ranked.find((entry) => entry.plateId === field.plateId)?.weight ?? ranked[0]?.weight ?? 1;
+
       const myDir = cellDirs[idx];
-
-      const dominantPlate = plates[top.plateId];
-      const rivalPlate = plates[second.plateId];
-
-      const dominanceGap = clamp01((top.weight - second.weight) * 1.25);
-      const ambiguity = clamp01(1 - dominanceGap);
-
-      const topSeed = localSeeds[top.plateId];
-      const secondSeed = localSeeds[second.plateId];
-
-      const topNormal = normalize2(projectNeighborDirectionToLocalTangent(myDir, topSeed.dir));
-      const secondNormal = normalize2(projectNeighborDirectionToLocalTangent(myDir, secondSeed.dir));
-
-      const blendedNormal = normalize2([
-        topNormal[0] * top.weight - secondNormal[0] * second.weight,
-        topNormal[1] * top.weight - secondNormal[1] * second.weight,
-      ]);
+      const boundaryNormal = rivalSeed
+        ? normalize2(projectNeighborDirectionToLocalTangent(myDir, rivalSeed.dir))
+        : ([1, 0] as Vec2);
 
       const relativeVelocity: Vec2 = [
         dominantPlate.velocity[0] - rivalPlate.velocity[0],
         dominantPlate.velocity[1] - rivalPlate.velocity[1],
       ];
 
-      const convergence = -dot2(relativeVelocity, blendedNormal);
+      const convergence = -dot2(relativeVelocity, boundaryNormal);
       const boundaryType = classifyBoundary(
         dominantPlate.type,
         rivalPlate.type,
@@ -236,55 +231,70 @@ export function assignPlatesToCells(
         resolved.activityStrength
       );
 
-      const rivalry = clamp01(
-        second.weight / Math.max(1e-9, top.weight + second.weight)
-      );
-
+      const ambiguity = clamp01(1 - Math.abs(topWeight - secondWeight) * 1.8);
       const localBoundaryStrength = clamp01(
-        ambiguity * lerp(0.58, 0.78, resolved.activityStrength) +
-        rivalry * lerp(0.16, 0.28, resolved.activityStrength)
+        lerp(0.55, 0.92, resolved.activityStrength) * (0.68 + ambiguity * 0.32)
       );
 
-      const isBoundary = localBoundaryStrength > resolved.boundaryThreshold;
-
-      const field = fields[idx];
-      field.boundaryType = isBoundary
-        ? boundaryType
-        : (BoundaryTypeEnum.NONE as BoundaryType);
-      field.compression = isBoundary ? clamp(convergence, -1, 1) : 0;
-      field.boundaryStrength = Math.max(field.boundaryStrength, localBoundaryStrength);
-      field.distanceToBoundary = clamp01(1 - localBoundaryStrength);
-      field.isBoundary = isBoundary;
+      field.boundaryType = boundaryType;
+      field.compression = clamp(convergence, -1, 1);
+      field.boundaryStrength = localBoundaryStrength;
+      field.distanceToBoundary = 0;
+      field.isBoundary = true;
       field.upliftRate = computeUpliftRate(
-        field.boundaryType,
+        boundaryType,
         field.compression,
-        field.boundaryStrength,
+        localBoundaryStrength,
         dominantPlate.type,
         resolved.activityStrength
       );
+
+      if (topSeed && rivalSeed) {
+        // Keep the source-of-truth seed references live for future debugging.
+        void topSeed;
+      }
+
+      boundarySeeds.push(idx);
     }
   }
 
   // ----------------------------------------------------
-  // Interior continental support / oceanic basin tendency
+  // Pass 3: true normalized distance from actual boundary cells
   // ----------------------------------------------------
+  const distanceSteps = computeBoundaryDistanceSteps(
+    fields,
+    gridWidth,
+    gridHeight,
+    boundarySeeds,
+    resolved.boundaryInfluenceCells
+  );
+
   for (let i = 0; i < fields.length; i++) {
     const field = fields[i];
+    const steps = distanceSteps[i];
+    const distanceToBoundary = clamp01(steps / Math.max(1, resolved.boundaryInfluenceCells));
+    field.distanceToBoundary = distanceToBoundary;
+
     if (field.isBoundary) continue;
 
-    const interiorFactor = 1 - field.distanceToBoundary;
+    const interiorness = distanceToBoundary;
+    const boundaryProximity = 1 - distanceToBoundary;
+
+    field.boundaryStrength = boundaryProximity * lerp(0.10, 0.22, resolved.activityStrength);
+    field.boundaryType = BoundaryTypeEnum.NONE as BoundaryType;
+    field.compression = 0;
 
     if (field.plateType === PlateTypeEnum.CONTINENTAL) {
       field.upliftRate = lerp(
-        lerp(0.035, 0.070, resolved.continentalBiasStrength),
-        lerp(0.11, 0.19, resolved.continentalBiasStrength),
-        interiorFactor
+        lerp(0.018, 0.040, resolved.continentalBiasStrength),
+        lerp(0.080, 0.155, resolved.continentalBiasStrength),
+        interiorness
       );
     } else {
       field.upliftRate = lerp(
-        lerp(-0.18, -0.12, resolved.activityStrength),
-        lerp(-0.08, -0.03, resolved.activityStrength),
-        interiorFactor
+        lerp(-0.055, -0.025, resolved.activityStrength),
+        lerp(-0.22, -0.12, resolved.activityStrength),
+        interiorness
       );
     }
   }
@@ -325,14 +335,8 @@ function createPlateSeeds(
 ): PlateSeed[] {
   const resolved = resolveTectonicsOptions(plates.length, options);
   const seeds: PlateSeed[] = [];
-  const minAngularDistance = lerp(0.34, 0.50, resolved.activityStrength);
-
-  const macroCenters = createMacroContinentalCenters(
-    gridWidth,
-    gridHeight,
-    rng,
-    resolved.macroCenterCount
-  );
+  const minAngularDistance = lerp(0.36, 0.54, resolved.activityStrength);
+  const macroCenters = createMacroContinentalCenters(gridWidth, gridHeight, rng, resolved.macroCenterCount);
 
   for (const plate of plates) {
     let bestRow = Math.floor(rng() * gridHeight);
@@ -342,7 +346,7 @@ function createPlateSeeds(
     let bestDir = latLonToUnitVector(bestLat, bestLon);
     let bestScore = -Infinity;
 
-    for (let attempt = 0; attempt < 72; attempt++) {
+    for (let attempt = 0; attempt < 96; attempt++) {
       const row = Math.floor(rng() * gridHeight);
       const col = Math.floor(rng() * gridWidth);
       const lat = rowToLat(row, gridHeight);
@@ -351,30 +355,24 @@ function createPlateSeeds(
 
       let nearest = Infinity;
       for (const seed of seeds) {
-        const d = angularDistance(dir, seed.dir);
-        nearest = Math.min(nearest, d);
+        nearest = Math.min(nearest, angularDistance(dir, seed.dir));
       }
 
       const normalizedRow = row / Math.max(1, gridHeight - 1);
       const equatorDistance = Math.abs(normalizedRow - 0.5) * 2;
-
       const equatorBias =
         plate.type === PlateTypeEnum.CONTINENTAL
-          ? 1 - equatorDistance * lerp(0.10, 0.22, resolved.continentalBiasStrength)
-          : 1 - (1 - equatorDistance) * lerp(0.02, 0.08, resolved.activityStrength);
+          ? 1 - equatorDistance * lerp(0.06, 0.18, resolved.continentalBiasStrength)
+          : 1 - (1 - equatorDistance) * lerp(0.02, 0.07, resolved.activityStrength);
 
-      const centerAffinity = macroCenterAffinity(dir, macroCenters);
+      const macroAffinity = macroCenterAffinity(dir, macroCenters);
       const macroBias =
         plate.type === PlateTypeEnum.CONTINENTAL
-          ? lerp(0.35, 0.95, centerAffinity)
-          : lerp(0.95, 0.30, centerAffinity);
+          ? lerp(0.72, 1.16, macroAffinity)
+          : lerp(1.08, 0.82, macroAffinity);
 
       const spacingScore = seeds.length === 0 ? minAngularDistance : nearest;
-
-      const score =
-        spacingScore * 1.35 +
-        equatorBias * 0.55 +
-        macroBias * lerp(0.55, 1.05, resolved.continentalBiasStrength);
+      const score = spacingScore * 1.45 + equatorBias * 0.34 + macroBias * 0.42;
 
       if (score > bestScore) {
         bestScore = score;
@@ -401,8 +399,8 @@ function createPlateSeeds(
       driftAxis,
       elevationBias:
         plate.type === PlateTypeEnum.CONTINENTAL
-          ? lerp(0.08, 0.18, resolved.continentalBiasStrength) + rng() * 0.05
-          : lerp(-0.18, -0.08, resolved.activityStrength) + rng() * 0.04,
+          ? lerp(0.06, 0.14, resolved.continentalBiasStrength) + rng() * 0.035
+          : lerp(-0.15, -0.07, resolved.activityStrength) + rng() * 0.030,
     });
   }
 
@@ -416,13 +414,13 @@ function createMacroContinentalCenters(
   centerCount: number
 ): MacroCenter[] {
   const centers: MacroCenter[] = [];
-  const minAngular = lerp(0.85, 0.50, clamp01((centerCount - 2) / 3));
+  const minAngular = lerp(0.92, 0.58, clamp01((centerCount - 2) / 3));
 
   for (let i = 0; i < centerCount; i++) {
     let bestDir: Vec3 = [1, 0, 0];
     let bestScore = -Infinity;
 
-    for (let attempt = 0; attempt < 64; attempt++) {
+    for (let attempt = 0; attempt < 80; attempt++) {
       const row = Math.floor(rng() * gridHeight);
       const col = Math.floor(rng() * gridWidth);
       const lat = rowToLat(row, gridHeight);
@@ -430,16 +428,13 @@ function createMacroContinentalCenters(
       const dir = latLonToUnitVector(lat, lon);
 
       let nearest = Infinity;
-      for (const c of centers) {
-        nearest = Math.min(nearest, angularDistance(dir, c.dir));
-      }
+      for (const c of centers) nearest = Math.min(nearest, angularDistance(dir, c.dir));
 
       const normalizedRow = row / Math.max(1, gridHeight - 1);
       const equatorDistance = Math.abs(normalizedRow - 0.5) * 2;
-      const equatorBias = 1 - equatorDistance * 0.22;
-
+      const equatorBias = 1 - equatorDistance * 0.20;
       const spacing = centers.length === 0 ? minAngular : nearest;
-      const score = spacing * 1.6 + equatorBias * 0.4;
+      const score = spacing * 1.55 + equatorBias * 0.42;
 
       if (score > bestScore) {
         bestScore = score;
@@ -447,10 +442,7 @@ function createMacroContinentalCenters(
       }
     }
 
-    centers.push({
-      dir: bestDir,
-      weight: lerp(0.85, 1.15, rng()),
-    });
+    centers.push({ dir: bestDir, weight: lerp(0.86, 1.14, rng()) });
   }
 
   return centers;
@@ -462,7 +454,7 @@ function macroCenterAffinity(dir: Vec3, centers: MacroCenter[]): number {
   let best = 0;
   for (const center of centers) {
     const d = angularDistance(dir, center.dir);
-    const affinity = Math.exp(-0.5 * Math.pow(d / 0.72, 2)) * center.weight;
+    const affinity = Math.exp(-0.5 * Math.pow(d / 0.78, 2)) * center.weight;
     if (affinity > best) best = affinity;
   }
 
@@ -476,48 +468,107 @@ function computeRankedPlateInfluencesWeighted(
   resolved: ResolvedTectonicsOptions
 ): RankedInfluence[] {
   const weights: RankedInfluence[] = [];
-
   let total = 0;
+
   for (const seed of seeds) {
     const d = angularDistance(dir, seed.dir);
-
-    const macroAffinity = macroCenterAffinity(dir, [
-      {
-        dir: seed.dir,
-        weight: 1,
-      },
-    ]);
-
     const typeSigma =
       seed.type === PlateTypeEnum.CONTINENTAL
-        ? sigma * lerp(1.18, 1.34, resolved.continentalBiasStrength)
-        : sigma * lerp(0.82, 0.94, resolved.activityStrength);
+        ? sigma * lerp(1.04, 1.14, resolved.continentalBiasStrength)
+        : sigma * lerp(0.96, 1.06, resolved.activityStrength);
 
     const base = gaussianFalloff(d, typeSigma);
-
-    const provinceBias =
-      seed.type === PlateTypeEnum.CONTINENTAL
-        ? lerp(0.92, 1.42, macroAffinity)
-        : lerp(1.18, 0.76, macroAffinity);
-
-    const interiorBias =
-      seed.type === PlateTypeEnum.CONTINENTAL
-        ? lerp(1.00, 1.20, resolved.continentalBiasStrength)
-        : lerp(1.00, 1.10, resolved.activityStrength);
-
-    const w = base * provinceBias * interiorBias;
+    const bias = 1 + seed.elevationBias * 0.22;
+    const w = Math.max(1e-9, base * bias);
 
     weights.push({ plateId: seed.plateId, weight: w });
     total += w;
   }
 
   const norm = Math.max(1e-9, total);
-  for (const item of weights) {
-    item.weight /= norm;
-  }
+  for (const item of weights) item.weight /= norm;
 
   weights.sort((a, b) => b.weight - a.weight);
   return weights;
+}
+
+function findStrongestNeighborPlateId(
+  fields: TectonicsField[],
+  width: number,
+  height: number,
+  row: number,
+  col: number
+): number | null {
+  const idx = row * width + col;
+  const ownPlateId = fields[idx].plateId;
+  const counts = new Map<number, number>();
+
+  for (const nIdx of neighborIndices4(width, height, row, col)) {
+    const plateId = fields[nIdx]?.plateId;
+    if (typeof plateId !== 'number' || plateId === ownPlateId) continue;
+    counts.set(plateId, (counts.get(plateId) ?? 0) + 1);
+  }
+
+  let best: number | null = null;
+  let bestCount = 0;
+  for (const [plateId, count] of counts) {
+    if (count > bestCount) {
+      best = plateId;
+      bestCount = count;
+    }
+  }
+
+  return best;
+}
+
+function computeBoundaryDistanceSteps(
+  fields: TectonicsField[],
+  width: number,
+  height: number,
+  boundarySeeds: number[],
+  maxSteps: number
+): Int32Array {
+  const far = maxSteps + 1;
+  const dist = new Int32Array(fields.length);
+  dist.fill(far);
+
+  const queue: number[] = [];
+  let head = 0;
+
+  for (const idx of boundarySeeds) {
+    if (idx < 0 || idx >= fields.length) continue;
+    if (dist[idx] === 0) continue;
+    dist[idx] = 0;
+    queue.push(idx);
+  }
+
+  while (head < queue.length) {
+    const idx = queue[head++];
+    const cur = dist[idx];
+    if (cur >= maxSteps) continue;
+
+    const row = Math.floor(idx / width);
+    const col = idx % width;
+    for (const nIdx of neighborIndices4(width, height, row, col)) {
+      if (dist[nIdx] <= cur + 1) continue;
+      dist[nIdx] = cur + 1;
+      queue.push(nIdx);
+    }
+  }
+
+  return dist;
+}
+
+function neighborIndices4(width: number, height: number, row: number, col: number): number[] {
+  const out = [
+    row * width + ((col - 1 + width) % width),
+    row * width + ((col + 1) % width),
+  ];
+
+  if (row > 0) out.push((row - 1) * width + col);
+  if (row < height - 1) out.push((row + 1) * width + col);
+
+  return out;
 }
 
 function gaussianFalloff(distance: number, sigma: number): number {
@@ -535,17 +586,17 @@ function classifyBoundary(
   const bOceanic = b === PlateTypeEnum.OCEANIC;
   const mixed = aOceanic !== bOceanic;
 
-  const convergentThreshold = lerp(0.06, 0.025, activityStrength);
-  const divergentThreshold = lerp(-0.05, -0.02, activityStrength);
+  const convergentThreshold = lerp(0.060, 0.025, activityStrength);
+  const divergentThreshold = lerp(-0.055, -0.022, activityStrength);
 
   if (convergence > convergentThreshold) {
-    return mixed || (!aOceanic && !bOceanic)
-      ? (BoundaryTypeEnum.CONVERGENT as BoundaryType)
-      : (BoundaryTypeEnum.CONVERGENT as BoundaryType);
+    return BoundaryTypeEnum.CONVERGENT as BoundaryType;
   }
 
   if (convergence < divergentThreshold) {
-    return BoundaryTypeEnum.DIVERGENT as BoundaryType;
+    return mixed
+      ? (BoundaryTypeEnum.TRANSFORM as BoundaryType)
+      : (BoundaryTypeEnum.DIVERGENT as BoundaryType);
   }
 
   return BoundaryTypeEnum.TRANSFORM as BoundaryType;
@@ -562,26 +613,26 @@ function computeUpliftRate(
 
   if (boundaryType === BoundaryTypeEnum.CONVERGENT) {
     const base =
-      lerp(0.22, 0.34, activityStrength) +
-      strength * lerp(0.34, 0.58, activityStrength) +
-      Math.max(0, compression) * lerp(0.10, 0.24, activityStrength);
+      lerp(0.18, 0.32, activityStrength) +
+      strength * lerp(0.28, 0.52, activityStrength) +
+      Math.max(0, compression) * lerp(0.08, 0.22, activityStrength);
 
     return plateType === PlateTypeEnum.CONTINENTAL
       ? clamp(base, -1, 1)
-      : clamp(base * lerp(0.62, 0.80, activityStrength), -1, 1);
+      : clamp(base * lerp(0.58, 0.78, activityStrength), -1, 1);
   }
 
   if (boundaryType === BoundaryTypeEnum.DIVERGENT) {
     const ridgeLift =
       plateType === PlateTypeEnum.OCEANIC
-        ? lerp(0.06, 0.14, activityStrength)
-        : lerp(0.02, 0.06, activityStrength);
+        ? lerp(0.055, 0.14, activityStrength)
+        : lerp(0.018, 0.060, activityStrength);
 
     return clamp(
-      lerp(-0.14, -0.07, activityStrength) +
+      lerp(-0.13, -0.055, activityStrength) +
         ridgeLift +
-        compression * lerp(0.04, 0.10, activityStrength) +
-        strength * lerp(0.08, 0.18, activityStrength),
+        compression * lerp(0.035, 0.095, activityStrength) +
+        strength * lerp(0.07, 0.16, activityStrength),
       -1,
       1
     );
@@ -589,8 +640,8 @@ function computeUpliftRate(
 
   if (boundaryType === BoundaryTypeEnum.TRANSFORM) {
     return clamp(
-      lerp(0.008, 0.024, activityStrength) +
-        strength * lerp(0.02, 0.07, activityStrength),
+      lerp(0.004, 0.018, activityStrength) +
+        strength * lerp(0.010, 0.050, activityStrength),
       -1,
       1
     );
@@ -604,9 +655,8 @@ function resolveTectonicsOptions(
   options: TectonicsBuildOptions
 ): ResolvedTectonicsOptions {
   const plateActivity01 = clamp01(options.plateActivity / 100);
-
   const continentalTarget = clampInt(
-    Math.round(lerp(plateCount * 0.28, plateCount * 0.46, 0.5)),
+    Math.round(lerp(plateCount * 0.30, plateCount * 0.44, 0.5)),
     1,
     Math.max(1, plateCount - 1)
   );
@@ -614,11 +664,11 @@ function resolveTectonicsOptions(
   return {
     plateActivity01,
     continentalTarget,
-    influenceSigma: lerp(0.62, 0.36, plateActivity01),
-    boundaryThreshold: lerp(0.26, 0.12, plateActivity01),
+    influenceSigma: lerp(0.50, 0.34, plateActivity01),
     activityStrength: plateActivity01,
-    continentalBiasStrength: lerp(0.45, 0.75, plateActivity01),
-    macroCenterCount: clampInt(Math.round(lerp(3, 4, plateActivity01)), 2, 5),
+    continentalBiasStrength: lerp(0.40, 0.68, plateActivity01),
+    macroCenterCount: clampInt(Math.round(lerp(3, 5, plateActivity01)), 2, 5),
+    boundaryInfluenceCells: Math.max(5, Math.round(lerp(9, 5, plateActivity01))),
   };
 }
 
@@ -645,25 +695,6 @@ function dot3(a: Vec3, b: Vec3): number {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
-function angularDistance(a: Vec3, b: Vec3): number {
-  return Math.acos(clamp(dot3(a, b), -1, 1));
-}
-
-function projectNeighborDirectionToLocalTangent(fromDir: Vec3, toDir: Vec3): Vec2 {
-  const east = normalize3([-fromDir[2], 0, fromDir[0]]);
-  const north = normalize3(cross3(fromDir, east));
-  const delta: Vec3 = [
-    toDir[0] - fromDir[0],
-    toDir[1] - fromDir[1],
-    toDir[2] - fromDir[2],
-  ];
-
-  const eastComp = dot3(delta, east);
-  const northComp = dot3(delta, north);
-
-  return [eastComp, northComp];
-}
-
 function cross3(a: Vec3, b: Vec3): Vec3 {
   return [
     a[1] * b[2] - a[2] * b[1],
@@ -672,22 +703,51 @@ function cross3(a: Vec3, b: Vec3): Vec3 {
   ];
 }
 
+function angularDistance(a: Vec3, b: Vec3): number {
+  return Math.acos(clamp(dot3(a, b), -1, 1));
+}
+
+function projectNeighborDirectionToLocalTangent(fromDir: Vec3, toDir: Vec3): Vec2 {
+  const [east, north] = tangentBasis(fromDir);
+  const delta: Vec3 = [
+    toDir[0] - fromDir[0],
+    toDir[1] - fromDir[1],
+    toDir[2] - fromDir[2],
+  ];
+
+  return [dot3(delta, east), dot3(delta, north)];
+}
+
+function tangentBasis(dir: Vec3): [Vec3, Vec3] {
+  let east: Vec3;
+  if (Math.hypot(dir[0], dir[2]) < 1e-6) {
+    east = [1, 0, 0];
+  } else {
+    east = normalize3([-dir[2], 0, dir[0]]);
+  }
+
+  const north = normalize3(cross3(dir, east));
+  return [east, north];
+}
+
 function normalize2(v: Vec2): Vec2 {
-  const len = Math.hypot(v[0], v[1]) || 1;
+  const len = Math.hypot(v[0], v[1]);
+  if (len < 1e-9) return [1, 0];
   return [v[0] / len, v[1] / len];
 }
 
 function normalize3(v: Vec3): Vec3 {
-  const len = Math.hypot(v[0], v[1], v[2]) || 1;
+  const len = Math.hypot(v[0], v[1], v[2]);
+  if (len < 1e-9) return [1, 0, 0];
   return [v[0] / len, v[1] / len, v[2] / len];
+}
+
+function clamp01(x: number): number {
+  return x < 0 ? 0 : x > 1 ? 1 : x;
 }
 
 function clamp(x: number, lo: number, hi: number): number {
   return x < lo ? lo : x > hi ? hi : x;
-}
-
-function clamp01(x: number): number {
-  return clamp(x, 0, 1);
 }
 
 function clampInt(x: number, lo: number, hi: number): number {
@@ -696,16 +756,6 @@ function clampInt(x: number, lo: number, hi: number): number {
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
-}
-
-function shuffleInPlace<T>(arr: T[], rng: () => number): T[] {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    const tmp = arr[i];
-    arr[i] = arr[j];
-    arr[j] = tmp;
-  }
-  return arr;
 }
 
 function mulberry32(a: number): () => number {
