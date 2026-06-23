@@ -8,6 +8,7 @@ import {
   type Cell,
   type WorldBrain,
 } from '../worldSchema';
+import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
 
 /**
  * Seeds the first real crust cause layer.
@@ -70,9 +71,14 @@ export function seedCrustFields(world: WorldBrain): void {
  * can become flooded cuts, mobile belts can become real highland chains, and
  * island arcs/volcanic provinces can preserve caused islands without sprinkling
  * accidental island confetti everywhere.
+ *
+ * Generate-only authority guard:
+ * This pass reads total height and writes baseHeight, so it may only run while
+ * editHeightDelta and simHeightDelta are still pristine.
  */
 export function applyCrustTerrainInfluence(world: WorldBrain): void {
   if (!world?.cells?.length) return;
+  assertNoAuthoredTerrainDeltas(world, 'applyCrustTerrainInfluence');
   ensureCrustFields(world);
 
   const seed = seedToUint32(world.metadata.seed);
