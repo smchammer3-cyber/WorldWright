@@ -73,6 +73,41 @@ describe('world crust fields', () => {
     expect(after.meanContinentalCrustThickness).toBeGreaterThan(after.meanOceanicCrustThickness);
   });
 
+  it('pushes basins down and mobile belts up relative to their starting height', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 16;
+    params.height = 8;
+    params.seed = 'province-shaping-test';
+    const world = generateWorldFromParams(params);
+    world.seaLevel = 0;
+    world.metadata.seaLevel = 0;
+
+    for (const cell of world.cells) {
+      cell.baseHeight = 0.08;
+      cell.editHeightDelta = 0;
+      cell.simHeightDelta = 0;
+      cell.plateType = PlateType.CONTINENTAL;
+      cell.boundaryType = BoundaryType.NONE;
+      cell.upliftRate = 0;
+      cell.volcanicActivity = 0;
+      cell.crustThickness = 0.58;
+      cell.crustAge = 0.52;
+      cell.crustProvince = CrustProvince.SEDIMENT_BASIN;
+    }
+
+    const basin = world.cells[2 * world.gridWidth + 2];
+    basin.crustProvince = CrustProvince.SEDIMENT_BASIN;
+
+    const belt = world.cells[2 * world.gridWidth + 10];
+    belt.crustProvince = CrustProvince.MOBILE_BELT;
+    belt.upliftRate = 0.5;
+
+    applyCrustTerrainInfluence(world);
+
+    expect(basin.baseHeight).toBeLessThan(0.08);
+    expect(belt.baseHeight).toBeGreaterThan(0.08);
+  });
+
   it('preserves caused tiny islands while sinking accidental tiny islands', () => {
     const params = createDefaultGeneratorParams();
     params.width = 12;
