@@ -8,6 +8,7 @@ import { validateWorld } from '../worldValidation';
 import { saveWorld, getWorldById } from '../worldStorage';
 import { cloneWorld, simulateTick } from '../worldSim';
 import { applyCrustTerrainInfluence, ensureCrustFields, seedCrustFields } from '../worldCrust';
+import { ensureContinentSkeletonFields, seedContinentSkeletonFields } from '../worldContinents';
 import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
 
 /**
@@ -118,6 +119,7 @@ class WorldSession {
       }
     }
 
+    ensureContinentSkeletonFields(world);
     ensureCrustFields(world);
   }
 
@@ -150,9 +152,11 @@ class WorldSession {
     recomputeWorld(w, ['GENERATED']);
     applyGeneratedWorldQualityPass(w);
     recomputeWorld(w, ['GENERATED']);
+    seedContinentSkeletonFields(w);
     seedCrustFields(w);
     applyCrustTerrainInfluence(w);
     recomputeWorld(w, ['GENERATED']);
+    seedContinentSkeletonFields(w);
     seedCrustFields(w);
 
     const errors = validateWorld(w);
@@ -259,75 +263,43 @@ class WorldSession {
    * Apply a local preview edit without recompute or history.
    * This is for high-frequency interactive editing paths.
    */
-  applyPreviewEdit(world: WorldBrain): void {
-    if (!world) return;
-    this.replaceWorld(world);
-    this.dirty = true;
-    this.notify();
-  }
-
-  /**
-   * Apply a finalized local edit with a single recompute + history push.
-   * Use this when an interaction finishes, such as brush stroke end.
-   */
-  applyCommittedLocalEdit(world: WorldBrain): void {
-    if (!world) return;
-
-    this.replaceWorld(world);
+  preview(action: WorldAction): void {
     if (!this.world) return;
-
-    recomputeWorld(this.world, ['TERRAIN_EDIT']);
-
-    const errors = validateWorld(this.world);
-    if (errors.length > 0) {
-      // eslint-disable-next-line no-console
-      console.warn('Validation warnings after committed local edit:', errors);
-    }
-
-    this.pushHistorySnapshot();
+    applyWorldAction(this.world, action);
     this.dirty = true;
     this.notify();
-  }
-
-  /**
-   * Backward-compatible path. Keep behavior safe, but route through committed edit.
-   */
-  applyLocalEdit(world: WorldBrain): void {
-    this.applyCommittedLocalEdit(world);
   }
 
   undo(): void {
-    if (this.historyIndex > 0) {
-      this.historyIndex--;
-      this.world = cloneWorld(this.history[this.historyIndex]);
-      this.dirty = true;
-      this.notify();
-    }
+    if (this.historyIndex <= 0) return;
+    this.historyIndex--;
+    this.world = cloneWorld(this.history[this.historyIndex]);
+    this.dirty = true;
+    this.notify();
   }
 
   redo(): void {
-    if (this.historyIndex < this.history.length - 1) {
-      this.historyIndex++;
-      this.world = cloneWorld(this.history[this.historyIndex]);
-      this.dirty = true;
-      this.notify();
-    }
+    if (this.historyIndex >= this.history.length - 1) return;
+    this.historyIndex++;
+    this.world = cloneWorld(this.history[this.historyIndex]);
+    this.dirty = true;
+    this.notify();
   }
 
-  simulateTick(dt: number = 1): void {
+  simulateTick(): void {
     if (!this.world) return;
-
-    simulateTick(this.world, dt);
+    simulateTick(this.world);
     recomputeWorld(this.world, ['SIM_STEP']);
-
-    const errors = validateWorld(this.world);
-    if (errors.length > 0) {
-      // eslint-disable-next-line no-console
-      console.warn('Validation warnings after sim tick:', errors);
-    }
-
     this.pushHistorySnapshot();
     this.dirty = true;
+    this.notify();
+  }
+
+  clear(): void {
+    this.world = null;
+    this.history = [];
+    this.historyIndex = -1;
+    this.dirty = false;
     this.notify();
   }
 }
