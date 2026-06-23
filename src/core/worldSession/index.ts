@@ -7,7 +7,7 @@ import { recomputeWorld } from '../worldRecompute';
 import { validateWorld } from '../worldValidation';
 import { saveWorld, getWorldById } from '../worldStorage';
 import { cloneWorld, simulateTick } from '../worldSim';
-import { ensureCrustFields, seedCrustFields } from '../worldCrust';
+import { applyCrustTerrainInfluence, ensureCrustFields, seedCrustFields } from '../worldCrust';
 import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
 
 /**
@@ -151,6 +151,9 @@ class WorldSession {
     this.normalizeWorld(w);
     recomputeWorld(w, ['GENERATED']);
     applyGeneratedWorldQualityPass(w);
+    recomputeWorld(w, ['GENERATED']);
+    seedCrustFields(w);
+    applyCrustTerrainInfluence(w);
     recomputeWorld(w, ['GENERATED']);
     seedCrustFields(w);
 
