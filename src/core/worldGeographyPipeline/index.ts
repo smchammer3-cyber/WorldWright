@@ -8,6 +8,7 @@ import { recomputeWorld } from '../worldRecompute';
 import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
 import { seedContinentSkeletonFields } from '../worldContinents';
 import { applyCrustTerrainInfluence, seedCrustFields } from '../worldCrust';
+import { buildGeographyProfile, type GeographyProfile } from '../worldGeographyProfile';
 
 /**
  * Authoritative generated-world geography order.
@@ -20,8 +21,10 @@ import { applyCrustTerrainInfluence, seedCrustFields } from '../worldCrust';
 export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   if (!world?.cells?.length) return;
 
+  const profile = buildGeographyProfile(world);
+
   seedContinentSkeletonFields(world);
-  applySkeletonBaseElevation(world);
+  applySkeletonBaseElevation(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
   applyGeneratedWorldQualityPass(world);
@@ -41,10 +44,14 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
  * Broad skeleton-first base elevation pass.
  *
  * This is the pipeline-order fix: continent cores and ocean basins now establish
- * broad height tendencies before province cleanup runs. It should reduce the
- * feeling that land is old noise with skeleton forces painted on afterward.
+ * broad height tendencies before province cleanup runs. Profile weights keep
+ * skeletons, shelves, ocean basins, and caused islands in a bounded budget so no
+ * single force overpowers the world.
  */
-export function applySkeletonBaseElevation(world: WorldBrain): void {
+export function applySkeletonBaseElevation(
+  world: WorldBrain,
+  profile: GeographyProfile = buildGeographyProfile(world),
+): void {
   const seaLevel = typeof world.seaLevel === 'number' ? world.seaLevel : world.metadata?.seaLevel ?? 0;
 
   for (const cell of world.cells) {
@@ -58,49 +65,49 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
     let strength = 0;
 
     if (continentality > 0.62) {
-      const coreTarget = seaLevel + 0.060 + continentality * 0.070 + core * 0.115;
-      target = blendTarget(target, coreTarget, 0.50 + core * 0.25);
-      strength = Math.max(strength, 0.34 + core * 0.22);
+      const coreTarget = seaLevel + 0.055 + continentality * 0.065 + core * 0.105;
+      target = blendTarget(target, coreTarget, profile.skeletonWeight * (0.54 + core * 0.24));
+      strength = Math.max(strength, profile.skeletonWeight * (0.44 + core * 0.22));
     } else if (continentality > 0.38) {
-      const marginTarget = seaLevel + 0.010 + (continentality - 0.38) * 0.105 - shelf * 0.035;
-      target = blendTarget(target, marginTarget, 0.34 + nearSurface * 0.22);
-      strength = Math.max(strength, 0.24 + nearSurface * 0.16);
+      const marginTarget = seaLevel + 0.006 + (continentality - 0.38) * 0.085 - shelf * 0.030;
+      target = blendTarget(target, marginTarget, profile.skeletonWeight * (0.28 + nearSurface * 0.18));
+      strength = Math.max(strength, profile.skeletonWeight * (0.24 + nearSurface * 0.14));
     } else {
-      const basinTarget = seaLevel - 0.110 - (1 - continentality) * 0.220;
-      target = blendTarget(target, basinTarget, 0.34 + nearSurface * 0.18);
-      strength = Math.max(strength, 0.22 + nearSurface * 0.18);
+      const basinTarget = seaLevel - 0.095 - (1 - continentality) * 0.205;
+      target = blendTarget(target, basinTarget, profile.oceanBasinWeight * (0.30 + nearSurface * 0.16));
+      strength = Math.max(strength, profile.oceanBasinWeight * (0.24 + nearSurface * 0.16));
     }
 
     if (shelf > 0.30 && core < 0.70) {
-      const shelfTarget = seaLevel - 0.040 + shelf * 0.030;
-      target = blendTarget(target, shelfTarget, 0.36 * shelf);
-      strength = Math.max(strength, 0.18 + shelf * 0.16);
+      const shelfTarget = seaLevel - 0.045 + shelf * 0.022;
+      target = blendTarget(target, shelfTarget, profile.shelfWeight * shelf);
+      strength = Math.max(strength, profile.shelfWeight * (0.42 + shelf * 0.22));
     }
 
     switch (cell.marginType) {
       case ContinentMarginType.COLLISION:
       case ContinentMarginType.ACTIVE:
-        target += 0.060 * smoothstep(0.32, 0.82, continentality);
-        strength = Math.max(strength, 0.32);
+        target += 0.055 * profile.tectonicReliefWeight * smoothstep(0.32, 0.82, continentality);
+        strength = Math.max(strength, profile.tectonicReliefWeight * 0.70);
         break;
       case ContinentMarginType.RIFT:
-        target -= 0.085 * (0.45 + nearSurface * 0.55);
-        strength = Math.max(strength, 0.30);
+        target -= 0.075 * profile.oceanBasinWeight * (0.45 + nearSurface * 0.55);
+        strength = Math.max(strength, profile.oceanBasinWeight * 0.48);
         break;
       case ContinentMarginType.PASSIVE:
-        target -= 0.025 * shelf;
-        strength = Math.max(strength, 0.18);
+        target -= 0.020 * profile.shelfWeight * shelf;
+        strength = Math.max(strength, profile.shelfWeight * 0.36);
         break;
       default:
         break;
     }
 
     if (cell.islandCause === IslandCause.INVALID_FRAGMENT && continentality < 0.28) {
-      target = Math.min(target, seaLevel - 0.120);
-      strength = Math.max(strength, 0.46);
+      target = Math.min(target, seaLevel - 0.105);
+      strength = Math.max(strength, profile.cleanupWeight * 5.0);
     } else if (cell.islandCause === IslandCause.ISLAND_ARC || cell.islandCause === IslandCause.VOLCANIC_HOTSPOT) {
-      target = Math.max(target, seaLevel + 0.020);
-      strength = Math.max(strength, 0.22);
+      target = Math.max(target, seaLevel + 0.018);
+      strength = Math.max(strength, profile.tectonicReliefWeight * 0.60);
     }
 
     const delta = (target - h) * clamp01(strength);
