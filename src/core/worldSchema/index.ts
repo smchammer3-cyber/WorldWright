@@ -42,6 +42,17 @@ export enum OceanDepthClass {
   SLOPE = 'SLOPE',
 }
 
+export enum CrustProvince {
+  OLD_SHIELD = 'OLD_SHIELD',
+  MOBILE_BELT = 'MOBILE_BELT',
+  SEDIMENT_BASIN = 'SEDIMENT_BASIN',
+  RIFT_MARGIN = 'RIFT_MARGIN',
+  COASTAL_PLAIN = 'COASTAL_PLAIN',
+  VOLCANIC_PROVINCE = 'VOLCANIC_PROVINCE',
+  OCEANIC_BASIN = 'OCEANIC_BASIN',
+  ISLAND_ARC = 'ISLAND_ARC',
+}
+
 export interface WorldMetadata {
   id: string;
   name: string;
@@ -100,6 +111,7 @@ export interface Cell {
   // crust without making plate polygons directly paint land/water.
   crustThickness: number; // 0..1, higher means thicker/more buoyant crust
   crustAge: number; // 0..1, higher means older/more stable crust
+  crustProvince: CrustProvince; // derived cause classification for terrain/coasts/islands
 
   // Biomes
   baseBiomeId: number;
@@ -252,6 +264,7 @@ export function createEmptyCell(index: number): Cell {
 
     crustThickness: 0.5,
     crustAge: 0.5,
+    crustProvince: CrustProvince.OLD_SHIELD,
 
     baseBiomeId: 0,
     editBiomeId: 0,

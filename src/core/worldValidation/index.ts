@@ -6,7 +6,7 @@
 // Callers can show these in a debug panel or before export/save.
 // ========================================================
 
-import { WorldBrain } from '../worldSchema';
+import { CrustProvince, WorldBrain } from '../worldSchema';
 
 export function validateWorld(world: WorldBrain): string[] {
   const errors: string[] = [];
@@ -62,6 +62,9 @@ export function validateWorld(world: WorldBrain): string[] {
     }
     if (typeof cell.crustAge === 'number' && (cell.crustAge < 0 || cell.crustAge > 1)) {
       errors.push(`Cell ${i} crustAge outside 0..1.`);
+    }
+    if (!Object.values(CrustProvince).includes(cell.crustProvince)) {
+      errors.push(`Cell ${i} missing or invalid crustProvince.`);
     }
   }
 
