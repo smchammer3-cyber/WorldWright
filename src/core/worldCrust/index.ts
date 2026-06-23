@@ -54,6 +54,52 @@ export function seedCrustFields(world: WorldBrain): void {
 }
 
 /**
+ * Lightly lets the crust cause layer influence visible terrain.
+ *
+ * This is intentionally conservative: it should raise old/thick continental
+ * interiors and deepen young/thin oceanic basins without turning crust into a
+ * new hard land mask or reintroducing plate seams.
+ */
+export function applyCrustTerrainInfluence(world: WorldBrain): void {
+  if (!world?.cells?.length) return;
+  ensureCrustFields(world);
+
+  const seaLevel = numeric(world.seaLevel, world.metadata?.seaLevel ?? 0);
+  const copy = world.cells.map((cell) => totalHeight(cell));
+
+  for (let i = 0; i < world.cells.length; i++) {
+    const cell = world.cells[i];
+    const h = copy[i];
+    const aboveSea = h - seaLevel;
+    const interiorGate = cell.boundaryType === BoundaryType.NONE ? 1 : 0.35;
+    const landGate = smoothstep(-0.02, 0.20, aboveSea);
+    const oceanGate = 1 - smoothstep(-0.18, 0.04, aboveSea);
+    const oldStableCrust = Math.max(0, cell.crustThickness - 0.58) * Math.max(0, cell.crustAge - 0.48);
+    const thinYoungCrust = Math.max(0, 0.54 - cell.crustThickness) * Math.max(0, 0.62 - cell.crustAge);
+    const activeBoundaryDamp = cell.boundaryType === BoundaryType.NONE ? 1 : 0.55;
+
+    const continentalUplift = cell.plateType === PlateType.CONTINENTAL
+      ? oldStableCrust * 0.28 * landGate * interiorGate
+      : 0;
+    const shieldBasinTexture = cell.plateType === PlateType.CONTINENTAL
+      ? centeredJitter(seedToUint32(world.metadata.seed), i, 7019) * oldStableCrust * 0.11 * landGate * activeBoundaryDamp
+      : 0;
+    const oceanicDeepening = cell.plateType === PlateType.OCEANIC
+      ? -thinYoungCrust * 0.22 * oceanGate
+      : 0;
+    const shelfSoftening = cell.oceanDepthClass === OceanDepthClass.SHELF || cell.oceanDepthClass === OceanDepthClass.SLOPE
+      ? (cell.crustThickness - 0.50) * 0.030
+      : 0;
+
+    cell.baseHeight = clamp(
+      cell.baseHeight + continentalUplift + shieldBasinTexture + oceanicDeepening + shelfSoftening,
+      -1.4,
+      1.5,
+    );
+  }
+}
+
+/**
  * Ensures old saved worlds and test fixtures have sane crust fields. If fields
  * are missing, it seeds them from current terrain/geology. If they exist but are
  * malformed, it clamps them into range.
@@ -116,6 +162,10 @@ function seedToUint32(s: string | number): number {
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = clamp01((x - edge0) / Math.max(1e-9, edge1 - edge0));
   return t * t * (3 - 2 * t);
+}
+
+function clamp(value: number, lo: number, hi: number): number {
+  return value < lo ? lo : value > hi ? hi : value;
 }
 
 function clamp01(value: number): number {
