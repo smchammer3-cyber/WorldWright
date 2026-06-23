@@ -6,9 +6,7 @@ import {
 } from '../worldSchema';
 import { recomputeWorld } from '../worldRecompute';
 import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
-import { seedSkeletonCauseFields } from '../worldSkeletonCause';
-import { composeSkeletonFirstTerrain } from '../worldTerrainComposer';
-import { refitSeaLevelToProfile } from '../worldSeaLevelFit';
+import { seedContinentSkeletonFields } from '../worldContinents';
 import { applyCrustTerrainInfluence, seedCrustFields } from '../worldCrust';
 import { buildGeographyProfile, type GeographyProfile } from '../worldGeographyProfile';
 import { applyOceanBasinAuthority } from '../worldOceanBasinAuthority';
@@ -18,33 +16,29 @@ import { applyGeographyProfileCorrections, measureGeographyProfileFit } from '..
 /**
  * Authoritative generated-world geography order.
  *
- * This is intentionally separate from recomputeWorld. Recompute derives water,
- * climate, rivers, snow, and biomes from the existing terrain. This pipeline is
- * the generated-world geography constructor: it gives continent/ocean skeletons
- * authority before crust provinces and cleanup try to refine the surface.
+ * This default path intentionally restores the pre-skeleton-composer behavior:
+ * the legacy generated terrain body remains active, then skeleton/ocean/crust
+ * passes nudge and clean it. The skeleton-first composer remains experimental
+ * until its math can produce functional land/ocean distributions.
  */
 export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   if (!world?.cells?.length) return;
 
   const profile = buildGeographyProfile(world);
 
-  seedSkeletonCauseFields(world);
-  composeSkeletonFirstTerrain(world, profile);
-  refitSeaLevelToProfile(world, profile);
-  recomputeWorld(world, ['GENERATED']);
-
+  seedContinentSkeletonFields(world);
+  applySkeletonBaseElevation(world, profile);
   applyOceanBasinAuthority(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
   applyGeneratedWorldQualityPass(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
-  seedSkeletonCauseFields(world);
+  seedContinentSkeletonFields(world);
   seedCrustFields(world);
   applyCrustTerrainInfluence(world);
   recomputeWorld(world, ['GENERATED']);
 
-  seedSkeletonCauseFields(world);
   applyOceanBasinAuthority(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
@@ -52,11 +46,10 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   recomputeWorld(world, ['GENERATED']);
 
   applyGeographyProfileCorrections(world, profile);
-  refitSeaLevelToProfile(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
   // Refresh diagnostic/cause fields after visible terrain obedience/correction.
-  seedSkeletonCauseFields(world);
+  seedContinentSkeletonFields(world);
   seedCrustFields(world);
   measureGeographyProfileFit(world, profile);
 }
@@ -64,9 +57,10 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
 /**
  * Broad skeleton-first base elevation pass.
  *
- * This legacy helper remains available for focused tests and older callers, but
- * the generated-world pipeline now composes the first terrain body from skeleton
- * causes before using correction passes.
+ * This is the pipeline-order fix: continent cores and ocean basins now establish
+ * broad height tendencies before province cleanup runs. Profile weights keep
+ * skeletons, shelves, ocean basins, and caused islands in a bounded budget so no
+ * single force overpowers the world.
  */
 export function applySkeletonBaseElevation(
   world: WorldBrain,
