@@ -9,6 +9,7 @@ import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
 import { seedContinentSkeletonFields } from '../worldContinents';
 import { applyCrustTerrainInfluence, seedCrustFields } from '../worldCrust';
 import { buildGeographyProfile, type GeographyProfile } from '../worldGeographyProfile';
+import { applyGeographyProfileCorrections, measureGeographyProfileFit } from '../worldGeographyMetrics';
 
 /**
  * Authoritative generated-world geography order.
@@ -27,7 +28,7 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   applySkeletonBaseElevation(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
-  applyGeneratedWorldQualityPass(world);
+  applyGeneratedWorldQualityPass(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
   seedContinentSkeletonFields(world);
@@ -35,9 +36,13 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   applyCrustTerrainInfluence(world);
   recomputeWorld(world, ['GENERATED']);
 
-  // Refresh diagnostic/cause fields after visible terrain obedience.
+  applyGeographyProfileCorrections(world, profile);
+  recomputeWorld(world, ['GENERATED']);
+
+  // Refresh diagnostic/cause fields after visible terrain obedience/correction.
   seedContinentSkeletonFields(world);
   seedCrustFields(world);
+  measureGeographyProfileFit(world, profile);
 }
 
 /**
