@@ -31,6 +31,7 @@ export type PlanetPreviewMode =
   | "OCEAN_DEPTH"
   | "CRUST"
   | "CRUST_PROVINCE"
+  | "CONTINENTS"
   | "GRID"
   | "PLATES"
   | "RIVERS";
@@ -46,6 +47,7 @@ export const PLANET_PREVIEW_MODES: Array<{ id: PlanetPreviewMode; label: string 
   { id: "OCEAN_DEPTH", label: "Ocean Depth" },
   { id: "CRUST", label: "Crust" },
   { id: "CRUST_PROVINCE", label: "Crust Province" },
+  { id: "CONTINENTS", label: "Continents" },
   { id: "GRID", label: "Grid" },
   { id: "PLATES", label: "Plates" },
   { id: "RIVERS", label: "Rivers" },
@@ -246,6 +248,8 @@ export function buildPlanetPreview(
         return crustColor(cell);
       case "CRUST_PROVINCE":
         return crustProvinceColor(cell);
+      case "CONTINENTS":
+        return continentColor(cell);
       case "GRID":
         return gridColor(row, col, width, height);
       case "PLATES":
@@ -446,6 +450,28 @@ function crustProvinceColor(cell: Cell): Rgb {
   }
 
   return shade(color, 0.88 + clamp01(cell.crustAge) * 0.16);
+}
+
+function continentColor(cell: Cell): Rgb {
+  if (cell.continentId == null) {
+    const basin = cell.oceanBasinId ?? 0;
+    const base: Rgb = [
+      0.05 + hash01(basin + 101) * 0.10,
+      0.18 + hash01(basin + 211) * 0.18,
+      0.34 + hash01(basin + 307) * 0.28,
+    ];
+    return mix(base, [0.14, 0.48, 0.60], clamp01(cell.shelfStrength) * 0.55);
+  }
+
+  const id = cell.continentId;
+  let color: Rgb = [
+    0.32 + hash01(id + 11) * 0.44,
+    0.36 + hash01(id + 23) * 0.38,
+    0.22 + hash01(id + 37) * 0.30,
+  ];
+  color = mix(color, [0.94, 0.78, 0.38], clamp01(cell.continentCoreStrength) * 0.42);
+  color = mix(color, [0.36, 0.74, 0.70], clamp01(cell.shelfStrength) * 0.34);
+  return shade(color, 0.82 + clamp01(cell.continentality) * 0.28);
 }
 
 function gridColor(row: number, col: number, width: number, height: number): Rgb {

@@ -8,6 +8,7 @@ import { validateWorld } from '../worldValidation';
 import { saveWorld, getWorldById } from '../worldStorage';
 import { cloneWorld, simulateTick } from '../worldSim';
 import { applyCrustTerrainInfluence, ensureCrustFields, seedCrustFields } from '../worldCrust';
+import { ensureContinentSkeletonFields, seedContinentSkeletonFields } from '../worldContinents';
 import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
 
 /**
@@ -118,6 +119,7 @@ class WorldSession {
       }
     }
 
+    ensureContinentSkeletonFields(world);
     ensureCrustFields(world);
   }
 
@@ -150,9 +152,11 @@ class WorldSession {
     recomputeWorld(w, ['GENERATED']);
     applyGeneratedWorldQualityPass(w);
     recomputeWorld(w, ['GENERATED']);
+    seedContinentSkeletonFields(w);
     seedCrustFields(w);
     applyCrustTerrainInfluence(w);
     recomputeWorld(w, ['GENERATED']);
+    seedContinentSkeletonFields(w);
     seedCrustFields(w);
 
     const errors = validateWorld(w);
@@ -229,7 +233,7 @@ class WorldSession {
     }
 
     const saved = await saveWorld(this.world);
-    this.world.metadata = saved.metadata;
+    this.world = saved;
     this.dirty = false;
     this.notify();
     return saved;
