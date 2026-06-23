@@ -1,4 +1,5 @@
 import type { WorldBrain } from '../worldSchema';
+import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
 
 type Vec3 = [number, number, number];
 
@@ -8,9 +9,14 @@ type Vec3 = [number, number, number];
  * This is intentionally separate from tectonic ownership. The generator already
  * creates the world skeleton; this pass adds non-plate interior relief and
  * near-sea-level coastline breakup so land does not read as flat painted slabs.
+ *
+ * Generate-only authority guard:
+ * This pass reads total height and writes baseHeight, so it may only run while
+ * editHeightDelta and simHeightDelta are still pristine.
  */
 export function applyGeneratedWorldQualityPass(world: WorldBrain): void {
   if (!world?.cells?.length) return;
+  assertNoAuthoredTerrainDeltas(world, 'applyGeneratedWorldQualityPass');
 
   const style = world.metadata?.styleMode ?? world.parameters?.styleMode ?? 'EARTHLIKE';
   const seed = seedToUint32(world.metadata?.seed ?? world.parameters?.seed ?? 0);
@@ -139,7 +145,7 @@ function sphereValueNoise(v: Vec3, f: number, salt: number, seed: number): numbe
   const x10 = lerp(c010, c110, u);
   const x01 = lerp(c001, c101, u);
   const x11 = lerp(c011, c111, u);
-  return lerp(lerp(x00, x10, vv), lerp(x01, x11, vv), w);
+  return lerp(lerp(x00, x10, vv), lerp(x01, x11), w);
 }
 
 function shiftVec(dir: Vec3, ox: number, oy: number, oz: number): Vec3 {
