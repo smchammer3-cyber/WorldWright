@@ -5,7 +5,7 @@ import { applyCrustTerrainInfluence, seedCrustFields, ensureCrustFields } from '
 import { makePlanetPreviewFromWorldBrain, PLANET_PREVIEW_MODES } from '../src/core/planetRenderer';
 import { recomputeWorld } from '../src/core/worldRecompute';
 import { validateWorld } from '../src/core/worldValidation';
-import { BoundaryType, CrustProvince, PlateType } from '../src/core/worldSchema';
+import { BoundaryType, ContinentMarginType, CrustProvince, IslandCause, PlateType } from '../src/core/worldSchema';
 
 describe('world crust fields', () => {
   it('seeds deterministic crust thickness, age, and province values in range', () => {
@@ -142,6 +142,57 @@ describe('world crust fields', () => {
     expect(world.cells[centerIndex].baseHeight).toBeGreaterThan(0);
   });
 
+  it('raises continental cores while sinking invalid mid-ocean fragments', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 16;
+    params.height = 8;
+    params.seed = 'continent-obedience-test';
+    const world = generateWorldFromParams(params);
+    world.seaLevel = 0;
+    world.metadata.seaLevel = 0;
+
+    for (const cell of world.cells) {
+      cell.baseHeight = -0.20;
+      cell.editHeightDelta = 0;
+      cell.simHeightDelta = 0;
+      cell.plateType = PlateType.CONTINENTAL;
+      cell.boundaryType = BoundaryType.NONE;
+      cell.volcanicActivity = 0;
+      cell.crustThickness = 0.62;
+      cell.crustAge = 0.62;
+      cell.crustProvince = CrustProvince.OLD_SHIELD;
+      cell.continentId = 1;
+      cell.continentCoreStrength = 0.1;
+      cell.continentality = 0.2;
+      cell.distanceToContinentCore = 0.8;
+      cell.marginType = ContinentMarginType.NONE;
+      cell.oceanBasinId = null;
+      cell.shelfStrength = 0;
+      cell.islandCause = IslandCause.NONE;
+    }
+
+    const core = world.cells[2 * world.gridWidth + 2];
+    core.baseHeight = -0.02;
+    core.continentCoreStrength = 0.95;
+    core.continentality = 0.95;
+    core.distanceToContinentCore = 0.02;
+
+    const invalid = world.cells[2 * world.gridWidth + 10];
+    invalid.baseHeight = 0.05;
+    invalid.continentId = null;
+    invalid.continentCoreStrength = 0;
+    invalid.continentality = 0.05;
+    invalid.distanceToContinentCore = 0.95;
+    invalid.plateType = PlateType.OCEANIC;
+    invalid.crustProvince = CrustProvince.OCEANIC_BASIN;
+    invalid.islandCause = IslandCause.INVALID_FRAGMENT;
+
+    applyCrustTerrainInfluence(world);
+
+    expect(core.baseHeight).toBeGreaterThan(0);
+    expect(invalid.baseHeight).toBeLessThan(0);
+  });
+
   it('preserves caused tiny islands while sinking accidental tiny islands', () => {
     const params = createDefaultGeneratorParams();
     params.width = 12;
@@ -161,6 +212,14 @@ describe('world crust fields', () => {
       cell.crustThickness = 0.45;
       cell.crustAge = 0.35;
       cell.crustProvince = CrustProvince.OCEANIC_BASIN;
+      cell.continentId = null;
+      cell.continentCoreStrength = 0;
+      cell.continentality = 0;
+      cell.distanceToContinentCore = 1;
+      cell.marginType = ContinentMarginType.NONE;
+      cell.oceanBasinId = 1;
+      cell.shelfStrength = 0;
+      cell.islandCause = IslandCause.NONE;
     }
 
     const accidental = world.cells[1 * world.gridWidth + 1];
@@ -171,6 +230,7 @@ describe('world crust fields', () => {
     caused.baseHeight = 0.03;
     caused.volcanicActivity = 0.8;
     caused.crustProvince = CrustProvince.ISLAND_ARC;
+    caused.islandCause = IslandCause.ISLAND_ARC;
 
     applyCrustTerrainInfluence(world);
 
