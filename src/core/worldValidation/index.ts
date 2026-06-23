@@ -54,6 +54,15 @@ export function validateWorld(world: WorldBrain): string[] {
     }
     if (typeof cell.flowAccumulation !== 'number') errors.push(`Cell ${i} missing flowAccumulation.`);
     if (cell.basinId != null && typeof cell.basinId !== 'number') errors.push(`Cell ${i} basinId invalid type.`);
+
+    if (typeof cell.crustThickness !== 'number') errors.push(`Cell ${i} missing crustThickness.`);
+    if (typeof cell.crustAge !== 'number') errors.push(`Cell ${i} missing crustAge.`);
+    if (typeof cell.crustThickness === 'number' && (cell.crustThickness < 0 || cell.crustThickness > 1)) {
+      errors.push(`Cell ${i} crustThickness outside 0..1.`);
+    }
+    if (typeof cell.crustAge === 'number' && (cell.crustAge < 0 || cell.crustAge > 1)) {
+      errors.push(`Cell ${i} crustAge outside 0..1.`);
+    }
   }
 
   // Countries sanity
