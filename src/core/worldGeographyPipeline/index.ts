@@ -47,9 +47,11 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
 /**
  * Broad skeleton-first base elevation pass.
  *
- * This is the pipeline-order fix: continent cores and ocean basins now establish
- * broad height tendencies before province cleanup runs. It should reduce the
- * feeling that land is old noise with skeleton forces painted on afterward.
+ * This pass should guide continent/ocean tendencies without becoming a hard
+ * continent mask. Stage diagnostics showed the earlier version could drop land
+ * coverage too aggressively and split coherent land into too many bodies, so
+ * downward skeleton influence is now capped and existing coherent land gets
+ * protection unless it is clearly an invalid fragment.
  *
  * Generate-only authority guard:
  * This pass reads totalHeight and writes baseHeight, so it may only run while
@@ -59,70 +61,121 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
   assertNoAuthoredTerrainDeltas(world, 'applySkeletonBaseElevation');
 
   const seaLevel = typeof world.seaLevel === 'number' ? world.seaLevel : world.metadata?.seaLevel ?? 0;
+  const source = world.cells.map((cell) => totalHeight(cell));
 
-  for (const cell of world.cells) {
-    const h = totalHeight(cell);
+  for (let i = 0; i < world.cells.length; i++) {
+    const cell = world.cells[i];
+    const h = source[i];
+    const aboveSea = h - seaLevel;
+    const wasLand = aboveSea >= 0;
     const continentality = clamp01(cell.continentality);
     const core = clamp01(cell.continentCoreStrength);
     const shelf = clamp01(cell.shelfStrength);
-    const nearSurface = 1 - smoothstep(0.10, 0.46, Math.abs(h - seaLevel));
+    const localLand = localFractionAboveSea(world, source, i, seaLevel, 4);
+    const nearSurface = 1 - smoothstep(0.10, 0.46, Math.abs(aboveSea));
 
     let target = h;
     let strength = 0;
 
     if (continentality > 0.62) {
-      const coreTarget = seaLevel + 0.060 + continentality * 0.070 + core * 0.115;
-      target = blendTarget(target, coreTarget, 0.50 + core * 0.25);
-      strength = Math.max(strength, 0.34 + core * 0.22);
+      const coreTarget = seaLevel + 0.055 + continentality * 0.055 + core * 0.095;
+      target = blendTarget(target, coreTarget, 0.34 + core * 0.18);
+      strength = Math.max(strength, 0.24 + core * 0.16);
     } else if (continentality > 0.38) {
-      const marginTarget = seaLevel + 0.010 + (continentality - 0.38) * 0.105 - shelf * 0.035;
-      target = blendTarget(target, marginTarget, 0.34 + nearSurface * 0.22);
-      strength = Math.max(strength, 0.24 + nearSurface * 0.16);
+      const marginTarget = seaLevel + 0.016 + (continentality - 0.38) * 0.070 - shelf * 0.016;
+      target = blendTarget(target, marginTarget, 0.22 + nearSurface * 0.10);
+      strength = Math.max(strength, 0.15 + nearSurface * 0.08);
     } else {
-      const basinTarget = seaLevel - 0.110 - (1 - continentality) * 0.220;
-      target = blendTarget(target, basinTarget, 0.34 + nearSurface * 0.18);
-      strength = Math.max(strength, 0.22 + nearSurface * 0.18);
+      const basinTarget = seaLevel - 0.060 - (1 - continentality) * 0.135;
+      target = blendTarget(target, basinTarget, 0.18 + nearSurface * 0.08);
+      strength = Math.max(strength, 0.12 + nearSurface * 0.08);
     }
 
     if (shelf > 0.30 && core < 0.70) {
-      const shelfTarget = seaLevel - 0.040 + shelf * 0.030;
-      target = blendTarget(target, shelfTarget, 0.36 * shelf);
-      strength = Math.max(strength, 0.18 + shelf * 0.16);
+      const shelfTarget = seaLevel - 0.026 + shelf * 0.020;
+      const shelfPull = wasLand ? 0.14 * shelf : 0.24 * shelf;
+      target = blendTarget(target, shelfTarget, shelfPull);
+      strength = Math.max(strength, 0.12 + shelf * 0.08);
     }
 
     switch (cell.marginType) {
       case ContinentMarginType.COLLISION:
       case ContinentMarginType.ACTIVE:
-        target += 0.060 * smoothstep(0.32, 0.82, continentality);
-        strength = Math.max(strength, 0.32);
+        target += 0.045 * smoothstep(0.32, 0.82, continentality);
+        strength = Math.max(strength, 0.24);
         break;
       case ContinentMarginType.RIFT:
-        target -= 0.085 * (0.45 + nearSurface * 0.55);
-        strength = Math.max(strength, 0.30);
+        target -= 0.045 * (0.35 + nearSurface * 0.45) * (1 - core * 0.45);
+        strength = Math.max(strength, 0.20);
         break;
       case ContinentMarginType.PASSIVE:
-        target -= 0.025 * shelf;
-        strength = Math.max(strength, 0.18);
+        target -= 0.010 * shelf;
+        strength = Math.max(strength, 0.12);
         break;
       default:
         break;
     }
 
-    if (cell.islandCause === IslandCause.INVALID_FRAGMENT && continentality < 0.28) {
-      target = Math.min(target, seaLevel - 0.120);
-      strength = Math.max(strength, 0.46);
+    const invalidFragment = cell.islandCause === IslandCause.INVALID_FRAGMENT && continentality < 0.22 && shelf < 0.28;
+    if (invalidFragment) {
+      target = Math.min(target, seaLevel - 0.090);
+      strength = Math.max(strength, 0.34);
     } else if (cell.islandCause === IslandCause.ISLAND_ARC || cell.islandCause === IslandCause.VOLCANIC_HOTSPOT) {
-      target = Math.max(target, seaLevel + 0.020);
-      strength = Math.max(strength, 0.22);
+      target = Math.max(target, seaLevel + 0.018);
+      strength = Math.max(strength, 0.20);
     }
 
-    const delta = (target - h) * clamp01(strength);
+    let delta = (target - h) * clamp01(strength);
+
+    if (delta < 0 && wasLand && !invalidFragment) {
+      const landProtection = clamp01(
+        0.30 * smoothstep(0.20, 0.80, localLand) +
+        0.32 * smoothstep(0.24, 0.70, continentality) +
+        0.24 * core,
+      );
+      delta *= lerp(1.0, 0.28, landProtection);
+      delta = Math.max(delta, -0.040);
+    }
+
+    if (delta > 0 && !wasLand && continentality < 0.26 && shelf < 0.24 && !isCausedIsland(cell)) {
+      delta *= 0.35;
+    }
+
     cell.baseHeight = clamp(cell.baseHeight + delta, -1.4, 1.5);
   }
 }
 
 function totalHeight(cell: Cell): number {
   return cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
+}
+
+function localFractionAboveSea(world: WorldBrain, heights: number[], index: number, seaLevel: number, radius: number): number {
+  const row = Math.floor(index / world.gridWidth);
+  const col = index % world.gridWidth;
+  let land = 0;
+  let total = 0;
+
+  for (let dr = -radius; dr <= radius; dr++) {
+    const r = row + dr;
+    if (r < 0 || r >= world.gridHeight) continue;
+    for (let dc = -radius; dc <= radius; dc++) {
+      const c = (col + dc + world.gridWidth) % world.gridWidth;
+      total++;
+      if (heights[r * world.gridWidth + c] >= seaLevel) land++;
+    }
+  }
+
+  return total > 0 ? land / total : 0;
+}
+
+function isCausedIsland(cell: Cell): boolean {
+  return (
+    cell.islandCause === IslandCause.ISLAND_ARC ||
+    cell.islandCause === IslandCause.VOLCANIC_HOTSPOT ||
+    cell.islandCause === IslandCause.RIFT_FRAGMENT ||
+    cell.islandCause === IslandCause.SHELF_ISLAND ||
+    cell.islandCause === IslandCause.CONTINENTAL_FRAGMENT
+  );
 }
 
 function blendTarget(currentTarget: number, nextTarget: number, amount: number): number {
@@ -133,6 +186,10 @@ function blendTarget(currentTarget: number, nextTarget: number, amount: number):
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = clamp01((x - edge0) / Math.max(1e-9, edge1 - edge0));
   return t * t * (3 - 2 * t);
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
 }
 
 function clamp(value: number, lo: number, hi: number): number {
