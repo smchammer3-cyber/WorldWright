@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import type { WorldBrain } from '../core/worldSchema';
 import type { PlanetPreview } from '../core/planetRenderer';
 import { generateNormalMap, normalMapToCanvas } from '../core/normalMapGenerator';
+import { rasterizeGlobeTextureFromPreview } from '../core/worldSampling';
 
 type Props = {
   world: WorldBrain;
@@ -409,29 +410,9 @@ function createTextureFromPreview(rt: GlobeRuntime, preview: PlanetPreview): THR
   const ctx = texCanvas.getContext('2d');
   if (!ctx) throw new Error('Failed to create texture canvas 2D context');
 
-  if (preview.rgba && preview.rgba instanceof Uint8ClampedArray) {
-    const img = new ImageData(new Uint8ClampedArray(preview.rgba), w, h);
-    ctx.putImageData(img, 0, 0);
-  } else {
-    const img = ctx.createImageData(w, h);
-    const d = img.data;
-
-    for (let ty = 0; ty < h; ty++) {
-      const row = Math.max(0, Math.min(h - 1, ty));
-      for (let tx = 0; tx < w; tx++) {
-        const col = tx % w;
-        const cellIndex = row * w + col;
-        const rgba = preview.sampleGlobeColor(cellIndex);
-        const pixelIndex = (ty * w + tx) * 4;
-        d[pixelIndex + 0] = rgba[0];
-        d[pixelIndex + 1] = rgba[1];
-        d[pixelIndex + 2] = rgba[2];
-        d[pixelIndex + 3] = rgba[3];
-      }
-    }
-
-    ctx.putImageData(img, 0, 0);
-  }
+  const rgba = rasterizeGlobeTextureFromPreview(preview);
+  const img = new ImageData(rgba, w, h);
+  ctx.putImageData(img, 0, 0);
 
   const tex = new THREE.CanvasTexture(texCanvas);
   tex.wrapS = THREE.RepeatWrapping;
