@@ -90,4 +90,27 @@ describe('world geography pipeline', () => {
     expect(shelf.baseHeight).toBeLessThan(0.18);
     expect(shelf.baseHeight).toBeGreaterThan(-0.12);
   });
+
+  it('blocks generated geography passes once authored terrain deltas exist', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 32;
+    params.height = 16;
+    params.seed = 'generated-pass-edit-guard';
+    const world = generateWorldFromParams(params);
+    world.cells[0].editHeightDelta = 0.125;
+
+    expect(() => applyGeneratedGeographyPipeline(world)).toThrow(/generate-only/);
+  });
+
+  it('blocks skeleton base elevation once simulation terrain deltas exist', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 32;
+    params.height = 16;
+    params.seed = 'generated-pass-sim-guard';
+    const world = generateWorldFromParams(params);
+    seedContinentSkeletonFields(world);
+    world.cells[0].simHeightDelta = -0.05;
+
+    expect(() => applySkeletonBaseElevation(world)).toThrow(/generate-only/);
+  });
 });
