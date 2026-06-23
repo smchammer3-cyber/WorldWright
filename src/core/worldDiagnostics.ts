@@ -34,6 +34,11 @@ export type WorldDiagnostics = {
     plateBoundaryFraction: number;
     seamHeightRatio: number | null;
     plateTypeTerrainMismatch: number;
+    meanContinentalCrustThickness: number;
+    meanOceanicCrustThickness: number;
+    crustThicknessSpread: number;
+    crustAgeSpread: number;
+    oldStableContinentalShare: number;
     oceanDepthDominantShare: number;
     oceanDepthDistribution: Record<string, number>;
   };
@@ -56,9 +61,14 @@ export function computeWorldDiagnostics(world: WorldBrain): WorldDiagnostics {
   let snowSumOnLand = 0;
   let boundaryCells = 0;
   let plateTypeTerrainMismatch = 0;
+  let oldStableContinentalCells = 0;
   const allHeights: number[] = [];
   const landHeights: number[] = [];
   const oceanHeights: number[] = [];
+  const continentalCrustThickness: number[] = [];
+  const oceanicCrustThickness: number[] = [];
+  const crustThicknessValues: number[] = [];
+  const crustAgeValues: number[] = [];
 
   for (let i = 0; i < world.cells.length; i++) {
     const cell = world.cells[i];
@@ -66,6 +76,17 @@ export function computeWorldDiagnostics(world: WorldBrain): WorldDiagnostics {
     allHeights.push(h);
 
     if (cell.boundaryType !== BoundaryType.NONE) boundaryCells++;
+
+    const crustThickness = clamp01(typeof cell.crustThickness === 'number' ? cell.crustThickness : 0.5);
+    const crustAge = clamp01(typeof cell.crustAge === 'number' ? cell.crustAge : 0.5);
+    crustThicknessValues.push(crustThickness);
+    crustAgeValues.push(crustAge);
+    if (cell.plateType === PlateType.CONTINENTAL) {
+      continentalCrustThickness.push(crustThickness);
+      if (crustAge > 0.62 && crustThickness > 0.62 && cell.boundaryType === BoundaryType.NONE) oldStableContinentalCells++;
+    } else {
+      oceanicCrustThickness.push(crustThickness);
+    }
 
     if (cell.isWater) {
       oceanHeights.push(h);
@@ -88,6 +109,8 @@ export function computeWorldDiagnostics(world: WorldBrain): WorldDiagnostics {
   const seamHeightRatio = plateSeamHeightRatio(world);
   const oceanTotal = Math.max(1, oceanHeights.length);
   const dominantOceanDepthCount = Math.max(...Object.values(oceanDepthCounts));
+  const meanContinentalCrustThickness = mean(continentalCrustThickness);
+  const meanOceanicCrustThickness = mean(oceanicCrustThickness);
 
   const raw = {
     landFraction,
@@ -105,6 +128,11 @@ export function computeWorldDiagnostics(world: WorldBrain): WorldDiagnostics {
     plateBoundaryFraction: boundaryCells / totalCells,
     seamHeightRatio,
     plateTypeTerrainMismatch: plateTypeTerrainMismatch / totalCells,
+    meanContinentalCrustThickness,
+    meanOceanicCrustThickness,
+    crustThicknessSpread: stdDev(crustThicknessValues),
+    crustAgeSpread: stdDev(crustAgeValues),
+    oldStableContinentalShare: oldStableContinentalCells / Math.max(1, continentalCrustThickness.length),
     oceanDepthDominantShare: dominantOceanDepthCount / oceanTotal,
     oceanDepthDistribution: normalizeCounts(oceanDepthCounts, oceanTotal),
   };
@@ -113,6 +141,7 @@ export function computeWorldDiagnostics(world: WorldBrain): WorldDiagnostics {
     raw.maxHorizontalCoastRun / Math.max(1, world.gridWidth),
     raw.maxVerticalCoastRun / Math.max(1, world.gridHeight),
   );
+  const crustContrast = raw.meanContinentalCrustThickness - raw.meanOceanicCrustThickness;
 
   const metrics: DiagnosticMetric[] = [
     metric(
@@ -191,6 +220,20 @@ export function computeWorldDiagnostics(world: WorldBrain): WorldDiagnostics {
       percent(raw.plateTypeTerrainMismatch),
       levelFromRange(raw.plateTypeTerrainMismatch, rules.diagnostics.plateMismatchFraction),
       'Continental plate under water or oceanic plate above water. Some is okay; too much means plate type is not matching terrain.',
+    ),
+    metric(
+      'crustContrast',
+      'Crust contrast',
+      fixed(crustContrast),
+      crustContrastLevel(crustContrast),
+      'Mean continental crust thickness minus mean oceanic crust thickness. Positive contrast shows crust fields are separating causes before terrain uses them.',
+    ),
+    metric(
+      'oldCores',
+      'Old stable crust',
+      percent(raw.oldStableContinentalShare),
+      oldCoreLevel(raw.oldStableContinentalShare),
+      'Share of continental cells that are old, thick, and away from active boundaries. Future terrain should use these as shields/highlands/basins.',
     ),
     metric(
       'snow',
@@ -365,11 +408,28 @@ function normalizeCounts(counts: Record<string, number>, denominator: number): R
   return out;
 }
 
+function mean(values: number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
 function stdDev(values: number[]): number {
   if (values.length < 2) return 0;
-  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
-  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
+  const m = mean(values);
+  const variance = values.reduce((sum, value) => sum + (value - m) ** 2, 0) / values.length;
   return Math.sqrt(variance);
+}
+
+function crustContrastLevel(v: number): DiagnosticLevel {
+  if (v < 0.04) return 'problem';
+  if (v < 0.08) return 'watch';
+  return 'ok';
+}
+
+function oldCoreLevel(v: number): DiagnosticLevel {
+  if (v < 0.03) return 'problem';
+  if (v < 0.08) return 'watch';
+  return 'ok';
 }
 
 function percent(value: number): string {
@@ -378,4 +438,8 @@ function percent(value: number): string {
 
 function fixed(value: number): string {
   return value.toFixed(2);
+}
+
+function clamp01(value: number): number {
+  return value < 0 ? 0 : value > 1 ? 1 : value;
 }
