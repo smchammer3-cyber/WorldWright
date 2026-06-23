@@ -9,6 +9,7 @@ import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
 import { seedContinentSkeletonFields } from '../worldContinents';
 import { applyCrustTerrainInfluence, seedCrustFields } from '../worldCrust';
 import { buildGeographyProfile, type GeographyProfile } from '../worldGeographyProfile';
+import { applyOceanBasinAuthority } from '../worldOceanBasinAuthority';
 import { applyGeographyAuthorityCleanup } from '../worldGeographyAuthority';
 import { applyGeographyProfileCorrections, measureGeographyProfileFit } from '../worldGeographyMetrics';
 
@@ -27,6 +28,7 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
 
   seedContinentSkeletonFields(world);
   applySkeletonBaseElevation(world, profile);
+  applyOceanBasinAuthority(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
   applyGeneratedWorldQualityPass(world, profile);
@@ -35,6 +37,9 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   seedContinentSkeletonFields(world);
   seedCrustFields(world);
   applyCrustTerrainInfluence(world);
+  recomputeWorld(world, ['GENERATED']);
+
+  applyOceanBasinAuthority(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
   applyGeographyAuthorityCleanup(world, profile);
