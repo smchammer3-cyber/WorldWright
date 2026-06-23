@@ -8,17 +8,19 @@ type Rgba = [number, number, number, number];
  *
  * The current world data is still stored as a rectangular compatibility view,
  * but the globe should not squeeze every longitude column into a hard polar
- * pinwheel. Near the poles, blend each longitude toward a latitude-band average
- * so debug layers and Final view read as spherical data rather than texture
- * compression artifacts.
+ * artifact. Near the poles, blend each sample toward a local longitude window
+ * instead of averaging the whole latitude ring. This keeps broad polar land,
+ * water, biome, and depth shapes visible while softening thin radial artifacts.
  */
 export function sampleGlobePreviewAtLatLon(preview: PlanetPreview, lat: number, lon: number): Rgba {
   const base = samplePreviewNearest(preview, lat, lon);
-  const polarBlend = smoothstep(68, 88, Math.abs(lat));
+  const absLat = Math.abs(lat);
+  const polarBlend = smoothstep(78, 89.5, absLat);
   if (polarBlend <= 0) return base;
 
-  const averaged = averageLatitudeBand(preview, lat, 24);
-  return mixRgba(base, averaged, polarBlend);
+  const windowDegrees = lerp(4, 28, polarBlend);
+  const localAverage = averageLocalLongitudeWindow(preview, lat, lon, windowDegrees);
+  return mixRgba(base, localAverage, polarBlend * 0.55);
 }
 
 export function rasterizeGlobeTextureFromPreview(preview: PlanetPreview): Uint8ClampedArray {
@@ -50,27 +52,30 @@ function samplePreviewNearest(preview: PlanetPreview, lat: number, lon: number):
   return preview.colorAt(sx, sy);
 }
 
-function averageLatitudeBand(preview: PlanetPreview, lat: number, samples: number): Rgba {
-  const count = Math.max(4, Math.floor(samples));
+function averageLocalLongitudeWindow(preview: PlanetPreview, lat: number, lon: number, radiusDegrees: number): Rgba {
+  const offsets = [-1, -0.66, -0.33, 0, 0.33, 0.66, 1];
+  const weights = [0.10, 0.15, 0.19, 0.22, 0.19, 0.15, 0.10];
   let r = 0;
   let g = 0;
   let b = 0;
   let a = 0;
+  let totalWeight = 0;
 
-  for (let i = 0; i < count; i++) {
-    const lon = -180 + ((i + 0.5) / count) * 360;
-    const color = samplePreviewNearest(preview, lat, lon);
-    r += color[0];
-    g += color[1];
-    b += color[2];
-    a += color[3];
+  for (let i = 0; i < offsets.length; i++) {
+    const weight = weights[i];
+    const color = samplePreviewNearest(preview, lat, lon + offsets[i] * radiusDegrees);
+    r += color[0] * weight;
+    g += color[1] * weight;
+    b += color[2] * weight;
+    a += color[3] * weight;
+    totalWeight += weight;
   }
 
   return [
-    clamp255(Math.round(r / count)),
-    clamp255(Math.round(g / count)),
-    clamp255(Math.round(b / count)),
-    clamp255(Math.round(a / count)),
+    clamp255(Math.round(r / totalWeight)),
+    clamp255(Math.round(g / totalWeight)),
+    clamp255(Math.round(b / totalWeight)),
+    clamp255(Math.round(a / totalWeight)),
   ];
 }
 
