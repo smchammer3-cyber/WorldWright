@@ -233,7 +233,7 @@ class WorldSession {
     }
 
     const saved = await saveWorld(this.world);
-    this.world.metadata = saved.metadata;
+    this.world = saved;
     this.dirty = false;
     this.notify();
     return saved;
@@ -263,43 +263,75 @@ class WorldSession {
    * Apply a local preview edit without recompute or history.
    * This is for high-frequency interactive editing paths.
    */
-  preview(action: WorldAction): void {
+  applyPreviewEdit(world: WorldBrain): void {
+    if (!world) return;
+    this.replaceWorld(world);
+    this.dirty = true;
+    this.notify();
+  }
+
+  /**
+   * Apply a finalized local edit with a single recompute + history push.
+   * Use this when an interaction finishes, such as brush stroke end.
+   */
+  applyCommittedLocalEdit(world: WorldBrain): void {
+    if (!world) return;
+
+    this.replaceWorld(world);
     if (!this.world) return;
-    applyWorldAction(this.world, action);
-    this.dirty = true;
-    this.notify();
-  }
 
-  undo(): void {
-    if (this.historyIndex <= 0) return;
-    this.historyIndex--;
-    this.world = cloneWorld(this.history[this.historyIndex]);
-    this.dirty = true;
-    this.notify();
-  }
+    recomputeWorld(this.world, ['TERRAIN_EDIT']);
 
-  redo(): void {
-    if (this.historyIndex >= this.history.length - 1) return;
-    this.historyIndex++;
-    this.world = cloneWorld(this.history[this.historyIndex]);
-    this.dirty = true;
-    this.notify();
-  }
+    const errors = validateWorld(this.world);
+    if (errors.length > 0) {
+      // eslint-disable-next-line no-console
+      console.warn('Validation warnings after committed local edit:', errors);
+    }
 
-  simulateTick(): void {
-    if (!this.world) return;
-    simulateTick(this.world);
-    recomputeWorld(this.world, ['SIM_STEP']);
     this.pushHistorySnapshot();
     this.dirty = true;
     this.notify();
   }
 
-  clear(): void {
-    this.world = null;
-    this.history = [];
-    this.historyIndex = -1;
-    this.dirty = false;
+  /**
+   * Backward-compatible path. Keep behavior safe, but route through committed edit.
+   */
+  applyLocalEdit(world: WorldBrain): void {
+    this.applyCommittedLocalEdit(world);
+  }
+
+  undo(): void {
+    if (this.historyIndex > 0) {
+      this.historyIndex--;
+      this.world = cloneWorld(this.history[this.historyIndex]);
+      this.dirty = true;
+      this.notify();
+    }
+  }
+
+  redo(): void {
+    if (this.historyIndex < this.history.length - 1) {
+      this.historyIndex++;
+      this.world = cloneWorld(this.history[this.historyIndex]);
+      this.dirty = true;
+      this.notify();
+    }
+  }
+
+  simulateTick(dt: number = 1): void {
+    if (!this.world) return;
+
+    simulateTick(this.world, dt);
+    recomputeWorld(this.world, ['SIM_STEP']);
+
+    const errors = validateWorld(this.world);
+    if (errors.length > 0) {
+      // eslint-disable-next-line no-console
+      console.warn('Validation warnings after sim tick:', errors);
+    }
+
+    this.pushHistorySnapshot();
+    this.dirty = true;
     this.notify();
   }
 }
