@@ -1,4 +1,5 @@
 import type { WorldBrain } from '../worldSchema';
+import { buildGeographyProfile, type GeographyProfile } from '../worldGeographyProfile';
 
 type Vec3 = [number, number, number];
 
@@ -8,8 +9,13 @@ type Vec3 = [number, number, number];
  * This is intentionally separate from tectonic ownership. The generator already
  * creates the world skeleton; this pass adds non-plate interior relief and
  * near-sea-level coastline breakup so land does not read as flat painted slabs.
+ * Profile weights keep this pass in the detail/refinement lane instead of
+ * letting it become another world-shape owner.
  */
-export function applyGeneratedWorldQualityPass(world: WorldBrain): void {
+export function applyGeneratedWorldQualityPass(
+  world: WorldBrain,
+  profile: GeographyProfile = buildGeographyProfile(world),
+): void {
   if (!world?.cells?.length) return;
 
   const style = world.metadata?.styleMode ?? world.parameters?.styleMode ?? 'EARTHLIKE';
@@ -18,6 +24,10 @@ export function applyGeneratedWorldQualityPass(world: WorldBrain): void {
   const height = world.gridHeight;
   const seaLevel = world.seaLevel;
   const styleStrength = style === 'EARTHLIKE' ? 1.0 : style === 'ALIEN' ? 0.45 : 0.75;
+  const reliefScale = profile.tectonicReliefWeight / 0.20;
+  const detailScale = profile.detailNoiseWeight / 0.07;
+  const shelfScale = profile.shelfWeight / 0.20;
+  const oceanCutScale = profile.oceanBasinWeight / 0.58;
 
   const source = new Float32Array(world.cells.length);
   for (let i = 0; i < world.cells.length; i++) {
@@ -52,17 +62,18 @@ export function applyGeneratedWorldQualityPass(world: WorldBrain): void {
         (regional * 0.052 + highlands * 0.052 - Math.max(0, -basins) * 0.034) *
         landInterior *
         polarDamp *
-        styleStrength;
+        styleStrength *
+        reliefScale;
 
       const coastalBreakup =
-        (coastNoise * 0.052 + inletNoise * 0.034) * nearCoast * styleStrength;
+        (coastNoise * 0.052 + inletNoise * 0.034) * nearCoast * styleStrength * detailScale;
 
       const straitLine = 1 - smoothstep(0.015, 0.075, Math.abs(channelNoise + regional * 0.06));
       const straitGate = smoothstep(0.42, 0.90, localLand) * shallowLand;
-      const straitCut = straitLine * straitGate * 0.055 * styleStrength;
+      const straitCut = straitLine * straitGate * 0.055 * styleStrength * oceanCutScale;
 
       const shelfRoughness = aboveSea < 0
-        ? (coastNoise * 0.022 + inletNoise * 0.016) * nearCoast * styleStrength
+        ? (coastNoise * 0.022 + inletNoise * 0.016) * nearCoast * styleStrength * shelfScale * detailScale
         : 0;
 
       world.cells[idx].baseHeight = clamp(
