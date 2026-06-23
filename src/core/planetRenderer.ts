@@ -29,6 +29,7 @@ export type PlanetPreviewMode =
   | "SNOW"
   | "OCEAN_DEPTH"
   | "CRUST"
+  | "GRID"
   | "PLATES"
   | "RIVERS";
 
@@ -42,6 +43,7 @@ export const PLANET_PREVIEW_MODES: Array<{ id: PlanetPreviewMode; label: string 
   { id: "SNOW", label: "Snow" },
   { id: "OCEAN_DEPTH", label: "Ocean Depth" },
   { id: "CRUST", label: "Crust" },
+  { id: "GRID", label: "Grid" },
   { id: "PLATES", label: "Plates" },
   { id: "RIVERS", label: "Rivers" },
 ];
@@ -181,12 +183,10 @@ export function buildPlanetPreview(
 
     let color = biomeColorFromId(biomeId);
 
-    // Let climate gently influence the biome color without repainting the world.
     color = mix(color, [0.76, 0.62, 0.36], Math.max(0, 0.55 - rain) * 0.16);
     color = mix(color, [0.16, 0.43, 0.22], Math.max(0, rain - 0.55) * 0.13);
     color = mix(color, [0.72, 0.76, 0.70], Math.max(0, 0.26 - temp) * 0.18);
 
-    // Height gives relief readability, but no longer turns all land into mountain.
     color = shade(color, lerp(0.92, 1.14, elev));
 
     if (elev > 0.68) {
@@ -241,6 +241,8 @@ export function buildPlanetPreview(
         return water ? oceanColor(cell, h, row, col) : [0.35, 0.36, 0.31];
       case "CRUST":
         return crustColor(cell);
+      case "GRID":
+        return gridColor(row, col, width, height);
       case "PLATES":
         return plateColor(cell);
       case "RIVERS": {
@@ -326,25 +328,25 @@ function buildRiverCellSet(world: WorldBrain): Set<number> {
 function biomeColorFromId(id: number): Rgb {
   switch (id) {
     case 1:
-      return [0.58, 0.64, 0.60]; // tundra / cold dry
+      return [0.58, 0.64, 0.60];
     case 2:
-      return [0.30, 0.43, 0.34]; // boreal / cold wet
+      return [0.30, 0.43, 0.34];
     case 3:
-      return [0.56, 0.56, 0.34]; // steppe
+      return [0.56, 0.56, 0.34];
     case 4:
-      return [0.66, 0.60, 0.45]; // cold desert
+      return [0.66, 0.60, 0.45];
     case 5:
-      return [0.33, 0.56, 0.28]; // temperate default
+      return [0.33, 0.56, 0.28];
     case 6:
-      return [0.72, 0.74, 0.70]; // alpine / ice
+      return [0.72, 0.74, 0.70];
     case 7:
-      return [0.23, 0.50, 0.31]; // wet forest
+      return [0.23, 0.50, 0.31];
     case 8:
-      return [0.75, 0.62, 0.36]; // hot desert
+      return [0.75, 0.62, 0.36];
     case 9:
-      return [0.62, 0.58, 0.30]; // savanna
+      return [0.62, 0.58, 0.30];
     case 10:
-      return [0.16, 0.43, 0.22]; // tropical forest
+      return [0.16, 0.43, 0.22];
     case 0:
     default:
       return [0.40, 0.58, 0.30];
@@ -402,6 +404,16 @@ function crustColor(cell: Cell): Rgb {
   }
 
   return shade(color, 0.86 + age * 0.20);
+}
+
+function gridColor(row: number, col: number, width: number, height: number): Rgb {
+  const latLine = row % Math.max(1, Math.round(height / 16)) === 0;
+  const lonLine = col % Math.max(1, Math.round(width / 24)) === 0;
+  const poleBand = row < Math.max(1, Math.round(height * 0.08)) || row >= height - Math.max(1, Math.round(height * 0.08));
+  let color: Rgb = poleBand ? [0.38, 0.20, 0.48] : [0.10, 0.12, 0.16];
+  if (latLine || lonLine) color = mix(color, [0.75, 0.78, 0.86], 0.70);
+  if (latLine && lonLine) color = [0.96, 0.86, 0.28];
+  return color;
 }
 
 function plateColor(cell: Cell): Rgb {
