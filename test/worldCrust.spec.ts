@@ -108,6 +108,40 @@ describe('world crust fields', () => {
     expect(belt.baseHeight).toBeGreaterThan(0.08);
   });
 
+  it('fills tiny shield holes surrounded by strong continental land', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 32;
+    params.height = 16;
+    params.seed = 'province-coherence-test';
+    const world = generateWorldFromParams(params);
+    world.seaLevel = 0;
+    world.metadata.seaLevel = 0;
+
+    for (const cell of world.cells) {
+      cell.baseHeight = -0.25;
+      cell.editHeightDelta = 0;
+      cell.simHeightDelta = 0;
+      cell.plateType = PlateType.CONTINENTAL;
+      cell.boundaryType = BoundaryType.NONE;
+      cell.upliftRate = 0;
+      cell.volcanicActivity = 0;
+      cell.crustThickness = 0.70;
+      cell.crustAge = 0.70;
+      cell.crustProvince = CrustProvince.OLD_SHIELD;
+    }
+
+    const centerIndex = 5 * world.gridWidth + 5;
+    world.cells[centerIndex].baseHeight = -0.01;
+    world.cells[5 * world.gridWidth + 4].baseHeight = 0.10;
+    world.cells[5 * world.gridWidth + 6].baseHeight = 0.10;
+    world.cells[4 * world.gridWidth + 5].baseHeight = 0.10;
+    world.cells[6 * world.gridWidth + 5].baseHeight = 0.10;
+
+    applyCrustTerrainInfluence(world);
+
+    expect(world.cells[centerIndex].baseHeight).toBeGreaterThan(0);
+  });
+
   it('preserves caused tiny islands while sinking accidental tiny islands', () => {
     const params = createDefaultGeneratorParams();
     params.width = 12;
@@ -144,7 +178,7 @@ describe('world crust fields', () => {
     expect(caused.baseHeight).toBeGreaterThan(0);
   });
 
-  it('exposes a crust preview layer', () => {
+  it('exposes crust preview layers', () => {
     const params = createDefaultGeneratorParams();
     params.width = 64;
     params.height = 32;
@@ -153,8 +187,11 @@ describe('world crust fields', () => {
     seedCrustFields(world);
 
     expect(PLANET_PREVIEW_MODES.some((mode) => mode.id === 'CRUST')).toBe(true);
-    const preview = makePlanetPreviewFromWorldBrain(world, 'CRUST');
-    expect(preview.rgba.length).toBe(world.gridWidth * world.gridHeight * 4);
+    expect(PLANET_PREVIEW_MODES.some((mode) => mode.id === 'CRUST_PROVINCE')).toBe(true);
+    const crustPreview = makePlanetPreviewFromWorldBrain(world, 'CRUST');
+    const provincePreview = makePlanetPreviewFromWorldBrain(world, 'CRUST_PROVINCE');
+    expect(crustPreview.rgba.length).toBe(world.gridWidth * world.gridHeight * 4);
+    expect(provincePreview.rgba.length).toBe(world.gridWidth * world.gridHeight * 4);
   });
 });
 
