@@ -11,6 +11,7 @@ import {
 import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
 
 type CrustTopologyStage = 'province-delta' | 'skeleton-obedience';
+type CrustBlendMode = 'province-delta' | 'skeleton-obedience';
 
 export function seedCrustFields(world: WorldBrain): void {
   if (!world?.cells?.length) return;
@@ -77,6 +78,7 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
   const seed = seedToUint32(world.metadata.seed);
   const seaLevel = numeric(world.seaLevel, world.metadata?.seaLevel ?? 0);
   const copy = world.cells.map((cell) => totalHeight(cell));
+  const rawDeltas = new Float32Array(world.cells.length);
 
   for (let i = 0; i < world.cells.length; i++) {
     const cell = world.cells[i];
@@ -135,8 +137,13 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
       : 0;
 
     const rawDelta = (delta + shelfSoftening) * seamDamp;
-    const topologySafeDelta = constrainCrustTopologyDelta(world, i, h, seaLevel, rawDelta, copy, 'province-delta');
-    cell.baseHeight = clamp(cell.baseHeight + topologySafeDelta, -1.4, 1.5);
+    rawDeltas[i] = constrainCrustTopologyDelta(world, i, h, seaLevel, rawDelta, copy, 'province-delta');
+  }
+
+  for (let i = 0; i < world.cells.length; i++) {
+    const blendedDelta = blendDeltaNearCrustSeams(world, i, rawDeltas, 'province-delta');
+    const safeDelta = constrainCrustTopologyDelta(world, i, copy[i], seaLevel, blendedDelta, copy, 'province-delta');
+    world.cells[i].baseHeight = clamp(world.cells[i].baseHeight + safeDelta, -1.4, 1.5);
   }
 }
 
@@ -279,6 +286,7 @@ export function applyContinentSkeletonTerrainObedience(world: WorldBrain): void 
   const seaLevel = numeric(world.seaLevel, world.metadata?.seaLevel ?? 0);
   const seed = seedToUint32(world.metadata.seed);
   const before = world.cells.map((cell) => totalHeight(cell));
+  const rawDeltas = new Float32Array(world.cells.length);
 
   for (let i = 0; i < world.cells.length; i++) {
     const cell = world.cells[i];
@@ -326,9 +334,14 @@ export function applyContinentSkeletonTerrainObedience(world: WorldBrain): void 
 
     if (delta !== 0) {
       const rawDelta = delta * seamDamp;
-      const topologySafeDelta = constrainCrustTopologyDelta(world, i, h, seaLevel, rawDelta, before, 'skeleton-obedience', landNeighbors, waterNeighbors);
-      cell.baseHeight = clamp(cell.baseHeight + topologySafeDelta, -1.4, 1.5);
+      rawDeltas[i] = constrainCrustTopologyDelta(world, i, h, seaLevel, rawDelta, before, 'skeleton-obedience', landNeighbors, waterNeighbors);
     }
+  }
+
+  for (let i = 0; i < world.cells.length; i++) {
+    const blendedDelta = blendDeltaNearCrustSeams(world, i, rawDeltas, 'skeleton-obedience');
+    const safeDelta = constrainCrustTopologyDelta(world, i, before[i], seaLevel, blendedDelta, before, 'skeleton-obedience');
+    world.cells[i].baseHeight = clamp(world.cells[i].baseHeight + safeDelta, -1.4, 1.5);
   }
 }
 
@@ -392,6 +405,59 @@ function constrainCrustTopologyDelta(
   }
 
   return delta;
+}
+
+function blendDeltaNearCrustSeams(world: WorldBrain, index: number, deltas: Float32Array, mode: CrustBlendMode): number {
+  const raw = deltas[index];
+  if (raw === 0) return 0;
+
+  const neighbors = neighborIndices4(world, index);
+  if (neighbors.length === 0) return raw;
+
+  let neighborSum = 0;
+  let neighborCount = 0;
+  for (const neighbor of neighbors) {
+    neighborSum += deltas[neighbor];
+    neighborCount++;
+  }
+  if (neighborCount === 0) return raw;
+
+  const neighborAverage = neighborSum / neighborCount;
+  const edgeBlend = crustSeamBlendStrength(world, index, mode);
+  const softened = raw * 0.58 + neighborAverage * 0.42;
+  return lerp(raw, softened, edgeBlend);
+}
+
+function crustSeamBlendStrength(world: WorldBrain, index: number, mode: CrustBlendMode): number {
+  const cell = world.cells[index];
+  const neighbors = neighborIndices4(world, index);
+  if (neighbors.length === 0) return 0;
+
+  let plateEdges = 0;
+  let provinceEdges = 0;
+  let skeletonEdges = 0;
+  let gradient = 0;
+
+  for (const neighborIndex of neighbors) {
+    const n = world.cells[neighborIndex];
+    if (n.plateId !== cell.plateId) plateEdges++;
+    if (n.crustProvince !== cell.crustProvince) provinceEdges++;
+    if (n.continentId !== cell.continentId || n.oceanBasinId !== cell.oceanBasinId) skeletonEdges++;
+    gradient += Math.abs(clamp01(n.continentality) - clamp01(cell.continentality));
+    gradient += Math.abs(clamp01(n.continentCoreStrength) - clamp01(cell.continentCoreStrength)) * 0.55;
+    gradient += Math.abs(clamp01(n.shelfStrength) - clamp01(cell.shelfStrength)) * 0.35;
+  }
+
+  const plateEdge = plateEdges / neighbors.length;
+  const provinceEdge = provinceEdges / neighbors.length;
+  const skeletonEdge = skeletonEdges / neighbors.length;
+  const avgGradient = gradient / neighbors.length;
+  const causedIsland = isCausedIslandCell(cell) ? 0.45 : 1;
+  const modeBias = mode === 'skeleton-obedience' ? 0.16 : 0;
+
+  return clamp01(
+    (plateEdge * 0.42 + provinceEdge * 0.34 + skeletonEdge * (0.22 + modeBias) + avgGradient * 0.34) * causedIsland,
+  );
 }
 
 function plateSeamDamp(world: WorldBrain, index: number): number {

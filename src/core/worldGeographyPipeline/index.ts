@@ -141,6 +141,11 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
       delta *= 0.35;
     }
 
+    // The skeleton should guide broad continent/ocean tendency, not stamp hard
+    // continent/ocean-basin borders into visible height. Dampen the final delta
+    // near abrupt skeleton-field transitions while keeping strong interiors.
+    delta *= skeletonSeamDamp(world, i);
+
     cell.baseHeight = clamp(cell.baseHeight + delta, -1.4, 1.5);
   }
 }
@@ -166,6 +171,44 @@ function localFractionAboveSea(world: WorldBrain, heights: number[], index: numb
   }
 
   return total > 0 ? land / total : 0;
+}
+
+function skeletonSeamDamp(world: WorldBrain, index: number): number {
+  const cell = world.cells[index];
+  const neighbors = neighborIndices4(world, index);
+  if (neighbors.length === 0) return 1;
+
+  let identityEdges = 0;
+  let marginEdges = 0;
+  let gradient = 0;
+
+  for (const neighborIndex of neighbors) {
+    const n = world.cells[neighborIndex];
+    if (n.continentId !== cell.continentId || n.oceanBasinId !== cell.oceanBasinId) identityEdges++;
+    if (n.marginType !== cell.marginType || n.islandCause !== cell.islandCause) marginEdges++;
+    gradient += Math.abs(clamp01(n.continentality) - clamp01(cell.continentality));
+    gradient += Math.abs(clamp01(n.continentCoreStrength) - clamp01(cell.continentCoreStrength)) * 0.65;
+    gradient += Math.abs(clamp01(n.shelfStrength) - clamp01(cell.shelfStrength)) * 0.45;
+  }
+
+  const identityEdge = identityEdges / neighbors.length;
+  const marginEdge = marginEdges / neighbors.length;
+  const avgGradient = gradient / neighbors.length;
+  const edgeStrength = clamp01(identityEdge * 0.58 + marginEdge * 0.24 + avgGradient * 0.46);
+  const causedIslandProtection = isCausedIsland(cell) ? 0.45 : 1;
+  return lerp(1, 0.62, edgeStrength * causedIslandProtection);
+}
+
+function neighborIndices4(world: WorldBrain, index: number): number[] {
+  const row = Math.floor(index / world.gridWidth);
+  const col = index % world.gridWidth;
+  const neighbors = [
+    row * world.gridWidth + ((col - 1 + world.gridWidth) % world.gridWidth),
+    row * world.gridWidth + ((col + 1) % world.gridWidth),
+  ];
+  if (row > 0) neighbors.push((row - 1) * world.gridWidth + col);
+  if (row < world.gridHeight - 1) neighbors.push((row + 1) * world.gridWidth + col);
+  return neighbors;
 }
 
 function isCausedIsland(cell: Cell): boolean {
