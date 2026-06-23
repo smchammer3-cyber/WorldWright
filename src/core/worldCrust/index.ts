@@ -10,13 +10,6 @@ import {
 } from '../worldSchema';
 import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
 
-/**
- * Seeds the first real crust cause layer.
- *
- * Crust is deliberately separate from plate ownership. It records the hidden
- * geological causes that later terrain, coast, island, and Sim Mode passes can
- * use without letting plate polygons directly paint land and water.
- */
 export function seedCrustFields(world: WorldBrain): void {
   if (!world?.cells?.length) return;
 
@@ -49,9 +42,7 @@ export function seedCrustFields(world: WorldBrain): void {
       0.46 + terrainBuoyancy * 0.30 + plateBias + shelfInfluence + boundaryThickening + crustNoise,
     );
 
-    const oldContinentalInterior = cell.plateType === PlateType.CONTINENTAL && cell.boundaryType === BoundaryType.NONE
-      ? 0.24
-      : 0;
+    const oldContinentalInterior = cell.plateType === PlateType.CONTINENTAL && cell.boundaryType === BoundaryType.NONE ? 0.24 : 0;
     const youngOceanicPenalty = cell.plateType === PlateType.OCEANIC ? 0.10 : 0;
     const volcanicPenalty = cell.volcanicActivity * 0.14;
     const heightAgeSignal = terrainBuoyancy * 0.08;
@@ -64,18 +55,6 @@ export function seedCrustFields(world: WorldBrain): void {
   }
 }
 
-/**
- * Province-aware visible terrain pass.
- *
- * This makes the hidden crust causes harder to ignore: rift margins and basins
- * can become flooded cuts, mobile belts can become real highland chains, and
- * island arcs/volcanic provinces can preserve caused islands without sprinkling
- * accidental island confetti everywhere.
- *
- * Generate-only authority guard:
- * This pass reads total height and writes baseHeight, so it may only run while
- * editHeightDelta and simHeightDelta are still pristine.
- */
 export function applyCrustTerrainInfluence(world: WorldBrain): void {
   if (!world?.cells?.length) return;
   assertNoAuthoredTerrainDeltas(world, 'applyCrustTerrainInfluence');
@@ -96,51 +75,52 @@ export function applyCrustTerrainInfluence(world: WorldBrain): void {
     const thinYoungCrust = Math.max(0, 0.54 - cell.crustThickness) * Math.max(0, 0.62 - cell.crustAge);
     const rough = centeredJitter(seed, i, 7019);
     const broad = centeredJitter(seed, cell.plateId * 7919 + i, 9109);
+    const seamDamp = plateSeamDamp(world, i);
 
     let delta = 0;
 
     switch (cell.crustProvince) {
       case CrustProvince.OLD_SHIELD:
-        delta += oldStableCrust * 0.28 * landGate;
-        delta += rough * oldStableCrust * 0.11 * landGate;
-        delta += broad * 0.025 * landGate;
+        delta += oldStableCrust * 0.18 * landGate;
+        delta += rough * oldStableCrust * 0.055 * landGate;
+        delta += broad * 0.014 * landGate;
         break;
       case CrustProvince.MOBILE_BELT:
-        delta += Math.max(0.028, Math.max(0, cell.upliftRate) * 0.15) * landGate;
-        delta += rough * 0.070 * landGate;
-        delta += broad * 0.035 * landGate;
+        delta += Math.max(0.018, Math.max(0, cell.upliftRate) * 0.085) * landGate;
+        delta += rough * 0.038 * landGate;
+        delta += broad * 0.018 * landGate;
         break;
       case CrustProvince.SEDIMENT_BASIN:
-        delta -= 0.048 * smoothstep(-0.05, 0.20, aboveSea);
-        delta += rough * 0.020 * landGate;
+        delta -= 0.026 * smoothstep(-0.05, 0.20, aboveSea);
+        delta += rough * 0.012 * landGate;
         break;
       case CrustProvince.RIFT_MARGIN:
-        delta += rough * 0.090 * coastGate;
-        delta -= 0.052 * coastGate;
+        delta += rough * 0.038 * coastGate;
+        delta -= 0.022 * coastGate;
         break;
       case CrustProvince.COASTAL_PLAIN:
-        delta -= 0.060 * smoothstep(-0.06, 0.18, aboveSea);
-        delta += broad * 0.020 * coastGate;
+        delta -= 0.028 * smoothstep(-0.06, 0.18, aboveSea);
+        delta += broad * 0.010 * coastGate;
         break;
       case CrustProvince.VOLCANIC_PROVINCE:
-        delta += 0.065 * Math.max(0.35, cell.volcanicActivity) * smoothstep(-0.06, 0.14, aboveSea);
-        delta += rough * 0.055;
+        delta += 0.048 * Math.max(0.35, cell.volcanicActivity) * smoothstep(-0.06, 0.14, aboveSea);
+        delta += rough * 0.032;
         break;
       case CrustProvince.ISLAND_ARC:
-        delta += 0.060 * Math.max(0.35, cell.volcanicActivity) * smoothstep(-0.15, 0.12, aboveSea);
-        delta += rough * 0.065 * smoothstep(-0.12, 0.16, aboveSea);
+        delta += 0.042 * Math.max(0.35, cell.volcanicActivity) * smoothstep(-0.15, 0.12, aboveSea);
+        delta += rough * 0.036 * smoothstep(-0.12, 0.16, aboveSea);
         break;
       case CrustProvince.OCEANIC_BASIN:
       default:
-        delta -= thinYoungCrust * 0.22 * oceanGate;
+        delta -= thinYoungCrust * 0.11 * oceanGate;
         break;
     }
 
     const shelfSoftening = cell.oceanDepthClass === OceanDepthClass.SHELF || cell.oceanDepthClass === OceanDepthClass.SLOPE
-      ? (cell.crustThickness - 0.50) * 0.025
+      ? (cell.crustThickness - 0.50) * 0.014
       : 0;
 
-    cell.baseHeight = clamp(cell.baseHeight + delta + shelfSoftening, -1.4, 1.5);
+    cell.baseHeight = clamp(cell.baseHeight + (delta + shelfSoftening) * seamDamp, -1.4, 1.5);
   }
 
   applyProvinceCoastBreakup(world, seaLevel, seed);
@@ -149,11 +129,6 @@ export function applyCrustTerrainInfluence(world: WorldBrain): void {
   cleanupAccidentalTinyIslands(world, seaLevel);
 }
 
-/**
- * Ensures old saved worlds and test fixtures have sane crust fields. If fields
- * are missing, it seeds them from current terrain/geology. If they exist but are
- * malformed, it clamps them into range and derives missing province labels.
- */
 export function ensureCrustFields(world: WorldBrain): void {
   if (!world?.cells?.length) return;
 
@@ -222,26 +197,27 @@ function applyProvinceCoastBreakup(world: WorldBrain, seaLevel: number, seed: nu
     if (nearShore <= 0) continue;
 
     const waterNeighbors = waterNeighborFractionByHeight(world, i, seaLevel, before);
-    const edgeGate = smoothstep(0.10, 0.70, waterNeighbors);
+    const edgeGate = smoothstep(0.28, 0.82, waterNeighbors);
     const notch = centeredJitter(seed, i, 11213);
     const channel = centeredJitter(seed, i + cell.plateId * 431, 14143);
+    const seamDamp = plateSeamDamp(world, i);
 
     let delta = 0;
     if (cell.crustProvince === CrustProvince.RIFT_MARGIN) {
-      delta -= Math.max(0, -notch) * 0.085 * nearShore;
-      delta += Math.max(0, channel) * 0.028 * nearShore;
+      delta -= Math.max(0, -notch) * 0.032 * nearShore * edgeGate;
+      delta += Math.max(0, channel) * 0.014 * nearShore;
     } else if (cell.crustProvince === CrustProvince.SEDIMENT_BASIN) {
-      delta -= Math.max(0.25, -notch) * 0.055 * nearShore * (0.5 + edgeGate);
+      delta -= Math.max(0.12, -notch) * 0.024 * nearShore * edgeGate;
     } else if (cell.crustProvince === CrustProvince.COASTAL_PLAIN) {
-      delta -= Math.max(0.15, -notch) * 0.050 * nearShore * (0.55 + edgeGate);
+      delta -= Math.max(0.10, -notch) * 0.020 * nearShore * edgeGate;
     } else if (cell.crustProvince === CrustProvince.MOBILE_BELT) {
-      delta += Math.max(0, notch) * 0.035 * nearShore;
+      delta += Math.max(0, notch) * 0.020 * nearShore;
     } else if (cell.crustProvince === CrustProvince.ISLAND_ARC) {
-      delta += Math.max(0, notch) * 0.030 * nearShore;
+      delta += Math.max(0, notch) * 0.020 * nearShore;
     }
 
     if (delta !== 0) {
-      cell.baseHeight = clamp(cell.baseHeight + delta, -1.4, 1.5);
+      cell.baseHeight = clamp(cell.baseHeight + delta * seamDamp, -1.4, 1.5);
     }
   }
 }
@@ -256,33 +232,30 @@ function applyProvinceCoherence(world: WorldBrain, seaLevel: number, seed: numbe
     const landNeighbors = landNeighborFractionByHeight(world, i, seaLevel, before);
     const waterNeighbors = 1 - landNeighbors;
     const local = centeredJitter(seed, i, 19001);
+    const seamDamp = plateSeamDamp(world, i);
 
     let delta = 0;
 
-    // Fill small holes and thin accidental channels inside strong continental
-    // provinces, but leave rifts and basins open so breakup still has causes.
     if (h < seaLevel && landNeighbors >= 0.5) {
       if (cell.crustProvince === CrustProvince.OLD_SHIELD || cell.crustProvince === CrustProvince.MOBILE_BELT) {
-        delta += 0.038 * smoothstep(0.45, 1.0, landNeighbors) * Math.max(0.45, cell.crustThickness);
+        delta += 0.026 * smoothstep(0.45, 1.0, landNeighbors) * Math.max(0.45, cell.crustThickness);
       } else if (cell.crustProvince === CrustProvince.VOLCANIC_PROVINCE) {
-        delta += 0.030 * smoothstep(0.45, 1.0, landNeighbors);
-      } else if (cell.crustProvince === CrustProvince.COASTAL_PLAIN && landNeighbors >= 0.75) {
-        delta += 0.018;
+        delta += 0.020 * smoothstep(0.45, 1.0, landNeighbors);
+      } else if (cell.crustProvince === CrustProvince.COASTAL_PLAIN && landNeighbors >= 0.78) {
+        delta += 0.010;
       }
     }
 
-    // Sink extremely frayed lowland edges so coasts consolidate into fewer,
-    // stronger bays and peninsulas instead of random speckles.
     if (h >= seaLevel && aboveSea < 0.16 && waterNeighbors >= 0.5) {
       if (cell.crustProvince === CrustProvince.SEDIMENT_BASIN || cell.crustProvince === CrustProvince.COASTAL_PLAIN) {
-        delta -= 0.030 * smoothstep(0.45, 1.0, waterNeighbors);
+        delta -= 0.014 * smoothstep(0.45, 1.0, waterNeighbors);
       } else if (cell.crustProvince === CrustProvince.RIFT_MARGIN) {
-        delta -= Math.max(0, -local) * 0.034 * smoothstep(0.45, 1.0, waterNeighbors);
+        delta -= Math.max(0, -local) * 0.012 * smoothstep(0.45, 1.0, waterNeighbors);
       }
     }
 
     if (delta !== 0) {
-      cell.baseHeight = clamp(cell.baseHeight + delta, -1.4, 1.5);
+      cell.baseHeight = clamp(cell.baseHeight + delta * seamDamp, -1.4, 1.5);
     }
   }
 }
@@ -299,52 +272,61 @@ function applyContinentSkeletonTerrainObedience(world: WorldBrain, seaLevel: num
     const shelf = clamp01(cell.shelfStrength);
     const nearSurface = 1 - smoothstep(0.12, 0.48, Math.abs(aboveSea));
     const broadNoise = centeredJitter(seed, cell.continentId ?? cell.oceanBasinId ?? i, 26003);
+    const seamDamp = plateSeamDamp(world, i);
 
     let delta = 0;
 
-    // Mainland obedience: broad continent bodies should not collapse into a
-    // swarm of shallow islands. Strong cores get buoyant support near sea level.
     if (continentality > 0.58) {
-      delta += (0.040 * smoothstep(0.58, 0.90, continentality) + 0.075 * core) * (0.35 + nearSurface * 0.65);
-      delta += broadNoise * 0.018 * smoothstep(0.55, 1.0, continentality);
+      delta += (0.028 * smoothstep(0.58, 0.90, continentality) + 0.052 * core) * (0.35 + nearSurface * 0.65);
+      delta += broadNoise * 0.010 * smoothstep(0.55, 1.0, continentality);
     }
 
-    // Margin obedience: shelves should become shallow water or low coastal land,
-    // not random mid-ocean land fragments.
     if (shelf > 0.28 && core < 0.60) {
-      const shelfTarget = seaLevel - 0.035 + shelf * 0.025;
-      delta += (shelfTarget - h) * 0.22 * shelf * (0.35 + nearSurface * 0.65);
+      const shelfTarget = seaLevel - 0.024 + shelf * 0.018;
+      delta += (shelfTarget - h) * 0.11 * shelf * (0.35 + nearSurface * 0.65);
     }
 
-    // Margin type expression.
     if (cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.ACTIVE) {
-      delta += 0.050 * smoothstep(0.35, 0.85, continentality) * (0.40 + nearSurface * 0.60);
+      delta += 0.032 * smoothstep(0.35, 0.85, continentality) * (0.40 + nearSurface * 0.60);
     } else if (cell.marginType === ContinentMarginType.RIFT) {
-      delta -= 0.045 * nearSurface * (0.40 + smoothstep(0.20, 0.70, shelf));
+      delta -= 0.022 * nearSurface * (0.40 + smoothstep(0.20, 0.70, shelf));
     } else if (cell.marginType === ContinentMarginType.PASSIVE && shelf > 0.35) {
-      delta -= 0.020 * nearSurface;
+      delta -= 0.010 * nearSurface;
     }
 
-    // Invalid island obedience: if a visible cell is far from continental bones
-    // and has no island ancestry, sink it. This targets the "all little islands"
-    // failure without deleting caused island arcs and shelf fragments.
     if (aboveSea > -0.02 && continentality < 0.24 && !isCausedIslandCell(cell)) {
-      const invalidPenalty = cell.islandCause === IslandCause.INVALID_FRAGMENT ? 0.090 : 0.055;
-      delta -= invalidPenalty * (0.65 + smoothstep(-0.02, 0.16, aboveSea) * 0.35);
+      const invalidPenalty = cell.islandCause === IslandCause.INVALID_FRAGMENT ? 0.045 : 0.024;
+      delta -= invalidPenalty * (0.55 + smoothstep(-0.02, 0.16, aboveSea) * 0.25);
     }
 
-    // Caused islands get modest support so arcs/fragments survive as readable
-    // systems rather than random dots.
     if (cell.islandCause === IslandCause.ISLAND_ARC || cell.islandCause === IslandCause.VOLCANIC_HOTSPOT) {
-      delta += 0.032 * (0.50 + nearSurface * 0.50);
+      delta += 0.024 * (0.50 + nearSurface * 0.50);
     } else if (cell.islandCause === IslandCause.SHELF_ISLAND || cell.islandCause === IslandCause.CONTINENTAL_FRAGMENT) {
-      delta += 0.020 * nearSurface;
+      delta += 0.014 * nearSurface;
     }
 
     if (delta !== 0) {
-      cell.baseHeight = clamp(cell.baseHeight + delta, -1.4, 1.5);
+      cell.baseHeight = clamp(cell.baseHeight + delta * seamDamp, -1.4, 1.5);
     }
   }
+}
+
+function plateSeamDamp(world: WorldBrain, index: number): number {
+  const cell = world.cells[index];
+  const neighbors = neighborIndices4(world, index);
+  if (neighbors.length === 0) return 1;
+
+  let differentPlate = 0;
+  let differentProvince = 0;
+  for (const neighborIndex of neighbors) {
+    const neighbor = world.cells[neighborIndex];
+    if (neighbor.plateId !== cell.plateId) differentPlate++;
+    if (neighbor.crustProvince !== cell.crustProvince) differentProvince++;
+  }
+
+  const plateEdge = differentPlate / neighbors.length;
+  const provinceEdge = differentProvince / neighbors.length;
+  return lerp(1, 0.45, clamp01(plateEdge * 0.75 + provinceEdge * 0.35));
 }
 
 function landNeighborFractionByHeight(world: WorldBrain, index: number, seaLevel: number, heights: number[]): number {
@@ -370,10 +352,10 @@ function waterNeighborFractionByHeight(world: WorldBrain, index: number, seaLeve
 function cleanupAccidentalTinyIslands(world: WorldBrain, seaLevel: number): void {
   const components = landComponentsByHeight(world, seaLevel);
   for (const component of components) {
-    if (component.length > 14) continue;
+    if (component.length > 10) continue;
     if (component.some((idx) => isCausedIslandCell(world.cells[idx]))) continue;
 
-    const sinkStrength = component.length <= 4 ? 0.080 : 0.045;
+    const sinkStrength = component.length <= 4 ? 0.060 : 0.030;
     for (const idx of component) {
       const cell = world.cells[idx];
       cell.baseHeight = clamp(cell.baseHeight - sinkStrength, -1.4, 1.5);
@@ -476,6 +458,10 @@ function seedToUint32(s: string | number): number {
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = clamp01((x - edge0) / Math.max(1e-9, edge1 - edge0));
   return t * t * (3 - 2 * t);
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
 }
 
 function clamp(value: number, lo: number, hi: number): number {
