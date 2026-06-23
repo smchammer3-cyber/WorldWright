@@ -6,7 +6,7 @@
 // Callers can show these in a debug panel or before export/save.
 // ========================================================
 
-import { CrustProvince, WorldBrain } from '../worldSchema';
+import { ContinentMarginType, CrustProvince, IslandCause, WorldBrain } from '../worldSchema';
 
 export function validateWorld(world: WorldBrain): string[] {
   const errors: string[] = [];
@@ -54,6 +54,31 @@ export function validateWorld(world: WorldBrain): string[] {
     }
     if (typeof cell.flowAccumulation !== 'number') errors.push(`Cell ${i} missing flowAccumulation.`);
     if (cell.basinId != null && typeof cell.basinId !== 'number') errors.push(`Cell ${i} basinId invalid type.`);
+
+    if (cell.continentId != null && typeof cell.continentId !== 'number') errors.push(`Cell ${i} continentId invalid type.`);
+    if (cell.oceanBasinId != null && typeof cell.oceanBasinId !== 'number') errors.push(`Cell ${i} oceanBasinId invalid type.`);
+    if (typeof cell.continentCoreStrength !== 'number') errors.push(`Cell ${i} missing continentCoreStrength.`);
+    if (typeof cell.continentality !== 'number') errors.push(`Cell ${i} missing continentality.`);
+    if (typeof cell.distanceToContinentCore !== 'number') errors.push(`Cell ${i} missing distanceToContinentCore.`);
+    if (typeof cell.shelfStrength !== 'number') errors.push(`Cell ${i} missing shelfStrength.`);
+    if (typeof cell.continentCoreStrength === 'number' && (cell.continentCoreStrength < 0 || cell.continentCoreStrength > 1)) {
+      errors.push(`Cell ${i} continentCoreStrength outside 0..1.`);
+    }
+    if (typeof cell.continentality === 'number' && (cell.continentality < 0 || cell.continentality > 1)) {
+      errors.push(`Cell ${i} continentality outside 0..1.`);
+    }
+    if (typeof cell.distanceToContinentCore === 'number' && (cell.distanceToContinentCore < 0 || cell.distanceToContinentCore > 1)) {
+      errors.push(`Cell ${i} distanceToContinentCore outside 0..1.`);
+    }
+    if (typeof cell.shelfStrength === 'number' && (cell.shelfStrength < 0 || cell.shelfStrength > 1)) {
+      errors.push(`Cell ${i} shelfStrength outside 0..1.`);
+    }
+    if (!Object.values(ContinentMarginType).includes(cell.marginType)) {
+      errors.push(`Cell ${i} missing or invalid marginType.`);
+    }
+    if (!Object.values(IslandCause).includes(cell.islandCause)) {
+      errors.push(`Cell ${i} missing or invalid islandCause.`);
+    }
 
     if (typeof cell.crustThickness !== 'number') errors.push(`Cell ${i} missing crustThickness.`);
     if (typeof cell.crustAge !== 'number') errors.push(`Cell ${i} missing crustAge.`);
