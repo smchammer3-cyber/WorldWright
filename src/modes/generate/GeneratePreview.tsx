@@ -18,7 +18,7 @@ type Props = {
 
 export default function GeneratePreview({ world, error }: Props) {
   const [previewMode, setPreviewMode] = useState<PlanetPreviewMode>("FINAL");
-  const [showDiagnostics, setShowDiagnostics] = useState(true);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const activeMode = PLANET_PREVIEW_MODES.find((option) => option.id === previewMode);
 
   const preview = useMemo(() => {
@@ -142,17 +142,17 @@ export default function GeneratePreview({ world, error }: Props) {
               style={{
                 position: "absolute",
                 left: 12,
-                bottom: 12,
-                width: "min(620px, calc(100% - 24px))",
-                maxHeight: "72%",
+                top: 68,
+                width: "min(420px, calc(100% - 24px))",
+                maxHeight: "min(52%, 430px)",
                 overflow: "auto",
-                padding: 12,
+                padding: 10,
                 borderRadius: 10,
-                background: "rgba(4, 8, 16, 0.84)",
-                border: "1px solid rgba(255,255,255,0.16)",
+                background: "rgba(4, 8, 16, 0.78)",
+                border: "1px solid rgba(255,255,255,0.14)",
                 color: "#fff",
-                boxShadow: "0 12px 34px rgba(0,0,0,0.45)",
-                backdropFilter: "blur(6px)",
+                boxShadow: "0 12px 34px rgba(0,0,0,0.40)",
+                backdropFilter: "blur(5px)",
               }}
             >
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
@@ -220,14 +220,8 @@ export default function GeneratePreview({ world, error }: Props) {
                       </React.Fragment>
                     ))}
                   </div>
-                  <div style={{ marginTop: 7, fontSize: 10, lineHeight: 1.35, color: "rgba(255,255,255,0.55)" }}>
-                    Stage audit replays generation without mutating the active world. “Med.” counts medium fragments, the likely cause of scattered-but-not-tiny land.
-                  </div>
                 </div>
               )}
-              <div style={{ marginTop: 10, fontSize: 10, lineHeight: 1.35, color: "rgba(255,255,255,0.55)" }}>
-                This panel measures the generated world. Baseline mode is best for judging generator health; extreme sliders are allowed to produce warnings.
-              </div>
             </div>
           )}
         </div>
