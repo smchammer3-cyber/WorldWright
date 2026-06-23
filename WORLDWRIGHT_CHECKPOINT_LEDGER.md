@@ -17,6 +17,7 @@ This file is a coordination ledger, not a victory log. It separates verified fac
 - PR #35: **Merged** — Added geography metrics/profile correction loop and made the quality pass profile-aware.
 - PR #36: **Merged** — Added geography authority cleanup to suppress visible plate-boundary bands when they contradict continent/ocean skeleton authority.
 - PR #37: **Merged** — Added ocean basin authority and continent separation as a feature-level correction pass.
+- PR #38: **Merged** — Added skeleton-first terrain composer so skeleton causes begin creating height instead of height creating geology labels.
 
 ## Implemented But Not Proven Solved
 
@@ -29,27 +30,27 @@ This file is a coordination ledger, not a victory log. It separates verified fac
 - Quality/detail pass reads profile weights.
 - Authority cleanup guardrail exists for plate-boundary imprint suppression.
 - Ocean basin authority exists as a correction pass.
+- Skeleton-first terrain composer exists, but its math is still being stabilized.
 
 ## Current Observed Problems
 
-- Landmasses can still look broad, melted, or blob-like.
-- Continental shelves can still become too wide or washed out.
-- Deep ocean basins do not always feel authoritative enough.
-- The world can overcorrect into a near-global low-relief landmass with inland seas.
+- PR #38 made the blueprint order more correct, but visually exposed broad skeleton masks.
+- Land coverage can still be too high and largest landmass can remain 100%.
+- Medium continentality can still create broad exposed margins instead of shelf/slope/ocean.
+- Sea level chosen by the older terrain distribution can be wrong after skeleton-first composition.
+- Land/ocean boundaries can look too hard or mask-like.
 - Internal relief and province structure can be too weak compared with broad land shapes.
-- Biome colors expose overly simple terrain structure.
-- Plate ownership and boundary bands can still appear visually as ocean/land streaks or plate-shaped patches.
-- The old heightmap still enters before blueprint-order skeleton/province terrain composition.
+- Plate/terrain mismatch can remain high because tectonic features are not yet first-class objects.
 
 ## Current Diagnosis
 
-The generator now has bones, a governor, a scoreboard, an authority guardrail, and ocean basin correction, but the old generator still creates a full continuous terrain body first. This reverses the blueprint. The next pass must move closer to: skeleton cause fields → terrain composition → flood/detail/correction.
+The skeleton-first architecture is the correct direction, but PR #38 was too abrupt. It kept too little organic substrate, let weak/mid continentality become land too easily, and reused a sea level chosen for the old terrain distribution. The immediate goal is to stabilize skeleton-first terrain so the generator functions again without reverting to the old heightmap-first model.
 
 ## Current Pass
 
-PR #38: skeleton-first terrain composer. Normalize skeleton cause fields so they do not depend on existing height/sea level, then compose the first generated terrain body from skeleton/ocean/margin/plate causes while keeping the old heightmap only as low-amplitude substrate texture.
+PR #39: stabilize skeleton-first terrain. Refit sea level after skeleton-first terrain composition, make ocean-basin identity win over weak/mid continentality, narrow the exposed-land margin band, and restore some organic substrate influence without giving the old heightmap broad authority again.
 
-## Proposed Next Work After PR #38
+## Proposed Next Work After PR #39
 
 - Move crust province seeding farther upstream so provinces are assigned from skeleton + plates rather than derived from already-visible terrain.
 - Move tectonics toward feature objects: mountain belts, rift corridors, trenches, arcs, and ocean ridges.
