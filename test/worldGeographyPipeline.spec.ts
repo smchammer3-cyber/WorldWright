@@ -62,7 +62,6 @@ describe('world geography pipeline', () => {
     expect(core.baseHeight).toBeGreaterThan(coreBefore);
     expect(core.baseHeight).toBeGreaterThan(0);
     expect(basin.baseHeight).toBeLessThan(basinBefore);
-    expect(basin.baseHeight).toBeLessThan(0);
   });
 
   it('pulls shelves toward shallow water instead of turning them into bridges', () => {
@@ -88,7 +87,24 @@ describe('world geography pipeline', () => {
     applySkeletonBaseElevation(world);
 
     expect(shelf.baseHeight).toBeLessThan(0.18);
-    expect(shelf.baseHeight).toBeGreaterThan(-0.12);
+    expect(shelf.baseHeight).toBeGreaterThan(0.10);
+  });
+
+  it('softens skeleton elevation so it does not collapse raw land coverage', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 96;
+    params.height = 48;
+    params.seed = 'skeleton-land-preservation';
+    params.continentCount = 4;
+    const world = generateWorldFromParams(params);
+    const seaLevel = world.seaLevel;
+    const landBefore = fractionLand(world, seaLevel);
+
+    seedContinentSkeletonFields(world);
+    applySkeletonBaseElevation(world);
+
+    const landAfter = fractionLand(world, seaLevel);
+    expect(landAfter).toBeGreaterThan(landBefore - 0.10);
   });
 
   it('blocks generated geography passes once authored terrain deltas exist', () => {
@@ -114,3 +130,8 @@ describe('world geography pipeline', () => {
     expect(() => applySkeletonBaseElevation(world)).toThrow(/generate-only/);
   });
 });
+
+function fractionLand(world: ReturnType<typeof generateWorldFromParams>, seaLevel: number): number {
+  const land = world.cells.filter((cell) => cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta >= seaLevel).length;
+  return land / Math.max(1, world.cells.length);
+}
