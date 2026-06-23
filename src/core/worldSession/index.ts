@@ -7,7 +7,7 @@ import { recomputeWorld } from '../worldRecompute';
 import { validateWorld } from '../worldValidation';
 import { saveWorld, getWorldById } from '../worldStorage';
 import { cloneWorld, simulateTick } from '../worldSim';
-import { ensureCrustFields, seedCrustFields } from '../worldCrust';
+import { applyCrustTerrainInfluence, ensureCrustFields, seedCrustFields } from '../worldCrust';
 import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
 
 /**
@@ -105,8 +105,6 @@ class WorldSession {
         if (typeof cell.baseBiomeId !== 'number') cell.baseBiomeId = 0;
         if (typeof cell.editBiomeId !== 'number') cell.editBiomeId = cell.baseBiomeId;
         if (typeof cell.snowCover !== 'number') cell.snowCover = 0;
-        if (typeof cell.crustThickness !== 'number') cell.crustThickness = 0.5;
-        if (typeof cell.crustAge !== 'number') cell.crustAge = 0.5;
       }
 
       const expected = gw * gh;
@@ -151,6 +149,9 @@ class WorldSession {
     this.normalizeWorld(w);
     recomputeWorld(w, ['GENERATED']);
     applyGeneratedWorldQualityPass(w);
+    recomputeWorld(w, ['GENERATED']);
+    seedCrustFields(w);
+    applyCrustTerrainInfluence(w);
     recomputeWorld(w, ['GENERATED']);
     seedCrustFields(w);
 

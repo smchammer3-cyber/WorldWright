@@ -28,6 +28,7 @@ export type PlanetPreviewMode =
   | "RAINFALL"
   | "SNOW"
   | "OCEAN_DEPTH"
+  | "CRUST"
   | "PLATES"
   | "RIVERS";
 
@@ -40,6 +41,7 @@ export const PLANET_PREVIEW_MODES: Array<{ id: PlanetPreviewMode; label: string 
   { id: "RAINFALL", label: "Rainfall" },
   { id: "SNOW", label: "Snow" },
   { id: "OCEAN_DEPTH", label: "Ocean Depth" },
+  { id: "CRUST", label: "Crust" },
   { id: "PLATES", label: "Plates" },
   { id: "RIVERS", label: "Rivers" },
 ];
@@ -237,6 +239,8 @@ export function buildPlanetPreview(
         return snowColor(cell.snowCover);
       case "OCEAN_DEPTH":
         return water ? oceanColor(cell, h, row, col) : [0.35, 0.36, 0.31];
+      case "CRUST":
+        return crustColor(cell);
       case "PLATES":
         return plateColor(cell);
       case "RIVERS": {
@@ -373,6 +377,31 @@ function rainfallColor(value: number): Rgb {
 
 function snowColor(value: number): Rgb {
   return mix([0.07, 0.08, 0.10], [0.94, 0.97, 0.95], clamp01(value));
+}
+
+function crustColor(cell: Cell): Rgb {
+  const thickness = clamp01(cell.crustThickness);
+  const age = clamp01(cell.crustAge);
+
+  const thinYoung: Rgb = [0.06, 0.16, 0.42];
+  const middle: Rgb = [0.34, 0.55, 0.36];
+  const thickOld: Rgb = [0.84, 0.72, 0.42];
+  let color = thickness < 0.52
+    ? mix(thinYoung, middle, thickness / 0.52)
+    : mix(middle, thickOld, (thickness - 0.52) / 0.48);
+
+  color = mix(color, [0.96, 0.92, 0.72], age * 0.28);
+
+  if (cell.boundaryType && cell.boundaryType !== BoundaryType.NONE) {
+    const boundary: Rgb = cell.boundaryType === BoundaryType.CONVERGENT
+      ? [1.0, 0.62, 0.16]
+      : cell.boundaryType === BoundaryType.DIVERGENT
+        ? [0.20, 0.85, 1.0]
+        : [0.95, 0.92, 0.25];
+    color = mix(color, boundary, 0.32);
+  }
+
+  return shade(color, 0.86 + age * 0.20);
 }
 
 function plateColor(cell: Cell): Rgb {
