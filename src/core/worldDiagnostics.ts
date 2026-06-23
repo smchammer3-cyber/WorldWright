@@ -1,3 +1,4 @@
+import { getWorldStyleRules, levelFromRange, rangeText } from './worldStyleRules';
 import { BoundaryType, OceanDepthClass, PlateType, type WorldBrain } from './worldSchema';
 
 export type DiagnosticLevel = 'ok' | 'watch' | 'problem';
@@ -39,6 +40,7 @@ export type WorldDiagnostics = {
 };
 
 export function computeWorldDiagnostics(world: WorldBrain): WorldDiagnostics {
+  const rules = getWorldStyleRules(world.metadata?.styleMode ?? world.parameters?.styleMode);
   const totalCells = Math.max(1, world.cells.length);
   const landIndices: number[] = [];
   const oceanDepthCounts: Record<string, number> = {
@@ -107,20 +109,103 @@ export function computeWorldDiagnostics(world: WorldBrain): WorldDiagnostics {
     oceanDepthDistribution: normalizeCounts(oceanDepthCounts, oceanTotal),
   };
 
+  const worstCoastRunFraction = Math.max(
+    raw.maxHorizontalCoastRun / Math.max(1, world.gridWidth),
+    raw.maxVerticalCoastRun / Math.max(1, world.gridHeight),
+  );
+
   const metrics: DiagnosticMetric[] = [
-    metric('land', 'Land coverage', percent(raw.landFraction), landLevel(raw.landFraction), 'Target Earthlike range is roughly 22–45%. Too high/low means sea level is hiding terrain problems.'),
-    metric('largestLandmass', 'Largest landmass', percent(raw.largestLandmassShare), largestLandmassLevel(raw.largestLandmassShare), 'Share of all land in the biggest connected landmass. High values mean slab/supercontinent risk.'),
-    metric('landComponents', 'Landmasses', String(raw.landComponents), componentLevel(raw.landComponents), 'Connected 4-neighbor land bodies. Very low means blob continents; very high means noisy confetti.'),
-    metric('tinyIslands', 'Tiny island share', percent(raw.tinyIslandShare), tinyIslandLevel(raw.tinyIslandShare), 'Land trapped in tiny components under 12 cells.'),
-    metric('coastDensity', 'Coast density', percent(raw.coastlineEdgeDensity), coastDensityLevel(raw.coastlineEdgeDensity), 'Amount of land/water edge. Too low means smooth blobs; too high means noisy/static coast.'),
-    metric('axisRuns', 'Long straight coast', `${raw.maxHorizontalCoastRun}/${raw.maxVerticalCoastRun}`, axisRunLevel(world, raw.maxHorizontalCoastRun, raw.maxVerticalCoastRun), 'Longest horizontal/vertical coast-cell run. High values reveal grid/block artifacts.'),
-    metric('heightRelief', 'Height relief', fixed(raw.heightStdDev), reliefLevel(raw.heightStdDev), 'Standard deviation of total height. Low values mean flat colored regions.'),
-    metric('landRelief', 'Land relief', fixed(raw.landHeightStdDev), reliefLevel(raw.landHeightStdDev), 'Land-only height variation. Low values mean land lacks mountains, basins, and highlands.'),
-    metric('seams', 'Plate seam imprint', raw.seamHeightRatio == null ? 'n/a' : `${fixed(raw.seamHeightRatio)}×`, seamLevel(raw.seamHeightRatio), 'Height jump across plate borders divided by same-plate neighbor jumps. High values mean tectonic seams are visible in terrain.'),
-    metric('boundaries', 'Boundary cells', percent(raw.plateBoundaryFraction), boundaryLevel(raw.plateBoundaryFraction), 'Percent of cells marked as plate boundaries. High values can make the world look tiled.'),
-    metric('plateMismatch', 'Plate/terrain mismatch', percent(raw.plateTypeTerrainMismatch), mismatchLevel(raw.plateTypeTerrainMismatch), 'Continental plate under water or oceanic plate above water. Some is okay; too much means plate type is not matching terrain.'),
-    metric('snow', 'Snowy land', percent(raw.snowLandFraction), snowLevel(raw.snowLandFraction), 'Land cells with snowCover > 0.35. High values explain pale/white wash.'),
-    metric('oceanDepth', 'Dominant ocean class', percent(raw.oceanDepthDominantShare), oceanDepthLevel(raw.oceanDepthDominantShare), 'If one ocean-depth class dominates, bathymetry is painted/flat instead of shelf/slope/basin/trench mixed.'),
+    metric(
+      'land',
+      'Land coverage',
+      percent(raw.landFraction),
+      levelFromRange(raw.landFraction, rules.diagnostics.landFraction),
+      `${rules.label} target range is about ${rangeText(rules.diagnostics.landFraction)}. Too high/low means sea level or style settings may be hiding terrain problems.`,
+    ),
+    metric(
+      'largestLandmass',
+      'Largest landmass',
+      percent(raw.largestLandmassShare),
+      levelFromRange(raw.largestLandmassShare, rules.diagnostics.largestLandmassShare),
+      `Share of all land in the biggest connected landmass. ${rules.label} allows ${rangeText(rules.diagnostics.largestLandmassShare)} before slab/supercontinent risk increases.`,
+    ),
+    metric(
+      'landComponents',
+      'Landmasses',
+      String(raw.landComponents),
+      levelFromRange(raw.landComponents, rules.diagnostics.landComponents),
+      `Connected 4-neighbor land bodies. ${rules.label} expects roughly ${rangeText(rules.diagnostics.landComponents)} before blob/confetti risk.`,
+    ),
+    metric(
+      'tinyIslands',
+      'Tiny island share',
+      percent(raw.tinyIslandShare),
+      levelFromRange(raw.tinyIslandShare, rules.diagnostics.tinyIslandShare),
+      'Land trapped in tiny components under 12 cells.',
+    ),
+    metric(
+      'coastDensity',
+      'Coast density',
+      percent(raw.coastlineEdgeDensity),
+      levelFromRange(raw.coastlineEdgeDensity, rules.diagnostics.coastlineEdgeDensity),
+      `Amount of land/water edge. ${rules.label} target is ${rangeText(rules.diagnostics.coastlineEdgeDensity)}; too low means smooth blobs, too high means noisy/static coast.`,
+    ),
+    metric(
+      'axisRuns',
+      'Long straight coast',
+      `${raw.maxHorizontalCoastRun}/${raw.maxVerticalCoastRun}`,
+      levelFromRange(worstCoastRunFraction, rules.diagnostics.longCoastWorstFraction),
+      `Longest horizontal/vertical coast-cell run. ${rules.label} tolerates a normalized run around ${rangeText(rules.diagnostics.longCoastWorstFraction)} before grid/block artifacts are suspected.`,
+    ),
+    metric(
+      'heightRelief',
+      'Height relief',
+      fixed(raw.heightStdDev),
+      levelFromRange(raw.heightStdDev, rules.diagnostics.heightRelief),
+      `Standard deviation of total height. ${rules.label} target is ${rangeText(rules.diagnostics.heightRelief)}; low values mean flat colored regions.`,
+    ),
+    metric(
+      'landRelief',
+      'Land relief',
+      fixed(raw.landHeightStdDev),
+      levelFromRange(raw.landHeightStdDev, rules.diagnostics.landRelief),
+      `Land-only height variation. ${rules.label} target is ${rangeText(rules.diagnostics.landRelief)}; low values mean land lacks mountains, basins, and highlands.`,
+    ),
+    metric(
+      'seams',
+      'Plate seam imprint',
+      raw.seamHeightRatio == null ? 'n/a' : `${fixed(raw.seamHeightRatio)}×`,
+      raw.seamHeightRatio == null ? 'watch' : levelFromRange(raw.seamHeightRatio, rules.diagnostics.seamHeightRatio),
+      `Height jump across plate borders divided by same-plate neighbor jumps. ${rules.label} target is ${rangeText(rules.diagnostics.seamHeightRatio)}.`,
+    ),
+    metric(
+      'boundaries',
+      'Boundary cells',
+      percent(raw.plateBoundaryFraction),
+      levelFromRange(raw.plateBoundaryFraction, rules.diagnostics.plateBoundaryFraction),
+      'Percent of cells marked as plate boundaries. High values can make the world look tiled.',
+    ),
+    metric(
+      'plateMismatch',
+      'Plate/terrain mismatch',
+      percent(raw.plateTypeTerrainMismatch),
+      levelFromRange(raw.plateTypeTerrainMismatch, rules.diagnostics.plateMismatchFraction),
+      'Continental plate under water or oceanic plate above water. Some is okay; too much means plate type is not matching terrain.',
+    ),
+    metric(
+      'snow',
+      'Snowy land',
+      percent(raw.snowLandFraction),
+      levelFromRange(raw.snowLandFraction, rules.diagnostics.snowLandFraction),
+      'Land cells with snowCover > 0.35. High values explain pale/white wash.',
+    ),
+    metric(
+      'oceanDepth',
+      'Dominant ocean class',
+      percent(raw.oceanDepthDominantShare),
+      levelFromRange(raw.oceanDepthDominantShare, rules.diagnostics.oceanDepthDominantShare),
+      'If one ocean-depth class dominates, bathymetry is painted/flat instead of shelf/slope/basin/trench mixed.',
+    ),
   ];
 
   const summary = {
@@ -293,78 +378,4 @@ function percent(value: number): string {
 
 function fixed(value: number): string {
   return value.toFixed(2);
-}
-
-function landLevel(v: number): DiagnosticLevel {
-  if (v < 0.18 || v > 0.55) return 'problem';
-  if (v < 0.23 || v > 0.48) return 'watch';
-  return 'ok';
-}
-
-function largestLandmassLevel(v: number): DiagnosticLevel {
-  if (v > 0.82) return 'problem';
-  if (v > 0.68) return 'watch';
-  return 'ok';
-}
-
-function componentLevel(v: number): DiagnosticLevel {
-  if (v < 2 || v > 120) return 'problem';
-  if (v < 4 || v > 70) return 'watch';
-  return 'ok';
-}
-
-function tinyIslandLevel(v: number): DiagnosticLevel {
-  if (v > 0.14) return 'problem';
-  if (v > 0.07) return 'watch';
-  return 'ok';
-}
-
-function coastDensityLevel(v: number): DiagnosticLevel {
-  if (v < 0.020 || v > 0.22) return 'problem';
-  if (v < 0.035 || v > 0.16) return 'watch';
-  return 'ok';
-}
-
-function axisRunLevel(world: WorldBrain, horizontal: number, vertical: number): DiagnosticLevel {
-  const worst = Math.max(horizontal / Math.max(1, world.gridWidth), vertical / Math.max(1, world.gridHeight));
-  if (worst > 0.34) return 'problem';
-  if (worst > 0.22) return 'watch';
-  return 'ok';
-}
-
-function reliefLevel(v: number): DiagnosticLevel {
-  if (v < 0.070) return 'problem';
-  if (v < 0.120) return 'watch';
-  return 'ok';
-}
-
-function seamLevel(v: number | null): DiagnosticLevel {
-  if (v == null) return 'watch';
-  if (v > 2.0) return 'problem';
-  if (v > 1.35) return 'watch';
-  return 'ok';
-}
-
-function boundaryLevel(v: number): DiagnosticLevel {
-  if (v > 0.22) return 'problem';
-  if (v > 0.15) return 'watch';
-  return 'ok';
-}
-
-function mismatchLevel(v: number): DiagnosticLevel {
-  if (v > 0.45) return 'problem';
-  if (v > 0.30) return 'watch';
-  return 'ok';
-}
-
-function snowLevel(v: number): DiagnosticLevel {
-  if (v > 0.45) return 'problem';
-  if (v > 0.28) return 'watch';
-  return 'ok';
-}
-
-function oceanDepthLevel(v: number): DiagnosticLevel {
-  if (v > 0.78) return 'problem';
-  if (v > 0.62) return 'watch';
-  return 'ok';
 }
