@@ -8,7 +8,8 @@ type Vec3 = [number, number, number];
  *
  * This is intentionally separate from tectonic ownership. The generator already
  * creates the world skeleton; this pass adds non-plate interior relief and
- * near-sea-level coastline breakup so land does not read as flat painted slabs.
+ * controlled near-sea-level coastline expression so land does not read as flat
+ * painted slabs.
  *
  * Generate-only authority guard:
  * This pass reads total height and writes baseHeight, so it may only run while
@@ -60,15 +61,28 @@ export function applyGeneratedWorldQualityPass(world: WorldBrain): void {
         polarDamp *
         styleStrength;
 
-      const coastalBreakup =
-        (coastNoise * 0.052 + inletNoise * 0.034) * nearCoast * styleStrength;
+      // The stage diagnostics showed this pass could explode land-body count.
+      // Keep coast expression, but protect sparse/fragile land so the pass does
+      // not freely carve weakened margins into medium fragments.
+      const coastShape = (coastNoise * 0.034 + inletNoise * 0.020) * nearCoast * styleStrength;
+      const carveSafety = smoothstep(0.62, 0.92, localLand);
+      const waterBuildSafety = smoothstep(0.24, 0.68, localLand);
+      const coastalBreakup = coastShape * (
+        aboveSea >= 0
+          ? coastShape < 0
+            ? lerp(0.20, 1.0, carveSafety)
+            : 0.70
+          : coastShape > 0
+            ? lerp(0.12, 0.65, waterBuildSafety)
+            : 0.45
+      );
 
       const straitLine = 1 - smoothstep(0.015, 0.075, Math.abs(channelNoise + regional * 0.06));
-      const straitGate = smoothstep(0.42, 0.90, localLand) * shallowLand;
-      const straitCut = straitLine * straitGate * 0.055 * styleStrength;
+      const straitGate = smoothstep(0.68, 0.96, localLand) * shallowLand;
+      const straitCut = straitLine * straitGate * 0.026 * styleStrength;
 
       const shelfRoughness = aboveSea < 0
-        ? (coastNoise * 0.022 + inletNoise * 0.016) * nearCoast * styleStrength
+        ? (coastNoise * 0.014 + inletNoise * 0.010) * nearCoast * styleStrength * waterBuildSafety
         : 0;
 
       world.cells[idx].baseHeight = clamp(
