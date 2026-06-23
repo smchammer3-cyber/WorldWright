@@ -6,7 +6,8 @@ import {
 } from '../worldSchema';
 import { recomputeWorld } from '../worldRecompute';
 import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
-import { seedContinentSkeletonFields } from '../worldContinents';
+import { seedSkeletonCauseFields } from '../worldSkeletonCause';
+import { composeSkeletonFirstTerrain } from '../worldTerrainComposer';
 import { applyCrustTerrainInfluence, seedCrustFields } from '../worldCrust';
 import { buildGeographyProfile, type GeographyProfile } from '../worldGeographyProfile';
 import { applyOceanBasinAuthority } from '../worldOceanBasinAuthority';
@@ -26,19 +27,22 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
 
   const profile = buildGeographyProfile(world);
 
-  seedContinentSkeletonFields(world);
-  applySkeletonBaseElevation(world, profile);
+  seedSkeletonCauseFields(world);
+  composeSkeletonFirstTerrain(world, profile);
+  recomputeWorld(world, ['GENERATED']);
+
   applyOceanBasinAuthority(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
   applyGeneratedWorldQualityPass(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
-  seedContinentSkeletonFields(world);
+  seedSkeletonCauseFields(world);
   seedCrustFields(world);
   applyCrustTerrainInfluence(world);
   recomputeWorld(world, ['GENERATED']);
 
+  seedSkeletonCauseFields(world);
   applyOceanBasinAuthority(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
@@ -49,7 +53,7 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   recomputeWorld(world, ['GENERATED']);
 
   // Refresh diagnostic/cause fields after visible terrain obedience/correction.
-  seedContinentSkeletonFields(world);
+  seedSkeletonCauseFields(world);
   seedCrustFields(world);
   measureGeographyProfileFit(world, profile);
 }
@@ -57,10 +61,9 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
 /**
  * Broad skeleton-first base elevation pass.
  *
- * This is the pipeline-order fix: continent cores and ocean basins now establish
- * broad height tendencies before province cleanup runs. Profile weights keep
- * skeletons, shelves, ocean basins, and caused islands in a bounded budget so no
- * single force overpowers the world.
+ * This legacy helper remains available for focused tests and older callers, but
+ * the generated-world pipeline now composes the first terrain body from skeleton
+ * causes before using correction passes.
  */
 export function applySkeletonBaseElevation(
   world: WorldBrain,
