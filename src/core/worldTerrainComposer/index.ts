@@ -14,6 +14,10 @@ import { buildGeographyProfile, type GeographyProfile } from '../worldGeographyP
  * Broad land and ocean shape should come from continent/ocean skeleton identity,
  * margins, and plate causes. Existing terrain is kept only as low-amplitude
  * substrate texture.
+ *
+ * NOTE: this composer is currently experimental and is not used by the default
+ * generated geography pipeline. The active default path keeps the legacy terrain
+ * body and applies skeleton/ocean/crust corrections to it.
  */
 export function composeSkeletonFirstTerrain(
   world: WorldBrain,
@@ -35,31 +39,23 @@ export function composeSkeletonFirstTerrain(
     const broadNoise = centeredJitter(seed, index, 3119) * profile.detailNoiseWeight * 0.34;
     const reliefNoise = centeredJitter(seed, cell.plateId * 971 + index, 6113) * profile.tectonicReliefWeight * 0.22;
 
-    const strongCore = cell.continentId != null && (core > 0.52 || continentality > 0.68);
-    const exposedMargin = cell.continentId != null && continentality > 0.58 && core > 0.24;
-    const basinOverlap = cell.oceanBasinId != null && core < 0.50 && continentality < 0.62;
+    let target = seaLevel - 0.18 - oceanicity * 0.15;
 
-    let target = seaLevel - 0.16 - oceanicity * 0.13;
-
-    if (basinOverlap && !strongCore) {
-      const deepTarget = seaLevel - 0.100 - oceanicity * 0.16;
-      const shelfTarget = seaLevel - 0.052 + shelf * 0.018;
-      target = shelf > 0.36 ? blend(deepTarget, shelfTarget, shelf * 0.60) : deepTarget;
-    } else if (strongCore) {
-      target = seaLevel + 0.055 + core * 0.20 + Math.max(0, continentality - 0.62) * 0.18;
-    } else if (exposedMargin) {
-      target = seaLevel + 0.004 + Math.max(0, continentality - 0.58) * 0.11 - shelf * 0.030;
+    if (cell.continentId != null && continentality > 0.62) {
+      target = seaLevel + 0.055 + core * 0.20 + (continentality - 0.62) * 0.20;
+    } else if (cell.continentId != null && continentality > 0.42) {
+      target = seaLevel + 0.008 + (continentality - 0.42) * 0.13 - shelf * 0.035;
     } else if (cell.oceanBasinId != null) {
       target = seaLevel - 0.095 - oceanicity * 0.18;
     }
 
-    if (shelf > 0.28 && core < 0.64 && !strongCore) {
-      const shelfTarget = seaLevel - 0.054 + shelf * 0.022;
-      target = blend(target, shelfTarget, profile.shelfWeight * shelf * 1.35);
+    if (shelf > 0.28 && core < 0.64) {
+      const shelfTarget = seaLevel - 0.050 + shelf * 0.026;
+      target = blend(target, shelfTarget, profile.shelfWeight * shelf * 1.8);
     }
 
     if (cell.marginType === ContinentMarginType.COLLISION || cell.boundaryType === BoundaryType.CONVERGENT) {
-      target += profile.tectonicReliefWeight * 0.11 * smoothstep(0.44, 0.90, continentality);
+      target += profile.tectonicReliefWeight * 0.11 * smoothstep(0.40, 0.90, continentality);
     }
     if (cell.marginType === ContinentMarginType.RIFT || cell.boundaryType === BoundaryType.DIVERGENT) {
       target -= profile.oceanBasinWeight * 0.080 * smoothstep(0.20, 0.68, oceanicity + shelf * 0.40);
@@ -76,7 +72,7 @@ export function composeSkeletonFirstTerrain(
       target = Math.min(target, seaLevel - 0.12);
     }
 
-    const oldSubstrateInfluence = 0.22;
+    const oldSubstrateInfluence = 0.08;
     const relief = (broadNoise + reliefNoise) * (0.4 + Math.max(core, shelf, cell.volcanicActivity) * 0.6);
     cell.baseHeight = clamp(target + substrate * oldSubstrateInfluence + relief, -1.4, 1.5);
     cell.editHeightDelta = 0;
