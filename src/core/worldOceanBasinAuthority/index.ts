@@ -1,4 +1,5 @@
 import {
+  ContinentMarginType,
   IslandCause,
   type Cell,
   type WorldBrain,
@@ -189,8 +190,7 @@ function isProtectedOceanException(cell: Cell): boolean {
     cell.islandCause === IslandCause.ISLAND_ARC ||
     cell.islandCause === IslandCause.VOLCANIC_HOTSPOT ||
     cell.islandCause === IslandCause.RIFT_FRAGMENT ||
-    cell.marginType === 'COLLISION' ||
-    cell.marginType === 'RIFT'
+    cell.marginType === ContinentMarginType.COLLISION
   );
 }
 
