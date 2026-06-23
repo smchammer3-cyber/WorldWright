@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/core/worldGenerator';
 import { applyGeneratedGeographyPipeline, applySkeletonBaseElevation } from '../src/core/worldGeographyPipeline';
+import { buildGeographyProfile } from '../src/core/worldGeographyProfile';
 import { seedContinentSkeletonFields } from '../src/core/worldContinents';
 import { validateWorld } from '../src/core/worldValidation';
 import { ContinentMarginType, IslandCause } from '../src/core/worldSchema';
@@ -32,6 +33,7 @@ describe('world geography pipeline', () => {
     world.seaLevel = 0;
     world.metadata.seaLevel = 0;
     seedContinentSkeletonFields(world);
+    const profile = buildGeographyProfile(world);
 
     const core = world.cells[2 * world.gridWidth + 2];
     core.baseHeight = -0.03;
@@ -57,7 +59,7 @@ describe('world geography pipeline', () => {
     basin.islandCause = IslandCause.INVALID_FRAGMENT;
     const basinBefore = basin.baseHeight;
 
-    applySkeletonBaseElevation(world);
+    applySkeletonBaseElevation(world, profile);
 
     expect(core.baseHeight).toBeGreaterThan(coreBefore);
     expect(core.baseHeight).toBeGreaterThan(0);
@@ -74,6 +76,7 @@ describe('world geography pipeline', () => {
     world.seaLevel = 0;
     world.metadata.seaLevel = 0;
     seedContinentSkeletonFields(world);
+    const profile = buildGeographyProfile(world);
 
     const shelf = world.cells[3 * world.gridWidth + 8];
     shelf.baseHeight = 0.18;
@@ -85,9 +88,23 @@ describe('world geography pipeline', () => {
     shelf.shelfStrength = 0.80;
     shelf.marginType = ContinentMarginType.PASSIVE;
 
-    applySkeletonBaseElevation(world);
+    applySkeletonBaseElevation(world, profile);
 
     expect(shelf.baseHeight).toBeLessThan(0.18);
     expect(shelf.baseHeight).toBeGreaterThan(-0.12);
+  });
+
+  it('uses profile weights to keep skeleton authority stronger than shelf/detail authority', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 16;
+    params.height = 8;
+    params.seed = 'profile-weighted-pipeline';
+    const world = generateWorldFromParams(params);
+    seedContinentSkeletonFields(world);
+    const profile = buildGeographyProfile(world);
+
+    expect(profile.skeletonWeight).toBeGreaterThan(profile.shelfWeight);
+    expect(profile.skeletonWeight).toBeGreaterThan(profile.detailNoiseWeight);
+    expect(profile.oceanBasinWeight).toBeGreaterThan(profile.cleanupWeight);
   });
 });
