@@ -94,6 +94,13 @@ export interface Cell {
   surfaceAge: number; // 0..1
   volcanicActivity: number; // 0..1
 
+  // Crust cause layer (base or derived)
+  // These are intentionally separate from plateType so future generator work can
+  // model old continental cores, young ocean basins, rifts, shelves, and buried
+  // crust without making plate polygons directly paint land/water.
+  crustThickness: number; // 0..1, higher means thicker/more buoyant crust
+  crustAge: number; // 0..1, higher means older/more stable crust
+
   // Biomes
   baseBiomeId: number;
   editBiomeId: number;
@@ -242,6 +249,9 @@ export function createEmptyCell(index: number): Cell {
     upliftRate: 0,
     surfaceAge: 0.5,
     volcanicActivity: 0,
+
+    crustThickness: 0.5,
+    crustAge: 0.5,
 
     baseBiomeId: 0,
     editBiomeId: 0,
