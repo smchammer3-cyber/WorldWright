@@ -53,6 +53,55 @@ export enum CrustProvince {
   ISLAND_ARC = 'ISLAND_ARC',
 }
 
+export enum ContinentShapeType {
+  COMPACT_SHIELD = 'COMPACT_SHIELD',
+  RIFTED_BLOCK = 'RIFTED_BLOCK',
+  COLLISION_WEDGE = 'COLLISION_WEDGE',
+  ARC_ACCREDITED = 'ARC_ACCREDITED',
+  RIBBON_CONTINENT = 'RIBBON_CONTINENT',
+  TWIN_LOBE_CONTINENT = 'TWIN_LOBE_CONTINENT',
+  PENINSULAR_CONTINENT = 'PENINSULAR_CONTINENT',
+  BROKEN_MARGIN_CONTINENT = 'BROKEN_MARGIN_CONTINENT',
+}
+
+export enum ContinentMarginType {
+  NONE = 'NONE',
+  PASSIVE = 'PASSIVE',
+  ACTIVE = 'ACTIVE',
+  RIFT = 'RIFT',
+  COLLISION = 'COLLISION',
+  TRANSFORM = 'TRANSFORM',
+  ACCRETED = 'ACCRETED',
+}
+
+export enum IslandCause {
+  NONE = 'NONE',
+  CONTINENTAL_FRAGMENT = 'CONTINENTAL_FRAGMENT',
+  SHELF_ISLAND = 'SHELF_ISLAND',
+  ISLAND_ARC = 'ISLAND_ARC',
+  VOLCANIC_HOTSPOT = 'VOLCANIC_HOTSPOT',
+  RIFT_FRAGMENT = 'RIFT_FRAGMENT',
+  INVALID_FRAGMENT = 'INVALID_FRAGMENT',
+}
+
+export interface ContinentSkeleton {
+  id: number;
+  shapeType: ContinentShapeType;
+  coreLat: number;
+  coreLon: number;
+  size: number; // 0..1 broad intended size/influence
+  axisAngle: number; // radians in local lat/lon approximation
+  elongation: number; // >= 1, higher means more stretched
+  lobeCount: number;
+}
+
+export interface OceanBasinSkeleton {
+  id: number;
+  centerLat: number;
+  centerLon: number;
+  strength: number; // 0..1 broad basin identity strength
+}
+
 export interface WorldMetadata {
   id: string;
   name: string;
@@ -104,6 +153,17 @@ export interface Cell {
   upliftRate: number; // -1..1
   surfaceAge: number; // 0..1
   volcanicActivity: number; // 0..1
+
+  // Continent/ocean skeleton layer (derived cause layer)
+  // These fields describe geological identity before sea level reveals land.
+  continentId: number | null;
+  continentCoreStrength: number; // 0..1 old/stable core influence
+  continentality: number; // 0..1 how strongly this cell belongs to continental crust
+  distanceToContinentCore: number; // 0..1 normalized angular distance to nearest continent core
+  marginType: ContinentMarginType;
+  oceanBasinId: number | null;
+  shelfStrength: number; // 0..1 flooded continental margin/shelf tendency
+  islandCause: IslandCause;
 
   // Crust cause layer (base or derived)
   // These are intentionally separate from plateType so future generator work can
@@ -226,6 +286,9 @@ export interface WorldBrain {
   locations?: Location[];
   stickers?: Sticker[];
 
+  continentSkeletons?: ContinentSkeleton[];
+  oceanBasinSkeletons?: OceanBasinSkeleton[];
+
   metadata: WorldMetadata;
 
   // Optional: generator parameters snapshot (not enforced by schema)
@@ -261,6 +324,15 @@ export function createEmptyCell(index: number): Cell {
     upliftRate: 0,
     surfaceAge: 0.5,
     volcanicActivity: 0,
+
+    continentId: null,
+    continentCoreStrength: 0,
+    continentality: 0,
+    distanceToContinentCore: 1,
+    marginType: ContinentMarginType.NONE,
+    oceanBasinId: null,
+    shelfStrength: 0,
+    islandCause: IslandCause.NONE,
 
     crustThickness: 0.5,
     crustAge: 0.5,
