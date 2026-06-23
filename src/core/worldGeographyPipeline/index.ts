@@ -8,6 +8,7 @@ import { recomputeWorld } from '../worldRecompute';
 import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
 import { seedContinentSkeletonFields } from '../worldContinents';
 import { applyCrustTerrainInfluence, seedCrustFields } from '../worldCrust';
+import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
 
 /**
  * Authoritative generated-world geography order.
@@ -16,9 +17,15 @@ import { applyCrustTerrainInfluence, seedCrustFields } from '../worldCrust';
  * climate, rivers, snow, and biomes from the existing terrain. This pipeline is
  * the generated-world geography constructor: it gives continent/ocean skeletons
  * authority before crust provinces and cleanup try to refine the surface.
+ *
+ * Generate-only authority guard:
+ * This pipeline mutates baseHeight. It must never run after Create Mode or Sim
+ * Mode have written editHeightDelta/simHeightDelta, otherwise it could collapse
+ * authored/simulated terrain into the generated base layer.
  */
 export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   if (!world?.cells?.length) return;
+  assertNoAuthoredTerrainDeltas(world, 'applyGeneratedGeographyPipeline');
 
   seedContinentSkeletonFields(world);
   applySkeletonBaseElevation(world);
@@ -43,8 +50,14 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
  * This is the pipeline-order fix: continent cores and ocean basins now establish
  * broad height tendencies before province cleanup runs. It should reduce the
  * feeling that land is old noise with skeleton forces painted on afterward.
+ *
+ * Generate-only authority guard:
+ * This pass reads totalHeight and writes baseHeight, so it may only run while
+ * editHeightDelta and simHeightDelta are still pristine.
  */
 export function applySkeletonBaseElevation(world: WorldBrain): void {
+  assertNoAuthoredTerrainDeltas(world, 'applySkeletonBaseElevation');
+
   const seaLevel = typeof world.seaLevel === 'number' ? world.seaLevel : world.metadata?.seaLevel ?? 0;
 
   for (const cell of world.cells) {
