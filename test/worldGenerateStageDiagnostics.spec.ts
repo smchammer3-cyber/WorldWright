@@ -21,7 +21,11 @@ describe('generated stage diagnostics', () => {
       'FIRST_RECOMPUTE',
       'QUALITY_PASS',
       'CRUST_FIELDS',
-      'CRUST_TERRAIN_INFLUENCE',
+      'CRUST_PROVINCE_DELTA',
+      'CRUST_COAST_BREAKUP',
+      'CRUST_COHERENCE',
+      'CRUST_SKELETON_OBEDIENCE',
+      'CRUST_TINY_ISLAND_CLEANUP',
       'FINAL_RECOMPUTE',
     ]);
 

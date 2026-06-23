@@ -246,6 +246,12 @@ export default function AppShell(props: Props) {
   } = props;
 
   const hasLeft = (toolGroups && toolGroups.length > 0) || (leftTools && leftTools.length > 0);
+  const balancedGenerateColumns = mode === "generate" && hasLeft && rightPanel;
+  const columns = balancedGenerateColumns
+    ? "300px minmax(0, 1fr) 300px"
+    : hasLeft
+      ? "260px minmax(0, 1fr) 320px"
+      : "minmax(0, 1fr) 320px";
 
   return (
     <div style={{ width: "100vw", height: "100vh", background: "linear-gradient(180deg, rgb(10,12,18), rgb(8,10,15))", overflow: "hidden" }}>
@@ -263,7 +269,7 @@ export default function AppShell(props: Props) {
         style={{
           height: "calc(100vh - 54px)",
           display: "grid",
-          gridTemplateColumns: hasLeft ? "260px 1fr 320px" : "1fr 320px",
+          gridTemplateColumns: columns,
         }}
       >
         {hasLeft && (

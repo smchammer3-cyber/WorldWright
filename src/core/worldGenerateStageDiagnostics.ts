@@ -1,5 +1,12 @@
 import { seedContinentSkeletonFields } from './worldContinents';
-import { applyCrustTerrainInfluence, seedCrustFields } from './worldCrust';
+import {
+  applyContinentSkeletonTerrainObedience,
+  applyCrustProvinceTerrainDelta,
+  applyProvinceCoastBreakup,
+  applyProvinceCoherence,
+  cleanupAccidentalTinyIslands,
+  seedCrustFields,
+} from './worldCrust';
 import { createDefaultGeneratorParams, generateWorldFromParams, type GeneratorParams } from './worldGenerator';
 import { applyGeneratedWorldQualityPass } from './worldQualityPass';
 import { applySkeletonBaseElevation } from './worldGeographyPipeline';
@@ -13,7 +20,11 @@ export type GenerateStageId =
   | 'FIRST_RECOMPUTE'
   | 'QUALITY_PASS'
   | 'CRUST_FIELDS'
-  | 'CRUST_TERRAIN_INFLUENCE'
+  | 'CRUST_PROVINCE_DELTA'
+  | 'CRUST_COAST_BREAKUP'
+  | 'CRUST_COHERENCE'
+  | 'CRUST_SKELETON_OBEDIENCE'
+  | 'CRUST_TINY_ISLAND_CLEANUP'
   | 'FINAL_RECOMPUTE';
 
 export type GenerateStageRawMetrics = {
@@ -88,8 +99,20 @@ export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null 
   seedCrustFields(world);
   record('CRUST_FIELDS', 'Crust fields', 'Crust thickness, age, and province causes seeded after quality pass.');
 
-  applyCrustTerrainInfluence(world);
-  record('CRUST_TERRAIN_INFLUENCE', 'Crust influence', 'Province-aware terrain influence, coherence, skeleton obedience, and tiny-island cleanup applied.');
+  applyCrustProvinceTerrainDelta(world);
+  record('CRUST_PROVINCE_DELTA', 'Crust delta', 'Province height deltas only: old shields, belts, basins, rifts, volcanics, and oceanic basins.');
+
+  applyProvinceCoastBreakup(world);
+  record('CRUST_COAST_BREAKUP', 'Crust coast', 'Province-aware coastline breakup only.');
+
+  applyProvinceCoherence(world);
+  record('CRUST_COHERENCE', 'Crust cohere', 'Province coherence: fills holes and trims frayed lowland edges.');
+
+  applyContinentSkeletonTerrainObedience(world);
+  record('CRUST_SKELETON_OBEDIENCE', 'Crust skeleton', 'Skeleton obedience inside the crust pass.');
+
+  cleanupAccidentalTinyIslands(world);
+  record('CRUST_TINY_ISLAND_CLEANUP', 'Tiny cleanup', 'Tiny accidental island cleanup after crust subpasses.');
 
   recomputeWorld(world, ['GENERATED']);
   seedContinentSkeletonFields(world);

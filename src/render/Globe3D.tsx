@@ -100,6 +100,9 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(width, height, false);
     renderer.domElement.style.touchAction = 'none';
+    renderer.domElement.style.display = 'block';
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
     el.appendChild(renderer.domElement);
 
     const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
@@ -157,7 +160,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       rt.animationFrameId = requestAnimationFrame(animate);
     }
 
-    function onResize() {
+    function resizeToHost() {
       const host = containerRef.current;
       const rt = runtimeRef.current;
       if (!host || !rt) return;
@@ -235,12 +238,17 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       requestRender();
     }
 
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => resizeToHost())
+      : null;
+    resizeObserver?.observe(el);
+
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
     renderer.domElement.addEventListener('pointermove', onPointerMove);
     renderer.domElement.addEventListener('pointerup', onPointerUp);
     renderer.domElement.addEventListener('pointercancel', onPointerUp);
     renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
-    window.addEventListener('resize', onResize);
+    window.addEventListener('resize', resizeToHost);
 
     function animate() {
       const rt = runtimeRef.current;
@@ -272,7 +280,8 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       const rt = runtimeRef.current;
       runtimeRef.current = null;
 
-      window.removeEventListener('resize', onResize);
+      window.removeEventListener('resize', resizeToHost);
+      resizeObserver?.disconnect();
 
       try {
         renderer.domElement.removeEventListener('pointerdown', onPointerDown as any);
@@ -318,133 +327,105 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       <div
         style={{
           position: 'absolute',
-          right: 14,
-          bottom: 14,
+          right: 12,
+          bottom: 12,
           display: 'flex',
-          gap: 6,
-          padding: 6,
+          gap: 8,
+          alignItems: 'center',
+          background: 'rgba(0,0,0,0.34)',
+          border: '1px solid rgba(255,255,255,0.14)',
           borderRadius: 999,
-          background: 'rgba(0,0,0,0.58)',
-          border: '1px solid rgba(255,255,255,0.18)',
-          backdropFilter: 'blur(5px)',
-          zIndex: 5,
+          padding: 6,
+          backdropFilter: 'blur(6px)',
         }}
       >
-        <GlobeButton label="−" title="Zoom out" onClick={() => zoomBy(0.32)} />
-        <GlobeButton label="Reset" title="Reset globe view" onClick={resetView} wide />
-        <GlobeButton label="+" title="Zoom in" onClick={() => zoomBy(-0.32)} />
+        <button type="button" onClick={() => zoomBy(0.22)} style={controlButtonStyle}>−</button>
+        <button type="button" onClick={resetView} style={{ ...controlButtonStyle, width: 'auto', padding: '0 12px' }}>Reset</button>
+        <button type="button" onClick={() => zoomBy(-0.22)} style={controlButtonStyle}>+</button>
       </div>
     </div>
   );
 }
 
-function GlobeButton({ label, title, onClick, wide = false }: { label: string; title: string; onClick: () => void; wide?: boolean }) {
-  return (
-    <button
-      type="button"
-      title={title}
-      onClick={onClick}
-      style={{
-        minWidth: wide ? 54 : 34,
-        height: 32,
-        border: '1px solid rgba(255,255,255,0.22)',
-        borderRadius: 999,
-        background: 'rgba(255,255,255,0.12)',
-        color: '#fff',
-        fontWeight: 900,
-        cursor: 'pointer',
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-function buildPreviewKey(preview: PlanetPreview, world: WorldBrain): string {
-  const len = preview.rgba?.length ?? 0;
-  let hash = 2166136261 >>> 0;
-
-  if (preview.rgba && preview.rgba instanceof Uint8ClampedArray) {
-    const step = Math.max(1, Math.floor(preview.rgba.length / 2048));
-    for (let i = 0; i < preview.rgba.length; i += step) {
-      hash ^= preview.rgba[i];
-      hash = Math.imul(hash, 16777619);
-    }
-  }
-
-  return `${preview.width}x${preview.height}:${world.gridWidth}x${world.gridHeight}:${len}:${hash >>> 0}`;
-}
-
-function applyPreviewColorsToGeometry(geometry: THREE.BufferGeometry, preview: PlanetPreview): void {
-  const positions = geometry.getAttribute('position');
-  const colors = new Float32Array(positions.count * 3);
-
-  for (let i = 0; i < positions.count; i++) {
-    const vector: Vec3 = [positions.getX(i), positions.getY(i), positions.getZ(i)];
-    const { lat, lon } = vectorToLatLon(vector);
-    const color = sampleGlobePreviewAtLatLon(preview, lat, lon);
-    colors[i * 3 + 0] = color[0] / 255;
-    colors[i * 3 + 1] = color[1] / 255;
-    colors[i * 3 + 2] = color[2] / 255;
-  }
-
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  geometry.getAttribute('color').needsUpdate = true;
-}
-
 function buildCubeSphereGeometry(faceSize: number): THREE.BufferGeometry {
-  const geom = new THREE.BufferGeometry();
   const vertices: number[] = [];
   const normals: number[] = [];
+  const colors: number[] = [];
   const indices: number[] = [];
-  const stride = faceSize + 1;
 
   for (const face of CUBE_FACES) {
-    const faceStart = vertices.length / 3;
-
+    const baseIndex = vertices.length / 3;
     for (let y = 0; y <= faceSize; y++) {
-      const v = 1 - (y / faceSize) * 2;
       for (let x = 0; x <= faceSize; x++) {
-        const u = (x / faceSize) * 2 - 1;
-        const p = normalize(add3(add3(face.normal, scale3(face.u, u)), scale3(face.v, v)));
+        const a = (x / faceSize) * 2 - 1;
+        const b = (y / faceSize) * 2 - 1;
+        const p = normalizeVec3(add3(face.normal, add3(scale3(face.u, a), scale3(face.v, b))));
         vertices.push(p[0], p[1], p[2]);
         normals.push(p[0], p[1], p[2]);
+        colors.push(0.08, 0.18, 0.28);
       }
     }
 
     for (let y = 0; y < faceSize; y++) {
       for (let x = 0; x < faceSize; x++) {
-        const a = faceStart + y * stride + x;
-        const b = faceStart + (y + 1) * stride + x;
-        const c = faceStart + y * stride + x + 1;
-        const d = faceStart + (y + 1) * stride + x + 1;
-        indices.push(a, b, c);
-        indices.push(b, d, c);
+        const i = baseIndex + y * (faceSize + 1) + x;
+        indices.push(i, i + 1, i + faceSize + 1);
+        indices.push(i + 1, i + faceSize + 2, i + faceSize + 1);
       }
     }
   }
 
-  geom.setIndex(indices);
-  geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-  geom.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array((vertices.length / 3) * 3), 3));
-  return geom;
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setIndex(indices);
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+
+function applyPreviewColorsToGeometry(geometry: THREE.BufferGeometry, preview: PlanetPreview): void {
+  const position = geometry.getAttribute('position') as THREE.BufferAttribute;
+  const colorAttr = geometry.getAttribute('color') as THREE.BufferAttribute;
+
+  for (let i = 0; i < position.count; i++) {
+    const vec: Vec3 = [position.getX(i), position.getY(i), position.getZ(i)];
+    const { lat, lon } = vectorToLatLon(vec);
+    const color = sampleGlobePreviewAtLatLon(preview, lat, lon);
+    colorAttr.setXYZ(i, color[0] / 255, color[1] / 255, color[2] / 255);
+  }
+
+  colorAttr.needsUpdate = true;
+}
+
+function buildPreviewKey(preview: PlanetPreview, world: WorldBrain): string {
+  return `${preview.mode}:${world.metadata.id}:${world.metadata.updatedAt}:${world.metadata.seed}:${preview.width}x${preview.height}`;
 }
 
 function add3(a: Vec3, b: Vec3): Vec3 {
   return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 }
 
-function scale3(v: Vec3, s: number): Vec3 {
-  return [v[0] * s, v[1] * s, v[2] * s];
+function scale3(a: Vec3, s: number): Vec3 {
+  return [a[0] * s, a[1] * s, a[2] * s];
 }
 
-function normalize(v: Vec3): Vec3 {
-  const length = Math.hypot(v[0], v[1], v[2]);
-  if (length <= 1e-12) return [1, 0, 0];
-  return [v[0] / length, v[1] / length, v[2] / length];
+function normalizeVec3(a: Vec3): Vec3 {
+  const len = Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]) || 1;
+  return [a[0] / len, a[1] / len, a[2] / len];
 }
 
-function clamp(x: number, lo: number, hi: number): number {
-  return x < lo ? lo : x > hi ? hi : x;
+function clamp(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v));
 }
+
+const controlButtonStyle: React.CSSProperties = {
+  width: 30,
+  height: 30,
+  borderRadius: 999,
+  border: '1px solid rgba(255,255,255,0.18)',
+  background: 'rgba(255,255,255,0.12)',
+  color: '#fff',
+  cursor: 'pointer',
+  fontWeight: 800,
+};

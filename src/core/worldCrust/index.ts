@@ -60,6 +60,18 @@ export function applyCrustTerrainInfluence(world: WorldBrain): void {
   assertNoAuthoredTerrainDeltas(world, 'applyCrustTerrainInfluence');
   ensureCrustFields(world);
 
+  applyCrustProvinceTerrainDelta(world);
+  applyProvinceCoastBreakup(world);
+  applyProvinceCoherence(world);
+  applyContinentSkeletonTerrainObedience(world);
+  cleanupAccidentalTinyIslands(world);
+}
+
+export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
+  if (!world?.cells?.length) return;
+  assertNoAuthoredTerrainDeltas(world, 'applyCrustProvinceTerrainDelta');
+  ensureCrustFields(world);
+
   const seed = seedToUint32(world.metadata.seed);
   const seaLevel = numeric(world.seaLevel, world.metadata?.seaLevel ?? 0);
   const copy = world.cells.map((cell) => totalHeight(cell));
@@ -122,11 +134,6 @@ export function applyCrustTerrainInfluence(world: WorldBrain): void {
 
     cell.baseHeight = clamp(cell.baseHeight + (delta + shelfSoftening) * seamDamp, -1.4, 1.5);
   }
-
-  applyProvinceCoastBreakup(world, seaLevel, seed);
-  applyProvinceCoherence(world, seaLevel, seed);
-  applyContinentSkeletonTerrainObedience(world, seaLevel, seed);
-  cleanupAccidentalTinyIslands(world, seaLevel);
 }
 
 export function ensureCrustFields(world: WorldBrain): void {
@@ -186,7 +193,9 @@ export function classifyCrustProvince(cell: Cell, height: number, seaLevel: numb
   return CrustProvince.SEDIMENT_BASIN;
 }
 
-function applyProvinceCoastBreakup(world: WorldBrain, seaLevel: number, seed: number): void {
+export function applyProvinceCoastBreakup(world: WorldBrain): void {
+  const seaLevel = numeric(world.seaLevel, world.metadata?.seaLevel ?? 0);
+  const seed = seedToUint32(world.metadata.seed);
   const before = world.cells.map((cell) => totalHeight(cell));
 
   for (let i = 0; i < world.cells.length; i++) {
@@ -222,7 +231,9 @@ function applyProvinceCoastBreakup(world: WorldBrain, seaLevel: number, seed: nu
   }
 }
 
-function applyProvinceCoherence(world: WorldBrain, seaLevel: number, seed: number): void {
+export function applyProvinceCoherence(world: WorldBrain): void {
+  const seaLevel = numeric(world.seaLevel, world.metadata?.seaLevel ?? 0);
+  const seed = seedToUint32(world.metadata.seed);
   const before = world.cells.map((cell) => totalHeight(cell));
 
   for (let i = 0; i < world.cells.length; i++) {
@@ -260,7 +271,9 @@ function applyProvinceCoherence(world: WorldBrain, seaLevel: number, seed: numbe
   }
 }
 
-function applyContinentSkeletonTerrainObedience(world: WorldBrain, seaLevel: number, seed: number): void {
+export function applyContinentSkeletonTerrainObedience(world: WorldBrain): void {
+  const seaLevel = numeric(world.seaLevel, world.metadata?.seaLevel ?? 0);
+  const seed = seedToUint32(world.metadata.seed);
   const before = world.cells.map((cell) => totalHeight(cell));
 
   for (let i = 0; i < world.cells.length; i++) {
@@ -311,6 +324,21 @@ function applyContinentSkeletonTerrainObedience(world: WorldBrain, seaLevel: num
   }
 }
 
+export function cleanupAccidentalTinyIslands(world: WorldBrain): void {
+  const seaLevel = numeric(world.seaLevel, world.metadata?.seaLevel ?? 0);
+  const components = landComponentsByHeight(world, seaLevel);
+  for (const component of components) {
+    if (component.length > 10) continue;
+    if (component.some((idx) => isCausedIslandCell(world.cells[idx]))) continue;
+
+    const sinkStrength = component.length <= 4 ? 0.060 : 0.030;
+    for (const idx of component) {
+      const cell = world.cells[idx];
+      cell.baseHeight = clamp(cell.baseHeight - sinkStrength, -1.4, 1.5);
+    }
+  }
+}
+
 function plateSeamDamp(world: WorldBrain, index: number): number {
   const cell = world.cells[index];
   const neighbors = neighborIndices4(world, index);
@@ -347,20 +375,6 @@ function waterNeighborFractionByHeight(world: WorldBrain, index: number, seaLeve
     if (heights[neighbor] < seaLevel) water++;
   }
   return water / neighbors.length;
-}
-
-function cleanupAccidentalTinyIslands(world: WorldBrain, seaLevel: number): void {
-  const components = landComponentsByHeight(world, seaLevel);
-  for (const component of components) {
-    if (component.length > 10) continue;
-    if (component.some((idx) => isCausedIslandCell(world.cells[idx]))) continue;
-
-    const sinkStrength = component.length <= 4 ? 0.060 : 0.030;
-    for (const idx of component) {
-      const cell = world.cells[idx];
-      cell.baseHeight = clamp(cell.baseHeight - sinkStrength, -1.4, 1.5);
-    }
-  }
 }
 
 function isCausedIslandCell(cell: Cell): boolean {
