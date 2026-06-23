@@ -31,12 +31,58 @@ WorldWright may use Earthlike physics, blue oceans, continents, mountains, river
 
 ---
 
-## 2. The Main Hierarchy
+## 2. Spatial Authority: Spherical World First
+
+The long-term source of truth must be a sphere-aware world grid, not a 2:1 equirectangular texture.
+
+The current equirectangular grid is useful as a compatibility view, debug view, and export format, but it should not remain the final authoritative model. A rectangular map wrapped onto a sphere creates polar singularities, unequal cell areas, distorted neighbor relationships, and sunburst artifacts near the poles.
+
+Long-term rule:
+
+```text
+Canonical world data = sphere-aware cells / region graph.
+Equirectangular maps = generated views or exports.
+Cube-face maps = generated views or exports.
+3D globe = rendered from sphere-aware sampling.
+```
+
+Preferred long-term grid direction:
+
+```text
+cube-sphere grid first
+possible geodesic/hex-style grid later only if needed
+```
+
+A cube-sphere is the practical middle ground because it gives six square-ish face grids, avoids a single polar pinching point, keeps selection/editing/export understandable, and still supports a real spherical globe.
+
+Useful export modes from a sphere-aware model:
+
+```text
+full equirectangular map
+six cube-face maps
+one selected face
+one selected chunk
+continent/country/region export
+lat/lon rectangular export
+3D globe texture export
+```
+
+Implementation guardrail:
+
+```text
+Do not treat the equirectangular texture as the planet.
+Treat it as one way to view/export the planet.
+```
+
+---
+
+## 3. The Main Hierarchy
 
 The generator should follow a hierarchy of causes.
 
 ```text
-Planet rules
+Sphere-aware world grid
+→ planet rules
 → plates and platelets
 → crust thickness and crust age
 → active tectonic features
@@ -54,7 +100,7 @@ The current generator has useful pieces, but it risks letting broad noise and pl
 
 ---
 
-## 3. Plates Should Stay, But They Should Be a Cause Layer
+## 4. Plates Should Stay, But They Should Be a Cause Layer
 
 Do not remove plates. Plates matter for Sim Mode, long-term time change, mountain uplift, rifts, trenches, island arcs, volcano zones, earthquakes, and future geological history.
 
@@ -93,7 +139,7 @@ The visible world should not look like colored Voronoi plate polygons.
 
 ---
 
-## 4. Plate Hierarchy
+## 5. Plate Hierarchy
 
 A believable world should eventually have a hierarchy:
 
@@ -125,7 +171,7 @@ more Voronoi cells directly controlling land/water
 
 ---
 
-## 5. Active vs Passive Boundaries
+## 6. Active vs Passive Boundaries
 
 Not every plate boundary should be equally important.
 
@@ -157,7 +203,7 @@ This keeps the planet from looking like every plate edge is equally important.
 
 ---
 
-## 6. Crust Field: The Missing Middle Layer
+## 7. Crust Field: The Missing Middle Layer
 
 WorldWright needs a crust layer between plates and terrain.
 
@@ -190,7 +236,7 @@ This layer is what lets continents have old stable interiors, basins, highlands,
 
 ---
 
-## 7. Terrain Features Need Names and Causes
+## 8. Terrain Features Need Names and Causes
 
 Avoid a generator made only of anonymous noise. Noise is useful, but future code should increasingly generate named terrain causes.
 
@@ -215,7 +261,7 @@ Named features make diagnostics, editing, simulation, and future lore easier.
 
 ---
 
-## 8. Water, Coasts, Shelves, and Flooding
+## 9. Water, Coasts, Shelves, and Flooding
 
 Coastlines should mostly come from flooded terrain, not random shoreline wiggle.
 
@@ -244,7 +290,7 @@ island arc shallows
 
 ---
 
-## 9. Erosion, Hydrology, and Sediment
+## 10. Erosion, Hydrology, and Sediment
 
 A simplified erosion/hydrology layer is necessary for Google Earth-like believability.
 
@@ -277,7 +323,7 @@ rain falls
 
 ---
 
-## 10. Axis Tilt and Climate
+## 11. Axis Tilt and Climate
 
 Axis tilt should affect climate and biomes more deeply than a small temperature tweak.
 
@@ -337,7 +383,7 @@ Biome selection should consider temperature, rainfall, elevation, seasonality, o
 
 ---
 
-## 11. Style Modes Must Become Rule Presets
+## 12. Style Modes Must Become Rule Presets
 
 Style modes should not be loose color/flavor switches. They should be rule presets applied to the same shared geography pipeline.
 
@@ -452,7 +498,7 @@ Stylized diagnostics should not punish it for being less photographic.
 
 ---
 
-## 12. Style Contracts Needed
+## 13. Style Contracts Needed
 
 Create a style rules layer later, such as:
 
@@ -479,7 +525,7 @@ Diagnostics should eventually judge the world according to style.
 
 ---
 
-## 13. Sim Mode: How Geological Time Can Work
+## 14. Sim Mode: How Geological Time Can Work
 
 Sim Mode should use the same hidden cause layers.
 
@@ -517,7 +563,7 @@ This is why plates should remain part of the model.
 
 ---
 
-## 14. Countries Need a Region Graph, Not Raw Voronoi
+## 15. Countries Need a Region Graph, Not Raw Voronoi
 
 Country borders should not be generated directly from raw cells or nearest-capital Voronoi.
 
@@ -537,7 +583,7 @@ This protects the map from pizza-slice borders and unnatural spiderwebs.
 
 ---
 
-## 15. Natural Regions Before Countries
+## 16. Natural Regions Before Countries
 
 A middle layer is needed:
 
@@ -575,7 +621,7 @@ Countries should initially own regions, not individual noisy cells.
 
 ---
 
-## 16. Major Features Need Strength Scores
+## 17. Major Features Need Strength Scores
 
 Natural features should not automatically become borders. They should receive political/geographic strength scores.
 
@@ -604,7 +650,7 @@ huge forest/swamp → expansion resistance
 
 ---
 
-## 17. Travel Cost, Not Hard Walls
+## 18. Travel Cost, Not Hard Walls
 
 Countries should grow through least-cost paths instead of raw distance.
 
@@ -625,7 +671,7 @@ This lets geography guide borders without letting every feature create a border.
 
 ---
 
-## 18. Rivers and Mountains Are Contextual
+## 19. Rivers and Mountains Are Contextual
 
 A river can be either:
 
@@ -655,7 +701,7 @@ So the generator should detect mountain ranges and passes, not split every mount
 
 ---
 
-## 19. Border Affinity and Border Budget
+## 20. Border Affinity and Border Budget
 
 Region graph edges should track border affinity.
 
@@ -700,7 +746,7 @@ every valley nearby
 
 ---
 
-## 20. Border Cleanup and Political Diagnostics
+## 21. Border Cleanup and Political Diagnostics
 
 After country influence grows, run cleanup.
 
@@ -737,7 +783,7 @@ These metrics catch awful web-like countries before they become accepted behavio
 
 ---
 
-## 21. Country Generation Pipeline
+## 22. Country Generation Pipeline
 
 A practical future country pipeline:
 
@@ -758,7 +804,7 @@ This avoids raw Voronoi and avoids letting every river/mountain create borders.
 
 ---
 
-## 22. Implementation Guardrails
+## 23. Implementation Guardrails
 
 Do not blindly add more noise.
 
@@ -772,27 +818,31 @@ Do not generate countries directly from raw cells.
 
 Do not let every small feature create a political border.
 
-Do build cause layers, region graphs, strength scores, budgets, and diagnostics.
+Do not treat the 2:1 equirectangular grid/texture as the long-term authority for world data.
+
+Do build cause layers, sphere-aware grids, region graphs, strength scores, budgets, and diagnostics.
 
 ---
 
-## 23. Future Build Order Suggested By This Blueprint
+## 24. Future Build Order Suggested By This Blueprint
 
 Recommended order:
 
 ```text
 1. Style rules / style contracts.
 2. Crust thickness and crust age fields.
-3. Active/passive boundary segments.
-4. Named terrain feature generation.
-5. Better water/coast/shelf logic.
-6. Hydrology and simple erosion.
-7. Axis tilt / seasonality / biome upgrades.
-8. Natural region detection.
-9. Region graph for culture/country systems.
-10. Country influence by travel cost.
-11. Political border cleanup and diagnostics.
-12. Sim Mode time-change driven by cause layers.
+3. World grid abstraction + cube-sphere prototype.
+4. Renderer/world lookup using sphere-aware sampling.
+5. Active/passive boundary segments.
+6. Named terrain feature generation.
+7. Better water/coast/shelf logic.
+8. Hydrology and simple erosion.
+9. Axis tilt / seasonality / biome upgrades.
+10. Natural region detection.
+11. Region graph for culture/country systems.
+12. Country influence by travel cost.
+13. Political border cleanup and diagnostics.
+14. Sim Mode time-change driven by cause layers.
 ```
 
-This document should be consulted before future PRs that modify world generation, style modes, climate, biomes, countries, cultures, or Sim Mode.
+This document should be consulted before future PRs that modify world generation, style modes, climate, biomes, countries, cultures, spatial indexing, rendering, exports, or Sim Mode.
