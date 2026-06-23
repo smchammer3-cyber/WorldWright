@@ -2,8 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { WorldBrain } from '../core/worldSchema';
 import type { PlanetPreview } from '../core/planetRenderer';
-import { generateNormalMap, normalMapToCanvas } from '../core/normalMapGenerator';
-import { rasterizeGlobeTextureFromPreview } from '../core/worldSampling';
+import { sampleGlobePreviewAtLatLon } from '../core/worldSampling';
+import { vectorToLatLon, type Vec3 } from '../core/worldGrid';
 
 type Props = {
   world: WorldBrain;
@@ -19,18 +19,31 @@ type GlobeRuntime = {
   mesh: THREE.Mesh;
   material: THREE.MeshStandardMaterial;
   geometry: THREE.BufferGeometry;
-  textureCanvas: HTMLCanvasElement;
   animationFrameId: number | null;
-  texture: THREE.Texture | null;
-  normalTexture: THREE.Texture | null;
   mountedPreviewKey: string | null;
-  mountedNormalKey: string | null;
   isPointerDown: boolean;
   lastX: number;
   lastY: number;
   velX: number;
   velY: number;
 };
+
+type FaceBasis = {
+  normal: Vec3;
+  u: Vec3;
+  v: Vec3;
+};
+
+const CUBE_FACES: FaceBasis[] = [
+  { normal: [1, 0, 0], u: [0, 0, -1], v: [0, 1, 0] },
+  { normal: [-1, 0, 0], u: [0, 0, 1], v: [0, 1, 0] },
+  { normal: [0, 1, 0], u: [1, 0, 0], v: [0, 0, -1] },
+  { normal: [0, -1, 0], u: [1, 0, 0], v: [0, 0, 1] },
+  { normal: [0, 0, 1], u: [1, 0, 0], v: [0, 1, 0] },
+  { normal: [0, 0, -1], u: [-1, 0, 0], v: [0, 1, 0] },
+];
+
+const CUBE_SPHERE_FACE_SIZE = 72;
 
 export default function Globe3D({ world, preview, className, style }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -96,12 +109,14 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     dir.position.set(5, 3, 5);
     scene.add(dir);
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.2);
+    const ambient = new THREE.AmbientLight(0xffffff, 0.28);
     scene.add(ambient);
 
-    const geometry = buildSphereGeometry(128, 64);
+    const geometry = buildCubeSphereGeometry(CUBE_SPHERE_FACE_SIZE);
 
     const material = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      side: THREE.DoubleSide,
       metalness: 0.0,
       roughness: 0.9,
       flatShading: false,
@@ -112,8 +127,6 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     mesh.rotation.y = meshRotationRef.current.y;
     scene.add(mesh);
 
-    const textureCanvas = document.createElement('canvas');
-
     const runtime: GlobeRuntime = {
       scene,
       camera,
@@ -121,12 +134,8 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       mesh,
       material,
       geometry,
-      textureCanvas,
       animationFrameId: null,
-      texture: null,
-      normalTexture: null,
       mountedPreviewKey: null,
-      mountedNormalKey: null,
       isPointerDown: false,
       lastX: 0,
       lastY: 0,
@@ -276,8 +285,6 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       if (rt?.animationFrameId !== null) cancelAnimationFrame(rt.animationFrameId);
 
       try {
-        rt?.texture?.dispose();
-        rt?.normalTexture?.dispose();
         rt?.material?.dispose();
         rt?.geometry?.dispose();
         rt?.renderer?.dispose();
@@ -293,48 +300,17 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     const rt = runtimeRef.current;
     if (!rt || !preview) return;
 
-    const previewKey = buildPreviewKey(preview);
+    const previewKey = buildPreviewKey(preview, world);
     if (rt.mountedPreviewKey === previewKey) return;
 
-    const texture = createTextureFromPreview(rt, preview);
-    if (rt.texture) rt.texture.dispose();
-    rt.texture = texture;
-    rt.material.map = texture;
+    applyPreviewColorsToGeometry(rt.geometry, preview);
+    rt.material.vertexColors = true;
+    rt.material.map = null;
+    rt.material.normalMap = null;
     rt.material.needsUpdate = true;
     rt.mountedPreviewKey = previewKey;
     renderRuntime();
-  }, [preview]);
-
-  useEffect(() => {
-    const rt = runtimeRef.current;
-    if (!rt) return;
-
-    const key = `${world.gridWidth}x${world.gridHeight}:${world.metadata?.seed ?? ''}:${world.metadata?.updatedAt ?? ''}`;
-    if (rt.mountedNormalKey === key) return;
-
-    try {
-      const normalMap = generateNormalMap(world, 0.3);
-      const normalCanvas = normalMapToCanvas(normalMap);
-      const normalTexture = new THREE.CanvasTexture(normalCanvas);
-      normalTexture.wrapS = THREE.RepeatWrapping;
-      normalTexture.wrapT = THREE.ClampToEdgeWrapping;
-      normalTexture.magFilter = THREE.LinearFilter;
-      normalTexture.minFilter = THREE.LinearMipmapLinearFilter;
-      normalTexture.generateMipmaps = true;
-      normalTexture.anisotropy = Math.min(rt.renderer.capabilities.getMaxAnisotropy(), 4);
-      normalTexture.flipY = false;
-      normalTexture.needsUpdate = true;
-
-      if (rt.normalTexture) rt.normalTexture.dispose();
-      rt.normalTexture = normalTexture;
-      rt.material.normalMap = normalTexture;
-      rt.material.needsUpdate = true;
-      rt.mountedNormalKey = key;
-      renderRuntime();
-    } catch (e) {
-      console.warn('[Globe3D] Failed to generate normal map:', e);
-    }
-  }, [world]);
+  }, [preview, world]);
 
   return (
     <div className={className} style={{ position: 'relative', width: '100%', height: '100%', ...style }}>
@@ -384,7 +360,7 @@ function GlobeButton({ label, title, onClick, wide = false }: { label: string; t
   );
 }
 
-function buildPreviewKey(preview: PlanetPreview): string {
+function buildPreviewKey(preview: PlanetPreview, world: WorldBrain): string {
   const len = preview.rgba?.length ?? 0;
   let hash = 2166136261 >>> 0;
 
@@ -396,80 +372,77 @@ function buildPreviewKey(preview: PlanetPreview): string {
     }
   }
 
-  return `${preview.width}x${preview.height}:${len}:${hash >>> 0}`;
+  return `${preview.width}x${preview.height}:${world.gridWidth}x${world.gridHeight}:${len}:${hash >>> 0}`;
 }
 
-function createTextureFromPreview(rt: GlobeRuntime, preview: PlanetPreview): THREE.Texture {
-  const w = preview.width;
-  const h = preview.height;
+function applyPreviewColorsToGeometry(geometry: THREE.BufferGeometry, preview: PlanetPreview): void {
+  const positions = geometry.getAttribute('position');
+  const colors = new Float32Array(positions.count * 3);
 
-  const texCanvas = rt.textureCanvas;
-  texCanvas.width = w;
-  texCanvas.height = h;
-
-  const ctx = texCanvas.getContext('2d');
-  if (!ctx) throw new Error('Failed to create texture canvas 2D context');
-
-  const rgba = rasterizeGlobeTextureFromPreview(preview);
-  const img = new ImageData(rgba, w, h);
-  ctx.putImageData(img, 0, 0);
-
-  const tex = new THREE.CanvasTexture(texCanvas);
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.ClampToEdgeWrapping;
-  tex.magFilter = THREE.LinearFilter;
-  tex.minFilter = THREE.LinearMipmapLinearFilter;
-  tex.generateMipmaps = true;
-  tex.anisotropy = Math.min(rt.renderer.capabilities.getMaxAnisotropy(), 4);
-  tex.flipY = false;
-  tex.needsUpdate = true;
-  return tex;
-}
-
-function buildSphereGeometry(widthSegments: number, heightSegments: number): THREE.BufferGeometry {
-  const geom = new THREE.BufferGeometry();
-
-  const vertices: number[] = [];
-  const normals: number[] = [];
-  const uvs: number[] = [];
-  const indices: number[] = [];
-
-  for (let latIndex = 0; latIndex <= heightSegments; latIndex++) {
-    const v = latIndex / heightSegments;
-    const phi = v * Math.PI;
-
-    for (let lonIndex = 0; lonIndex <= widthSegments; lonIndex++) {
-      const u = lonIndex / widthSegments;
-      const theta = u * Math.PI * 2;
-
-      const x = -Math.sin(phi) * Math.cos(theta);
-      const y = Math.cos(phi);
-      const z = Math.sin(phi) * Math.sin(theta);
-
-      vertices.push(x, y, z);
-      normals.push(x, y, z);
-      uvs.push(u, v);
-    }
+  for (let i = 0; i < positions.count; i++) {
+    const vector: Vec3 = [positions.getX(i), positions.getY(i), positions.getZ(i)];
+    const { lat, lon } = vectorToLatLon(vector);
+    const color = sampleGlobePreviewAtLatLon(preview, lat, lon);
+    colors[i * 3 + 0] = color[0] / 255;
+    colors[i * 3 + 1] = color[1] / 255;
+    colors[i * 3 + 2] = color[2] / 255;
   }
 
-  for (let latIndex = 0; latIndex < heightSegments; latIndex++) {
-    for (let lonIndex = 0; lonIndex < widthSegments; lonIndex++) {
-      const a = latIndex * (widthSegments + 1) + lonIndex;
-      const b = a + widthSegments + 1;
-      const c = a + 1;
-      const d = b + 1;
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geometry.getAttribute('color').needsUpdate = true;
+}
 
-      indices.push(a, b, c);
-      indices.push(b, d, c);
+function buildCubeSphereGeometry(faceSize: number): THREE.BufferGeometry {
+  const geom = new THREE.BufferGeometry();
+  const vertices: number[] = [];
+  const normals: number[] = [];
+  const indices: number[] = [];
+  const stride = faceSize + 1;
+
+  for (const face of CUBE_FACES) {
+    const faceStart = vertices.length / 3;
+
+    for (let y = 0; y <= faceSize; y++) {
+      const v = 1 - (y / faceSize) * 2;
+      for (let x = 0; x <= faceSize; x++) {
+        const u = (x / faceSize) * 2 - 1;
+        const p = normalize(add3(add3(face.normal, scale3(face.u, u)), scale3(face.v, v)));
+        vertices.push(p[0], p[1], p[2]);
+        normals.push(p[0], p[1], p[2]);
+      }
+    }
+
+    for (let y = 0; y < faceSize; y++) {
+      for (let x = 0; x < faceSize; x++) {
+        const a = faceStart + y * stride + x;
+        const b = faceStart + (y + 1) * stride + x;
+        const c = faceStart + y * stride + x + 1;
+        const d = faceStart + (y + 1) * stride + x + 1;
+        indices.push(a, b, c);
+        indices.push(b, d, c);
+      }
     }
   }
 
   geom.setIndex(indices);
   geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
   geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-  geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-
+  geom.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array((vertices.length / 3) * 3), 3));
   return geom;
+}
+
+function add3(a: Vec3, b: Vec3): Vec3 {
+  return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+}
+
+function scale3(v: Vec3, s: number): Vec3 {
+  return [v[0] * s, v[1] * s, v[2] * s];
+}
+
+function normalize(v: Vec3): Vec3 {
+  const length = Math.hypot(v[0], v[1], v[2]);
+  if (length <= 1e-12) return [1, 0, 0];
+  return [v[0] / length, v[1] / length, v[2] / length];
 }
 
 function clamp(x: number, lo: number, hi: number): number {
