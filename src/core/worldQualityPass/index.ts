@@ -145,7 +145,7 @@ function sphereValueNoise(v: Vec3, f: number, salt: number, seed: number): numbe
   const x10 = lerp(c010, c110, u);
   const x01 = lerp(c001, c101, u);
   const x11 = lerp(c011, c111, u);
-  return lerp(lerp(x00, x10, vv), lerp(x01, x11), w);
+  return lerp(lerp(x00, x10, vv), lerp(x01, x11, vv), w);
 }
 
 function shiftVec(dir: Vec3, ox: number, oy: number, oz: number): Vec3 {
