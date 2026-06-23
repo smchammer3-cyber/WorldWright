@@ -10,6 +10,8 @@ import {
 } from '../worldSchema';
 import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
 
+type CrustTopologyStage = 'province-delta' | 'skeleton-obedience';
+
 export function seedCrustFields(world: WorldBrain): void {
   if (!world?.cells?.length) return;
 
@@ -132,7 +134,9 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
       ? (cell.crustThickness - 0.50) * 0.014
       : 0;
 
-    cell.baseHeight = clamp(cell.baseHeight + (delta + shelfSoftening) * seamDamp, -1.4, 1.5);
+    const rawDelta = (delta + shelfSoftening) * seamDamp;
+    const topologySafeDelta = constrainCrustTopologyDelta(world, i, h, seaLevel, rawDelta, copy, 'province-delta');
+    cell.baseHeight = clamp(cell.baseHeight + topologySafeDelta, -1.4, 1.5);
   }
 }
 
@@ -283,6 +287,8 @@ export function applyContinentSkeletonTerrainObedience(world: WorldBrain): void 
     const continentality = clamp01(cell.continentality);
     const core = clamp01(cell.continentCoreStrength);
     const shelf = clamp01(cell.shelfStrength);
+    const landNeighbors = landNeighborFractionByHeight(world, i, seaLevel, before);
+    const waterNeighbors = 1 - landNeighbors;
     const nearSurface = 1 - smoothstep(0.12, 0.48, Math.abs(aboveSea));
     const broadNoise = centeredJitter(seed, cell.continentId ?? cell.oceanBasinId ?? i, 26003);
     const seamDamp = plateSeamDamp(world, i);
@@ -319,7 +325,9 @@ export function applyContinentSkeletonTerrainObedience(world: WorldBrain): void 
     }
 
     if (delta !== 0) {
-      cell.baseHeight = clamp(cell.baseHeight + delta * seamDamp, -1.4, 1.5);
+      const rawDelta = delta * seamDamp;
+      const topologySafeDelta = constrainCrustTopologyDelta(world, i, h, seaLevel, rawDelta, before, 'skeleton-obedience', landNeighbors, waterNeighbors);
+      cell.baseHeight = clamp(cell.baseHeight + topologySafeDelta, -1.4, 1.5);
     }
   }
 }
@@ -337,6 +345,53 @@ export function cleanupAccidentalTinyIslands(world: WorldBrain): void {
       cell.baseHeight = clamp(cell.baseHeight - sinkStrength, -1.4, 1.5);
     }
   }
+}
+
+function constrainCrustTopologyDelta(
+  world: WorldBrain,
+  index: number,
+  heightBefore: number,
+  seaLevel: number,
+  delta: number,
+  heights: number[],
+  stage: CrustTopologyStage,
+  precomputedLandNeighbors?: number,
+  precomputedWaterNeighbors?: number,
+): number {
+  if (delta === 0) return 0;
+
+  const next = heightBefore + delta;
+  const wasLand = heightBefore >= seaLevel;
+  const willBeLand = next >= seaLevel;
+  if (wasLand === willBeLand) return delta;
+
+  const cell = world.cells[index];
+  const landNeighbors = precomputedLandNeighbors ?? landNeighborFractionByHeight(world, index, seaLevel, heights);
+  const waterNeighbors = precomputedWaterNeighbors ?? (1 - landNeighbors);
+  const continentality = clamp01(cell.continentality);
+  const core = clamp01(cell.continentCoreStrength);
+  const caused = isCausedIslandCell(cell);
+  const volcanicArc = cell.volcanicActivity > 0.55 && cell.boundaryType === BoundaryType.CONVERGENT;
+  const strongCore = continentality > 0.72 && core > 0.68;
+  const attachedLand = landNeighbors >= (stage === 'skeleton-obedience' ? 0.72 : 0.62) && continentality > 0.36;
+  const invalidFragment = cell.islandCause === IslandCause.INVALID_FRAGMENT || (continentality < 0.18 && cell.crustProvince === CrustProvince.OCEANIC_BASIN);
+
+  if (!wasLand && willBeLand) {
+    const allowNewLand = caused || volcanicArc || strongCore || attachedLand;
+    if (!allowNewLand) {
+      return Math.max(0, seaLevel - 0.006 - heightBefore);
+    }
+  }
+
+  if (wasLand && !willBeLand) {
+    const protectedLand = caused || strongCore || continentality > 0.36 || core > 0.24 || landNeighbors >= 0.50;
+    const allowSinkLand = invalidFragment || (!protectedLand && waterNeighbors >= 0.72);
+    if (!allowSinkLand) {
+      return Math.min(0, seaLevel + 0.006 - heightBefore);
+    }
+  }
+
+  return delta;
 }
 
 function plateSeamDamp(world: WorldBrain, index: number): number {
