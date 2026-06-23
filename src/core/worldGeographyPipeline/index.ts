@@ -8,6 +8,7 @@ import { recomputeWorld } from '../worldRecompute';
 import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
 import { seedSkeletonCauseFields } from '../worldSkeletonCause';
 import { composeSkeletonFirstTerrain } from '../worldTerrainComposer';
+import { refitSeaLevelToProfile } from '../worldSeaLevelFit';
 import { applyCrustTerrainInfluence, seedCrustFields } from '../worldCrust';
 import { buildGeographyProfile, type GeographyProfile } from '../worldGeographyProfile';
 import { applyOceanBasinAuthority } from '../worldOceanBasinAuthority';
@@ -29,6 +30,7 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
 
   seedSkeletonCauseFields(world);
   composeSkeletonFirstTerrain(world, profile);
+  refitSeaLevelToProfile(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
   applyOceanBasinAuthority(world, profile);
@@ -50,6 +52,7 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   recomputeWorld(world, ['GENERATED']);
 
   applyGeographyProfileCorrections(world, profile);
+  refitSeaLevelToProfile(world, profile);
   recomputeWorld(world, ['GENERATED']);
 
   // Refresh diagnostic/cause fields after visible terrain obedience/correction.
