@@ -10,6 +10,7 @@
 
 import {
   BoundaryType,
+  CrustProvince,
   OceanDepthClass,
   PlateType,
   type WorldBrain,
@@ -29,6 +30,7 @@ export type PlanetPreviewMode =
   | "SNOW"
   | "OCEAN_DEPTH"
   | "CRUST"
+  | "CRUST_PROVINCE"
   | "GRID"
   | "PLATES"
   | "RIVERS";
@@ -43,6 +45,7 @@ export const PLANET_PREVIEW_MODES: Array<{ id: PlanetPreviewMode; label: string 
   { id: "SNOW", label: "Snow" },
   { id: "OCEAN_DEPTH", label: "Ocean Depth" },
   { id: "CRUST", label: "Crust" },
+  { id: "CRUST_PROVINCE", label: "Crust Province" },
   { id: "GRID", label: "Grid" },
   { id: "PLATES", label: "Plates" },
   { id: "RIVERS", label: "Rivers" },
@@ -241,6 +244,8 @@ export function buildPlanetPreview(
         return water ? oceanColor(cell, h, row, col) : [0.35, 0.36, 0.31];
       case "CRUST":
         return crustColor(cell);
+      case "CRUST_PROVINCE":
+        return crustProvinceColor(cell);
       case "GRID":
         return gridColor(row, col, width, height);
       case "PLATES":
@@ -406,6 +411,43 @@ function crustColor(cell: Cell): Rgb {
   return shade(color, 0.86 + age * 0.20);
 }
 
+function crustProvinceColor(cell: Cell): Rgb {
+  let color: Rgb;
+  switch (cell.crustProvince) {
+    case CrustProvince.OLD_SHIELD:
+      color = [0.84, 0.70, 0.34];
+      break;
+    case CrustProvince.MOBILE_BELT:
+      color = [0.72, 0.40, 0.24];
+      break;
+    case CrustProvince.SEDIMENT_BASIN:
+      color = [0.44, 0.62, 0.34];
+      break;
+    case CrustProvince.RIFT_MARGIN:
+      color = [0.84, 0.36, 0.66];
+      break;
+    case CrustProvince.COASTAL_PLAIN:
+      color = [0.68, 0.76, 0.48];
+      break;
+    case CrustProvince.VOLCANIC_PROVINCE:
+      color = [0.82, 0.22, 0.18];
+      break;
+    case CrustProvince.ISLAND_ARC:
+      color = [0.94, 0.58, 0.22];
+      break;
+    case CrustProvince.OCEANIC_BASIN:
+    default:
+      color = [0.08, 0.24, 0.50];
+      break;
+  }
+
+  if (cell.boundaryType && cell.boundaryType !== BoundaryType.NONE) {
+    color = mix(color, [1.0, 0.96, 0.55], 0.18);
+  }
+
+  return shade(color, 0.88 + clamp01(cell.crustAge) * 0.16);
+}
+
 function gridColor(row: number, col: number, width: number, height: number): Rgb {
   const latLine = row % Math.max(1, Math.round(height / 16)) === 0;
   const lonLine = col % Math.max(1, Math.round(width / 24)) === 0;
@@ -517,32 +559,4 @@ function rasterizeToBytes(
   }
 
   return out;
-}
-
-export function rasterizePlanetPreview(
-  preview: PlanetPreview,
-  outW: number,
-  outH: number
-): Uint8ClampedArray {
-  const w = Math.max(1, Math.floor(outW));
-  const h = Math.max(1, Math.floor(outH));
-  return rasterizeToBytes(w, h, (x, y) => {
-    const sx = (x / w) * preview.width;
-    const sy = (y / h) * preview.height;
-    return preview.colorAt(sx, sy);
-  });
-}
-
-export function rasterizeMinimapPreview(
-  preview: PlanetPreview,
-  outW: number,
-  outH: number
-): Uint8ClampedArray {
-  const w = Math.max(1, Math.floor(outW));
-  const h = Math.max(1, Math.floor(outH));
-  return rasterizeToBytes(w, h, (x, y) => {
-    const sx = (x / w) * preview.width;
-    const sy = (y / h) * preview.height;
-    return preview.minimapColorAt(sx, sy);
-  });
 }
