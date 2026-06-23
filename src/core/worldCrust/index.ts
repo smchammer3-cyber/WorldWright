@@ -129,6 +129,7 @@ export function applyCrustTerrainInfluence(world: WorldBrain): void {
   }
 
   applyProvinceCoastBreakup(world, seaLevel, seed);
+  applyProvinceCoherence(world, seaLevel, seed);
   cleanupAccidentalTinyIslands(world, seaLevel);
 }
 
@@ -227,6 +228,57 @@ function applyProvinceCoastBreakup(world: WorldBrain, seaLevel: number, seed: nu
       cell.baseHeight = clamp(cell.baseHeight + delta, -1.4, 1.5);
     }
   }
+}
+
+function applyProvinceCoherence(world: WorldBrain, seaLevel: number, seed: number): void {
+  const before = world.cells.map((cell) => totalHeight(cell));
+
+  for (let i = 0; i < world.cells.length; i++) {
+    const cell = world.cells[i];
+    const h = before[i];
+    const aboveSea = h - seaLevel;
+    const landNeighbors = landNeighborFractionByHeight(world, i, seaLevel, before);
+    const waterNeighbors = 1 - landNeighbors;
+    const local = centeredJitter(seed, i, 19001);
+
+    let delta = 0;
+
+    // Fill small holes and thin accidental channels inside strong continental
+    // provinces, but leave rifts and basins open so breakup still has causes.
+    if (h < seaLevel && landNeighbors >= 0.5) {
+      if (cell.crustProvince === CrustProvince.OLD_SHIELD || cell.crustProvince === CrustProvince.MOBILE_BELT) {
+        delta += 0.038 * smoothstep(0.45, 1.0, landNeighbors) * Math.max(0.45, cell.crustThickness);
+      } else if (cell.crustProvince === CrustProvince.VOLCANIC_PROVINCE) {
+        delta += 0.030 * smoothstep(0.45, 1.0, landNeighbors);
+      } else if (cell.crustProvince === CrustProvince.COASTAL_PLAIN && landNeighbors >= 0.75) {
+        delta += 0.018;
+      }
+    }
+
+    // Sink extremely frayed lowland edges so coasts consolidate into fewer,
+    // stronger bays and peninsulas instead of random speckles.
+    if (h >= seaLevel && aboveSea < 0.16 && waterNeighbors >= 0.5) {
+      if (cell.crustProvince === CrustProvince.SEDIMENT_BASIN || cell.crustProvince === CrustProvince.COASTAL_PLAIN) {
+        delta -= 0.030 * smoothstep(0.45, 1.0, waterNeighbors);
+      } else if (cell.crustProvince === CrustProvince.RIFT_MARGIN) {
+        delta -= Math.max(0, -local) * 0.034 * smoothstep(0.45, 1.0, waterNeighbors);
+      }
+    }
+
+    if (delta !== 0) {
+      cell.baseHeight = clamp(cell.baseHeight + delta, -1.4, 1.5);
+    }
+  }
+}
+
+function landNeighborFractionByHeight(world: WorldBrain, index: number, seaLevel: number, heights: number[]): number {
+  const neighbors = neighborIndices4(world, index);
+  if (neighbors.length === 0) return 0;
+  let land = 0;
+  for (const neighbor of neighbors) {
+    if (heights[neighbor] >= seaLevel) land++;
+  }
+  return land / neighbors.length;
 }
 
 function waterNeighborFractionByHeight(world: WorldBrain, index: number, seaLevel: number, heights: number[]): number {
