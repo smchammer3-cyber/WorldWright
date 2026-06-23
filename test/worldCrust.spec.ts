@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeWorldDiagnostics } from '../src/core/worldDiagnostics';
 import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/core/worldGenerator';
-import { applyCrustTerrainInfluence, seedCrustFields, ensureCrustFields } from '../src/core/worldCrust';
+import { applyCrustProvinceTerrainDelta, applyCrustTerrainInfluence, seedCrustFields, ensureCrustFields } from '../src/core/worldCrust';
 import { makePlanetPreviewFromWorldBrain, PLANET_PREVIEW_MODES } from '../src/core/planetRenderer';
 import { recomputeWorld } from '../src/core/worldRecompute';
 import { validateWorld } from '../src/core/worldValidation';
@@ -71,6 +71,41 @@ describe('world crust fields', () => {
     expect(after.heightStdDev).toBeGreaterThan(before.heightStdDev * 0.95);
     expect(after.seamHeightRatio ?? 0).toBeLessThan(2.5);
     expect(after.meanContinentalCrustThickness).toBeGreaterThan(after.meanOceanicCrustThickness);
+  });
+
+  it('keeps crust province deltas from creating unsupported isolated land', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 16;
+    params.height = 8;
+    params.seed = 'crust-delta-topology-guard';
+    const world = generateWorldFromParams(params);
+    world.seaLevel = 0;
+    world.metadata.seaLevel = 0;
+
+    for (const cell of world.cells) {
+      cell.baseHeight = -0.12;
+      cell.editHeightDelta = 0;
+      cell.simHeightDelta = 0;
+      cell.plateType = PlateType.CONTINENTAL;
+      cell.boundaryType = BoundaryType.NONE;
+      cell.upliftRate = 0;
+      cell.volcanicActivity = 0;
+      cell.crustThickness = 0.58;
+      cell.crustAge = 0.52;
+      cell.crustProvince = CrustProvince.SEDIMENT_BASIN;
+      cell.continentCoreStrength = 0;
+      cell.continentality = 0.20;
+      cell.islandCause = IslandCause.NONE;
+    }
+
+    const isolated = world.cells[3 * world.gridWidth + 7];
+    isolated.baseHeight = -0.001;
+    isolated.crustProvince = CrustProvince.MOBILE_BELT;
+    isolated.upliftRate = 1;
+
+    applyCrustProvinceTerrainDelta(world);
+
+    expect(isolated.baseHeight).toBeLessThan(0);
   });
 
   it('pushes basins down and mobile belts up relative to their starting height', () => {
