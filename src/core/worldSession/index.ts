@@ -105,8 +105,6 @@ class WorldSession {
         if (typeof cell.baseBiomeId !== 'number') cell.baseBiomeId = 0;
         if (typeof cell.editBiomeId !== 'number') cell.editBiomeId = cell.baseBiomeId;
         if (typeof cell.snowCover !== 'number') cell.snowCover = 0;
-        if (typeof cell.crustThickness !== 'number') cell.crustThickness = 0.5;
-        if (typeof cell.crustAge !== 'number') cell.crustAge = 0.5;
       }
 
       const expected = gw * gh;
