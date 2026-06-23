@@ -1,3 +1,4 @@
+import { getWorldStyleRules, normalizeWorldStyleMode } from './worldStyleRules';
 import type { WorldBrain } from './worldSchema';
 
 export type DiagnosticContext = {
@@ -9,7 +10,8 @@ export type DiagnosticContext = {
 
 export function getDiagnosticContext(world: WorldBrain): DiagnosticContext {
   const params = world.parameters;
-  const style = world.metadata?.styleMode ?? params?.styleMode ?? 'EARTHLIKE';
+  const style = normalizeWorldStyleMode(world.metadata?.styleMode ?? params?.styleMode ?? 'EARTHLIKE');
+  const rules = getWorldStyleRules(style);
   const seaLevel = numeric(params?.seaLevel, world.metadata?.seaLevel ?? 50);
   const plateActivity = numeric(params?.plateActivity, 55);
   const axisTilt = numeric(params?.axisTilt, 45);
@@ -37,7 +39,7 @@ export function getDiagnosticContext(world: WorldBrain): DiagnosticContext {
   if (warnings.length > 0) {
     return {
       mode: 'extreme',
-      label: 'Current sliders: extreme',
+      label: `${rules.label}: extreme sliders`,
       note: 'Some diagnostic warnings may be caused by intentional slider extremes, not generator failure.',
       warnings,
     };
@@ -47,15 +49,15 @@ export function getDiagnosticContext(world: WorldBrain): DiagnosticContext {
     return {
       mode: 'baseline',
       label: 'Earthlike baseline',
-      note: 'Good for judging generator health against the blueprint.',
+      note: rules.diagnosticNote,
       warnings,
     };
   }
 
   return {
     mode: 'current',
-    label: 'Current sliders',
-    note: 'Diagnostics describe this custom parameter set, not the default Earthlike baseline.',
+    label: `${rules.label}: current sliders`,
+    note: rules.diagnosticNote,
     warnings,
   };
 }
