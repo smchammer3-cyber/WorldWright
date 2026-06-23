@@ -16,6 +16,7 @@ This file is a coordination ledger, not a victory log. It separates verified fac
 - PR #34: **Merged** — Added the geography profile / slider governor and made skeleton base elevation read profile weights.
 - PR #35: **Merged** — Added geography metrics/profile correction loop and made the quality pass profile-aware.
 - PR #36: **Merged** — Added geography authority cleanup to suppress visible plate-boundary bands when they contradict continent/ocean skeleton authority.
+- PR #37: **Merged** — Added ocean basin authority and continent separation as a feature-level correction pass.
 
 ## Implemented But Not Proven Solved
 
@@ -27,6 +28,7 @@ This file is a coordination ledger, not a victory log. It separates verified fac
 - Geography metrics and conservative profile correction exist.
 - Quality/detail pass reads profile weights.
 - Authority cleanup guardrail exists for plate-boundary imprint suppression.
+- Ocean basin authority exists as a correction pass.
 
 ## Current Observed Problems
 
@@ -37,20 +39,20 @@ This file is a coordination ledger, not a victory log. It separates verified fac
 - Internal relief and province structure can be too weak compared with broad land shapes.
 - Biome colors expose overly simple terrain structure.
 - Plate ownership and boundary bands can still appear visually as ocean/land streaks or plate-shaped patches.
-- Some older generator and crust passes still risk fighting the newer profile/skeleton authority.
+- The old heightmap still enters before blueprint-order skeleton/province terrain composition.
 
 ## Current Diagnosis
 
-The generator now has bones, a governor, a scoreboard, and an authority guardrail, but ocean basins still need stronger negative authority. Medium-continentality margins can still connect the planet into one large low-relief landmass. Ocean basin authority must cut weak corridors between continent cores and protect true cores/caused islands.
+The generator now has bones, a governor, a scoreboard, an authority guardrail, and ocean basin correction, but the old generator still creates a full continuous terrain body first. This reverses the blueprint. The next pass must move closer to: skeleton cause fields → terrain composition → flood/detail/correction.
 
 ## Current Pass
 
-PR #37: ocean basin authority and continent separation. Make ocean basins act as negative space and cut weak seaways between continent skeletons before local correction tries to nudge cells.
+PR #38: skeleton-first terrain composer. Normalize skeleton cause fields so they do not depend on existing height/sea level, then compose the first generated terrain body from skeleton/ocean/margin/plate causes while keeping the old heightmap only as low-amplitude substrate texture.
 
-## Proposed Next Work After PR #37
+## Proposed Next Work After PR #38
 
+- Move crust province seeding farther upstream so provinces are assigned from skeleton + plates rather than derived from already-visible terrain.
 - Move tectonics toward feature objects: mountain belts, rift corridors, trenches, arcs, and ocean ridges.
-- Make crust terrain influence fully profile-aware if PR #37 only partially governs it.
-- Tune ocean corridor thresholds using screenshots and metrics.
+- Tune skeleton-first terrain composer weights using screenshots and metrics.
 - Add diagnostics panel values for geography profile fit and plate imprint.
 - Do not add island templates, alien biome overhaul, fantasy magic geography, cultures, countries, or river overhaul until the baseline geography is stable.
