@@ -1,4 +1,13 @@
-import { BoundaryType, CrustProvince, OceanDepthClass, PlateType, type Cell, type WorldBrain } from '../worldSchema';
+import {
+  BoundaryType,
+  ContinentMarginType,
+  CrustProvince,
+  IslandCause,
+  OceanDepthClass,
+  PlateType,
+  type Cell,
+  type WorldBrain,
+} from '../worldSchema';
 
 /**
  * Seeds the first real crust cause layer.
@@ -130,6 +139,7 @@ export function applyCrustTerrainInfluence(world: WorldBrain): void {
 
   applyProvinceCoastBreakup(world, seaLevel, seed);
   applyProvinceCoherence(world, seaLevel, seed);
+  applyContinentSkeletonTerrainObedience(world, seaLevel, seed);
   cleanupAccidentalTinyIslands(world, seaLevel);
 }
 
@@ -271,6 +281,66 @@ function applyProvinceCoherence(world: WorldBrain, seaLevel: number, seed: numbe
   }
 }
 
+function applyContinentSkeletonTerrainObedience(world: WorldBrain, seaLevel: number, seed: number): void {
+  const before = world.cells.map((cell) => totalHeight(cell));
+
+  for (let i = 0; i < world.cells.length; i++) {
+    const cell = world.cells[i];
+    const h = before[i];
+    const aboveSea = h - seaLevel;
+    const continentality = clamp01(cell.continentality);
+    const core = clamp01(cell.continentCoreStrength);
+    const shelf = clamp01(cell.shelfStrength);
+    const nearSurface = 1 - smoothstep(0.12, 0.48, Math.abs(aboveSea));
+    const broadNoise = centeredJitter(seed, cell.continentId ?? cell.oceanBasinId ?? i, 26003);
+
+    let delta = 0;
+
+    // Mainland obedience: broad continent bodies should not collapse into a
+    // swarm of shallow islands. Strong cores get buoyant support near sea level.
+    if (continentality > 0.58) {
+      delta += (0.040 * smoothstep(0.58, 0.90, continentality) + 0.075 * core) * (0.35 + nearSurface * 0.65);
+      delta += broadNoise * 0.018 * smoothstep(0.55, 1.0, continentality);
+    }
+
+    // Margin obedience: shelves should become shallow water or low coastal land,
+    // not random mid-ocean land fragments.
+    if (shelf > 0.28 && core < 0.60) {
+      const shelfTarget = seaLevel - 0.035 + shelf * 0.025;
+      delta += (shelfTarget - h) * 0.22 * shelf * (0.35 + nearSurface * 0.65);
+    }
+
+    // Margin type expression.
+    if (cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.ACTIVE) {
+      delta += 0.050 * smoothstep(0.35, 0.85, continentality) * (0.40 + nearSurface * 0.60);
+    } else if (cell.marginType === ContinentMarginType.RIFT) {
+      delta -= 0.045 * nearSurface * (0.40 + smoothstep(0.20, 0.70, shelf));
+    } else if (cell.marginType === ContinentMarginType.PASSIVE && shelf > 0.35) {
+      delta -= 0.020 * nearSurface;
+    }
+
+    // Invalid island obedience: if a visible cell is far from continental bones
+    // and has no island ancestry, sink it. This targets the "all little islands"
+    // failure without deleting caused island arcs and shelf fragments.
+    if (aboveSea > -0.02 && continentality < 0.24 && !isCausedIslandCell(cell)) {
+      const invalidPenalty = cell.islandCause === IslandCause.INVALID_FRAGMENT ? 0.090 : 0.055;
+      delta -= invalidPenalty * (0.65 + smoothstep(-0.02, 0.16, aboveSea) * 0.35);
+    }
+
+    // Caused islands get modest support so arcs/fragments survive as readable
+    // systems rather than random dots.
+    if (cell.islandCause === IslandCause.ISLAND_ARC || cell.islandCause === IslandCause.VOLCANIC_HOTSPOT) {
+      delta += 0.032 * (0.50 + nearSurface * 0.50);
+    } else if (cell.islandCause === IslandCause.SHELF_ISLAND || cell.islandCause === IslandCause.CONTINENTAL_FRAGMENT) {
+      delta += 0.020 * nearSurface;
+    }
+
+    if (delta !== 0) {
+      cell.baseHeight = clamp(cell.baseHeight + delta, -1.4, 1.5);
+    }
+  }
+}
+
 function landNeighborFractionByHeight(world: WorldBrain, index: number, seaLevel: number, heights: number[]): number {
   const neighbors = neighborIndices4(world, index);
   if (neighbors.length === 0) return 0;
@@ -307,6 +377,11 @@ function cleanupAccidentalTinyIslands(world: WorldBrain, seaLevel: number): void
 
 function isCausedIslandCell(cell: Cell): boolean {
   return (
+    cell.islandCause === IslandCause.ISLAND_ARC ||
+    cell.islandCause === IslandCause.VOLCANIC_HOTSPOT ||
+    cell.islandCause === IslandCause.RIFT_FRAGMENT ||
+    cell.islandCause === IslandCause.SHELF_ISLAND ||
+    cell.islandCause === IslandCause.CONTINENTAL_FRAGMENT ||
     cell.crustProvince === CrustProvince.ISLAND_ARC ||
     cell.crustProvince === CrustProvince.VOLCANIC_PROVINCE ||
     cell.crustProvince === CrustProvince.RIFT_MARGIN ||
