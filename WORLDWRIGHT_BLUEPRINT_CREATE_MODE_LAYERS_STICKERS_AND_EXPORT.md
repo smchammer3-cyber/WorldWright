@@ -1,9 +1,11 @@
-# WorldWright Blueprint: Create Mode Layers, Moldable Stickers, Country Stickers, Simulation, and Export
+# WorldWright Blueprint: Create Mode Layers, Clay Stickers, Country Clay, Simulation, and Export
 
 Status: planning / blueprint layer  
-Purpose: preserve the Create Mode design discussion before code work resumes.
+Purpose: preserve the Create Mode design discussion before code work resumes, with updated terminology that reflects the newer clay-sticker idea.
 
-This document defines how WorldWright should layer generated geography, user-authored creation tools, country/civilization overlays, simulation over time, and final export. It is intentionally blueprint-only. It should not change generation behavior by itself.
+This document defines how WorldWright should layer generated geography, user-authored creation tools, country/civilization overlays, simulation over time, and final export.
+
+This is intentionally blueprint-only. It should not change generation behavior by itself.
 
 ---
 
@@ -11,14 +13,24 @@ This document defines how WorldWright should layer generated geography, user-aut
 
 WorldWright should become a layered 3D world editor built from moldable, exportable world objects.
 
-The user should not feel like they are painting raw data cells. They should feel like they are molding a living planet:
+The central Create Mode idea is **not** old flat stickers.
+
+The central idea is **Clay Stickers**:
 
 ```text
-Drop a mountain range.
-Stretch it.
+A Clay Sticker is a moldable piece of authored world material.
+It can be dropped, stretched, bent, warped, layered, sculpted, protected, and exported.
+```
+
+The user should not feel like they are painting raw data cells or drawing perfect polygons. They should feel like they are molding a living planet:
+
+```text
+Drop a mountain clay sticker.
+Stretch it across the continent.
+Bend it into a crescent.
 Open it in a 3D studio.
-Sculpt the ridge and passes.
-Layer rivers, forests, roads, and countries on top.
+Sculpt the ridge, passes, cliffs, foothills, and valleys.
+Layer rivers, forests, roads, cities, and countries on top.
 Export a real terrain chunk for Unreal, games, film, or other engines.
 ```
 
@@ -27,17 +39,196 @@ Core rule:
 ```text
 Generated world = foundation.
 User-created world = authority.
+Clay Stickers = moldable authored world material.
 Simulation = controlled time acting on the authored world.
 Export = a baked result of the current layered world, not a destructive edit.
 ```
 
 ---
 
-## 2. Layer Authority Model
+## 2. Terminology: Old Stickers vs Clay Stickers
+
+WorldWright should avoid building the old sticker idea as the final Create Mode concept.
+
+### Old sticker idea to avoid as final architecture
+
+```text
+flat polygon
+payload
+paint effect
+mask
+apply once
+maybe blend edge
+```
+
+That model is useful for a crude prototype, but it is not the product identity.
+
+Old sticker thinking leads to:
+
+```text
+draw shape → apply effect → hope it looks natural
+```
+
+That is too close to the failed generator-mask problem.
+
+### New clay-sticker truth
+
+A Clay Sticker is closer to a moldable terrain/material object:
+
+```text
+outer shape
+local editable space
+stretch/warp transform
+internal height or material data
+edge blending relationship
+layer position
+protection/lock state
+export bake rules
+```
+
+A Clay Sticker does not merely paint the world. It contributes authored structure to the world.
+
+Better mental model:
+
+```text
+Clay Sticker = editable world material.
+Moldable Patch = technical object behind a clay sticker.
+```
+
+User-facing language may still say “Sticker” because it is friendly, but the architecture should treat it as a **Moldable Patch**, not a flat decal.
+
+---
+
+## 3. Clay Sticker Families
+
+Do not force every authored thing into one generic sticker type.
+
+Different clay stickers may share the same molding UI, but they should have different data models and rules.
+
+Recommended families:
+
+```text
+Terrain Clay Patches
+Water Clay Patches
+Biome Clay Patches
+Political Clay Patches
+Civilization Clay Patches
+Export Patches
+Protection / Lock Patches
+```
+
+### Terrain Clay Patches
+
+Examples:
+
+```text
+mountain range
+hill country
+plateau
+valley
+basin
+canyon
+island
+peninsula
+rift
+coastal shelf
+crater
+```
+
+These affect terrain height, slope, roughness, and sometimes material tendencies.
+
+### Water Clay Patches
+
+Examples:
+
+```text
+lake
+river
+bay
+strait
+wetland
+delta
+inland sea
+canal
+glacier
+```
+
+These create water intent and may also affect terrain, water masks, shorelines, and flow paths.
+
+### Biome Clay Patches
+
+Examples:
+
+```text
+forest
+desert
+swamp
+grassland
+tundra
+jungle
+snowfield
+savanna
+volcanic wasteland
+magic forest
+```
+
+These affect biome/material meaning. They may be natural influence or hard override.
+
+### Political Clay Patches
+
+Examples:
+
+```text
+country
+province
+claim
+disputed region
+frontier
+vassal territory
+maritime claim later
+```
+
+These do not change terrain by default. They are top-layer political territory objects.
+
+### Civilization Clay Patches
+
+Examples:
+
+```text
+city region
+road network
+trade corridor
+port zone
+fortified border
+religious center
+resource district
+culture area
+```
+
+These represent authored civilization structure.
+
+### Export Patches
+
+Examples:
+
+```text
+selected terrain chunk
+game map region
+cinematic shot region
+Unreal export area
+kingdom export area
+battlefield export area
+```
+
+These are not world edits. They define a bake/export region.
+
+---
+
+## 4. Layer Authority Model
 
 WorldWright needs a true layer authority system, not only visual layers.
 
-Recommended layer stack:
+Recommended conceptual stack:
 
 ```text
 1. Generate Layers
@@ -57,13 +248,34 @@ Derived layers may update freely.
 Authored layers must not be silently destroyed.
 ```
 
-### Authority priority
+### Important clarification
 
-Recommended effective authority order:
+There is not only one kind of layer order.
+
+WorldWright should distinguish:
+
+```text
+Render order = what appears visually on top.
+Data ownership order = which system owns each field or object.
+Mutation permission order = which system is allowed to change what.
+```
+
+Example:
+
+```text
+A country renders above terrain.
+But a country does not own terrain height.
+A simulation event may propose border pressure.
+But it cannot move a locked user border silently.
+A biome may render below political color.
+But it still owns ecological/material meaning.
+```
+
+### Suggested mutation authority
 
 ```text
 Manual locks
-> User-created stickers and edits
+> User-created Clay Stickers and edits
 > Country/civilization authored layers
 > Allowed simulation deltas
 > Generated base
@@ -74,7 +286,7 @@ A later system may respond to user edits, but it may not silently erase them.
 
 ---
 
-## 3. Generate Layers
+## 5. Generate Layers
 
 Generate Layers are the initial world foundation.
 
@@ -116,19 +328,17 @@ Generate Layers are powerful during world creation, but after Create Mode begins
 
 ---
 
-## 4. Create Layers
+## 6. Create Layers
 
 Create Layers are the user's clay layer.
 
 They include:
 
 ```text
-stretchy terrain stickers
-biome stickers
-lake stickers
-river stickers
-mountain stickers
-coastline edits
+Terrain Clay Patches
+Biome Clay Patches
+Water Clay Patches
+River Clay Patches
 manual height edits
 manual biome edits
 manual water objects
@@ -136,14 +346,14 @@ manual river objects
 locks and protected regions
 ```
 
-Create Layers should write to user-authored fields, not destroy the generated base:
+Create Layers should write to user-authored fields and editable object layers, not destroy the generated base:
 
 ```text
 editHeightDelta
 editBiomeId
 manual water objects
 manual river objects
-manual stickers
+moldable patch objects
 protected regions
 lock metadata
 ```
@@ -151,40 +361,14 @@ lock metadata
 Create Mode rule:
 
 ```text
-User intent is preserved unless the user explicitly chooses to erase, bake, unlock, or simulate it away.
+User intent is preserved unless the user explicitly chooses to erase, flatten, unlock, or simulate it away.
 ```
 
 ---
 
-## 5. Moldable World Stickers
+## 7. Clay Sticker Behavior
 
-The central Create Mode object should be a moldable sticker.
-
-A sticker is not just paint. A sticker is an editable world-intent object.
-
-A sticker may represent:
-
-```text
-mountain range
-forest
-biome region
-lake
-river
-bay
-strait
-island
-plateau
-valley
-country
-province
-city region
-culture area
-road network
-```
-
-### Sticker behavior
-
-A sticker should be:
+A Clay Sticker should be:
 
 ```text
 drag-and-drop
@@ -194,6 +378,7 @@ bendable
 warpable
 layerable
 lockable
+inspectable
 non-destructive by default
 exportable after baking
 ```
@@ -202,18 +387,18 @@ The key user experience is molding, not drawing.
 
 Instead of requiring precise freehand drawing, the user drops a flexible object and shapes it like clay or putty.
 
-### Basic sticker workflow
+### Basic clay-sticker workflow
 
 ```text
-1. Drag a sticker from the palette.
+1. Drag a Clay Sticker from the palette.
 2. Drop it onto the world.
 3. Stretch, rotate, squash, pull, or bend it.
 4. Adjust strength and edge softness.
-5. Layer other stickers on top.
-6. Keep editable, lock, hide, delete, duplicate, or bake.
+5. Layer other Clay Stickers or objects on top.
+6. Keep editable, lock, hide, delete, duplicate, or export-bake.
 ```
 
-### Sticker controls
+### Clay-sticker controls
 
 Recommended controls:
 
@@ -232,9 +417,9 @@ layer order
 lock toggle
 ```
 
-### Sticker blend modes
+### Clay-sticker blend behavior
 
-Different stickers need different blending behavior:
+Different clay sticker families need different blending behavior:
 
 ```text
 natural influence
@@ -248,29 +433,72 @@ follow river basin
 follow coast
 follow mountain slope
 follow existing biome
+respect locked neighbor
+respect water boundary
+respect land boundary
 ```
 
 Examples:
 
 ```text
-Natural forest sticker:
+Natural forest Clay Sticker:
 forest appears where climate and elevation support it.
 
-Hard forest sticker:
+Hard forest Clay Sticker:
 magic forest remains forest even if climate would normally disagree.
 
-Mountain sticker:
-raises terrain with central ridge, foothills, roughness, and edge falloff.
+Mountain Clay Sticker:
+contributes a moldable ridge, foothills, roughness, passes, and edge falloff.
 
-Lake sticker:
+Lake Clay Sticker:
 creates/marks a water body and optionally lowers the terrain basin.
 ```
 
 ---
 
-## 6. Sticker Studio / Ultra Editable Mode
+## 8. Anatomy of a Clay Sticker
 
-Stickers should have a deeper editing mode.
+A Clay Sticker has three main parts:
+
+```text
+1. Outer shape
+   Where it sits on the planet and how it stretches.
+
+2. Inner material
+   Height, biome, water, roughness, paths, masks, details, or political territory.
+
+3. Blend relationship
+   How it merges with the world underneath and with objects above/beside it.
+```
+
+### Technical object: Moldable Patch
+
+A possible technical representation:
+
+```text
+MoldablePatch
+- id
+- family/type
+- local coordinate space
+- planet placement transform
+- stretch/warp controls
+- shape mask
+- internal data layers
+- edge falloff
+- blend mode
+- source/authority metadata
+- lock/protection rules
+- layer order
+- export bake rules
+```
+
+This should not be treated as a simple polygon payload.
+
+---
+
+## 9. Sticker Studio / Ultra Editable Mode
+
+Clay Stickers should have a deeper editing mode.
 
 Suggested command:
 
@@ -278,18 +506,18 @@ Suggested command:
 Open in Sticker Studio
 ```
 
-Sticker Studio is a local 3D editing workspace for the selected sticker.
+Sticker Studio is a local editing workspace for the selected Clay Sticker.
 
 ### Purpose
 
 ```text
-World-level mode = place, stretch, layer, and blend the sticker.
-Sticker Studio = sculpt the sticker's internal shape, heightmap, masks, and subfeatures.
+World-level mode = place, stretch, layer, and blend the Clay Sticker.
+Sticker Studio = sculpt the Clay Sticker's internal shape, heightmap, masks, and subfeatures.
 ```
 
 ### Sticker Studio data
 
-A terrain-capable sticker should be able to contain:
+A terrain-capable Clay Sticker should be able to contain:
 
 ```text
 shape mask
@@ -299,16 +527,32 @@ roughness map
 biome/material masks
 water mask
 river/path splines
-child stickers
+child/sub patches later
 locks
 export resolution
 ```
 
-### Sticker Studio tools
+### Sticker Studio MVP
 
-Recommended tools:
+The first version should be simpler than the full dream:
 
 ```text
+top-down edit view
+height influence preview
+edge softness
+strength
+apply/cancel
+keep editable by default
+no child stickers at first
+no full 3D modeling suite at first
+```
+
+### Full Sticker Studio tools later
+
+Recommended later tools:
+
+```text
+3D mesh view
 Raise
 Lower
 Smooth
@@ -327,43 +571,31 @@ Flow Preview
 Export Preview
 ```
 
-### Sticker Studio views
-
-Recommended views:
-
-```text
-3D mesh view
-top-down heightmap view
-slope view
-water-flow preview
-material/biome mask view
-planet placement preview
-export preview
-```
-
 ### Non-destructive rule
 
-Sticker Studio edits the sticker, not the base world.
+Sticker Studio edits the Clay Sticker, not the base world.
 
 Default behavior:
 
 ```text
-Keep sticker editable.
+Keep Clay Sticker editable.
 ```
 
-Advanced behavior:
+Avoid dangerous language where possible:
 
 ```text
-Bake sticker into world.
+Export bake = safe, read-only output.
+Flatten to edit layer = deliberate destructive edit, undoable.
+Merge into generated base = admin/dev-only, rarely used.
 ```
-
-Baking must be deliberate, undoable, and never automatic.
 
 ---
 
-## 7. Terrain, Water, Biome, and River Stickers
+## 10. Terrain, Water, Biome, and River Clay
 
-### Terrain stickers
+### Terrain Clay Patches
+
+Terrain Clay Patches should affect height and roughness through controlled moldable data, not hidden hard overwrites.
 
 Examples:
 
@@ -381,9 +613,11 @@ Coastal Shelf
 Crater
 ```
 
-Terrain stickers should affect height and roughness through controlled masks, not through hidden hard overwrites.
+A Mountain Range Clay Patch is not merely a region that raises height. It should eventually behave like a moldable ridge object with foothills, passes, slope shape, roughness, and exportable height contribution.
 
-### Water stickers
+### Water Clay Patches
+
+Water Clay Patches should create water intent, not only paint blue pixels.
 
 Examples:
 
@@ -399,8 +633,6 @@ Canal
 Glacier
 ```
 
-Water stickers should create water intent, not only paint blue pixels.
-
 A user-created lake should be understood as:
 
 ```text
@@ -410,16 +642,16 @@ Classify around it.
 Do not silently erase it during recompute.
 ```
 
-### River stickers
+### River Clay Patches
 
 River tools should support:
 
 ```text
 Auto River: click source and mouth; system proposes path.
-Manual River: draw or shape path by hand.
+Manual River: shape path by hand.
 ```
 
-A river sticker may contribute:
+A river Clay Patch may contribute:
 
 ```text
 river spline
@@ -431,9 +663,9 @@ local moisture influence
 delta at mouth
 ```
 
-### Biome stickers
+### Biome Clay Patches
 
-Biome stickers should support both natural influence and hard override:
+Biome Clay Patches should support both natural influence and hard override:
 
 ```text
 Natural influence: tends toward a biome where conditions support it.
@@ -456,28 +688,29 @@ Volcanic Wasteland
 
 ---
 
-## 8. Country Stickers and Political Layers
+## 11. Country Clay and Political Layers
 
-Countries should use the same moldable sticker philosophy.
+Countries should use the same moldable philosophy, but they are not terrain clay.
 
-A generated country should appear as an editable country sticker on top of land.
+A generated country should appear as an editable **Political Clay Patch** on top of land.
 
 Core rule:
 
 ```text
 Countries are not terrain.
-Countries are editable political territory stickers that conform to land, respect water boundaries, and negotiate borders with neighboring country stickers.
+Countries are moldable land-only political territory objects.
+They conform to land, respect water boundaries, and negotiate borders with neighboring political clay patches.
 ```
 
 ### Country layer behavior
 
-Country stickers should:
+Country Clay Patches should:
 
 ```text
 live only on land by default
 not claim ocean cells by default
-push and give way against neighboring country stickers
-sit above terrain, water, biome, road, city, and culture layers
+push and give way against neighboring country patches
+sit visually above terrain, water, biome, road, city, and culture layers
 be stretchable and moldable
 be lockable
 contain internal political layers
@@ -485,13 +718,29 @@ contain internal political layers
 
 ### Give-way behavior
 
-Country territory should behave like a land partition:
+Country territory should behave like a land partition for basic display:
 
 ```text
-Each land cell belongs to one country or remains unclaimed.
+Each land cell has one primary political controller or remains unclaimed.
 Normal country territories do not overlap.
 If Country A expands into Country B, Country B gives way.
 Ocean blocks land territory expansion unless a separate maritime layer is used.
+```
+
+Long-term, do not limit politics to only one countryId.
+
+Future political overlays may include:
+
+```text
+primary controller
+claimed by
+disputed by
+occupied by
+vassal/empire relation
+culture majority
+religious majority
+province
+maritime claim
 ```
 
 ### Country editing tools
@@ -526,9 +775,9 @@ culture edges
 roads
 ```
 
-### Country Sticker Studio
+### Country Studio
 
-A country sticker's deeper editor should handle:
+A country Clay Patch's deeper editor should handle:
 
 ```text
 capital
@@ -549,7 +798,7 @@ Moving a country border should not mutate terrain by default.
 Allowed effects:
 
 ```text
-update territory ownership
+update primary territory ownership
 update labels
 update political coloring
 update city/country membership
@@ -567,7 +816,7 @@ move mountains/coasts
 
 ---
 
-## 9. Simulation Layers
+## 12. Simulation Layers
 
 Simulation is time acting on the world.
 
@@ -611,7 +860,9 @@ climate drift
 biome migration
 ```
 
-Physical simulation should write to controlled sim layers, for example:
+Physical simulation is powerful and should be deferred until protection exists.
+
+When implemented, it should write to controlled sim layers, for example:
 
 ```text
 simHeightDelta
@@ -642,7 +893,7 @@ If simulation wants to affect a locked authored object, it should warn, queue an
 
 ---
 
-## 10. Derived / Display Layers
+## 13. Derived / Display Layers
 
 Derived layers are calculated from the current world state.
 
@@ -676,7 +927,7 @@ Derived layers should not erase authored layers.
 
 ---
 
-## 11. Create Mode Protection Rules
+## 14. Create Mode Protection Rules
 
 WorldWright must protect user-authored work.
 
@@ -684,13 +935,14 @@ Rules:
 
 ```text
 1. Generated terrain lives in baseHeight.
-2. User terrain edits live in editHeightDelta or editable terrain stickers.
+2. User terrain edits live in editHeightDelta or editable Terrain Clay Patches.
 3. Simulation terrain changes live in simHeightDelta or sim-specific layers.
-4. User-authored stickers remain editable unless deliberately baked.
-5. Recompute may update derived fields, but should not erase authored intent.
-6. Loading old worlds should not rerun destructive generation.
-7. Locked regions and stickers must be respected.
-8. Conflicts should be reported, not silently resolved against the user.
+4. User-authored Clay Stickers remain editable unless deliberately flattened or deleted.
+5. Export bake is read-only and should not mutate the world.
+6. Recompute may update derived fields, but should not erase authored intent.
+7. Loading old worlds should not rerun destructive generation.
+8. Locked regions and Clay Stickers must be respected.
+9. Conflicts should be reported, not silently resolved against the user.
 ```
 
 Every editable object should eventually track:
@@ -711,7 +963,7 @@ This capital was placed by the user and should not move silently.
 
 ---
 
-## 12. Export and Baking
+## 15. Export and Baking
 
 WorldWright must be designed for export from the beginning.
 
@@ -738,7 +990,7 @@ Critical rule:
 Keep editable source layers separate from baked export output.
 ```
 
-A sticker remains editable inside WorldWright. When exported, it resolves into real output data.
+A Clay Sticker remains editable inside WorldWright. When exported, it resolves into real output data.
 
 ### Whole planet export
 
@@ -755,75 +1007,87 @@ cloud/atmosphere data later
 metadata
 ```
 
-### Chunk export
+### Chunk export MVP
 
-Chunk export is essential for games, film, Unreal, Unity, Blender, and other engines.
-
-The user should be able to select:
+The first export target should be narrow and practical:
 
 ```text
-this valley
-this island
-this kingdom
-this battlefield
-this city region
-this mountain pass
-this coastline
+selected local area
+16-bit heightmap
+water mask
+biome/material mask
+metadata JSON
+preview image
 ```
 
-Then export it as real terrain.
+### Chunk export later
 
-A chunk export package may include:
+Later chunk export may include:
 
 ```text
-16-bit heightmap
 terrain mesh
 normal map
 slope map
-water mask
-biome/material masks
 forest/grass/rock/snow masks
 river splines
 road splines
 city/object placement points
 country/border masks
-metadata
-preview image
+Unreal-ready tiled output
+Unity terrain output
+Blender mesh output
 ```
-
-### Unreal-oriented export
-
-WorldWright should eventually support export presets such as:
-
-```text
-Unreal Landscape
-Unity Terrain
-Blender Mesh
-Heightmap Pack
-Cinematic Planet Mesh
-GIS-like Metadata Pack
-```
-
-Unreal export should support engine-friendly heightmap dimensions and formats, tiled output for large landscapes, and material masks.
 
 ### Sticker bake requirements
 
-Every meaningful sticker must have a real baked contribution.
+Every meaningful Clay Sticker must have a real baked contribution.
 
 Examples:
 
 ```text
-Mountain sticker → heightmap + normal/slope influence + material masks.
-Lake sticker → terrain depression if configured + water mask + shoreline mask.
-River sticker → spline + water mask + optional carved valley.
-Biome sticker → material/biome masks.
-Country sticker → political territory mask, border splines, labels, metadata.
-Road sticker → road spline and optional terrain flattening if configured.
+Mountain Clay Patch → heightmap + normal/slope influence + material masks.
+Lake Clay Patch → terrain depression if configured + water mask + shoreline mask.
+River Clay Patch → spline + water mask + optional carved valley.
+Biome Clay Patch → material/biome masks.
+Country Clay Patch → political territory mask, border splines, labels, metadata.
+Road Clay Patch → road spline and optional terrain flattening if configured.
 ```
 
 ---
 
-## 13. Tool Philosophy
+## 16. Implementation Order Guardrail
+
+This document is vision plus architecture. It should not be treated as “build everything next.”
+
+Recommended safe order:
+
+```text
+Phase 0: Protect current generator baseline.
+Phase 1: Add diagnostics only.
+Phase 2: Define field/layer ownership.
+Phase 3: Add source/authority/protection metadata.
+Phase 4: Build simple Moldable Patch shell.
+Phase 5: Build simple Terrain/Biome/Water Clay Patches.
+Phase 6: Add region locks/protection.
+Phase 7: Add basic Political Clay Patches.
+Phase 8: Add basic export bake.
+Phase 9: Add advanced Sticker Studio.
+Phase 10: Add simulation after protection exists.
+```
+
+Do not build first:
+
+```text
+full 3D Sticker Studio
+physical simulation
+full Unreal export
+one generic sticker-for-everything class
+old flat payload stickers as the final Create Mode concept
+```
+
+---
+
+## 17. Tool Philosophy
 
 WorldWright Create Mode should be enjoyable, not technical.
 
@@ -846,9 +1110,9 @@ I need to manually edit raw cells, raw height fields, raw biome IDs, and raw cou
 Recommended tool categories:
 
 ```text
-Terrain
-Water
-Biome / Climate
+Terrain Clay
+Water Clay
+Biome / Climate Clay
 Rivers
 Civilization
 Countries / Borders
@@ -873,7 +1137,7 @@ Lock
 
 ---
 
-## 14. What Not To Build
+## 18. What Not To Build
 
 Avoid repeating the failed generator/pipeline problem in Create Mode.
 
@@ -882,6 +1146,7 @@ Do not build systems that:
 ```text
 paint raw water cells as the only source of truth
 paint raw province cells as hard masks
+treat Clay Stickers as flat polygon payloads only
 rerun generation after user edits
 auto-fix user edits silently
 erase user-created lakes, rivers, mountains, or borders
@@ -889,14 +1154,15 @@ force biomes to match climate when the user chose hard override
 let countries mutate terrain by default
 let simulation destroy locked authored objects
 bake stickers destructively without explicit user action
+merge user Clay Stickers into baseHeight automatically
 ```
 
 WorldWright should help the user, not fight the user.
 
 ---
 
-## 15. One-Sentence Summary
+## 19. One-Sentence Summary
 
 ```text
-WorldWright is a layered 3D world editor where generation creates the base planet, users mold it with stretchy editable stickers, countries sit as moldable land-only political stickers on top, simulation acts through controlled time layers, and the final layered world can be baked into real heightmaps, meshes, masks, splines, and metadata for engines like Unreal.
+WorldWright is a layered 3D world editor where generation creates the base planet, users mold the world with Clay Stickers/Moldable Patches, countries sit as moldable land-only political clay on top, simulation acts through controlled time layers, and the final layered world can be exported as real heightmaps, meshes, masks, splines, and metadata for engines like Unreal.
 ```
