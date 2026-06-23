@@ -7,9 +7,9 @@ import { recomputeWorld } from '../worldRecompute';
 import { validateWorld } from '../worldValidation';
 import { saveWorld, getWorldById } from '../worldStorage';
 import { cloneWorld, simulateTick } from '../worldSim';
-import { applyCrustTerrainInfluence, ensureCrustFields, seedCrustFields } from '../worldCrust';
-import { ensureContinentSkeletonFields, seedContinentSkeletonFields } from '../worldContinents';
-import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
+import { ensureCrustFields } from '../worldCrust';
+import { ensureContinentSkeletonFields } from '../worldContinents';
+import { applyGeneratedGeographyPipeline } from '../worldGeographyPipeline';
 
 /**
  * WorldSession encapsulates all live state and editing operations on a single
@@ -149,15 +149,7 @@ class WorldSession {
   async createWorld(params: GeneratorParams): Promise<void> {
     const w = generateWorldFromParams(params);
     this.normalizeWorld(w);
-    recomputeWorld(w, ['GENERATED']);
-    applyGeneratedWorldQualityPass(w);
-    recomputeWorld(w, ['GENERATED']);
-    seedContinentSkeletonFields(w);
-    seedCrustFields(w);
-    applyCrustTerrainInfluence(w);
-    recomputeWorld(w, ['GENERATED']);
-    seedContinentSkeletonFields(w);
-    seedCrustFields(w);
+    applyGeneratedGeographyPipeline(w);
 
     const errors = validateWorld(w);
     if (errors.length > 0) {
