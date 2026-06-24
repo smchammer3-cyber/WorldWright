@@ -144,7 +144,112 @@ export function buildPlanetPreview(
     return 1 - localWaterFraction(row, col, radius);
   }
 
-  function oceanColor(cell: Cell, h: number, row: number, col: number): Rgb {
+  function averageSameSurfaceColor(row: number, col: number, water: boolean, radius = 1): Rgb {
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    let weightSum = 0;
+
+    for (let dr = -radius; dr <= radius; dr++) {
+      const rr = row + dr;
+      if (rr < 0 || rr >= height) continue;
+      for (let dc = -radius; dc <= radius; dc++) {
+        const neighbor = cellAt(rr, col + dc);
+        if (!neighbor || isWaterCell(neighbor) !== water) continue;
+        const distance = Math.abs(dr) + Math.abs(dc);
+        const weight = distance === 0 ? 1.6 : distance === 1 ? 0.9 : 0.45;
+        const neighborHeight = totalHeightAtCell(neighbor);
+        const color = water ? oceanSurfaceColor(neighbor, neighborHeight, rr, col + dc) : landSurfaceColor(neighbor, neighborHeight, rr, col + dc);
+        r += color[0] * weight;
+        g += color[1] * weight;
+        b += color[2] * weight;
+        weightSum += weight;
+      }
+    }
+
+    if (weightSum <= 0) return [0, 0, 0];
+    return [r / weightSum, g / weightSum, b / weightSum];
+  }
+
+  /**
+   * Final ocean color is intentionally continuous. Debug `OCEAN_DEPTH` may show
+   * depth classes, but Final must not hard-step on oceanDepthClass because that
+   * class is derived from height and can expose province/plate/skeleton masks.
+   */
+  function oceanSurfaceColor(_cell: Cell, h: number, row: number, col: number): Rgb {
+    const depth = clamp01((seaLevel - h) * 1.18);
+    const shallow: Rgb = [0.20, 0.58, 0.72];
+    const shelf: Rgb = [0.10, 0.38, 0.60];
+    const basin: Rgb = [0.035, 0.16, 0.38];
+    const deep: Rgb = [0.018, 0.07, 0.22];
+
+    let color = depth < 0.22
+      ? mix(shallow, shelf, smoothstep(0.00, 0.22, depth))
+      : depth < 0.68
+        ? mix(shelf, basin, smoothstep(0.22, 0.68, depth))
+        : mix(basin, deep, smoothstep(0.68, 1.00, depth));
+
+    const coastInfluence = smoothstep(0.10, 0.58, localLandFraction(row, col, 1));
+    color = mix(color, [0.25, 0.66, 0.74], coastInfluence * 0.36 * (1 - depth * 0.45));
+
+    return color;
+  }
+
+  /**
+   * Final land color is surface-driven. Biome remains a soft hint, while
+   * rainfall, temperature, elevation, coast, and snow carry the visible color.
+   * Crust/province/plate/skeleton fields belong in debug layers, not Final.
+   */
+  function landSurfaceColor(cell: Cell, h: number, row: number, col: number): Rgb {
+    const elev = clamp01((h - seaLevel) * 0.82);
+    const rain = clamp01(cell.rainfall);
+    const temp = clamp01(cell.temperature);
+    const biome = biomeColorFromId(cell.editBiomeId ?? cell.baseBiomeId ?? 0);
+    const localWater = localWaterFraction(row, col, 1);
+    const beach = smoothstep(0.08, 0.46, localWater) * (1 - smoothstep(0.07, 0.24, h - seaLevel));
+
+    const dry: Rgb = [0.69, 0.62, 0.39];
+    const grass: Rgb = [0.40, 0.58, 0.31];
+    const forest: Rgb = [0.20, 0.42, 0.24];
+    const cold: Rgb = [0.56, 0.63, 0.55];
+
+    let climate = rain < 0.52
+      ? mix(dry, grass, smoothstep(0.16, 0.52, rain))
+      : mix(grass, forest, smoothstep(0.52, 0.90, rain));
+    climate = mix(climate, cold, smoothstep(0.00, 0.34, 1 - temp) * 0.42);
+    climate = mix(climate, [0.74, 0.64, 0.42], smoothstep(0.72, 1.00, temp) * smoothstep(0.00, 0.36, 1 - rain) * 0.42);
+
+    let color = mix(climate, biome, 0.18);
+    color = mix(color, [0.46, 0.40, 0.31], elev * 0.28);
+    color = mix(color, [0.67, 0.61, 0.42], beach * 0.68);
+
+    if (cell.snowCover > 0.10) {
+      const snow = clamp01((cell.snowCover - 0.10) / 0.90);
+      color = mix(color, [0.91, 0.94, 0.91], snow * 0.78);
+    }
+
+    return color;
+  }
+
+  function finalColor(row: number, col: number): Rgb {
+    const idx = cellIndex(row, col);
+    const cell = cells[idx];
+    if (!cell) return [1, 0, 1];
+
+    const h = totalHeightAtCell(cell);
+    const water = isWaterCell(cell);
+    const raw = water ? oceanSurfaceColor(cell, h, row, col) : landSurfaceColor(cell, h, row, col);
+    const localAverage = averageSameSurfaceColor(row, col, water, 1);
+    let base = mix(raw, localAverage, water ? 0.34 : 0.26);
+
+    if (riverCells.has(idx) && !water) {
+      base = mix(base, [0.05, 0.35, 0.82], 0.35);
+    }
+
+    return base;
+  }
+
+  function debugOceanDepthColor(cell: Cell, h: number, row: number, col: number): Rgb {
     const depth = clamp01((seaLevel - h) * 1.25);
 
     let color: Rgb;
@@ -175,41 +280,7 @@ export function buildPlanetPreview(
     }
 
     const coastalBlend = smoothstep(0.08, 0.45, localLandFraction(row, col, 1)) * 0.45;
-    color = mix(color, [0.25, 0.67, 0.73], coastalBlend);
-
-    return color;
-  }
-
-  function landColor(cell: Cell, h: number, row: number, col: number): Rgb {
-    const biome = biomeColorFromId(cell.editBiomeId ?? cell.baseBiomeId ?? 0);
-    const elev = clamp01((h - seaLevel) * 0.78);
-    const localWater = localWaterFraction(row, col, 1);
-    const beach = smoothstep(0.06, 0.42, localWater) * (1 - smoothstep(0.10, 0.24, h - seaLevel));
-
-    let color = mix(biome, [0.72, 0.66, 0.45], beach * 0.72);
-    color = mix(color, [0.44, 0.36, 0.26], elev * 0.20);
-
-    if (cell.snowCover > 0.12) {
-      color = mix(color, [0.92, 0.95, 0.93], clamp01((cell.snowCover - 0.12) / 0.88) * 0.78);
-    }
-
-    return color;
-  }
-
-  function finalColor(row: number, col: number): Rgb {
-    const idx = cellIndex(row, col);
-    const cell = cells[idx];
-    if (!cell) return [1, 0, 1];
-
-    const h = totalHeightAtCell(cell);
-    const water = isWaterCell(cell);
-    const base = water ? oceanColor(cell, h, row, col) : landColor(cell, h, row, col);
-
-    if (riverCells.has(idx) && !water) {
-      return mix(base, [0.05, 0.35, 0.82], 0.35);
-    }
-
-    return base;
+    return mix(color, [0.25, 0.67, 0.73], coastalBlend);
   }
 
   function debugColor(row: number, col: number): Rgb {
@@ -234,7 +305,7 @@ export function buildPlanetPreview(
       case "SNOW":
         return snowColor(cell.snowCover);
       case "OCEAN_DEPTH":
-        return water ? oceanColor(cell, h, row, col) : [0.35, 0.36, 0.31];
+        return water ? debugOceanDepthColor(cell, h, row, col) : [0.35, 0.36, 0.31];
       case "CRUST":
         return crustColor(cell);
       case "CRUST_PROVINCE":
