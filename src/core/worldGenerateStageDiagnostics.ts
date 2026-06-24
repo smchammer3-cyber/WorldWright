@@ -36,10 +36,22 @@ export type GenerateStageRawMetrics = {
   mediumFragmentShare: number;
   heightStdDev: number;
   landHeightStdDev: number;
+  /** Backward-compatible alias for plate seam imprint. */
   seamHeightRatio: number | null;
+  plateSeamHeightRatio: number | null;
+  provinceSeamHeightRatio: number | null;
+  skeletonSeamHeightRatio: number | null;
   plateTypeTerrainMismatch: number;
   lowContinentalityLandShare: number;
   strongContinentalityWaterShare: number;
+};
+
+export type GenerateStageTransitionMetrics = {
+  newLandShare: number;
+  lostLandShare: number;
+  topologyFlipShare: number;
+  meanAbsHeightDelta: number;
+  maxAbsHeightDelta: number;
 };
 
 export type GenerateStageSnapshot = {
@@ -48,12 +60,19 @@ export type GenerateStageSnapshot = {
   note: string;
   raw: GenerateStageRawMetrics;
   deltaFromPrevious?: Partial<GenerateStageRawMetrics>;
+  transitionFromPrevious?: GenerateStageTransitionMetrics;
 };
 
 export type GenerateStageDiagnostics = {
   seed: string;
   grid: string;
   stages: GenerateStageSnapshot[];
+};
+
+type StageTrace = {
+  heights: Float32Array;
+  land: Uint8Array;
+  seaLevel: number;
 };
 
 /**
@@ -67,9 +86,11 @@ export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null 
   const params = generatorParamsFromWorld(sourceWorld);
   const world = generateWorldFromParams(params);
   const stages: GenerateStageSnapshot[] = [];
+  let previousTrace: StageTrace | null = null;
 
   function record(id: GenerateStageId, label: string, note: string): void {
-    const raw = computeStageRawMetrics(world);
+    const trace = captureStageTrace(world);
+    const raw = computeStageRawMetrics(world, trace);
     const previous = stages[stages.length - 1]?.raw;
     stages.push({
       id,
@@ -77,7 +98,9 @@ export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null 
       note,
       raw,
       deltaFromPrevious: previous ? diffRaw(raw, previous) : undefined,
+      transitionFromPrevious: previousTrace ? diffTrace(trace, previousTrace) : undefined,
     });
+    previousTrace = trace;
   }
 
   record('RAW_GENERATOR', 'Raw generator', 'Continuous terrain before continent/crust pipeline stages.');
@@ -86,7 +109,7 @@ export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null 
   record('CONTINENT_FIELDS', 'Continent fields', 'Skeleton identity fields seeded; terrain should not change here.');
 
   applySkeletonBaseElevation(world);
-  record('SKELETON_ELEVATION', 'Skeleton elevation', 'Broad continent/ocean height guidance applied.');
+  record('SKELETON_ELEVATION', 'Skeleton elevation', 'Broad continent/ocean height guidance applied. Watch skeleton seam and land flips here.');
 
   recomputeWorld(world, ['GENERATED']);
   record('FIRST_RECOMPUTE', 'First recompute', 'Derived water, climate, rivers, snow, and biomes refreshed after skeleton elevation.');
@@ -97,10 +120,10 @@ export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null 
   recomputeWorld(world, ['GENERATED']);
   seedContinentSkeletonFields(world);
   seedCrustFields(world);
-  record('CRUST_FIELDS', 'Crust fields', 'Crust thickness, age, and province causes seeded after quality pass.');
+  record('CRUST_FIELDS', 'Crust fields', 'Crust thickness, age, and province causes seeded after quality pass. Height should not change here.');
 
   applyCrustProvinceTerrainDelta(world);
-  record('CRUST_PROVINCE_DELTA', 'Crust delta', 'Province height deltas only: old shields, belts, basins, rifts, volcanics, and oceanic basins.');
+  record('CRUST_PROVINCE_DELTA', 'Crust delta', 'Province height deltas only: old shields, belts, basins, rifts, volcanics, and oceanic basins. Watch province seam and topology flips here.');
 
   applyProvinceCoastBreakup(world);
   record('CRUST_COAST_BREAKUP', 'Crust coast', 'Province-aware coastline breakup only.');
@@ -109,7 +132,7 @@ export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null 
   record('CRUST_COHERENCE', 'Crust cohere', 'Province coherence: fills holes and trims frayed lowland edges.');
 
   applyContinentSkeletonTerrainObedience(world);
-  record('CRUST_SKELETON_OBEDIENCE', 'Crust skeleton', 'Skeleton obedience inside the crust pass.');
+  record('CRUST_SKELETON_OBEDIENCE', 'Crust skeleton', 'Skeleton obedience inside the crust pass. This should not act like a second full skeleton elevation pass.');
 
   cleanupAccidentalTinyIslands(world);
   record('CRUST_TINY_ISLAND_CLEANUP', 'Tiny cleanup', 'Tiny accidental island cleanup after crust subpasses.');
@@ -147,12 +170,28 @@ function generatorParamsFromWorld(world: WorldBrain): GeneratorParams {
   };
 }
 
-function computeStageRawMetrics(world: WorldBrain): GenerateStageRawMetrics {
-  const totalCells = Math.max(1, world.cells.length);
+function captureStageTrace(world: WorldBrain): StageTrace {
   const seaLevel = typeof world.seaLevel === 'number' ? world.seaLevel : world.metadata?.seaLevel ?? 0;
-  const heights = world.cells.map((cell) => cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta);
-  const landFlags = heights.map((h) => h >= seaLevel);
-  const landHeights = heights.filter((_, i) => landFlags[i]);
+  const heights = new Float32Array(world.cells.length);
+  const land = new Uint8Array(world.cells.length);
+
+  for (let i = 0; i < world.cells.length; i++) {
+    const h = world.cells[i].baseHeight + world.cells[i].editHeightDelta + world.cells[i].simHeightDelta;
+    heights[i] = h;
+    land[i] = h >= seaLevel ? 1 : 0;
+  }
+
+  return { heights, land, seaLevel };
+}
+
+function computeStageRawMetrics(world: WorldBrain, trace = captureStageTrace(world)): GenerateStageRawMetrics {
+  const totalCells = Math.max(1, world.cells.length);
+  const landFlags = Array.from(trace.land, (value) => value === 1);
+  const landHeights: number[] = [];
+  for (let i = 0; i < trace.heights.length; i++) {
+    if (landFlags[i]) landHeights.push(trace.heights[i]);
+  }
+
   const oceanCellCount = totalCells - landHeights.length;
   const componentSizes = landComponentSizes(world, landFlags);
   const landCellCount = Math.max(1, landHeights.length);
@@ -175,6 +214,15 @@ function computeStageRawMetrics(world: WorldBrain): GenerateStageRawMetrics {
     if (!isLand && clamp01(cell.continentality) > 0.62) strongContinentalityWater++;
   }
 
+  const plateSeamHeightRatio = edgeHeightRatio(world, trace.heights, (a, b) => a.plateId !== b.plateId);
+  const provinceSeamHeightRatio = edgeHeightRatio(world, trace.heights, (a, b) => hasCrustProvince(a) && hasCrustProvince(b) && a.crustProvince !== b.crustProvince);
+  const skeletonSeamHeightRatio = edgeHeightRatio(world, trace.heights, (a, b) =>
+    a.continentId !== b.continentId ||
+    a.oceanBasinId !== b.oceanBasinId ||
+    a.marginType !== b.marginType ||
+    a.islandCause !== b.islandCause,
+  );
+
   return {
     landFraction: landHeights.length / totalCells,
     landComponents: componentSizes.length,
@@ -182,9 +230,12 @@ function computeStageRawMetrics(world: WorldBrain): GenerateStageRawMetrics {
     tinyIslandShare,
     mediumFragmentCount: mediumFragments.length,
     mediumFragmentShare: mediumFragmentCells / landCellCount,
-    heightStdDev: stdDev(heights),
+    heightStdDev: stdDev(Array.from(trace.heights)),
     landHeightStdDev: stdDev(landHeights),
-    seamHeightRatio: plateSeamHeightRatio(world, heights),
+    seamHeightRatio: plateSeamHeightRatio,
+    plateSeamHeightRatio,
+    provinceSeamHeightRatio,
+    skeletonSeamHeightRatio,
     plateTypeTerrainMismatch: plateTypeTerrainMismatch / totalCells,
     lowContinentalityLandShare: lowContinentalityLand / landCellCount,
     strongContinentalityWaterShare: strongContinentalityWater / Math.max(1, oceanCellCount),
@@ -202,9 +253,36 @@ function diffRaw(raw: GenerateStageRawMetrics, previous: GenerateStageRawMetrics
     heightStdDev: raw.heightStdDev - previous.heightStdDev,
     landHeightStdDev: raw.landHeightStdDev - previous.landHeightStdDev,
     seamHeightRatio: raw.seamHeightRatio == null || previous.seamHeightRatio == null ? undefined : raw.seamHeightRatio - previous.seamHeightRatio,
+    plateSeamHeightRatio: raw.plateSeamHeightRatio == null || previous.plateSeamHeightRatio == null ? undefined : raw.plateSeamHeightRatio - previous.plateSeamHeightRatio,
+    provinceSeamHeightRatio: raw.provinceSeamHeightRatio == null || previous.provinceSeamHeightRatio == null ? undefined : raw.provinceSeamHeightRatio - previous.provinceSeamHeightRatio,
+    skeletonSeamHeightRatio: raw.skeletonSeamHeightRatio == null || previous.skeletonSeamHeightRatio == null ? undefined : raw.skeletonSeamHeightRatio - previous.skeletonSeamHeightRatio,
     plateTypeTerrainMismatch: raw.plateTypeTerrainMismatch - previous.plateTypeTerrainMismatch,
     lowContinentalityLandShare: raw.lowContinentalityLandShare - previous.lowContinentalityLandShare,
     strongContinentalityWaterShare: raw.strongContinentalityWaterShare - previous.strongContinentalityWaterShare,
+  };
+}
+
+function diffTrace(current: StageTrace, previous: StageTrace): GenerateStageTransitionMetrics {
+  const total = Math.max(1, current.heights.length);
+  let newLand = 0;
+  let lostLand = 0;
+  let absSum = 0;
+  let maxAbs = 0;
+
+  for (let i = 0; i < current.heights.length; i++) {
+    if (previous.land[i] === 0 && current.land[i] === 1) newLand++;
+    if (previous.land[i] === 1 && current.land[i] === 0) lostLand++;
+    const absDelta = Math.abs(current.heights[i] - previous.heights[i]);
+    absSum += absDelta;
+    if (absDelta > maxAbs) maxAbs = absDelta;
+  }
+
+  return {
+    newLandShare: newLand / total,
+    lostLandShare: lostLand / total,
+    topologyFlipShare: (newLand + lostLand) / total,
+    meanAbsHeightDelta: absSum / total,
+    maxAbsHeightDelta: maxAbs,
   };
 }
 
@@ -247,11 +325,11 @@ function neighborIndices4(world: WorldBrain, index: number): number[] {
   return neighbors;
 }
 
-function plateSeamHeightRatio(world: WorldBrain, heights: number[]): number | null {
-  let boundaryDelta = 0;
-  let boundaryEdges = 0;
-  let samePlateDelta = 0;
-  let samePlateEdges = 0;
+function edgeHeightRatio(world: WorldBrain, heights: Float32Array, isEdge: (a: WorldBrain['cells'][number], b: WorldBrain['cells'][number]) => boolean): number | null {
+  let edgeDelta = 0;
+  let edgeCount = 0;
+  let baseDelta = 0;
+  let baseCount = 0;
 
   for (let row = 0; row < world.gridHeight; row++) {
     for (let col = 0; col < world.gridWidth; col++) {
@@ -261,21 +339,25 @@ function plateSeamHeightRatio(world: WorldBrain, heights: number[]): number | nu
 
       for (const next of candidates) {
         const delta = Math.abs(heights[idx] - heights[next]);
-        if (world.cells[idx].plateId !== world.cells[next].plateId) {
-          boundaryDelta += delta;
-          boundaryEdges++;
+        if (isEdge(world.cells[idx], world.cells[next])) {
+          edgeDelta += delta;
+          edgeCount++;
         } else {
-          samePlateDelta += delta;
-          samePlateEdges++;
+          baseDelta += delta;
+          baseCount++;
         }
       }
     }
   }
 
-  if (boundaryEdges === 0 || samePlateEdges === 0) return null;
-  const sameMean = samePlateDelta / samePlateEdges;
-  if (sameMean <= 1e-9) return null;
-  return (boundaryDelta / boundaryEdges) / sameMean;
+  if (edgeCount === 0 || baseCount === 0) return null;
+  const baseMean = baseDelta / baseCount;
+  if (baseMean <= 1e-9) return null;
+  return (edgeDelta / edgeCount) / baseMean;
+}
+
+function hasCrustProvince(cell: WorldBrain['cells'][number]): boolean {
+  return typeof cell.crustProvince === 'string' && cell.crustProvince.length > 0;
 }
 
 function stdDev(values: number[]): number {

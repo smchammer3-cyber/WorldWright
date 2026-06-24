@@ -64,10 +64,10 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Real-time updates: regenerate world whenever parameters change
+  // Real-time updates: regenerate world whenever parameters change.
   useEffect(() => {
     const timer = setTimeout(() => {
-      onGenerate(params);
+      onGenerate(buildClampedParams(params));
     }, 300);
 
     return () => clearTimeout(timer);
@@ -108,8 +108,23 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
     };
   }
 
+  function numberFromRange(value: string, min: number, max: number): number {
+    return clampInt(parseInt(value, 10), min, max);
+  }
+
+  function rangeHandlers<K extends keyof GeneratorParams>(key: K, min: number, max: number) {
+    return {
+      onInput: (e: React.FormEvent<HTMLInputElement>) => set(key, numberFromRange(e.currentTarget.value, min, max) as GeneratorParams[K]),
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => set(key, numberFromRange(e.currentTarget.value, min, max) as GeneratorParams[K]),
+    };
+  }
+
   return (
-    <div style={{ padding: 14 }}>
+    <div
+      style={{ padding: 14 }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
       <div style={{ fontWeight: 900, fontSize: 14, marginBottom: 12 }}>Generate</div>
 
       <Row label="Seed">
@@ -135,7 +150,7 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
         <select
           value={params.styleMode}
           onChange={(e) => set("styleMode", e.target.value as any)}
-          style={{ padding: 8, borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)" }}
+          style={{ padding: 8, borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)", width: "100%" }}
         >
           <option value="EARTHLIKE">Earthlike</option>
           <option value="FANTASY">Fantasy</option>
@@ -179,7 +194,8 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
           min={0}
           max={100}
           value={params.seaLevel}
-          onChange={(e) => set("seaLevel", clampInt(parseInt(e.target.value, 10), 0, 100))}
+          style={rangeStyle}
+          {...rangeHandlers("seaLevel", 0, 100)}
         />
       </Row>
 
@@ -189,7 +205,8 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
           min={0}
           max={100}
           value={params.plateActivity}
-          onChange={(e) => set("plateActivity", clampInt(parseInt(e.target.value, 10), 0, 100))}
+          style={rangeStyle}
+          {...rangeHandlers("plateActivity", 0, 100)}
         />
       </Row>
 
@@ -199,7 +216,8 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
           min={0}
           max={100}
           value={params.axisTilt}
-          onChange={(e) => set("axisTilt", clampInt(parseInt(e.target.value, 10), 0, 100))}
+          style={rangeStyle}
+          {...rangeHandlers("axisTilt", 0, 100)}
         />
       </Row>
 
@@ -209,7 +227,8 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
           min={0}
           max={100}
           value={params.planetAge}
-          onChange={(e) => set("planetAge", clampInt(parseInt(e.target.value, 10), 0, 100))}
+          style={rangeStyle}
+          {...rangeHandlers("planetAge", 0, 100)}
         />
       </Row>
 
@@ -219,7 +238,8 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
           min={0}
           max={100}
           value={params.climateVar}
-          onChange={(e) => set("climateVar", clampInt(parseInt(e.target.value, 10), 0, 100))}
+          style={rangeStyle}
+          {...rangeHandlers("climateVar", 0, 100)}
         />
       </Row>
 
@@ -229,7 +249,8 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
           min={0}
           max={100}
           value={params.moistureLevel}
-          onChange={(e) => set("moistureLevel", clampInt(parseInt(e.target.value, 10), 0, 100))}
+          style={rangeStyle}
+          {...rangeHandlers("moistureLevel", 0, 100)}
         />
       </Row>
 
@@ -239,7 +260,8 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
           min={-50}
           max={50}
           value={params.temperatureOffset}
-          onChange={(e) => set("temperatureOffset", clampInt(parseInt(e.target.value, 10), -50, 50))}
+          style={rangeStyle}
+          {...rangeHandlers("temperatureOffset", -50, 50)}
         />
       </Row>
 
@@ -249,7 +271,8 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
           min={0}
           max={100}
           value={params.erosionIntensity}
-          onChange={(e) => set("erosionIntensity", clampInt(parseInt(e.target.value, 10), 0, 100))}
+          style={rangeStyle}
+          {...rangeHandlers("erosionIntensity", 0, 100)}
         />
       </Row>
 
@@ -259,7 +282,8 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
           min={1}
           max={12}
           value={params.continentCount}
-          onChange={(e) => set("continentCount", clampInt(parseInt(e.target.value, 10), 1, 12))}
+          style={rangeStyle}
+          {...rangeHandlers("continentCount", 1, 12)}
         />
       </Row>
 
@@ -295,8 +319,14 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
       </div>
 
       <div style={{ fontSize: 11, opacity: 0.65, marginTop: 10, lineHeight: 1.35 }}>
-        Seed + parameters determine the generated world. After Save, Create opens the saved snapshot.
+        Slider changes regenerate automatically after a short pause. Use Generate for an immediate rebuild.
       </div>
     </div>
   );
 }
+
+const rangeStyle: React.CSSProperties = {
+  width: "100%",
+  display: "block",
+  cursor: "pointer",
+};
