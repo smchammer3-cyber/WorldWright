@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Globe3D from "../../render/Globe3D";
 import { getDiagnosticContext } from "../../core/worldDiagnosticContext";
 import type { DiagnosticLevel } from "../../core/worldDiagnostics";
@@ -19,7 +19,12 @@ type Props = {
 export default function GeneratePreview({ world, error }: Props) {
   const [previewMode, setPreviewMode] = useState<PlanetPreviewMode>("FINAL");
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showStageAudit, setShowStageAudit] = useState(false);
   const activeMode = PLANET_PREVIEW_MODES.find((option) => option.id === previewMode);
+
+  useEffect(() => {
+    setShowStageAudit(false);
+  }, [world]);
 
   const preview = useMemo(() => {
     if (!world) return null;
@@ -27,24 +32,28 @@ export default function GeneratePreview({ world, error }: Props) {
   }, [world, previewMode]);
 
   const diagnostics = useMemo(() => {
-    if (!world) return null;
-    return computeWorldDiagnostics(world);
-  }, [world]);
-
-  const stageDiagnostics = useMemo(() => {
     if (!world || !showDiagnostics) return null;
-    return computeGeneratedStageDiagnostics(world);
+    return computeWorldDiagnostics(world);
   }, [world, showDiagnostics]);
 
+  const stageDiagnostics = useMemo(() => {
+    if (!world || !showDiagnostics || !showStageAudit) return null;
+    return computeGeneratedStageDiagnostics(world);
+  }, [world, showDiagnostics, showStageAudit]);
+
   const diagnosticContext = useMemo(() => {
-    if (!world) return null;
+    if (!world || !showDiagnostics) return null;
     return getDiagnosticContext(world);
-  }, [world]);
+  }, [world, showDiagnostics]);
 
   const meta = useMemo(() => {
     if (!world) return null;
     return world.metadata;
   }, [world]);
+
+  function toggleDiagnostics() {
+    setShowDiagnostics((value) => !value);
+  }
 
   return (
     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", background: "#000" }}>
@@ -81,10 +90,11 @@ export default function GeneratePreview({ world, error }: Props) {
               </div>
             </div>
           )}
-          {world && diagnostics && (
+          {world && (
             <button
               type="button"
-              onClick={() => setShowDiagnostics((value) => !value)}
+              onClick={toggleDiagnostics}
+              title="Open diagnostics. Heavy export and cause-order diagnostics run only when this panel is open."
               style={{
                 background: showDiagnostics ? "rgba(76, 190, 255, 0.22)" : "rgba(255,255,255,0.10)",
                 border: "1px solid rgba(255,255,255,0.20)",
@@ -96,7 +106,7 @@ export default function GeneratePreview({ world, error }: Props) {
                 fontWeight: 900,
               }}
             >
-              Diagnostics {diagnostics.summary.problemCount > 0 ? `(${diagnostics.summary.problemCount} issues)` : ""}
+              Diagnostics {diagnostics && diagnostics.summary.problemCount > 0 ? `(${diagnostics.summary.problemCount} issues)` : ""}
             </button>
           )}
         </div>
@@ -188,50 +198,74 @@ export default function GeneratePreview({ world, error }: Props) {
                   </React.Fragment>
                 ))}
               </div>
-              {stageDiagnostics && (
-                <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.14)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", marginBottom: 6 }}>
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.14)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: stageDiagnostics ? 6 : 0 }}>
+                  <div>
                     <div style={{ fontWeight: 900, fontSize: 12 }}>Generate cause-order audit</div>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)" }}>{stageDiagnostics.grid} • seed {stageDiagnostics.seed}</div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>Expensive replay; run only when needed.</div>
                   </div>
-                  <div
+                  <button
+                    type="button"
+                    onClick={() => setShowStageAudit((value) => !value)}
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "1.25fr repeat(8, auto)",
-                      gap: "5px 8px",
+                      border: "1px solid rgba(255,255,255,0.18)",
+                      borderRadius: 999,
+                      background: showStageAudit ? "rgba(76, 190, 255, 0.22)" : "rgba(255,255,255,0.10)",
+                      color: "#fff",
                       fontSize: 10,
-                      alignItems: "baseline",
-                      minWidth: 520,
+                      fontWeight: 900,
+                      padding: "5px 8px",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
                     }}
                   >
-                    <StageHeader label="Stage" />
-                    <StageHeader label="Land" />
-                    <StageHeader label="Bodies" />
-                    <StageHeader label="Med." />
-                    <StageHeader label="Relief" />
-                    <StageHeader label="Plate" />
-                    <StageHeader label="Prov" />
-                    <StageHeader label="Skel" />
-                    <StageHeader label="Flip" />
-                    {stageDiagnostics.stages.map((stage) => (
-                      <React.Fragment key={stage.id}>
-                        <div title={stage.note} style={{ color: "rgba(255,255,255,0.78)", fontWeight: 800 }}>{stage.label}</div>
-                        <StageValue value={percent(stage.raw.landFraction)} delta={stage.deltaFromPrevious?.landFraction} formatDelta={percentDelta} />
-                        <StageValue value={String(stage.raw.landComponents)} delta={stage.deltaFromPrevious?.landComponents} />
-                        <StageValue value={String(stage.raw.mediumFragmentCount)} delta={stage.deltaFromPrevious?.mediumFragmentCount} />
-                        <StageValue value={fixed(stage.raw.landHeightStdDev)} delta={stage.deltaFromPrevious?.landHeightStdDev} />
-                        <StageValue value={ratio(stage.raw.plateSeamHeightRatio)} delta={stage.deltaFromPrevious?.plateSeamHeightRatio} />
-                        <StageValue value={ratio(stage.raw.provinceSeamHeightRatio)} delta={stage.deltaFromPrevious?.provinceSeamHeightRatio} />
-                        <StageValue value={ratio(stage.raw.skeletonSeamHeightRatio)} delta={stage.deltaFromPrevious?.skeletonSeamHeightRatio} />
-                        <StageValue value={stage.transitionFromPrevious ? percent(stage.transitionFromPrevious.topologyFlipShare) : "—"} />
-                      </React.Fragment>
-                    ))}
-                  </div>
-                  <div style={{ marginTop: 6, color: "rgba(255,255,255,0.52)", fontSize: 10, lineHeight: 1.35 }}>
-                    Plate/Prov/Skel show height imprint across plate, crust-province, and skeleton-cause borders. Flip shows land/water cells changed by that stage.
-                  </div>
+                    {showStageAudit ? "Hide audit" : "Run audit"}
+                  </button>
                 </div>
-              )}
+                {stageDiagnostics && (
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "baseline", marginBottom: 6 }}>
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)" }}>{stageDiagnostics.grid} • seed {stageDiagnostics.seed}</div>
+                    </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1.25fr repeat(8, auto)",
+                        gap: "5px 8px",
+                        fontSize: 10,
+                        alignItems: "baseline",
+                        minWidth: 520,
+                      }}
+                    >
+                      <StageHeader label="Stage" />
+                      <StageHeader label="Land" />
+                      <StageHeader label="Bodies" />
+                      <StageHeader label="Med." />
+                      <StageHeader label="Relief" />
+                      <StageHeader label="Plate" />
+                      <StageHeader label="Prov" />
+                      <StageHeader label="Skel" />
+                      <StageHeader label="Flip" />
+                      {stageDiagnostics.stages.map((stage) => (
+                        <React.Fragment key={stage.id}>
+                          <div title={stage.note} style={{ color: "rgba(255,255,255,0.78)", fontWeight: 800 }}>{stage.label}</div>
+                          <StageValue value={percent(stage.raw.landFraction)} delta={stage.deltaFromPrevious?.landFraction} formatDelta={percentDelta} />
+                          <StageValue value={String(stage.raw.landComponents)} delta={stage.deltaFromPrevious?.landComponents} />
+                          <StageValue value={String(stage.raw.mediumFragmentCount)} delta={stage.deltaFromPrevious?.mediumFragmentCount} />
+                          <StageValue value={fixed(stage.raw.landHeightStdDev)} delta={stage.deltaFromPrevious?.landHeightStdDev} />
+                          <StageValue value={ratio(stage.raw.plateSeamHeightRatio)} delta={stage.deltaFromPrevious?.plateSeamHeightRatio} />
+                          <StageValue value={ratio(stage.raw.provinceSeamHeightRatio)} delta={stage.deltaFromPrevious?.provinceSeamHeightRatio} />
+                          <StageValue value={ratio(stage.raw.skeletonSeamHeightRatio)} delta={stage.deltaFromPrevious?.skeletonSeamHeightRatio} />
+                          <StageValue value={stage.transitionFromPrevious ? percent(stage.transitionFromPrevious.topologyFlipShare) : "—"} />
+                        </React.Fragment>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 6, color: "rgba(255,255,255,0.52)", fontSize: 10, lineHeight: 1.35 }}>
+                      Plate/Prov/Skel show height imprint across plate, crust-province, and skeleton-cause borders. Flip shows land/water cells changed by that stage.
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
