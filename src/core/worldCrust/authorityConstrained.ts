@@ -79,18 +79,19 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
     );
 
     const rough = centeredJitter(seed, i, 7019);
+    const fineTexture = centeredJitter(seed, i * 17 + 23, 17011);
     const seamDamp = crustSeamDamp(world, i);
 
     let delta = 0;
 
     // Material and derived feature signals are the terrain authority here.
     // Province labels below may bias the result, but should not stamp terrain alone.
-    delta += stableCrust * 0.060 * landGate * (0.55 + landNeighbors * 0.45);
-    delta += mountainSignal * 0.038 * landGate;
-    delta += volcanic * 0.030 * smoothstep(-0.10, 0.16, aboveSea) * (cell.plateType === PlateType.OCEANIC ? 0.80 : 1);
-    delta -= thinYoungCrust * 0.060 * oceanGate;
-    delta -= riftSignal * 0.020 * coastGate * (0.35 + waterNeighbors * 0.65);
-    delta -= shelfSignal * 0.010 * nearSurface * waterNeighbors;
+    delta += stableCrust * 0.085 * landGate * (0.55 + landNeighbors * 0.45);
+    delta += mountainSignal * 0.062 * landGate;
+    delta += volcanic * 0.052 * smoothstep(-0.10, 0.16, aboveSea) * (cell.plateType === PlateType.OCEANIC ? 0.80 : 1);
+    delta -= thinYoungCrust * 0.070 * oceanGate;
+    delta -= riftSignal * 0.026 * coastGate * (0.35 + waterNeighbors * 0.65);
+    delta -= shelfSignal * 0.012 * nearSurface * waterNeighbors;
 
     switch (cell.crustProvince) {
       case CrustProvince.OLD_SHIELD:
@@ -121,13 +122,15 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
     }
 
     const featureEnergy = clamp01(stableCrust + thinYoungCrust + mountainSignal + riftSignal + volcanic + shelfSignal * 0.35);
-    delta += rough * (0.001 + featureEnergy * 0.008) * Math.max(landGate, oceanGate, nearSurface);
+    const materialTexture = rough * 0.018 + fineTexture * 0.010;
+    delta += materialTexture * (0.30 + featureEnergy * 0.70) * landGate;
+    delta += rough * 0.010 * featureEnergy * oceanGate;
 
     const shelfSoftening = cell.oceanDepthClass === OceanDepthClass.SHELF || cell.oceanDepthClass === OceanDepthClass.SLOPE
-      ? (thickness - 0.50) * 0.008
+      ? (thickness - 0.50) * 0.010
       : 0;
 
-    const rawDelta = clamp((delta + shelfSoftening) * seamDamp, -0.018, 0.018);
+    const rawDelta = clamp((delta + shelfSoftening) * seamDamp, -0.034, 0.034);
     rawDeltas[i] = constrainCrustTopologyDelta(world, i, h, seaLevel, rawDelta, copy, 'province-delta', landNeighbors, waterNeighbors);
   }
 
@@ -192,7 +195,7 @@ function blendDeltaNearCrustSeams(world: WorldBrain, index: number, deltas: Floa
   for (const neighbor of neighbors) neighborSum += deltas[neighbor];
   const neighborAverage = neighborSum / neighbors.length;
   const edgeBlend = crustSeamBlendStrength(world, index);
-  const softened = raw * 0.58 + neighborAverage * 0.42;
+  const softened = raw * 0.70 + neighborAverage * 0.30;
   return lerp(raw, softened, edgeBlend);
 }
 
@@ -217,10 +220,10 @@ function crustSeamBlendStrength(world: WorldBrain, index: number): number {
 
   const causedIsland = isCausedIslandCell(cell) ? 0.45 : 1;
   return clamp01(
-    (plateEdges / neighbors.length * 0.42 +
-      provinceEdges / neighbors.length * 0.34 +
-      skeletonEdges / neighbors.length * 0.22 +
-      gradient / neighbors.length * 0.34) * causedIsland,
+    (plateEdges / neighbors.length * 0.34 +
+      provinceEdges / neighbors.length * 0.26 +
+      skeletonEdges / neighbors.length * 0.18 +
+      gradient / neighbors.length * 0.26) * causedIsland,
   );
 }
 
@@ -239,7 +242,7 @@ function crustSeamDamp(world: WorldBrain, index: number): number {
 
   const plateEdge = differentPlate / neighbors.length;
   const provinceEdge = differentProvince / neighbors.length;
-  return lerp(1, 0.45, clamp01(plateEdge * 0.75 + provinceEdge * 0.35));
+  return lerp(1, 0.65, clamp01(plateEdge * 0.60 + provinceEdge * 0.28));
 }
 
 function landNeighborFractionByHeight(world: WorldBrain, index: number, seaLevel: number, heights: number[]): number {
