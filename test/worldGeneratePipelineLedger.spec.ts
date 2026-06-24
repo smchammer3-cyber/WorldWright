@@ -2,15 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { computeGeneratePipelineAuthorityLedger } from '../src/core/worldGeneratePipelineLedger';
 import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/core/worldGenerator';
 
+function makeLedger(seed: string) {
+  const params = createDefaultGeneratorParams();
+  params.width = 64;
+  params.height = 32;
+  params.seed = seed;
+
+  const world = generateWorldFromParams(params);
+  return computeGeneratePipelineAuthorityLedger(world);
+}
+
 describe('Generate pipeline authority ledger', () => {
   it('replays Generate Mode and reports the full authority trace', () => {
-    const params = createDefaultGeneratorParams();
-    params.width = 64;
-    params.height = 32;
-    params.seed = 'pipeline-ledger';
-
-    const world = generateWorldFromParams(params);
-    const ledger = computeGeneratePipelineAuthorityLedger(world);
+    const ledger = makeLedger('pipeline-ledger');
 
     expect(ledger).not.toBeNull();
     expect(ledger?.stages.map((stage) => stage.id)).toEqual([
@@ -46,6 +50,46 @@ describe('Generate pipeline authority ledger', () => {
     const crustFields = ledger?.stages.find((stage) => stage.id === 'CRUST_FIELDS');
     expect(crustFields?.actualWrites.some((change) => change.group === 'crustCause')).toBe(true);
     expect(crustFields?.warnings.some((warning) => warning.includes('Backward-feedback risk'))).toBe(true);
+  });
+
+  it('keeps final cause sync terminal and terrain-read-only', () => {
+    const ledger = makeLedger('pipeline-ledger-final-sync-contract');
+    expect(ledger).not.toBeNull();
+
+    const stages = ledger?.stages ?? [];
+    const firstFinalSyncIndex = stages.findIndex((stage) => stage.phase === 'final-cause-sync');
+    expect(firstFinalSyncIndex).toBeGreaterThanOrEqual(0);
+
+    const finalSyncStages = stages.filter((stage) => stage.phase === 'final-cause-sync');
+    expect(finalSyncStages.map((stage) => stage.id)).toEqual(['FINAL_CONTINENT_RESEED', 'FINAL_CRUST_RESEED']);
+
+    for (const stage of finalSyncStages) {
+      expect(stage.terrainWriteShare).toBe(0);
+      expect(stage.actualWrites.some((change) => change.group === 'terrain')).toBe(false);
+      expect(stage.warnings.some((warning) => warning.includes('must not be used later'))).toBe(true);
+    }
+
+    const laterTerrainStages = stages
+      .slice(firstFinalSyncIndex + 1)
+      .filter((stage) => stage.phase === 'terrain-shape' || stage.phase === 'terrain-cleanup' || stage.terrainWriteShare > 0);
+    expect(laterTerrainStages).toHaveLength(0);
+  });
+
+  it('marks known height-derived cause reseeds as watch checkpoints, not hidden bugs', () => {
+    const ledger = makeLedger('pipeline-ledger-feedback-contract');
+    expect(ledger).not.toBeNull();
+
+    const continentFields = ledger?.stages.find((stage) => stage.id === 'CONTINENT_FIELDS');
+    const crustContinentReseed = ledger?.stages.find((stage) => stage.id === 'CRUST_CONTINENT_RESEED');
+    const crustFields = ledger?.stages.find((stage) => stage.id === 'CRUST_FIELDS');
+
+    expect(continentFields?.warnings.some((warning) => warning.includes('Height-derived cause seeding'))).toBe(true);
+    expect(crustContinentReseed?.warnings.some((warning) => warning.includes('Backward-feedback risk'))).toBe(true);
+    expect(crustFields?.warnings.some((warning) => warning.includes('Backward-feedback risk'))).toBe(true);
+
+    expect(continentFields?.unexpectedWrites).toHaveLength(0);
+    expect(crustContinentReseed?.unexpectedWrites).toHaveLength(0);
+    expect(crustFields?.unexpectedWrites).toHaveLength(0);
   });
 
   it('does not mutate the active world while building the trace', () => {
