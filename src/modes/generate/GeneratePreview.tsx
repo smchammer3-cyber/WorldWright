@@ -5,6 +5,7 @@ import type { DiagnosticLevel } from "../../core/worldDiagnostics";
 import { computeWorldDiagnostics } from "../../core/worldDiagnostics";
 import { computeGeneratedStageDiagnostics } from "../../core/worldGenerateStageDiagnostics";
 import { computeGeneratePipelineAuthorityLedger } from "../../core/worldGeneratePipelineLedger";
+import { computeWorldSpineAuthorityAudit } from "../../core/worldSpineAuthorityAudit";
 import type { WorldBrain } from "../../core/worldSchema";
 import {
   makePlanetPreviewFromWorldBrain,
@@ -12,6 +13,7 @@ import {
   type PlanetPreviewMode,
 } from "../../core/planetRenderer";
 import GeneratePipelineAuthorityPanel from "./GeneratePipelineAuthorityPanel";
+import GenerateWorldSpineAuditPanel from "./GenerateWorldSpineAuditPanel";
 
 type Props = {
   world: WorldBrain | null;
@@ -23,11 +25,13 @@ export default function GeneratePreview({ world, error }: Props) {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showStageAudit, setShowStageAudit] = useState(false);
   const [showPipelineTrace, setShowPipelineTrace] = useState(false);
+  const [showWorldSpineAudit, setShowWorldSpineAudit] = useState(false);
   const activeMode = PLANET_PREVIEW_MODES.find((option) => option.id === previewMode);
 
   useEffect(() => {
     setShowStageAudit(false);
     setShowPipelineTrace(false);
+    setShowWorldSpineAudit(false);
   }, [world]);
 
   const preview = useMemo(() => {
@@ -49,6 +53,11 @@ export default function GeneratePreview({ world, error }: Props) {
     if (!world || !showDiagnostics || !showPipelineTrace) return null;
     return computeGeneratePipelineAuthorityLedger(world);
   }, [world, showDiagnostics, showPipelineTrace]);
+
+  const worldSpineAudit = useMemo(() => {
+    if (!world || !showDiagnostics || !showWorldSpineAudit) return null;
+    return computeWorldSpineAuthorityAudit(world);
+  }, [world, showDiagnostics, showWorldSpineAudit]);
 
   const diagnosticContext = useMemo(() => {
     if (!world || !showDiagnostics) return null;
@@ -162,7 +171,7 @@ export default function GeneratePreview({ world, error }: Props) {
                 position: "absolute",
                 left: 12,
                 top: 68,
-                width: "min(720px, calc(100% - 24px))",
+                width: "min(760px, calc(100% - 24px))",
                 maxHeight: "min(60%, 520px)",
                 overflow: "auto",
                 padding: 10,
@@ -208,22 +217,25 @@ export default function GeneratePreview({ world, error }: Props) {
                 ))}
               </div>
               <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.14)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: stageDiagnostics || pipelineLedger ? 6 : 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: stageDiagnostics || pipelineLedger || worldSpineAudit ? 6 : 0 }}>
                   <div>
                     <div style={{ fontWeight: 900, fontSize: 12 }}>Generate cause-order tools</div>
                     <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>Expensive replay; run only when needed.</div>
                   </div>
-                  <div style={{ display: "flex", gap: 6 }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                     <SmallDiagnosticButton active={showStageAudit} onClick={() => setShowStageAudit((value) => !value)}>
                       {showStageAudit ? "Hide audit" : "Run audit"}
                     </SmallDiagnosticButton>
                     <SmallDiagnosticButton active={showPipelineTrace} onClick={() => setShowPipelineTrace((value) => !value)}>
                       {showPipelineTrace ? "Hide trace" : "Trace pipeline"}
                     </SmallDiagnosticButton>
+                    <SmallDiagnosticButton active={showWorldSpineAudit} onClick={() => setShowWorldSpineAudit((value) => !value)}>
+                      {showWorldSpineAudit ? "Hide spine" : "World spine"}
+                    </SmallDiagnosticButton>
                   </div>
                 </div>
                 {stageDiagnostics && (
-                  <div style={{ marginBottom: pipelineLedger ? 14 : 0 }}>
+                  <div style={{ marginBottom: pipelineLedger || worldSpineAudit ? 14 : 0 }}>
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "baseline", marginBottom: 6 }}>
                       <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)" }}>{stageDiagnostics.grid} • seed {stageDiagnostics.seed}</div>
                     </div>
@@ -280,6 +292,7 @@ export default function GeneratePreview({ world, error }: Props) {
                   </div>
                 )}
                 {pipelineLedger && <GeneratePipelineAuthorityPanel ledger={pipelineLedger} />}
+                {worldSpineAudit && <GenerateWorldSpineAuditPanel audit={worldSpineAudit} />}
               </div>
             </div>
           )}
