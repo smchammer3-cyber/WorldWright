@@ -291,7 +291,7 @@ export default function Globe3D({ world, preview, className, style }: Props) {
         renderer.domElement.removeEventListener('wheel', onWheel as any);
       } catch {}
 
-      if (rt?.animationFrameId !== null) cancelAnimationFrame(rt.animationFrameId);
+      if (rt?.animationFrameId != null) cancelAnimationFrame(rt.animationFrameId);
 
       try {
         rt?.material?.dispose();
