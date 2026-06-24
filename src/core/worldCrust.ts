@@ -1,6 +1,5 @@
 export {
   classifyCrustProvince,
-  cleanupAccidentalTinyIslands,
   ensureCrustFields,
   seedCrustFields,
 } from './worldCrust/index';
@@ -12,3 +11,5 @@ export {
   applyProvinceCoastBreakup,
   applyProvinceCoherence,
 } from './worldCrust/materialTerrain';
+
+export { cleanupAccidentalTinyIslands } from './worldCrust/materialTinyCleanup';
