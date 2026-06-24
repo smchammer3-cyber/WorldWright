@@ -64,6 +64,63 @@ describe('world geography pipeline', () => {
     expect(basin.baseHeight).toBeLessThan(basinBefore);
   });
 
+  it('dampens skeleton elevation near plate and skeleton seams', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 16;
+    params.height = 8;
+    params.seed = 'skeleton-seam-dampening';
+    const world = generateWorldFromParams(params);
+    world.seaLevel = 0;
+    world.metadata.seaLevel = 0;
+    seedContinentSkeletonFields(world);
+
+    const configureCore = (row: number, col: number, plateId: number, continentId: number) => {
+      const cell = world.cells[row * world.gridWidth + col];
+      cell.baseHeight = -0.03;
+      cell.editHeightDelta = 0;
+      cell.simHeightDelta = 0;
+      cell.plateId = plateId;
+      cell.continentId = continentId;
+      cell.oceanBasinId = null;
+      cell.continentality = 0.92;
+      cell.continentCoreStrength = 0.86;
+      cell.shelfStrength = 0.04;
+      cell.marginType = ContinentMarginType.NONE;
+      cell.islandCause = IslandCause.NONE;
+      return cell;
+    };
+
+    const interior = configureCore(2, 4, 1, 1);
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) configureCore(2 + dr, 4 + dc, 1, 1);
+
+    const seam = configureCore(5, 10, 2, 2);
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const neighbor = world.cells[(5 + dr) * world.gridWidth + 10 + dc];
+      neighbor.baseHeight = -0.03;
+      neighbor.editHeightDelta = 0;
+      neighbor.simHeightDelta = 0;
+      neighbor.plateId = 3;
+      neighbor.continentId = null;
+      neighbor.oceanBasinId = 1;
+      neighbor.continentality = 0.08;
+      neighbor.continentCoreStrength = 0;
+      neighbor.shelfStrength = 0.05;
+      neighbor.marginType = ContinentMarginType.NONE;
+      neighbor.islandCause = IslandCause.NONE;
+    }
+
+    const interiorBefore = interior.baseHeight;
+    const seamBefore = seam.baseHeight;
+
+    applySkeletonBaseElevation(world);
+
+    const interiorDelta = interior.baseHeight - interiorBefore;
+    const seamDelta = seam.baseHeight - seamBefore;
+    expect(interiorDelta).toBeGreaterThan(0);
+    expect(seamDelta).toBeGreaterThanOrEqual(0);
+    expect(seamDelta).toBeLessThan(interiorDelta * 0.75);
+  });
+
   it('pulls shelves toward shallow water instead of turning them into bridges', () => {
     const params = createDefaultGeneratorParams();
     params.width = 16;
