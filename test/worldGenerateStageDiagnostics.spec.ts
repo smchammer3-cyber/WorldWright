@@ -28,6 +28,8 @@ describe('generated stage diagnostics', () => {
       'CRUST_TINY_ISLAND_CLEANUP',
       'OCEAN_BATHYMETRY_SMOOTHING',
       'FINAL_RECOMPUTE',
+      'FINAL_CONTINENT_RESEED',
+      'FINAL_CRUST_RESEED',
     ]);
 
     for (const stage of diagnostics?.stages ?? []) {
@@ -37,6 +39,12 @@ describe('generated stage diagnostics', () => {
       expect(Number.isFinite(stage.raw.landComponents)).toBe(true);
       expect(Number.isFinite(stage.raw.mediumFragmentCount)).toBe(true);
       expect(Number.isFinite(stage.raw.landHeightStdDev)).toBe(true);
+      expect(stage.raw.featureAuthorityCoverage).toBeGreaterThanOrEqual(0);
+      expect(stage.raw.featureAuthorityCoverage).toBeLessThanOrEqual(1);
+      expect(stage.raw.plateAuthorityLeakShare).toBeGreaterThanOrEqual(0);
+      expect(stage.raw.plateAuthorityLeakShare).toBeLessThanOrEqual(1);
+      expect(stage.raw.provinceAuthorityLeakShare).toBeGreaterThanOrEqual(0);
+      expect(stage.raw.provinceAuthorityLeakShare).toBeLessThanOrEqual(1);
     }
   });
 
