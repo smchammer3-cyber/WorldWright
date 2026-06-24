@@ -243,6 +243,38 @@ Expected direction:
 
 ---
 
+## Layer gate threshold registry
+
+This authority contract is now paired with the canonical Generate layer gate blueprint:
+
+```text
+WORLDWRIGHT_BLUEPRINT_GENERATE_LAYER_GATES.md
+```
+
+That document defines the measurable constraints every Generate layer must satisfy:
+
+```text
+allowed reads
+allowed writes
+terrain write permission
+topology flip thresholds
+plate/province/skeleton imprint thresholds
+terminal-stage rules
+renderer/export output thresholds
+```
+
+The future Generate diagnostic summary should work from those layer gates instead of adding unlimited one-off diagnostic panels.
+
+Every future terrain, crust, skeleton, ocean, renderer, or export PR should be able to answer:
+
+```text
+Which layer gate did this change improve?
+Which layer gates did it leave unchanged?
+Which layer gates did it risk breaking?
+```
+
+---
+
 ## Non-goals
 
 This clarification PR does not tune terrain, smoothing, final color, sea level, thresholds, or generator aesthetics.
