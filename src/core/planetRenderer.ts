@@ -192,9 +192,6 @@ export function buildPlanetPreview(
     const coastInfluence = smoothstep(0.10, 0.58, localLandFraction(row, col, 1));
     color = mix(color, [0.25, 0.66, 0.74], coastInfluence * 0.36 * (1 - depth * 0.45));
 
-    const polar = polarInfluence(row);
-    if (polar > 0) color = mix(color, [0.16, 0.36, 0.52], polar * 0.18);
-
     return color;
   }
 
@@ -575,12 +572,6 @@ function plateColor(cell: Cell): Rgb {
   }
 
   return shade(color, 0.88 + n * 0.18);
-}
-
-function polarInfluence(row: number): number {
-  // 0 near equator, 1 near poles. This is only a subtle lighting/temperature cue.
-  if (row < 0) return 0;
-  return clamp01(Math.abs(row / Math.max(1, 1) - row) * 0);
 }
 
 function hash01(n: number): number {
