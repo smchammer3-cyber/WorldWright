@@ -143,8 +143,8 @@ export default function GeneratePreview({ world, error }: Props) {
                 position: "absolute",
                 left: 12,
                 top: 68,
-                width: "min(420px, calc(100% - 24px))",
-                maxHeight: "min(52%, 430px)",
+                width: "min(560px, calc(100% - 24px))",
+                maxHeight: "min(56%, 470px)",
                 overflow: "auto",
                 padding: 10,
                 borderRadius: 10,
@@ -191,16 +191,17 @@ export default function GeneratePreview({ world, error }: Props) {
               {stageDiagnostics && (
                 <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.14)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", marginBottom: 6 }}>
-                    <div style={{ fontWeight: 900, fontSize: 12 }}>Generate stage audit</div>
+                    <div style={{ fontWeight: 900, fontSize: 12 }}>Generate cause-order audit</div>
                     <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)" }}>{stageDiagnostics.grid} • seed {stageDiagnostics.seed}</div>
                   </div>
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1.4fr repeat(5, auto)",
+                      gridTemplateColumns: "1.25fr repeat(8, auto)",
                       gap: "5px 8px",
                       fontSize: 10,
                       alignItems: "baseline",
+                      minWidth: 520,
                     }}
                   >
                     <StageHeader label="Stage" />
@@ -208,7 +209,10 @@ export default function GeneratePreview({ world, error }: Props) {
                     <StageHeader label="Bodies" />
                     <StageHeader label="Med." />
                     <StageHeader label="Relief" />
-                    <StageHeader label="Seam" />
+                    <StageHeader label="Plate" />
+                    <StageHeader label="Prov" />
+                    <StageHeader label="Skel" />
+                    <StageHeader label="Flip" />
                     {stageDiagnostics.stages.map((stage) => (
                       <React.Fragment key={stage.id}>
                         <div title={stage.note} style={{ color: "rgba(255,255,255,0.78)", fontWeight: 800 }}>{stage.label}</div>
@@ -216,9 +220,15 @@ export default function GeneratePreview({ world, error }: Props) {
                         <StageValue value={String(stage.raw.landComponents)} delta={stage.deltaFromPrevious?.landComponents} />
                         <StageValue value={String(stage.raw.mediumFragmentCount)} delta={stage.deltaFromPrevious?.mediumFragmentCount} />
                         <StageValue value={fixed(stage.raw.landHeightStdDev)} delta={stage.deltaFromPrevious?.landHeightStdDev} />
-                        <StageValue value={stage.raw.seamHeightRatio == null ? "n/a" : `${fixed(stage.raw.seamHeightRatio)}×`} delta={stage.deltaFromPrevious?.seamHeightRatio} />
+                        <StageValue value={ratio(stage.raw.plateSeamHeightRatio)} delta={stage.deltaFromPrevious?.plateSeamHeightRatio} />
+                        <StageValue value={ratio(stage.raw.provinceSeamHeightRatio)} delta={stage.deltaFromPrevious?.provinceSeamHeightRatio} />
+                        <StageValue value={ratio(stage.raw.skeletonSeamHeightRatio)} delta={stage.deltaFromPrevious?.skeletonSeamHeightRatio} />
+                        <StageValue value={stage.transitionFromPrevious ? percent(stage.transitionFromPrevious.topologyFlipShare) : "—"} />
                       </React.Fragment>
                     ))}
+                  </div>
+                  <div style={{ marginTop: 6, color: "rgba(255,255,255,0.52)", fontSize: 10, lineHeight: 1.35 }}>
+                    Plate/Prov/Skel show height imprint across plate, crust-province, and skeleton-cause borders. Flip shows land/water cells changed by that stage.
                   </div>
                 </div>
               )}
@@ -259,7 +269,7 @@ function DiagnosticBadge({ level }: { level: DiagnosticLevel }) {
 }
 
 function StageHeader({ label }: { label: string }) {
-  return <div style={{ color: "rgba(255,255,255,0.48)", fontWeight: 900 }}>{label}</div>;
+  return <div style={{ color: "rgba(255,255,255,0.48)", fontWeight: 900, textAlign: label === "Stage" ? "left" : "right" }}>{label}</div>;
 }
 
 function StageValue({ value, delta, formatDelta = fixedDelta }: { value: string; delta?: number; formatDelta?: (value: number) => string }) {
@@ -274,6 +284,10 @@ function StageValue({ value, delta, formatDelta = fixedDelta }: { value: string;
 
 function percent(value: number): string {
   return `${Math.round(value * 100)}%`;
+}
+
+function ratio(value: number | null | undefined): string {
+  return value == null ? "—" : `${fixed(value)}×`;
 }
 
 function fixed(value: number): string {
