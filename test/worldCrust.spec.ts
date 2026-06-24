@@ -211,6 +211,7 @@ describe('world crust fields', () => {
     core.continentCoreStrength = 0.95;
     core.continentality = 0.95;
     core.distanceToContinentCore = 0.02;
+    const coreBefore = core.baseHeight;
 
     const invalid = world.cells[2 * world.gridWidth + 10];
     invalid.baseHeight = 0.05;
@@ -224,7 +225,7 @@ describe('world crust fields', () => {
 
     applyCrustTerrainInfluence(world);
 
-    expect(core.baseHeight).toBeGreaterThan(0);
+    expect(core.baseHeight).toBeGreaterThan(coreBefore + 0.002);
     expect(invalid.baseHeight).toBeLessThan(0);
   });
 
