@@ -37,6 +37,8 @@ export type GenerateStageRawMetrics = {
   heightStdDev: number;
   landHeightStdDev: number;
   seamHeightRatio: number | null;
+  skeletonSeamHeightRatio: number | null;
+  crustProvinceSeamHeightRatio: number | null;
   plateTypeTerrainMismatch: number;
   lowContinentalityLandShare: number;
   strongContinentalityWaterShare: number;
@@ -109,7 +111,7 @@ export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null 
   record('CRUST_COHERENCE', 'Crust cohere', 'Province coherence: fills holes and trims frayed lowland edges.');
 
   applyContinentSkeletonTerrainObedience(world);
-  record('CRUST_SKELETON_OBEDIENCE', 'Crust skeleton', 'Skeleton obedience inside the crust pass.');
+  record('CRUST_SKELETON_OBEDIENCE', 'Cause cleanup', 'Late cause cleanup only: preserve caused islands and sink invalid fragments without broad skeleton redrawing.');
 
   cleanupAccidentalTinyIslands(world);
   record('CRUST_TINY_ISLAND_CLEANUP', 'Tiny cleanup', 'Tiny accidental island cleanup after crust subpasses.');
@@ -184,7 +186,9 @@ function computeStageRawMetrics(world: WorldBrain): GenerateStageRawMetrics {
     mediumFragmentShare: mediumFragmentCells / landCellCount,
     heightStdDev: stdDev(heights),
     landHeightStdDev: stdDev(landHeights),
-    seamHeightRatio: plateSeamHeightRatio(world, heights),
+    seamHeightRatio: edgeHeightRatio(world, heights, (a, b) => a.plateId !== b.plateId),
+    skeletonSeamHeightRatio: edgeHeightRatio(world, heights, (a, b) => a.continentId !== b.continentId || a.oceanBasinId !== b.oceanBasinId),
+    crustProvinceSeamHeightRatio: edgeHeightRatio(world, heights, (a, b) => a.crustProvince !== b.crustProvince),
     plateTypeTerrainMismatch: plateTypeTerrainMismatch / totalCells,
     lowContinentalityLandShare: lowContinentalityLand / landCellCount,
     strongContinentalityWaterShare: strongContinentalityWater / Math.max(1, oceanCellCount),
@@ -202,6 +206,8 @@ function diffRaw(raw: GenerateStageRawMetrics, previous: GenerateStageRawMetrics
     heightStdDev: raw.heightStdDev - previous.heightStdDev,
     landHeightStdDev: raw.landHeightStdDev - previous.landHeightStdDev,
     seamHeightRatio: raw.seamHeightRatio == null || previous.seamHeightRatio == null ? undefined : raw.seamHeightRatio - previous.seamHeightRatio,
+    skeletonSeamHeightRatio: raw.skeletonSeamHeightRatio == null || previous.skeletonSeamHeightRatio == null ? undefined : raw.skeletonSeamHeightRatio - previous.skeletonSeamHeightRatio,
+    crustProvinceSeamHeightRatio: raw.crustProvinceSeamHeightRatio == null || previous.crustProvinceSeamHeightRatio == null ? undefined : raw.crustProvinceSeamHeightRatio - previous.crustProvinceSeamHeightRatio,
     plateTypeTerrainMismatch: raw.plateTypeTerrainMismatch - previous.plateTypeTerrainMismatch,
     lowContinentalityLandShare: raw.lowContinentalityLandShare - previous.lowContinentalityLandShare,
     strongContinentalityWaterShare: raw.strongContinentalityWaterShare - previous.strongContinentalityWaterShare,
@@ -247,11 +253,15 @@ function neighborIndices4(world: WorldBrain, index: number): number[] {
   return neighbors;
 }
 
-function plateSeamHeightRatio(world: WorldBrain, heights: number[]): number | null {
+function edgeHeightRatio(
+  world: WorldBrain,
+  heights: number[],
+  isBoundaryEdge: (a: WorldBrain['cells'][number], b: WorldBrain['cells'][number]) => boolean,
+): number | null {
   let boundaryDelta = 0;
   let boundaryEdges = 0;
-  let samePlateDelta = 0;
-  let samePlateEdges = 0;
+  let sameDelta = 0;
+  let sameEdges = 0;
 
   for (let row = 0; row < world.gridHeight; row++) {
     for (let col = 0; col < world.gridWidth; col++) {
@@ -261,19 +271,19 @@ function plateSeamHeightRatio(world: WorldBrain, heights: number[]): number | nu
 
       for (const next of candidates) {
         const delta = Math.abs(heights[idx] - heights[next]);
-        if (world.cells[idx].plateId !== world.cells[next].plateId) {
+        if (isBoundaryEdge(world.cells[idx], world.cells[next])) {
           boundaryDelta += delta;
           boundaryEdges++;
         } else {
-          samePlateDelta += delta;
-          samePlateEdges++;
+          sameDelta += delta;
+          sameEdges++;
         }
       }
     }
   }
 
-  if (boundaryEdges === 0 || samePlateEdges === 0) return null;
-  const sameMean = samePlateDelta / samePlateEdges;
+  if (boundaryEdges === 0 || sameEdges === 0) return null;
+  const sameMean = sameDelta / sameEdges;
   if (sameMean <= 1e-9) return null;
   return (boundaryDelta / boundaryEdges) / sameMean;
 }
