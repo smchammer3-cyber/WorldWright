@@ -32,9 +32,9 @@ export default function GeneratePreview({ world, error }: Props) {
   }, [world]);
 
   const stageDiagnostics = useMemo(() => {
-    if (!world) return null;
+    if (!world || !showDiagnostics) return null;
     return computeGeneratedStageDiagnostics(world);
-  }, [world]);
+  }, [world, showDiagnostics]);
 
   const diagnosticContext = useMemo(() => {
     if (!world) return null;
