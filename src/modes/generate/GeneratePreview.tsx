@@ -4,12 +4,14 @@ import { getDiagnosticContext } from "../../core/worldDiagnosticContext";
 import type { DiagnosticLevel } from "../../core/worldDiagnostics";
 import { computeWorldDiagnostics } from "../../core/worldDiagnostics";
 import { computeGeneratedStageDiagnostics } from "../../core/worldGenerateStageDiagnostics";
+import { computeGeneratePipelineAuthorityLedger } from "../../core/worldGeneratePipelineLedger";
 import type { WorldBrain } from "../../core/worldSchema";
 import {
   makePlanetPreviewFromWorldBrain,
   PLANET_PREVIEW_MODES,
   type PlanetPreviewMode,
 } from "../../core/planetRenderer";
+import GeneratePipelineAuthorityPanel from "./GeneratePipelineAuthorityPanel";
 
 type Props = {
   world: WorldBrain | null;
@@ -20,10 +22,12 @@ export default function GeneratePreview({ world, error }: Props) {
   const [previewMode, setPreviewMode] = useState<PlanetPreviewMode>("FINAL");
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [showStageAudit, setShowStageAudit] = useState(false);
+  const [showPipelineTrace, setShowPipelineTrace] = useState(false);
   const activeMode = PLANET_PREVIEW_MODES.find((option) => option.id === previewMode);
 
   useEffect(() => {
     setShowStageAudit(false);
+    setShowPipelineTrace(false);
   }, [world]);
 
   const preview = useMemo(() => {
@@ -40,6 +44,11 @@ export default function GeneratePreview({ world, error }: Props) {
     if (!world || !showDiagnostics || !showStageAudit) return null;
     return computeGeneratedStageDiagnostics(world);
   }, [world, showDiagnostics, showStageAudit]);
+
+  const pipelineLedger = useMemo(() => {
+    if (!world || !showDiagnostics || !showPipelineTrace) return null;
+    return computeGeneratePipelineAuthorityLedger(world);
+  }, [world, showDiagnostics, showPipelineTrace]);
 
   const diagnosticContext = useMemo(() => {
     if (!world || !showDiagnostics) return null;
@@ -153,8 +162,8 @@ export default function GeneratePreview({ world, error }: Props) {
                 position: "absolute",
                 left: 12,
                 top: 68,
-                width: "min(620px, calc(100% - 24px))",
-                maxHeight: "min(56%, 470px)",
+                width: "min(720px, calc(100% - 24px))",
+                maxHeight: "min(60%, 520px)",
                 overflow: "auto",
                 padding: 10,
                 borderRadius: 10,
@@ -199,31 +208,22 @@ export default function GeneratePreview({ world, error }: Props) {
                 ))}
               </div>
               <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.14)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: stageDiagnostics ? 6 : 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: stageDiagnostics || pipelineLedger ? 6 : 0 }}>
                   <div>
-                    <div style={{ fontWeight: 900, fontSize: 12 }}>Generate cause-order audit</div>
+                    <div style={{ fontWeight: 900, fontSize: 12 }}>Generate cause-order tools</div>
                     <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>Expensive replay; run only when needed.</div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowStageAudit((value) => !value)}
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.18)",
-                      borderRadius: 999,
-                      background: showStageAudit ? "rgba(76, 190, 255, 0.22)" : "rgba(255,255,255,0.10)",
-                      color: "#fff",
-                      fontSize: 10,
-                      fontWeight: 900,
-                      padding: "5px 8px",
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {showStageAudit ? "Hide audit" : "Run audit"}
-                  </button>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <SmallDiagnosticButton active={showStageAudit} onClick={() => setShowStageAudit((value) => !value)}>
+                      {showStageAudit ? "Hide audit" : "Run audit"}
+                    </SmallDiagnosticButton>
+                    <SmallDiagnosticButton active={showPipelineTrace} onClick={() => setShowPipelineTrace((value) => !value)}>
+                      {showPipelineTrace ? "Hide trace" : "Trace pipeline"}
+                    </SmallDiagnosticButton>
+                  </div>
                 </div>
                 {stageDiagnostics && (
-                  <div>
+                  <div style={{ marginBottom: pipelineLedger ? 14 : 0 }}>
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "baseline", marginBottom: 6 }}>
                       <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)" }}>{stageDiagnostics.grid} • seed {stageDiagnostics.seed}</div>
                     </div>
@@ -279,6 +279,7 @@ export default function GeneratePreview({ world, error }: Props) {
                     </div>
                   </div>
                 )}
+                {pipelineLedger && <GeneratePipelineAuthorityPanel ledger={pipelineLedger} />}
               </div>
             </div>
           )}
@@ -313,6 +314,28 @@ function DiagnosticBadge({ level }: { level: DiagnosticLevel }) {
     >
       {c.label}
     </span>
+  );
+}
+
+function SmallDiagnosticButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        border: "1px solid rgba(255,255,255,0.18)",
+        borderRadius: 999,
+        background: active ? "rgba(76, 190, 255, 0.22)" : "rgba(255,255,255,0.10)",
+        color: "#fff",
+        fontSize: 10,
+        fontWeight: 900,
+        padding: "5px 8px",
+        cursor: "pointer",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
