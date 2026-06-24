@@ -261,9 +261,9 @@ export default function GeneratePreview({ world, error }: Props) {
                             <StageValue value={String(stage.raw.landComponents)} delta={stage.deltaFromPrevious?.landComponents} />
                             <StageValue value={String(stage.raw.mediumFragmentCount)} delta={stage.deltaFromPrevious?.mediumFragmentCount} />
                             <StageValue value={fixed(stage.raw.landHeightStdDev)} delta={stage.deltaFromPrevious?.landHeightStdDev} />
-                            <StageValue value={ratio(stage.raw.plateSeamHeightRatio)} delta={stage.deltaFromPrevious?.plateSeamHeightRatio} />
-                            <StageValue value={ratio(stage.raw.provinceSeamHeightRatio)} delta={stage.deltaFromPrevious?.provinceSeamHeightRatio} />
-                            <StageValue value={ratio(stage.raw.skeletonSeamHeightRatio)} delta={stage.deltaFromPrevious?.skeletonSeamHeightRatio} />
+                            <StageValue value={ratio(stage.raw.plateSeamHeightRatio)} delta={stage.deltaFromPrevious?.plateSeamHeightRatio ?? undefined} />
+                            <StageValue value={ratio(stage.raw.provinceSeamHeightRatio)} delta={stage.deltaFromPrevious?.provinceSeamHeightRatio ?? undefined} />
+                            <StageValue value={ratio(stage.raw.skeletonSeamHeightRatio)} delta={stage.deltaFromPrevious?.skeletonSeamHeightRatio ?? undefined} />
                             <StageValue value={percent(stage.raw.featureAuthorityCoverage)} delta={stage.deltaFromPrevious?.featureAuthorityCoverage} formatDelta={percentDelta} />
                             <StageValue value={percent(stage.raw.plateAuthorityLeakShare)} />
                             <StageValue value={percent(stage.raw.provinceAuthorityLeakShare)} />
