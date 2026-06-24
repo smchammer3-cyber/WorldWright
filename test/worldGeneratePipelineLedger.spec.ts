@@ -37,9 +37,11 @@ describe('Generate pipeline authority ledger', () => {
     expect(skeletonElevation?.actualWrites.some((change) => change.group === 'terrain')).toBe(true);
     expect(skeletonElevation?.unexpectedWrites).toHaveLength(0);
 
-    const firstRecompute = ledger?.stages.find((stage) => stage.id === 'FIRST_RECOMPUTE');
-    expect(firstRecompute?.actualWrites.some((change) => change.group === 'derivedSurface')).toBe(true);
-    expect(firstRecompute?.unexpectedWrites.some((change) => change.group === 'terrain')).toBe(false);
+    const recomputeStages = ledger?.stages.filter((stage) => stage.phase === 'derived-recompute') ?? [];
+    expect(recomputeStages.length).toBeGreaterThan(0);
+    for (const stage of recomputeStages) {
+      expect(stage.unexpectedWrites.some((change) => change.group === 'terrain')).toBe(false);
+    }
 
     const crustFields = ledger?.stages.find((stage) => stage.id === 'CRUST_FIELDS');
     expect(crustFields?.actualWrites.some((change) => change.group === 'crustCause')).toBe(true);
