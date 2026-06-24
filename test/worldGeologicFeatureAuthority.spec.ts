@@ -85,6 +85,25 @@ describe('geologic feature authority', () => {
     expect(authority.hasStrongFeatureAuthority).toBe(false);
   });
 
+  it('does not let height-derived ocean depth classes self-authorize terrain', () => {
+    const trenchCell = createEmptyCell(1);
+    trenchCell.plateType = PlateType.OCEANIC;
+    trenchCell.boundaryType = BoundaryType.NONE;
+    trenchCell.marginType = ContinentMarginType.NONE;
+    trenchCell.crustProvince = CrustProvince.OCEANIC_BASIN;
+    trenchCell.oceanDepthClass = OceanDepthClass.TRENCH;
+
+    const ridgeCell = createEmptyCell(2);
+    ridgeCell.plateType = PlateType.OCEANIC;
+    ridgeCell.boundaryType = BoundaryType.NONE;
+    ridgeCell.marginType = ContinentMarginType.NONE;
+    ridgeCell.crustProvince = CrustProvince.OCEANIC_BASIN;
+    ridgeCell.oceanDepthClass = OceanDepthClass.RIDGE;
+
+    expect(classifyGeologicFeatureAuthority(trenchCell).hasStrongFeatureAuthority).toBe(false);
+    expect(classifyGeologicFeatureAuthority(ridgeCell).hasStrongFeatureAuthority).toBe(false);
+  });
+
   it('reports visible plate/province jumps with no shared feature as authority leaks', () => {
     const diagnostics = computeGeologicFeatureAuthorityDiagnostics(makeAuthorityWorld(false));
 
