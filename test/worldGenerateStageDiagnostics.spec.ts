@@ -26,6 +26,7 @@ describe('generated stage diagnostics', () => {
       'CRUST_COHERENCE',
       'CRUST_SKELETON_OBEDIENCE',
       'CRUST_TINY_ISLAND_CLEANUP',
+      'OCEAN_BATHYMETRY_SMOOTHING',
       'FINAL_RECOMPUTE',
     ]);
 
