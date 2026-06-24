@@ -9,6 +9,9 @@ export {
   seedCrustFields,
 } from './worldCrust/index';
 export {
-  applyCrustTerrainInfluence,
   applyMaterialReliefReinforcement,
 } from './worldCrust/materialRelief';
+export {
+  applyCoastShapePass,
+  applyCrustTerrainInfluence,
+} from './worldCrust/coastShape';
