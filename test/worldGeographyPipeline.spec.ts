@@ -90,6 +90,74 @@ describe('world geography pipeline', () => {
     expect(shelf.baseHeight).toBeGreaterThan(0.10);
   });
 
+  it('keeps coherent raw land from being flipped into skeleton-cut water', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 16;
+    params.height = 8;
+    params.seed = 'skeleton-coherent-land-guard';
+    const world = generateWorldFromParams(params);
+    world.seaLevel = 0;
+    world.metadata.seaLevel = 0;
+    seedContinentSkeletonFields(world);
+
+    const row = 3;
+    const col = 7;
+    const center = world.cells[row * world.gridWidth + col];
+    for (let r = row - 1; r <= row + 1; r++) {
+      for (let c = col - 1; c <= col + 1; c++) {
+        const cell = world.cells[r * world.gridWidth + c];
+        cell.baseHeight = 0.018;
+        cell.editHeightDelta = 0;
+        cell.simHeightDelta = 0;
+        cell.continentality = 0.12;
+        cell.continentCoreStrength = 0;
+        cell.shelfStrength = 0.18;
+        cell.marginType = ContinentMarginType.NONE;
+        cell.islandCause = IslandCause.NONE;
+      }
+    }
+    const before = center.baseHeight;
+
+    applySkeletonBaseElevation(world);
+
+    expect(center.baseHeight).toBeGreaterThanOrEqual(0.006);
+    expect(center.baseHeight).toBeLessThan(before);
+  });
+
+  it('still sinks isolated invalid fragments', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 16;
+    params.height = 8;
+    params.seed = 'skeleton-invalid-fragment-sink';
+    const world = generateWorldFromParams(params);
+    world.seaLevel = 0;
+    world.metadata.seaLevel = 0;
+    seedContinentSkeletonFields(world);
+
+    const row = 3;
+    const col = 7;
+    const center = world.cells[row * world.gridWidth + col];
+    center.baseHeight = 0.018;
+    center.editHeightDelta = 0;
+    center.simHeightDelta = 0;
+    center.continentality = 0.08;
+    center.continentCoreStrength = 0;
+    center.shelfStrength = 0.08;
+    center.marginType = ContinentMarginType.NONE;
+    center.islandCause = IslandCause.INVALID_FRAGMENT;
+
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const neighbor = world.cells[(row + dr) * world.gridWidth + col + dc];
+      neighbor.baseHeight = -0.08;
+      neighbor.editHeightDelta = 0;
+      neighbor.simHeightDelta = 0;
+    }
+
+    applySkeletonBaseElevation(world);
+
+    expect(center.baseHeight).toBeLessThan(0);
+  });
+
   it('softens skeleton elevation so it does not collapse raw land coverage', () => {
     const params = createDefaultGeneratorParams();
     params.width = 96;
