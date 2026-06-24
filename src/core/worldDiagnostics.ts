@@ -1,5 +1,6 @@
 import { getWorldStyleRules, levelFromRange, rangeText } from './worldStyleRules';
 import { BoundaryType, OceanDepthClass, PlateType, type WorldBrain } from './worldSchema';
+import { computeExportHeightDiagnostics, type ExportHeightDiagnostics } from './worldExportHeightDiagnostics';
 
 export type DiagnosticLevel = 'ok' | 'watch' | 'problem';
 
@@ -41,6 +42,7 @@ export type WorldDiagnostics = {
     oldStableContinentalShare: number;
     oceanDepthDominantShare: number;
     oceanDepthDistribution: Record<string, number>;
+    exportHeight: ExportHeightDiagnostics;
   };
 };
 
@@ -111,6 +113,7 @@ export function computeWorldDiagnostics(world: WorldBrain): WorldDiagnostics {
   const dominantOceanDepthCount = Math.max(...Object.values(oceanDepthCounts));
   const meanContinentalCrustThickness = mean(continentalCrustThickness);
   const meanOceanicCrustThickness = mean(oceanicCrustThickness);
+  const exportHeight = computeExportHeightDiagnostics(world);
 
   const raw = {
     landFraction,
@@ -135,6 +138,7 @@ export function computeWorldDiagnostics(world: WorldBrain): WorldDiagnostics {
     oldStableContinentalShare: oldStableContinentalCells / Math.max(1, continentalCrustThickness.length),
     oceanDepthDominantShare: dominantOceanDepthCount / oceanTotal,
     oceanDepthDistribution: normalizeCounts(oceanDepthCounts, oceanTotal),
+    exportHeight,
   };
 
   const worstCoastRunFraction = Math.max(
@@ -248,6 +252,90 @@ export function computeWorldDiagnostics(world: WorldBrain): WorldDiagnostics {
       percent(raw.oceanDepthDominantShare),
       levelFromRange(raw.oceanDepthDominantShare, rules.diagnostics.oceanDepthDominantShare),
       'If one ocean-depth class dominates, bathymetry is painted/flat instead of shelf/slope/basin/trench mixed.',
+    ),
+    metric(
+      'heightCorruption',
+      'Height corruption',
+      String(raw.exportHeight.invalidHeightCount),
+      raw.exportHeight.invalidHeightCount === 0 ? 'ok' : 'problem',
+      'NaN/Infinity/missing final height values. Any corruption is export-blocking.',
+    ),
+    metric(
+      'exportRisk',
+      'Export risk',
+      `${Math.round(raw.exportHeight.exportRiskScore)}/100`,
+      exportRiskLevel(raw.exportHeight.exportRiskScore),
+      'Composite terrain sanity risk for future heightmap export. It is cause-aware and does not penalize justified mountains, trenches, ridges, or volcanic chains.',
+    ),
+    metric(
+      'heightRange',
+      'Height range',
+      `${fixed(raw.exportHeight.minHeight)}..${fixed(raw.exportHeight.maxHeight)}`,
+      heightRangeLevel(raw.exportHeight.heightRange),
+      'Final total height range before export normalization. Too tiny means flat world; too huge means likely broken spikes or unsafe Unreal scaling.',
+    ),
+    metric(
+      'neighborJump95',
+      'Slope p95',
+      fixed(raw.exportHeight.p95NeighborJump),
+      thresholdLevel(raw.exportHeight.p95NeighborJump, 0.055, 0.120),
+      '95th percentile neighbor height jump. Allows mountains and trenches, but watches for widespread staircase/cliff behavior.',
+    ),
+    metric(
+      'maxNeighborJump',
+      'Max slope jump',
+      fixed(raw.exportHeight.maxNeighborJump),
+      thresholdLevel(raw.exportHeight.maxNeighborJump, 0.16, 0.30),
+      'Largest adjacent-cell height jump. Extreme caused cliffs/trenches are allowed conceptually, but export-hostile single-edge spikes should stay rare.',
+    ),
+    metric(
+      'singleCellSpikes',
+      'Uncaused spikes',
+      percent(raw.exportHeight.singleCellSpikeShare),
+      thresholdLevel(raw.exportHeight.singleCellSpikeShare, 0.002, 0.018),
+      'Cells that strongly disagree with local neighbors without a tectonic, volcanic, shelf, ridge, trench, or continent-core cause.',
+    ),
+    metric(
+      'unexplainedExtremes',
+      'Uncaused extremes',
+      percent(raw.exportHeight.uncausedExtremeHighShare + raw.exportHeight.uncausedExtremeLowShare),
+      thresholdLevel(raw.exportHeight.uncausedExtremeHighShare + raw.exportHeight.uncausedExtremeLowShare, 0.004, 0.026),
+      'Very high or very low cells with no obvious cause. High/low is fine when caused; random spikes/pits are not.',
+    ),
+    metric(
+      'underwaterPlateImprint',
+      'Underwater plate imprint',
+      raw.exportHeight.underwaterPlateSeamRatio == null ? 'n/a' : `${fixed(raw.exportHeight.underwaterPlateSeamRatio)}×`,
+      raw.exportHeight.underwaterPlateSeamRatio == null ? 'watch' : thresholdLevel(raw.exportHeight.underwaterPlateSeamRatio, 1.35, 2.15),
+      'Ocean-only height jump across plate borders compared to same-plate ocean jumps. Real ridges/trenches are fine; hidden plate polygons are not.',
+    ),
+    metric(
+      'underwaterProvinceImprint',
+      'Underwater province imprint',
+      raw.exportHeight.underwaterProvinceSeamRatio == null ? 'n/a' : `${fixed(raw.exportHeight.underwaterProvinceSeamRatio)}×`,
+      raw.exportHeight.underwaterProvinceSeamRatio == null ? 'watch' : thresholdLevel(raw.exportHeight.underwaterProvinceSeamRatio, 1.35, 2.15),
+      'Ocean-only height jump across crust-province borders compared to same-province ocean jumps.',
+    ),
+    metric(
+      'unexplainedOceanPlateEdges',
+      'Unexplained ocean plate edges',
+      percent(raw.exportHeight.unexplainedUnderwaterPlateEdgeShare),
+      thresholdLevel(raw.exportHeight.unexplainedUnderwaterPlateEdgeShare, 0.02, 0.09),
+      'Share of underwater plate-border edges with noticeable height jumps but no ridge/trench/arc/volcanic explanation.',
+    ),
+    metric(
+      'wrapSeam',
+      'Wrap seam jump',
+      fixed(raw.exportHeight.wrapSeamMaxJump),
+      thresholdLevel(raw.exportHeight.wrapSeamMaxJump, 0.060, 0.160),
+      'Max height jump across the east/west map wrap. Exported heightmaps expose this seam if it is too high.',
+    ),
+    metric(
+      'poleSpike',
+      'Pole spike ratio',
+      raw.exportHeight.poleSpikeRatio == null ? 'n/a' : `${fixed(raw.exportHeight.poleSpikeRatio)}×`,
+      raw.exportHeight.poleSpikeRatio == null ? 'watch' : thresholdLevel(raw.exportHeight.poleSpikeRatio, 1.8, 3.0),
+      'Polar-band height variation divided by global height variation. Watches for pole pinching or cap artifacts before export.',
     ),
   ];
 
@@ -429,6 +517,26 @@ function crustContrastLevel(v: number): DiagnosticLevel {
 function oldCoreLevel(v: number): DiagnosticLevel {
   if (v < 0.03) return 'problem';
   if (v < 0.08) return 'watch';
+  return 'ok';
+}
+
+function thresholdLevel(value: number, okAt: number, problemAt: number): DiagnosticLevel {
+  if (!Number.isFinite(value)) return 'watch';
+  if (value <= okAt) return 'ok';
+  if (value <= problemAt) return 'watch';
+  return 'problem';
+}
+
+function exportRiskLevel(value: number): DiagnosticLevel {
+  if (value <= 30) return 'ok';
+  if (value <= 60) return 'watch';
+  return 'problem';
+}
+
+function heightRangeLevel(value: number): DiagnosticLevel {
+  if (!Number.isFinite(value)) return 'problem';
+  if (value < 0.05 || value > 3.0) return 'problem';
+  if (value < 0.16 || value > 2.2) return 'watch';
   return 'ok';
 }
 
