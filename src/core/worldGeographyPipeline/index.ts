@@ -72,6 +72,7 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
     const core = clamp01(cell.continentCoreStrength);
     const shelf = clamp01(cell.shelfStrength);
     const localLand = localFractionAboveSea(world, source, i, seaLevel, 4);
+    const tightLand = localFractionAboveSea(world, source, i, seaLevel, 1);
     const nearSurface = 1 - smoothstep(0.10, 0.46, Math.abs(aboveSea));
 
     let target = h;
@@ -87,15 +88,18 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
       strength = Math.max(strength, 0.15 + nearSurface * 0.08);
     } else {
       const basinTarget = seaLevel - 0.060 - (1 - continentality) * 0.135;
-      target = blendTarget(target, basinTarget, 0.18 + nearSurface * 0.08);
-      strength = Math.max(strength, 0.12 + nearSurface * 0.08);
+      const attachedLandProtection = wasLand ? smoothstep(0.32, 0.72, Math.max(localLand, tightLand)) : 0;
+      const basinPull = (0.18 + nearSurface * 0.08) * lerp(1, 0.34, attachedLandProtection);
+      target = blendTarget(target, basinTarget, basinPull);
+      strength = Math.max(strength, (0.12 + nearSurface * 0.08) * lerp(1, 0.45, attachedLandProtection));
     }
 
     if (shelf > 0.30 && core < 0.70) {
       const shelfTarget = seaLevel - 0.026 + shelf * 0.020;
       const shelfPull = wasLand ? 0.14 * shelf : 0.24 * shelf;
-      target = blendTarget(target, shelfTarget, shelfPull);
-      strength = Math.max(strength, 0.12 + shelf * 0.08);
+      const attachedLandProtection = wasLand ? smoothstep(0.40, 0.82, Math.max(localLand, tightLand)) : 0;
+      target = blendTarget(target, shelfTarget, shelfPull * lerp(1, 0.40, attachedLandProtection));
+      strength = Math.max(strength, (0.12 + shelf * 0.08) * lerp(1, 0.65, attachedLandProtection));
     }
 
     switch (cell.marginType) {
@@ -105,11 +109,11 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
         strength = Math.max(strength, 0.24);
         break;
       case ContinentMarginType.RIFT:
-        target -= 0.045 * (0.35 + nearSurface * 0.45) * (1 - core * 0.45);
-        strength = Math.max(strength, 0.20);
+        target -= 0.045 * (0.35 + nearSurface * 0.45) * (1 - core * 0.45) * lerp(1, 0.42, smoothstep(0.38, 0.78, tightLand));
+        strength = Math.max(strength, 0.20 * lerp(1, 0.60, smoothstep(0.38, 0.78, tightLand)));
         break;
       case ContinentMarginType.PASSIVE:
-        target -= 0.010 * shelf;
+        target -= 0.010 * shelf * lerp(1, 0.50, smoothstep(0.42, 0.82, tightLand));
         strength = Math.max(strength, 0.12);
         break;
       default:
@@ -129,16 +133,29 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
 
     if (delta < 0 && wasLand && !invalidFragment) {
       const landProtection = clamp01(
-        0.30 * smoothstep(0.20, 0.80, localLand) +
-        0.32 * smoothstep(0.24, 0.70, continentality) +
+        0.38 * smoothstep(0.20, 0.80, localLand) +
+        0.30 * smoothstep(0.24, 0.70, continentality) +
+        0.22 * smoothstep(0.25, 0.80, tightLand) +
         0.24 * core,
       );
-      delta *= lerp(1.0, 0.28, landProtection);
-      delta = Math.max(delta, -0.040);
+      delta *= lerp(1.0, 0.18, landProtection);
+      delta = Math.max(delta, -0.026);
+    }
+
+    const wouldFlipToWater = wasLand && h + delta < seaLevel;
+    if (wouldFlipToWater && !canSkeletonSinkLand(cell, localLand, tightLand, continentality, shelf, core, invalidFragment)) {
+      // Keep coherent existing land barely above water. Skeleton should guide
+      // future morphology; it should not shatter raw land into fragments here.
+      delta = Math.max(delta, seaLevel + 0.006 - h);
     }
 
     if (delta > 0 && !wasLand && continentality < 0.26 && shelf < 0.24 && !isCausedIsland(cell)) {
       delta *= 0.35;
+    }
+
+    const wouldFlipToLand = !wasLand && h + delta >= seaLevel;
+    if (wouldFlipToLand && !canSkeletonRaiseWater(cell, localLand, tightLand, continentality, shelf, core)) {
+      delta = Math.min(delta, seaLevel - 0.006 - h);
     }
 
     // The skeleton should guide broad continent/ocean tendency, not stamp hard
@@ -148,6 +165,35 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
 
     cell.baseHeight = clamp(cell.baseHeight + delta, -1.4, 1.5);
   }
+}
+
+function canSkeletonSinkLand(
+  cell: Cell,
+  localLand: number,
+  tightLand: number,
+  continentality: number,
+  shelf: number,
+  core: number,
+  invalidFragment: boolean,
+): boolean {
+  if (invalidFragment) return true;
+  if (isCausedIsland(cell)) return false;
+  if (core > 0.24 || continentality > 0.34 || shelf > 0.36) return false;
+  return localLand < 0.34 && tightLand < 0.38;
+}
+
+function canSkeletonRaiseWater(
+  cell: Cell,
+  localLand: number,
+  tightLand: number,
+  continentality: number,
+  shelf: number,
+  core: number,
+): boolean {
+  if (isCausedIsland(cell)) return true;
+  if (continentality > 0.70 && core > 0.56) return true;
+  if (continentality > 0.46 && shelf > 0.42 && Math.max(localLand, tightLand) >= 0.34) return true;
+  return false;
 }
 
 function totalHeight(cell: Cell): number {
