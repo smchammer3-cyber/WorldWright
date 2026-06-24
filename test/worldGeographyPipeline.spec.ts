@@ -59,8 +59,7 @@ describe('world geography pipeline', () => {
 
     applySkeletonBaseElevation(world);
 
-    expect(core.baseHeight).toBeGreaterThan(coreBefore);
-    expect(core.baseHeight).toBeGreaterThan(0);
+    expect(core.baseHeight).toBeGreaterThan(coreBefore + 0.01);
     expect(basin.baseHeight).toBeLessThan(basinBefore);
   });
 
