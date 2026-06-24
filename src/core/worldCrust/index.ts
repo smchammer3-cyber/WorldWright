@@ -292,48 +292,56 @@ export function applyContinentSkeletonTerrainObedience(world: WorldBrain): void 
     const cell = world.cells[i];
     const h = before[i];
     const aboveSea = h - seaLevel;
+    const wasLand = aboveSea >= 0;
     const continentality = clamp01(cell.continentality);
     const core = clamp01(cell.continentCoreStrength);
     const shelf = clamp01(cell.shelfStrength);
     const landNeighbors = landNeighborFractionByHeight(world, i, seaLevel, before);
     const waterNeighbors = 1 - landNeighbors;
-    const nearSurface = 1 - smoothstep(0.12, 0.48, Math.abs(aboveSea));
-    const broadNoise = centeredJitter(seed, cell.continentId ?? cell.oceanBasinId ?? i, 26003);
+    const nearSurface = 1 - smoothstep(0.10, 0.34, Math.abs(aboveSea));
+    const interiorLand = wasLand && landNeighbors >= 0.62;
+    const strongCore = continentality > 0.74 && core > 0.62;
+    const causedIsland = isCausedIslandCell(cell);
     const seamDamp = plateSeamDamp(world, i);
 
     let delta = 0;
 
-    if (continentality > 0.58) {
-      delta += (0.028 * smoothstep(0.58, 0.90, continentality) + 0.052 * core) * (0.35 + nearSurface * 0.65);
-      delta += broadNoise * 0.010 * smoothstep(0.55, 1.0, continentality);
+    // Late crust skeleton is now a restrained reinforcement pass. It should no
+    // longer behave like a second broad continent generator after coherence has
+    // repaired topology. Broad continent/ocean obedience belongs earlier in the
+    // skeleton/morphology pipeline.
+    if (strongCore) {
+      const coreTarget = seaLevel + 0.020 + core * 0.045;
+      const pull = wasLand ? 0.18 : 0.08;
+      delta += (coreTarget - h) * pull;
     }
 
-    if (shelf > 0.28 && core < 0.60) {
-      const shelfTarget = seaLevel - 0.024 + shelf * 0.018;
-      delta += (shelfTarget - h) * 0.11 * shelf * (0.35 + nearSurface * 0.65);
+    if (interiorLand && continentality > 0.64) {
+      delta += 0.010 * smoothstep(0.64, 0.92, continentality) * (0.45 + core * 0.55);
     }
 
-    if (cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.ACTIVE) {
-      delta += 0.032 * smoothstep(0.35, 0.85, continentality) * (0.40 + nearSurface * 0.60);
-    } else if (cell.marginType === ContinentMarginType.RIFT) {
-      delta -= 0.022 * nearSurface * (0.40 + smoothstep(0.20, 0.70, shelf));
-    } else if (cell.marginType === ContinentMarginType.PASSIVE && shelf > 0.35) {
-      delta -= 0.010 * nearSurface;
+    if (interiorLand && (cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.ACTIVE)) {
+      delta += 0.012 * smoothstep(0.48, 0.88, continentality);
     }
 
-    if (aboveSea > -0.02 && continentality < 0.24 && !isCausedIslandCell(cell)) {
-      const invalidPenalty = cell.islandCause === IslandCause.INVALID_FRAGMENT ? 0.045 : 0.024;
-      delta -= invalidPenalty * (0.55 + smoothstep(-0.02, 0.16, aboveSea) * 0.25);
+    if (interiorLand && cell.marginType === ContinentMarginType.RIFT && shelf > 0.42) {
+      delta -= 0.008 * nearSurface * smoothstep(0.42, 0.82, shelf);
     }
 
-    if (cell.islandCause === IslandCause.ISLAND_ARC || cell.islandCause === IslandCause.VOLCANIC_HOTSPOT) {
-      delta += 0.024 * (0.50 + nearSurface * 0.50);
-    } else if (cell.islandCause === IslandCause.SHELF_ISLAND || cell.islandCause === IslandCause.CONTINENTAL_FRAGMENT) {
-      delta += 0.014 * nearSurface;
+    if (causedIsland && h > seaLevel - 0.025) {
+      const islandLift = cell.islandCause === IslandCause.ISLAND_ARC || cell.islandCause === IslandCause.VOLCANIC_HOTSPOT
+        ? 0.010
+        : 0.006;
+      delta += islandLift * (0.45 + nearSurface * 0.55);
+    }
+
+    if (cell.islandCause === IslandCause.INVALID_FRAGMENT && continentality < 0.20 && waterNeighbors >= 0.72) {
+      delta -= 0.012 * (0.50 + nearSurface * 0.50);
     }
 
     if (delta !== 0) {
-      const rawDelta = delta * seamDamp;
+      const noise = centeredJitter(seed, i, 26003) * 0.0025 * (wasLand ? 1 : 0.35);
+      const rawDelta = clamp(delta + noise, -0.018, 0.018) * seamDamp;
       rawDeltas[i] = constrainCrustTopologyDelta(world, i, h, seaLevel, rawDelta, before, 'skeleton-obedience', landNeighbors, waterNeighbors);
     }
   }
