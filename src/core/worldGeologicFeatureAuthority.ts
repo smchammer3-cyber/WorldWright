@@ -66,6 +66,12 @@ const VISIBLE_AUTHORITY_JUMP = 0.035;
  * borders as visible terrain authority by themselves. Plates/provinces may
  * explain feature causes; the feature authority is what may explain visible
  * terrain/color decisions.
+ *
+ * Important: oceanDepthClass is derived from height during recompute, so it is
+ * not allowed to be strong terrain authority by itself. A deep cell should not
+ * become a self-justifying trench merely because the current height made it
+ * deep. Strong ridge/trench authority must come from cause fields such as
+ * boundaryType, marginType, islandCause, uplift, or volcanism.
  */
 export function classifyGeologicFeatureAuthority(cell: Cell): GeologicFeatureAuthority {
   const features: Partial<Record<GeologicFeatureAuthorityId, number>> = {};
@@ -75,17 +81,26 @@ export function classifyGeologicFeatureAuthority(cell: Cell): GeologicFeatureAut
     features[id] = Math.max(features[id] ?? 0, clamp01(strength));
   }
 
-  if (cell.oceanDepthClass === OceanDepthClass.TRENCH) {
-    add('SUBDUCTION_ZONE', 0.96);
-    add('OCEAN_TRENCH', 1.0);
-  }
-  if (cell.oceanDepthClass === OceanDepthClass.RIDGE) {
-    add('RIFT_ZONE', 0.90);
-    add('OCEAN_RIDGE', 0.95);
-  }
-  if (cell.oceanDepthClass === OceanDepthClass.SHELF) add('CONTINENT_SHELF', 0.64);
-  if (cell.oceanDepthClass === OceanDepthClass.SLOPE) add('CONTINENT_MARGIN', 0.56);
-  if (cell.oceanDepthClass === OceanDepthClass.ABYSSAL) add('OCEAN_BASIN', 0.22);
+  const hasSubductionCause =
+    cell.boundaryType === BoundaryType.CONVERGENT ||
+    cell.marginType === ContinentMarginType.ACTIVE ||
+    cell.marginType === ContinentMarginType.COLLISION ||
+    cell.islandCause === IslandCause.ISLAND_ARC ||
+    cell.crustProvince === CrustProvince.ISLAND_ARC ||
+    (cell.volcanicActivity > 0.52 && cell.upliftRate > 0.18);
+
+  const hasRiftCause =
+    cell.boundaryType === BoundaryType.DIVERGENT ||
+    cell.marginType === ContinentMarginType.RIFT ||
+    cell.islandCause === IslandCause.RIFT_FRAGMENT ||
+    cell.crustProvince === CrustProvince.RIFT_MARGIN ||
+    cell.upliftRate < -0.12;
+
+  if (cell.oceanDepthClass === OceanDepthClass.TRENCH) add('OCEAN_TRENCH', hasSubductionCause ? 0.94 : 0.32);
+  if (cell.oceanDepthClass === OceanDepthClass.RIDGE) add('OCEAN_RIDGE', hasRiftCause ? 0.92 : 0.32);
+  if (cell.oceanDepthClass === OceanDepthClass.SHELF) add('CONTINENT_SHELF', cell.shelfStrength > 0.50 ? 0.52 : 0.34);
+  if (cell.oceanDepthClass === OceanDepthClass.SLOPE) add('CONTINENT_MARGIN', cell.shelfStrength > 0.42 ? 0.50 : 0.30);
+  if (cell.oceanDepthClass === OceanDepthClass.ABYSSAL) add('OCEAN_BASIN', 0.16);
 
   if (cell.boundaryType === BoundaryType.CONVERGENT) {
     add('SUBDUCTION_ZONE', 0.82);
