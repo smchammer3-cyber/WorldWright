@@ -1,0 +1,1506 @@
+%PDF-1.4
+%
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Length 1964 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+50 760 Td
+(WorldWright Current-Repo Generate Diagnostics - Branch / PR 67 Context) Tj
+T*
+() Tj
+T*
+(This investigation was done against the current checked-out repo state, not an old snapshot.) Tj
+T*
+() Tj
+T*
+(Important branch context:) Tj
+T*
+() Tj
+T*
+(- Current local branch: work.) Tj
+T*
+(- The branch history shows PR #67 was merged, then several follow-up commits reverted or ) Tj
+T*
+(removed parts of PR #67.) Tj
+T*
+(- This diagnostic reflects the current code after PR #67 plus later removals/reverts, not ) Tj
+T*
+(the original PR #67 merge commit by itself.) Tj
+T*
+() Tj
+T*
+(Relevant recent history:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(work) Tj
+T*
+(d82e1de Restore worldCrust export formatting) Tj
+T*
+(33761e0 Remove PR #67 crust material authority tests) Tj
+T*
+(c9ed6b2 Remove PR #67 material tiny cleanup) Tj
+T*
+(2d2839f Remove PR #67 material terrain subpasses) Tj
+T*
+(8dd1a1d Remove PR #67 crust material helpers) Tj
+T*
+(6526b8c Remove PR #67 crust material blueprint note) Tj
+T*
+(9ac936b Revert PR #67 crust material terrain route) Tj
+T*
+(65e474a Merge pull request #67 from smchammer3-cyber/crust-material-fields-feature-relief) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(The current Generate pipeline order is:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(seed continent skeleton fields) Tj
+T*
+(-> apply skeleton base elevation) Tj
+T*
+(-> recompute) Tj
+T*
+(-> apply generated world quality pass) Tj
+T*
+(-> recompute) Tj
+T*
+(-> seed continent skeleton fields) Tj
+T*
+(-> seed crust fields) Tj
+T*
+(-> apply crust terrain influence) Tj
+T*
+(-> apply ocean bathymetry smoothing) Tj
+T*
+(-> recompute) Tj
+T*
+(-> seed continent skeleton fields) Tj
+T*
+(-> seed crust fields) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(The current stage diagnostics replay isolates these Generate stages:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(RAW_GENERATOR) Tj
+T*
+(CONTINENT_FIELDS) Tj
+T*
+(SKELETON_ELEVATION) Tj
+T*
+(FIRST_RECOMPUTE) Tj
+T*
+(QUALITY_PASS) Tj
+T*
+(CRUST_FIELDS) Tj
+T*
+(CRUST_PROVINCE_DELTA) Tj
+T*
+(CRUST_COAST_BREAKUP) Tj
+ET
+endstream
+endobj
+3 0 obj
+<< /Length 1481 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+50 760 Td
+(CRUST_COHERENCE) Tj
+T*
+(CRUST_SKELETON_OBEDIENCE) Tj
+T*
+(CRUST_TINY_ISLAND_CLEANUP) Tj
+T*
+(OCEAN_BATHYMETRY_SMOOTHING) Tj
+T*
+(FINAL_RECOMPUTE) Tj
+T*
+(FINAL_CONTINENT_RESEED) Tj
+T*
+(FINAL_CRUST_RESEED) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Diagnostic sample used:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(width = 128) Tj
+T*
+(height = 64) Tj
+T*
+(seed = "67") Tj
+T*
+(continentCount = 4) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Short Answers) Tj
+T*
+() Tj
+T*
+(1. Which Generate stage first causes plate/skeleton/province imprint to jump?) Tj
+T*
+() Tj
+T*
+(Plate imprint first jumps at SKELETON_ELEVATION.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(RAW_GENERATOR plate imprint:      0.882x) Tj
+T*
+(CONTINENT_FIELDS plate imprint:   0.882x) Tj
+T*
+(SKELETON_ELEVATION plate imprint: 1.209x) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Skeleton classification imprint appears as soon as CONTINENT_FIELDS are seeded:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(CONTINENT_FIELDS skeleton imprint: 1.362x) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Province imprint first appears at CRUST_FIELDS:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(CRUST_FIELDS province imprint: 1.503x) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Then province imprint becomes more terrain-visible at CRUST_PROVINCE_DELTA:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(CRUST_PROVINCE_DELTA province imprint: 1.769x) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Final answer:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(First plate height imprint jump:    SKELETON_ELEVATION) Tj
+T*
+(First skeleton identity imprint:    CONTINENT_FIELDS) Tj
+T*
+(First province identity imprint:    CRUST_FIELDS) Tj
+ET
+endstream
+endobj
+4 0 obj
+<< /Length 1630 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+50 760 Td
+(First province terrain imprint:     CRUST_PROVINCE_DELTA) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(2. Is skeleton elevation over-amplifying plate-shaped structure before crust runs?) Tj
+T*
+() Tj
+T*
+(Somewhat, yes.) Tj
+T*
+() Tj
+T*
+(SKELETON_ELEVATION is the first stage that turns hidden continent/skeleton structure into ) Tj
+T*
+(visible height structure.) Tj
+T*
+() Tj
+T*
+(In seed 67:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Plate imprint:    0.882x -> 1.209x) Tj
+T*
+(Land fraction:    31.13% -> 29.06%) Tj
+T*
+(Land bodies:      44 -> 35) Tj
+T*
+(Topology flip:    5.82%) Tj
+T*
+(Land relief:      0.0338 -> 0.0341) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(That means skeleton elevation is not just harmless guidance. It significantly changes ) Tj
+T*
+(terrain and sea-level topology.) Tj
+T*
+() Tj
+T*
+(However, it is not totally uncontrolled. The current code has safeguards:) Tj
+T*
+() Tj
+T*
+(- land protection) Tj
+T*
+(- weak-ocean uplift reduction) Tj
+T*
+(- invalid-fragment handling) Tj
+T*
+(- caused-island exceptions) Tj
+T*
+(- seam damping) Tj
+T*
+() Tj
+T*
+(Conclusion:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Skeleton elevation is restrained, but yes, it is the first stage that visibly amplifies hidden ) Tj
+T*
+(plate/skeleton structure before crust runs.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(3. Does crust delta create too many land bodies/fragments?) Tj
+T*
+() Tj
+T*
+(It creates extra land bodies, but not mainly medium fragments.) Tj
+T*
+() Tj
+T*
+(Before crust delta:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(CRUST_FIELDS) Tj
+T*
+(land bodies:        34) Tj
+T*
+(medium fragments:   4) Tj
+T*
+(medium share:       7.8%) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(After crust delta:) Tj
+T*
+() Tj
+T*
+() Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Length 1290 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+50 760 Td
+(CRUST_PROVINCE_DELTA) Tj
+T*
+(land bodies:        41) Tj
+T*
+(medium fragments:   4) Tj
+T*
+(medium share:       7.72%) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(So crust delta adds:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(+7 land bodies) Tj
+T*
+(+0 medium fragments) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Conclusion:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Crust delta does increase total land-body count, but in this current code sample it does not ) Tj
+T*
+(explode medium fragments.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(4. Is crust cohere mostly repairing damage caused by crust delta?) Tj
+T*
+() Tj
+T*
+(Partly, but no - it is not the main repair pass.) Tj
+T*
+() Tj
+T*
+(Sequence after crust delta:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(CRUST_PROVINCE_DELTA:) Tj
+T*
+(land bodies:       41) Tj
+T*
+(medium fragments:  4) Tj
+T*
+() Tj
+T*
+(CRUST_COAST_BREAKUP:) Tj
+T*
+(land bodies:       40) Tj
+T*
+(medium fragments:  4) Tj
+T*
+() Tj
+T*
+(CRUST_COHERENCE:) Tj
+T*
+(land bodies:       38) Tj
+T*
+(medium fragments:  4) Tj
+T*
+() Tj
+T*
+(CRUST_SKELETON_OBEDIENCE:) Tj
+T*
+(land bodies:       36) Tj
+T*
+(medium fragments:  2) Tj
+T*
+() Tj
+T*
+(CRUST_TINY_ISLAND_CLEANUP:) Tj
+T*
+(land bodies:       29) Tj
+T*
+(medium fragments:  2) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Crust cohere repairs some damage:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(land bodies: 40 -> 38) Tj
+T*
+() Tj
+T*
+() Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Length 1696 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+50 760 Td
+(But the bigger repairs come later:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(CRUST_SKELETON_OBEDIENCE:) Tj
+T*
+(medium fragments: 4 -> 2) Tj
+T*
+() Tj
+T*
+(CRUST_TINY_ISLAND_CLEANUP:) Tj
+T*
+(land bodies: 36 -> 29) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Conclusion:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Crust cohere helps, but the main repair burden is carried by crust skeleton obedience and tiny ) Tj
+T*
+(island cleanup.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(5. Is crust skeleton double-applying skeleton authority?) Tj
+T*
+() Tj
+T*
+(Yes, but currently in a restrained way.) Tj
+T*
+() Tj
+T*
+(There are two skeleton terrain authority stages:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(1. Early skeleton elevation:) Tj
+T*
+(   applySkeletonBaseElevation) Tj
+T*
+() Tj
+T*
+(2. Late crust skeleton obedience:) Tj
+T*
+(   applyContinentSkeletonTerrainObedience) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(The current code explicitly says the late crust skeleton pass is intended to be restrained ) Tj
+T*
+(and should not behave like a second continent generator.) Tj
+T*
+() Tj
+T*
+(But in seed 67 it still has a real effect:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Land fraction:      29.16% -> 30.69%) Tj
+T*
+(Land bodies:        38 -> 36) Tj
+T*
+(Medium fragments:   4 -> 2) Tj
+T*
+(Topology flip:      1.65%) Tj
+T*
+(Plate imprint:      1.382x -> 1.430x) Tj
+T*
+(Province imprint:   1.785x -> 1.839x) Tj
+T*
+(Skeleton imprint:   1.374x -> 1.386x) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Conclusion:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Yes. Crust skeleton is a second skeleton-authority pass. It is restrained and useful for repair, ) Tj
+T*
+(but it still changes terrain and increases imprint.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(6. Are crust fields derived from height/oceanDepthClass in a way that creates feedback?) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Length 1326 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+50 760 Td
+() Tj
+T*
+(Yes. This is one of the clearest current feedback risks.) Tj
+T*
+() Tj
+T*
+(Current crust field seeding reads current terrain and ocean classification:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(height) Tj
+T*
+(aboveSea) Tj
+T*
+(terrainBuoyancy) Tj
+T*
+(oceanDepthClass) Tj
+T*
+(plateType) Tj
+T*
+(boundaryType) Tj
+T*
+(upliftRate) Tj
+T*
+(volcanicActivity) Tj
+T*
+(surfaceAge) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Then it writes:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(crustThickness) Tj
+T*
+(crustAge) Tj
+T*
+(crustProvince) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Then the next terrain pass reads those crust fields and modifies height:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(crustThickness / crustAge / crustProvince) Tj
+T*
+(-> crust province terrain delta) Tj
+T*
+(-> changed height) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(So the loop is:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(height / oceanDepthClass) Tj
+T*
+(-> crust fields) Tj
+T*
+(-> crust province) Tj
+T*
+(-> height delta) Tj
+T*
+(-> final terrain) Tj
+T*
+(-> final crust reseed) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Conclusion:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Yes. Crust fields are partly height-derived, then crust fields modify height. That creates a ) Tj
+T*
+(height -> crust -> height feedback loop.) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(7. Which stage helps land relief, and which stage hurts it?) Tj
+T*
+() Tj
+T*
+(Using landHeightStdDev as the relief metric:) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Length 1514 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+50 760 Td
+() Tj
+T*
+() Tj
+T*
+(RAW_GENERATOR:              0.0338) Tj
+T*
+(SKELETON_ELEVATION:         0.0341) Tj
+T*
+(QUALITY_PASS:               0.0329) Tj
+T*
+(CRUST_FIELDS:               0.0329) Tj
+T*
+(CRUST_PROVINCE_DELTA:       0.0313) Tj
+T*
+(CRUST_COAST_BREAKUP:        0.0314) Tj
+T*
+(CRUST_COHERENCE:            0.0314) Tj
+T*
+(CRUST_SKELETON_OBEDIENCE:   0.0324) Tj
+T*
+(FINAL:                      0.0324) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Stages that help relief:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(SKELETON_ELEVATION) Tj
+T*
+(CRUST_COAST_BREAKUP, slightly) Tj
+T*
+(CRUST_SKELETON_OBEDIENCE) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Stages that hurt relief:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(QUALITY_PASS) Tj
+T*
+(CRUST_PROVINCE_DELTA) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Conclusion:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Best relief helper: CRUST_SKELETON_OBEDIENCE) Tj
+T*
+(Secondary helper: SKELETON_ELEVATION) Tj
+T*
+(Biggest relief hurt: CRUST_PROVINCE_DELTA) Tj
+T*
+(Unexpected relief hurt: QUALITY_PASS) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(8. Which pass most increases export risk?) Tj
+T*
+() Tj
+T*
+(There are two kinds of export risk:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(A. terrain/export height risk) Tj
+T*
+(B. metadata/debug/color/province export risk) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Biggest terrain export risk: CRUST_PROVINCE_DELTA.) Tj
+T*
+() Tj
+T*
+(It changes height based on crust province and increases visible imprint:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Plate imprint:     1.227x -> 1.344x) Tj
+T*
+(Province imprint:  1.503x -> 1.769x) Tj
+T*
+(Province leak:     13.53% -> 18.70%) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Length 2672 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+50 760 Td
+(Land bodies:       34 -> 41) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Biggest metadata/debug/export classification risk: CRUST_FIELDS.) Tj
+T*
+() Tj
+T*
+(This stage does not change height, but it creates crust province labels that immediately ) Tj
+T*
+(have strong spatial imprint:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Province imprint appears at: 1.503x) Tj
+T*
+(Province leak jumps to:     13.53%) Tj
+T*
+(Ocean leak jumps to:        13.31%) Tj
+T*
+(Land leak jumps to:         9.44%) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Final export metadata risk: FINAL_CRUST_RESEED.) Tj
+T*
+() Tj
+T*
+(This does not change terrain, but it changes/re-syncs final crust/province identity after ) Tj
+T*
+(terrain has settled.) Tj
+T*
+() Tj
+T*
+(In seed 67:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Province imprint:  1.848x -> 1.870x) Tj
+T*
+(Province leak:     20.30% -> 20.76%) Tj
+T*
+(Ocean leak:        15.06% -> 15.92%) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Conclusion:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Most terrain export risk:       CRUST_PROVINCE_DELTA) Tj
+T*
+(Most classification/export risk: CRUST_FIELDS) Tj
+T*
+(Final export label risk:         FINAL_CRUST_RESEED) Tj
+T*
+(Most visible late terrain risk:  CRUST_SKELETON_OBEDIENCE) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Full Stage Table) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Stage                       Land     Bodies  Medium  Relief   Plate   Province  Skeleton  Flip) Tj
+T*
+(RAW_GENERATOR               31.13%   44      9       0.0338   0.882x  -         -         -) Tj
+T*
+(CONTINENT_FIELDS            31.13%   44      9       0.0338   0.882x  -         1.362x    0%) Tj
+T*
+(SKELETON_ELEVATION          29.06%   35      3       0.0341   1.209x  -         1.362x    5.82%) Tj
+T*
+(FIRST_RECOMPUTE             29.06%   35      3       0.0341   1.209x  -         1.362x    0%) Tj
+T*
+(QUALITY_PASS                28.97%   34      4       0.0329   1.227x  -         1.363x    1.22%) Tj
+T*
+(CRUST_FIELDS                28.97%   34      4       0.0329   1.227x  1.503x    1.348x    0%) Tj
+T*
+(CRUST_PROVINCE_DELTA        29.41%   41      4       0.0313   1.344x  1.769x    1.367x    0.49%) Tj
+T*
+(CRUST_COAST_BREAKUP         29.28%   40      4       0.0314   1.377x  1.784x    1.374x    0.24%) Tj
+T*
+(CRUST_COHERENCE             29.16%   38      4       0.0314   1.382x  1.785x    1.374x    0.24%) Tj
+T*
+(CRUST_SKELETON_OBEDIENCE    30.69%   36      2       0.0324   1.430x  1.839x    1.386x    1.65%) Tj
+T*
+(CRUST_TINY_ISLAND_CLEANUP   30.48%   29      2       0.0324   1.399x  1.846x    1.378x    0.21%) Tj
+T*
+(OCEAN_BATHYMETRY_SMOOTHING  30.48%   29      2       0.0324   1.403x  1.848x    1.376x    0%) Tj
+T*
+(FINAL_RECOMPUTE             30.48%   29      2       0.0324   1.403x  1.848x    1.376x    0%) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Length 1576 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+50 760 Td
+(FINAL_CONTINENT_RESEED      30.48%   29      2       0.0324   1.403x  1.848x    1.457x    0%) Tj
+T*
+(FINAL_CRUST_RESEED          30.48%   29      2       0.0324   1.403x  1.870x    1.457x    0%) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Main Current-Repo Issues) Tj
+T*
+() Tj
+T*
+(Issue A - Skeleton elevation is the first major visible cause imprint) Tj
+T*
+() Tj
+T*
+(The raw generator has lower plate imprint:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(0.882x) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(After skeleton elevation:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(1.209x) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(This means skeleton elevation is the first pass that visibly increases plate-shaped ) Tj
+T*
+(structure.) Tj
+T*
+() Tj
+T*
+(Issue B - Crust fields are height-derived, so they can echo existing terrain) Tj
+T*
+() Tj
+T*
+(Crust fields are seeded from current height and ocean classification.) Tj
+T*
+() Tj
+T*
+(Risk:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(terrain already has shape) Tj
+T*
+(-> crust fields classify from that shape) Tj
+T*
+(-> crust terrain pass reinforces that shape) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(This creates feedback.) Tj
+T*
+() Tj
+T*
+(Issue C - Province labels create export-visible seams before terrain is changed) Tj
+T*
+() Tj
+T*
+(CRUST_FIELDS does not change height, but province imprint immediately appears:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(1.503x) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(This means province labels are already aligned with visible terrain/height structure.) Tj
+T*
+() Tj
+T*
+(That is risky for:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(debug overlays) Tj
+T*
+(material exports) Tj
+T*
+(province exports) Tj
+T*
+(final color authority) Tj
+ET
+endstream
+endobj
+11 0 obj
+<< /Length 1580 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+50 760 Td
+(height export explanations) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Issue D - Crust province delta is the main terrain imprint amplifier) Tj
+T*
+() Tj
+T*
+(CRUST_PROVINCE_DELTA makes province identity visible in terrain:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Province imprint: 1.503x -> 1.769x) Tj
+T*
+(Land bodies:      34 -> 41) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(This is the main pass to inspect if hidden province structure is leaking into export height.) Tj
+T*
+() Tj
+T*
+(Issue E - Crust skeleton is useful but still double-applies skeleton authority) Tj
+T*
+() Tj
+T*
+(The late crust skeleton pass improves topology:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Medium fragments: 4 -> 2) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(But it also increases imprint:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Plate imprint:    1.382x -> 1.430x) Tj
+T*
+(Province imprint: 1.785x -> 1.839x) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(So it is useful but risky.) Tj
+T*
+() Tj
+T*
+(Issue F - Quality pass may not be helping land relief enough) Tj
+T*
+() Tj
+T*
+(The quality pass is supposed to add interior relief, but in this sample:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Land relief: 0.0341 -> 0.0329) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(This suggests the coast/strait/shelf components may be overpowering the intended interior ) Tj
+T*
+(relief.) Tj
+T*
+() Tj
+T*
+(Recommended Next Fixes) Tj
+T*
+() Tj
+T*
+(1. Reduce crust feedback) Tj
+T*
+() Tj
+T*
+(Separate crust cause fields from current height more strongly.) Tj
+T*
+() Tj
+T*
+(Current risky loop:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(height / oceanDepthClass) Tj
+T*
+(-> crustThickness / crustAge / crustProvince) Tj
+T*
+(-> crust province terrain delta) Tj
+ET
+endstream
+endobj
+12 0 obj
+<< /Length 1447 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+50 760 Td
+(-> height) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Better:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(plate + skeleton + tectonic context) Tj
+T*
+(-> crust causes) Tj
+T*
+(-> terrain influence) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Height should be a weak modifier, not a primary classifier.) Tj
+T*
+() Tj
+T*
+(2. Add explicit diagnostics for cause-only reseed risk) Tj
+T*
+() Tj
+T*
+(Stages like these do not change height but can change export labels:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(CRUST_FIELDS) Tj
+T*
+(FINAL_CONTINENT_RESEED) Tj
+T*
+(FINAL_CRUST_RESEED) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Need a diagnostic like:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(cause-only label changed export/color/debug risk) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Because the current issue is not only terrain height. It is also final ) Tj
+T*
+(labels/materials/province metadata.) Tj
+T*
+() Tj
+T*
+(3. Treat CRUST_PROVINCE_DELTA as the main province terrain risk) Tj
+T*
+() Tj
+T*
+(This pass should probably have stronger limits based on:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(province seam imprint) Tj
+T*
+(plate seam imprint) Tj
+T*
+(land-body count change) Tj
+T*
+(medium fragment change) Tj
+T*
+(export-height risk) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Not only topology flips.) Tj
+T*
+() Tj
+T*
+(4. Keep crust skeleton but enforce that it remains repair-only) Tj
+T*
+() Tj
+T*
+(The current code says it is restrained, but the numbers show it still changes topology ) Tj
+T*
+(significantly.) Tj
+T*
+() Tj
+T*
+(It should maybe be measured by:) Tj
+T*
+() Tj
+T*
+() Tj
+ET
+endstream
+endobj
+13 0 obj
+<< /Length 2132 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+50 760 Td
+(allowed repair improvement) Tj
+T*
+(vs) Tj
+T*
+(added imprint cost) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(If it reduces fragments but increases plate/province imprint too much, it should back off.) Tj
+T*
+() Tj
+T*
+(5. Rebalance quality pass for relief) Tj
+T*
+() Tj
+T*
+(If land relief is the goal, the current quality pass should be checked because on seed 67 it) Tj
+T*
+( reduces land relief.) Tj
+T*
+() Tj
+T*
+(Possible causes:) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(coastal breakup overpowering interior relief) Tj
+T*
+(strait cuts reducing relief) Tj
+T*
+(shelf roughness not helping land relief) Tj
+T*
+(interior relief too weak or too gated) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(Final Diagnostic Conclusions) Tj
+T*
+() Tj
+T*
+() Tj
+T*
+(1. First plate/skeleton/province imprint jump:) Tj
+T*
+(   - Plate height imprint: SKELETON_ELEVATION) Tj
+T*
+(   - Skeleton identity imprint: CONTINENT_FIELDS) Tj
+T*
+(   - Province identity imprint: CRUST_FIELDS) Tj
+T*
+(   - Province terrain imprint: CRUST_PROVINCE_DELTA) Tj
+T*
+() Tj
+T*
+(2. Skeleton elevation over-amplifies plate-shaped structure before crust:) Tj
+T*
+(   - Yes, somewhat. It is the first major visible amplification stage.) Tj
+T*
+() Tj
+T*
+(3. Crust delta creates too many land bodies/fragments:) Tj
+T*
+(   - It adds land bodies, but not medium fragments in seed 67.) Tj
+T*
+() Tj
+T*
+(4. Crust cohere repairs crust delta damage:) Tj
+T*
+(   - Partly, but main repairs are crust skeleton obedience and tiny island cleanup.) Tj
+T*
+() Tj
+T*
+(5. Crust skeleton double-applies skeleton authority:) Tj
+T*
+(   - Yes. It is restrained but still a second skeleton terrain pass.) Tj
+T*
+() Tj
+T*
+(6. Crust fields create feedback:) Tj
+T*
+(   - Yes. Current crust fields are partly derived from height/oceanDepthClass, then used to modify) Tj
+T*
+( height.) Tj
+T*
+() Tj
+T*
+(7. Stage that helps relief:) Tj
+T*
+(   - Best: CRUST_SKELETON_OBEDIENCE) Tj
+T*
+(   - Also helps slightly: SKELETON_ELEVATION) Tj
+T*
+(   - Hurts most: CRUST_PROVINCE_DELTA) Tj
+T*
+(   - Unexpectedly hurts: QUALITY_PASS) Tj
+T*
+() Tj
+T*
+(8. Pass that most increases export risk:) Tj
+T*
+(   - Terrain export risk: CRUST_PROVINCE_DELTA) Tj
+ET
+endstream
+endobj
+14 0 obj
+<< /Length 146 >>
+stream
+BT
+/F1 9 Tf
+12 TL
+50 760 Td
+(   - Metadata/debug/export label risk: CRUST_FIELDS) Tj
+T*
+(   - Final label risk: FINAL_CRUST_RESEED) Tj
+T*
+() Tj
+ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R >>
+endobj
+16 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 3 0 R >>
+endobj
+17 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 4 0 R >>
+endobj
+18 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 5 0 R >>
+endobj
+19 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 6 0 R >>
+endobj
+20 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 7 0 R >>
+endobj
+21 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 8 0 R >>
+endobj
+22 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 9 0 R >>
+endobj
+23 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 10 0 R >>
+endobj
+24 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 11 0 R >>
+endobj
+25 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 12 0 R >>
+endobj
+26 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 13 0 R >>
+endobj
+27 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 14 0 R >>
+endobj
+28 0 obj
+<< /Type /Pages /Kids [ 15 0 R 16 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R 22 0 R 23 0 R 24 0 R 25 0 R 26 0 R 27 0 R ] /Count 13 >>
+endobj
+29 0 obj
+<< /Type /Catalog /Pages 28 0 R >>
+endobj
+xref
+0 30
+0000000000 65535 f 
+0000000015 00000 n 
+0000000085 00000 n 
+0000002101 00000 n 
+0000003634 00000 n 
+0000005316 00000 n 
+0000006658 00000 n 
+0000008406 00000 n 
+0000009784 00000 n 
+0000011350 00000 n 
+0000014074 00000 n 
+0000015703 00000 n 
+0000017336 00000 n 
+0000018836 00000 n 
+0000021021 00000 n 
+0000021219 00000 n 
+0000021347 00000 n 
+0000021475 00000 n 
+0000021603 00000 n 
+0000021731 00000 n 
+0000021859 00000 n 
+0000021987 00000 n 
+0000022115 00000 n 
+0000022243 00000 n 
+0000022372 00000 n 
+0000022501 00000 n 
+0000022630 00000 n 
+0000022759 00000 n 
+0000022888 00000 n 
+0000023034 00000 n 
+trailer
+<< /Size 30 /Root 29 0 R >>
+startxref
+23085
+%%EOF
