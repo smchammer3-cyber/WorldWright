@@ -7,12 +7,16 @@ import {
   cleanupAccidentalTinyIslands,
   seedCrustFields,
 } from './worldCrust';
+import {
+  computeGeologicFeatureAuthorityDiagnostics,
+  type GeologicFeatureAuthorityDiagnostics,
+} from './worldGeologicFeatureAuthority';
 import { applyOceanBathymetrySmoothing } from './worldOceanBathymetry';
 import { createDefaultGeneratorParams, generateWorldFromParams, type GeneratorParams } from './worldGenerator';
 import { applyGeneratedWorldQualityPass } from './worldQualityPass';
 import { applySkeletonBaseElevation } from './worldGeographyPipeline';
 import { recomputeWorld } from './worldRecompute';
-import { BoundaryType, PlateType, type WorldBrain } from './worldSchema';
+import { PlateType, type WorldBrain } from './worldSchema';
 
 export type GenerateStageId =
   | 'RAW_GENERATOR'
@@ -27,7 +31,9 @@ export type GenerateStageId =
   | 'CRUST_SKELETON_OBEDIENCE'
   | 'CRUST_TINY_ISLAND_CLEANUP'
   | 'OCEAN_BATHYMETRY_SMOOTHING'
-  | 'FINAL_RECOMPUTE';
+  | 'FINAL_RECOMPUTE'
+  | 'FINAL_CONTINENT_RESEED'
+  | 'FINAL_CRUST_RESEED';
 
 export type GenerateStageRawMetrics = {
   landFraction: number;
@@ -45,6 +51,14 @@ export type GenerateStageRawMetrics = {
   plateTypeTerrainMismatch: number;
   lowContinentalityLandShare: number;
   strongContinentalityWaterShare: number;
+  featureAuthorityCoverage: number;
+  plateAuthorityLeakShare: number;
+  provinceAuthorityLeakShare: number;
+  oceanPlateAuthorityLeakShare: number;
+  oceanProvinceAuthorityLeakShare: number;
+  landPlateAuthorityLeakShare: number;
+  landProvinceAuthorityLeakShare: number;
+  geologicAuthority: GeologicFeatureAuthorityDiagnostics;
 };
 
 export type GenerateStageTransitionMetrics = {
@@ -124,9 +138,11 @@ export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null 
   applyOceanBathymetrySmoothing(world);
   record('OCEAN_BATHYMETRY_SMOOTHING', 'Ocean bathy', 'Cause-aware ocean-only smoothing to hide unexplained underwater plate/province ghosts while preserving ridges, trenches, arcs, and shelves.');
   recomputeWorld(world, ['GENERATED']);
+  record('FINAL_RECOMPUTE', 'Final recompute', 'Final derived state after the generated geography pipeline before final skeleton/crust reseeding.');
   seedContinentSkeletonFields(world);
+  record('FINAL_CONTINENT_RESEED', 'Final continent reseed', 'Final continent/shelf/margin identity reseed. If skeleton imprint jumps here, the reseed, not recompute, is the cause.');
   seedCrustFields(world);
-  record('FINAL_RECOMPUTE', 'Final recompute', 'Final derived state after the generated geography pipeline.');
+  record('FINAL_CRUST_RESEED', 'Final crust reseed', 'Final crust/province cause reseed after final continent fields. Height should not change here.');
 
   return { seed: String(params.seed), grid: `${params.width}×${params.height}`, stages };
 }
@@ -190,6 +206,10 @@ function computeStageRawMetrics(world: WorldBrain, trace = captureStageTrace(wor
   const plateSeamHeightRatio = edgeHeightRatio(world, trace.heights, (a, b) => a.plateId !== b.plateId);
   const provinceSeamHeightRatio = edgeHeightRatio(world, trace.heights, (a, b) => hasCrustProvince(a) && hasCrustProvince(b) && a.crustProvince !== b.crustProvince);
   const skeletonSeamHeightRatio = edgeHeightRatio(world, trace.heights, (a, b) => a.continentId !== b.continentId || a.oceanBasinId !== b.oceanBasinId || a.marginType !== b.marginType || a.islandCause !== b.islandCause);
+  const geologicAuthority = computeGeologicFeatureAuthorityDiagnostics(world, {
+    heights: trace.heights,
+    seaLevel: trace.seaLevel,
+  });
   return {
     landFraction: landHeights.length / totalCells,
     landComponents: componentSizes.length,
@@ -206,6 +226,14 @@ function computeStageRawMetrics(world: WorldBrain, trace = captureStageTrace(wor
     plateTypeTerrainMismatch: plateTypeTerrainMismatch / totalCells,
     lowContinentalityLandShare: lowContinentalityLand / landCellCount,
     strongContinentalityWaterShare: strongContinentalityWater / Math.max(1, oceanCellCount),
+    featureAuthorityCoverage: geologicAuthority.featureExplainedHighContrastEdgeShare,
+    plateAuthorityLeakShare: geologicAuthority.plateAuthorityLeakShare,
+    provinceAuthorityLeakShare: geologicAuthority.provinceAuthorityLeakShare,
+    oceanPlateAuthorityLeakShare: geologicAuthority.oceanPlateAuthorityLeakShare,
+    oceanProvinceAuthorityLeakShare: geologicAuthority.oceanProvinceAuthorityLeakShare,
+    landPlateAuthorityLeakShare: geologicAuthority.landPlateAuthorityLeakShare,
+    landProvinceAuthorityLeakShare: geologicAuthority.landProvinceAuthorityLeakShare,
+    geologicAuthority,
   };
 }
 
@@ -226,6 +254,13 @@ function diffRaw(raw: GenerateStageRawMetrics, previous: GenerateStageRawMetrics
     plateTypeTerrainMismatch: raw.plateTypeTerrainMismatch - previous.plateTypeTerrainMismatch,
     lowContinentalityLandShare: raw.lowContinentalityLandShare - previous.lowContinentalityLandShare,
     strongContinentalityWaterShare: raw.strongContinentalityWaterShare - previous.strongContinentalityWaterShare,
+    featureAuthorityCoverage: raw.featureAuthorityCoverage - previous.featureAuthorityCoverage,
+    plateAuthorityLeakShare: raw.plateAuthorityLeakShare - previous.plateAuthorityLeakShare,
+    provinceAuthorityLeakShare: raw.provinceAuthorityLeakShare - previous.provinceAuthorityLeakShare,
+    oceanPlateAuthorityLeakShare: raw.oceanPlateAuthorityLeakShare - previous.oceanPlateAuthorityLeakShare,
+    oceanProvinceAuthorityLeakShare: raw.oceanProvinceAuthorityLeakShare - previous.oceanProvinceAuthorityLeakShare,
+    landPlateAuthorityLeakShare: raw.landPlateAuthorityLeakShare - previous.landPlateAuthorityLeakShare,
+    landProvinceAuthorityLeakShare: raw.landProvinceAuthorityLeakShare - previous.landProvinceAuthorityLeakShare,
   };
 }
 
