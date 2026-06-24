@@ -54,6 +54,7 @@ export const PLANET_PREVIEW_MODES: Array<{ id: PlanetPreviewMode; label: string 
 ];
 
 export type PlanetPreview = {
+  mode: PlanetPreviewMode;
   width: number;
   height: number;
   seaLevel: number;
@@ -180,62 +181,52 @@ export function buildPlanetPreview(
   }
 
   function landColor(cell: Cell, h: number, row: number, col: number): Rgb {
-    const biomeId =
-      typeof cell.editBiomeId === "number" ? cell.editBiomeId : cell.baseBiomeId;
-    const temp = clamp01(cell.temperature);
-    const rain = clamp01(cell.rainfall);
-    const elev = clamp01((h - seaLevel) * 0.82);
+    const biome = biomeColorFromId(cell.editBiomeId ?? cell.baseBiomeId ?? 0);
+    const elev = clamp01((h - seaLevel) * 0.78);
+    const localWater = localWaterFraction(row, col, 1);
+    const beach = smoothstep(0.06, 0.42, localWater) * (1 - smoothstep(0.10, 0.24, h - seaLevel));
 
-    let color = biomeColorFromId(biomeId);
+    let color = mix(biome, [0.72, 0.66, 0.45], beach * 0.72);
+    color = mix(color, [0.44, 0.36, 0.26], elev * 0.20);
 
-    color = mix(color, [0.76, 0.62, 0.36], Math.max(0, 0.55 - rain) * 0.16);
-    color = mix(color, [0.16, 0.43, 0.22], Math.max(0, rain - 0.55) * 0.13);
-    color = mix(color, [0.72, 0.76, 0.70], Math.max(0, 0.26 - temp) * 0.18);
-
-    color = shade(color, lerp(0.92, 1.14, elev));
-
-    if (elev > 0.68) {
-      color = mix(color, [0.56, 0.56, 0.52], (elev - 0.68) / 0.32 * 0.32);
-    }
-
-    const coastBlend = smoothstep(0.08, 0.45, localWaterFraction(row, col, 1)) * 0.52;
-    color = mix(color, [0.78, 0.70, 0.50], coastBlend);
-
-    if (cell.snowCover > 0) {
-      color = mix(color, [0.91, 0.94, 0.91], clamp01(cell.snowCover) * 0.86);
-    }
-
-    const idx = cellIndex(row, col);
-    if (riverCells.has(idx)) {
-      color = mix(color, [0.04, 0.30, 0.62], 0.46);
+    if (cell.snowCover > 0.12) {
+      color = mix(color, [0.92, 0.95, 0.93], clamp01((cell.snowCover - 0.12) / 0.88) * 0.78);
     }
 
     return color;
   }
 
   function finalColor(row: number, col: number): Rgb {
-    const cell = cellAt(row, col);
-    if (!cell) return [1, 0, 1];
-
-    const h = totalHeightAtCell(cell);
-    return isWaterCell(cell) ? oceanColor(cell, h, row, col) : landColor(cell, h, row, col);
-  }
-
-  function debugColor(row: number, col: number): Rgb {
-    const cell = cellAt(row, col);
+    const idx = cellIndex(row, col);
+    const cell = cells[idx];
     if (!cell) return [1, 0, 1];
 
     const h = totalHeightAtCell(cell);
     const water = isWaterCell(cell);
+    const base = water ? oceanColor(cell, h, row, col) : landColor(cell, h, row, col);
+
+    if (riverCells.has(idx) && !water) {
+      return mix(base, [0.05, 0.35, 0.82], 0.35);
+    }
+
+    return base;
+  }
+
+  function debugColor(row: number, col: number): Rgb {
     const idx = cellIndex(row, col);
+    const cell = cells[idx];
+    if (!cell) return [1, 0, 1];
+
+    const h = totalHeightAtCell(cell);
+    const water = isWaterCell(cell);
 
     switch (mode) {
       case "HEIGHT":
         return heightDebugColor(h, seaLevel);
       case "LAND_WATER":
-        return water ? [0.04, 0.20, 0.48] : [0.46, 0.68, 0.34];
+        return water ? [0.04, 0.20, 0.42] : [0.50, 0.70, 0.36];
       case "BIOME":
-        return water ? oceanColor(cell, h, row, col) : biomeColorFromId(cell.baseBiomeId);
+        return water ? [0.05, 0.18, 0.34] : biomeColorFromId(cell.editBiomeId ?? cell.baseBiomeId ?? 0);
       case "TEMPERATURE":
         return temperatureColor(cell.temperature);
       case "RAINFALL":
@@ -280,6 +271,7 @@ export function buildPlanetPreview(
   });
 
   return {
+    mode,
     width,
     height,
     seaLevel,
@@ -519,44 +511,32 @@ function hash01(n: number): number {
   return (x >>> 0) / 0xffffffff;
 }
 
-function toRGBA255(rgb: Rgb): Rgba {
-  return [
-    clamp255(Math.round(rgb[0] * 255)),
-    clamp255(Math.round(rgb[1] * 255)),
-    clamp255(Math.round(rgb[2] * 255)),
-    255,
-  ];
+function rasterizeToBytes(width: number, height: number, sampler: (x: number, y: number) => Rgba): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const [r, g, b, a] = sampler(x, y);
+      const idx = (y * width + x) * 4;
+      out[idx] = r;
+      out[idx + 1] = g;
+      out[idx + 2] = b;
+      out[idx + 3] = a;
+    }
+  }
+  return out;
 }
 
 function mix(a: Rgb, b: Rgb, t: number): Rgb {
-  const x = clamp01(t);
-  return [
-    lerp(a[0], b[0], x),
-    lerp(a[1], b[1], x),
-    lerp(a[2], b[2], x),
-  ];
+  const k = clamp01(t);
+  return [a[0] * (1 - k) + b[0] * k, a[1] * (1 - k) + b[1] * k, a[2] * (1 - k) + b[2] * k];
 }
 
-function shade(color: Rgb, amount: number): Rgb {
-  return [
-    clamp01(color[0] * amount),
-    clamp01(color[1] * amount),
-    clamp01(color[2] * amount),
-  ];
+function shade(c: Rgb, multiplier: number): Rgb {
+  return [clamp01(c[0] * multiplier), clamp01(c[1] * multiplier), clamp01(c[2] * multiplier)];
 }
 
-function clamp01(n: number): number {
-  if (!Number.isFinite(n)) return 0;
-  return n < 0 ? 0 : n > 1 ? 1 : n;
-}
-
-function clamp255(n: number): number {
-  if (!Number.isFinite(n)) return 0;
-  return n < 0 ? 0 : n > 255 ? 255 : n;
-}
-
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
+function toRGBA255(c: Rgb): Rgba {
+  return [Math.round(clamp01(c[0]) * 255), Math.round(clamp01(c[1]) * 255), Math.round(clamp01(c[2]) * 255), 255];
 }
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
@@ -564,25 +544,6 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
   return t * t * (3 - 2 * t);
 }
 
-function rasterizeToBytes(
-  w: number,
-  h: number,
-  sample: (x: number, y: number) => Rgba
-): Uint8ClampedArray {
-  const out = new Uint8ClampedArray(w * h * 4);
-  let o = 0;
-
-  for (let y = 0; y < h; y++) {
-    const sy = y + 0.5;
-    for (let x = 0; x < w; x++) {
-      const sx = x + 0.5;
-      const rgba = sample(sx, sy);
-      out[o++] = rgba[0] | 0;
-      out[o++] = rgba[1] | 0;
-      out[o++] = rgba[2] | 0;
-      out[o++] = rgba[3] | 0;
-    }
-  }
-
-  return out;
+function clamp01(v: number): number {
+  return v < 0 ? 0 : v > 1 ? 1 : v;
 }
