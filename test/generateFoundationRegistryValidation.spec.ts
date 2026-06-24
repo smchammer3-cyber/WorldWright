@@ -1,0 +1,58 @@
+import { describe, expect, it } from 'vitest';
+import { getCurrentGenerateStageContract, listCurrentGenerateStageContracts } from '../src/core/generateCurrentStageRegistry';
+import { validateGenerateFoundationRegistry } from '../src/core/generateFoundationRegistryValidation';
+import { isForbiddenColorRead, isForbiddenTerrainRead } from '../src/core/generateFieldOwnership';
+import { layerCanRunForPlanetProfile } from '../src/core/generateLayerGates';
+import { getPlanetProfileContract } from '../src/core/generatePlanetProfileContract';
+import { getSliderContract } from '../src/core/generateSliderContract';
+
+describe('Generate foundation registry validation', () => {
+  it('has no hard registry validation problems', () => {
+    const report = validateGenerateFoundationRegistry();
+
+    expect(report.problems).toEqual([]);
+    expect(report.ok).toBe(true);
+  });
+
+  it('keeps hard hidden identity fields forbidden for terrain and color writers', () => {
+    for (const fieldId of ['plateId', 'crustProvince', 'continentId', 'oceanBasinId']) {
+      expect(isForbiddenTerrainRead(fieldId)).toBe(true);
+      expect(isForbiddenColorRead(fieldId)).toBe(true);
+    }
+  });
+
+  it('marks known current bad terrain stages as explicit transitional problems', () => {
+    expect(getCurrentGenerateStageContract('CRUST_PROVINCE_DELTA').risk).toBe('problem');
+    expect(getCurrentGenerateStageContract('CRUST_PROVINCE_DELTA').knownViolations).toContain('crustProvince -> baseHeight');
+    expect(getCurrentGenerateStageContract('CRUST_COAST_BREAKUP').risk).toBe('problem');
+    expect(getCurrentGenerateStageContract('CRUST_SKELETON_OBEDIENCE').knownViolations).toContain('late skeleton -> baseHeight');
+  });
+
+  it('does not allow terminal cause sync stages to be followed by terrain writers', () => {
+    const stages = listCurrentGenerateStageContracts();
+    for (let i = 0; i < stages.length; i++) {
+      if (!stages[i].terminalCauseSync) continue;
+      const laterTerrainWriter = stages.slice(i + 1).find((stage) => stage.mayShapeTerrain);
+      expect(laterTerrainWriter).toBeUndefined();
+    }
+  });
+
+  it('keeps gas/cloud profiles out of the normal rocky landmass stack', () => {
+    const gas = getPlanetProfileContract('CLOUD_GAS_WORLD');
+
+    expect(gas.surfaceSupportMode).toBe('CLOUD_GAS_NO_SURFACE');
+    expect(gas.forbiddenLayers).toContain('CONTINENTAL_MORPHOLOGY');
+    expect(gas.forbiddenLayers).toContain('LANDMASS_TERRAIN');
+    expect(layerCanRunForPlanetProfile('CRUST_MATERIAL', 'CLOUD_GAS_WORLD')).toBe(false);
+  });
+
+  it('keeps slider extremes creative without relaxing authority invariants', () => {
+    const water = getSliderContract('SEA_LEVEL_CURRENT');
+    const tectonics = getSliderContract('PLATE_ACTIVITY_CURRENT');
+
+    expect(water?.targetReplacementIds).toContain('WATER_INVENTORY');
+    expect(water?.forbiddenAuthorityRelaxations).toContain('plateId -> baseHeight');
+    expect(tectonics?.highExtremeMeaning).toContain('feature-backed');
+    expect(tectonics?.forbiddenAuthorityRelaxations).toContain('crustProvince -> baseHeight');
+  });
+});
