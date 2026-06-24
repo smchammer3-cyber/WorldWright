@@ -8,6 +8,7 @@ import {
   type Cell,
   type WorldBrain,
 } from './worldSchema';
+import { edgeHasSharedGeologicFeatureAuthority } from './worldGeologicFeatureAuthority';
 
 export type ExportHeightDiagnostics = {
   invalidHeightCount: number;
@@ -79,7 +80,7 @@ export function computeExportHeightDiagnostics(world: WorldBrain): ExportHeightD
       underwaterPlateBoundaryDelta += delta;
       underwaterPlateBoundaryEdges++;
       underwaterPlateEdges++;
-      if (delta > 0.035 && !edgeHasExplicitOceanTectonicCause(ca, cb)) unexplainedUnderwaterPlateEdges++;
+      if (delta > 0.035 && !edgeHasSharedGeologicFeatureAuthority(ca, cb)) unexplainedUnderwaterPlateEdges++;
     } else {
       underwaterSamePlateDelta += delta;
       underwaterSamePlateEdges++;
@@ -281,23 +282,6 @@ function cellHasDeepOceanCause(cell: Cell): boolean {
     cell.boundaryType === BoundaryType.DIVERGENT ||
     cell.crustProvince === CrustProvince.OCEANIC_BASIN ||
     cell.crustProvince === CrustProvince.ISLAND_ARC
-  );
-}
-
-function edgeHasExplicitOceanTectonicCause(a: Cell, b: Cell): boolean {
-  return (
-    a.oceanDepthClass === OceanDepthClass.TRENCH ||
-    b.oceanDepthClass === OceanDepthClass.TRENCH ||
-    a.oceanDepthClass === OceanDepthClass.RIDGE ||
-    b.oceanDepthClass === OceanDepthClass.RIDGE ||
-    a.boundaryType === BoundaryType.CONVERGENT ||
-    b.boundaryType === BoundaryType.CONVERGENT ||
-    a.boundaryType === BoundaryType.DIVERGENT ||
-    b.boundaryType === BoundaryType.DIVERGENT ||
-    a.crustProvince === CrustProvince.ISLAND_ARC ||
-    b.crustProvince === CrustProvince.ISLAND_ARC ||
-    a.volcanicActivity > 0.55 ||
-    b.volcanicActivity > 0.55
   );
 }
 
