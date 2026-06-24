@@ -1,6 +1,6 @@
 # WorldWright Blueprint: Generate Pipeline Authority Ledger
 
-Status: PR #65 diagnostic / trace pass  
+Status: PR #65 diagnostic / trace pass; PR #66 interpretation clarification  
 Purpose: make Generate Mode explain the full authority circuit from first source to final output.
 
 ---
@@ -79,6 +79,76 @@ Some warnings are not immediate bugs. They are checkpoints. The purpose is to ma
 
 ---
 
+## Interpreting the current self-reference points
+
+The first trace runs showed the pipeline was not wildly miswired: no stage was writing completely forbidden fields. That does not mean the design is safe. It means the problems are more specific.
+
+### Continent fields
+
+The early continent/skeleton seed reads terrain and plate context, then writes skeleton cause fields.
+
+This is acceptable as an initial interpretation, but it must stay broad:
+
+```text
+seed/parameters/plate context + broad generated terrain -> continent intent
+```
+
+It becomes dangerous if later terrain edits or terrain shaping keep redefining the skeleton:
+
+```text
+terrain -> skeleton -> terrain -> skeleton -> terrain
+```
+
+### Crust fields
+
+Crust fields currently read terrain and derived surface context, then write crust fields.
+
+That is a backward-risk checkpoint because crust terrain later reads those crust fields and changes terrain.
+
+The safe interpretation is:
+
+```text
+features/history -> continuous crust material fields -> smooth terrain response
+```
+
+The unsafe interpretation is:
+
+```text
+height/depth -> crustProvince label -> height stamp
+```
+
+### Ocean depth class
+
+Ocean depth class is derived from height/depth. It can be displayed and diagnosed, but it must not be treated as original bathymetric cause by itself.
+
+Unsafe loop:
+
+```text
+height makes water deep
+-> recompute labels it trench
+-> smoothing protects it as caused trench
+```
+
+Real ocean feature authority must come from explicit feature causes such as divergent ridges, convergent trenches, rifts, arcs, uplift, volcanism, or future feature-distance fields.
+
+### Final cause sync
+
+Final continent/crust reseeds are allowed only because they are terminal debug/metadata sync stages.
+
+This is safe:
+
+```text
+final recompute -> final cause sync -> stop
+```
+
+This is not safe:
+
+```text
+final cause sync -> terrain shaping
+```
+
+---
+
 ## Relationship to cause-order audit
 
 The existing cause-order audit answers:
@@ -98,6 +168,21 @@ Where does authority flow backward?
 ```
 
 Both are useful. The cause-order audit is the oscilloscope; the ledger is the wiring diagram plus voltage trace.
+
+---
+
+## Contract rules for future terrain work
+
+Future terrain fixes should obey these rules:
+
+```text
+1. Cause-seed stages write identity/cause fields only.
+2. Derived-recompute stages never write terrain or upstream cause fields.
+3. Terrain-shape stages read established cause/material fields and write terrain.
+4. Final-cause-sync stages are terminal and cannot be followed by terrain-shape stages.
+5. Derived labels such as oceanDepthClass and baseBiomeId are not original cause authority.
+6. Province labels are summaries; continuous crust material fields are the terrain authority.
+```
 
 ---
 
