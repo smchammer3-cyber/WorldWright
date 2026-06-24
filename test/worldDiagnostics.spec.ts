@@ -21,6 +21,14 @@ describe('world diagnostics', () => {
     expect(diagnostics.raw.coastlineEdgeDensity).toBeGreaterThanOrEqual(0);
     expect(diagnostics.raw.coastlineEdgeDensity).toBeLessThanOrEqual(1);
     expect(diagnostics.raw.heightStdDev).toBeGreaterThanOrEqual(0);
+    expect(diagnostics.raw.exportHeight.heightRange).toBeGreaterThanOrEqual(0);
+    expect(diagnostics.raw.exportHeight.maxNeighborJump).toBeGreaterThanOrEqual(0);
+    expect(diagnostics.raw.exportHeight.p95NeighborJump).toBeGreaterThanOrEqual(0);
+    expect(diagnostics.raw.exportHeight.exportRiskScore).toBeGreaterThanOrEqual(0);
+    expect(diagnostics.raw.exportHeight.exportRiskScore).toBeLessThanOrEqual(100);
+    expect(diagnostics.metrics.some((metric) => metric.id === 'exportRisk')).toBe(true);
+    expect(diagnostics.metrics.some((metric) => metric.id === 'underwaterPlateImprint')).toBe(true);
+    expect(diagnostics.metrics.some((metric) => metric.id === 'wrapSeam')).toBe(true);
 
     for (const metric of diagnostics.metrics) {
       expect(metric.id).toBeTruthy();
