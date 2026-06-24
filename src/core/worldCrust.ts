@@ -2,6 +2,7 @@ import {
   BoundaryType,
   ContinentMarginType,
   CrustProvince,
+  IslandCause,
   OceanDepthClass,
   PlateType,
   type Cell,
