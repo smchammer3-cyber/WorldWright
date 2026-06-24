@@ -23,6 +23,43 @@ The goal is not to make more diagnostics. The goal is to make existing diagnosti
 
 ---
 
+## Physical math companion
+
+Layer gates must be paired with real-world physical high/low bands.
+
+The companion blueprint is:
+
+```text
+WORLDWRIGHT_BLUEPRINT_PHYSICAL_LAYER_MATH.md
+```
+
+Use this document for:
+
+```text
+role / authority / write gates
+```
+
+Use the physical math blueprint for:
+
+```text
+real-world analog
+neutral Earthlike high/low bands
+slider-adjusted physical ranges
+plate shape refactor requirements
+crust material refactor requirements
+skeleton refactor requirements
+blueprint contradiction clarifications
+```
+
+Diagnostics should eventually read both as one contract:
+
+```text
+hard authority gates from this file
+soft physical bands from the physical math file
+```
+
+---
+
 ## Core authority chain
 
 Generate Mode should obey this stack:
@@ -229,7 +266,7 @@ Raw tables may remain available under details, but the primary diagnostic should
 
 ## Future implementation plan
 
-A later code PR should add a registry mirroring this document:
+A later code PR should add a registry mirroring this document and the physical math companion:
 
 ```text
 src/core/generateLayerGates.ts
@@ -250,6 +287,8 @@ maxTopologyFlipOk
 maxTopologyFlipWatch
 maxImprintDeltaOk
 maxImprintDeltaWatch
+neutralPhysicalBand
+sliderAdjustedPhysicalBand
 terminal
 ```
 
