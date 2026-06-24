@@ -153,7 +153,7 @@ export default function GeneratePreview({ world, error }: Props) {
                 position: "absolute",
                 left: 12,
                 top: 68,
-                width: "min(560px, calc(100% - 24px))",
+                width: "min(620px, calc(100% - 24px))",
                 maxHeight: "min(56%, 470px)",
                 overflow: "auto",
                 padding: 10,
@@ -230,11 +230,11 @@ export default function GeneratePreview({ world, error }: Props) {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1.25fr repeat(8, auto)",
+                        gridTemplateColumns: "1.35fr repeat(13, auto)",
                         gap: "5px 8px",
                         fontSize: 10,
                         alignItems: "baseline",
-                        minWidth: 520,
+                        minWidth: 820,
                       }}
                     >
                       <StageHeader label="Stage" />
@@ -245,23 +245,37 @@ export default function GeneratePreview({ world, error }: Props) {
                       <StageHeader label="Plate" />
                       <StageHeader label="Prov" />
                       <StageHeader label="Skel" />
+                      <StageHeader label="Auth" />
+                      <StageHeader label="PLeak" />
+                      <StageHeader label="PrLeak" />
+                      <StageHeader label="OLeak" />
+                      <StageHeader label="LLeak" />
                       <StageHeader label="Flip" />
-                      {stageDiagnostics.stages.map((stage) => (
-                        <React.Fragment key={stage.id}>
-                          <div title={stage.note} style={{ color: "rgba(255,255,255,0.78)", fontWeight: 800 }}>{stage.label}</div>
-                          <StageValue value={percent(stage.raw.landFraction)} delta={stage.deltaFromPrevious?.landFraction} formatDelta={percentDelta} />
-                          <StageValue value={String(stage.raw.landComponents)} delta={stage.deltaFromPrevious?.landComponents} />
-                          <StageValue value={String(stage.raw.mediumFragmentCount)} delta={stage.deltaFromPrevious?.mediumFragmentCount} />
-                          <StageValue value={fixed(stage.raw.landHeightStdDev)} delta={stage.deltaFromPrevious?.landHeightStdDev} />
-                          <StageValue value={ratio(stage.raw.plateSeamHeightRatio)} delta={stage.deltaFromPrevious?.plateSeamHeightRatio} />
-                          <StageValue value={ratio(stage.raw.provinceSeamHeightRatio)} delta={stage.deltaFromPrevious?.provinceSeamHeightRatio} />
-                          <StageValue value={ratio(stage.raw.skeletonSeamHeightRatio)} delta={stage.deltaFromPrevious?.skeletonSeamHeightRatio} />
-                          <StageValue value={stage.transitionFromPrevious ? percent(stage.transitionFromPrevious.topologyFlipShare) : "—"} />
-                        </React.Fragment>
-                      ))}
+                      {stageDiagnostics.stages.map((stage) => {
+                        const oceanLeak = Math.max(stage.raw.oceanPlateAuthorityLeakShare, stage.raw.oceanProvinceAuthorityLeakShare);
+                        const landLeak = Math.max(stage.raw.landPlateAuthorityLeakShare, stage.raw.landProvinceAuthorityLeakShare);
+                        return (
+                          <React.Fragment key={stage.id}>
+                            <div title={stage.note} style={{ color: "rgba(255,255,255,0.78)", fontWeight: 800 }}>{stage.label}</div>
+                            <StageValue value={percent(stage.raw.landFraction)} delta={stage.deltaFromPrevious?.landFraction} formatDelta={percentDelta} />
+                            <StageValue value={String(stage.raw.landComponents)} delta={stage.deltaFromPrevious?.landComponents} />
+                            <StageValue value={String(stage.raw.mediumFragmentCount)} delta={stage.deltaFromPrevious?.mediumFragmentCount} />
+                            <StageValue value={fixed(stage.raw.landHeightStdDev)} delta={stage.deltaFromPrevious?.landHeightStdDev} />
+                            <StageValue value={ratio(stage.raw.plateSeamHeightRatio)} delta={stage.deltaFromPrevious?.plateSeamHeightRatio} />
+                            <StageValue value={ratio(stage.raw.provinceSeamHeightRatio)} delta={stage.deltaFromPrevious?.provinceSeamHeightRatio} />
+                            <StageValue value={ratio(stage.raw.skeletonSeamHeightRatio)} delta={stage.deltaFromPrevious?.skeletonSeamHeightRatio} />
+                            <StageValue value={percent(stage.raw.featureAuthorityCoverage)} delta={stage.deltaFromPrevious?.featureAuthorityCoverage} formatDelta={percentDelta} />
+                            <StageValue value={percent(stage.raw.plateAuthorityLeakShare)} />
+                            <StageValue value={percent(stage.raw.provinceAuthorityLeakShare)} />
+                            <StageValue value={percent(oceanLeak)} />
+                            <StageValue value={percent(landLeak)} />
+                            <StageValue value={stage.transitionFromPrevious ? percent(stage.transitionFromPrevious.topologyFlipShare) : "—"} />
+                          </React.Fragment>
+                        );
+                      })}
                     </div>
                     <div style={{ marginTop: 6, color: "rgba(255,255,255,0.52)", fontSize: 10, lineHeight: 1.35 }}>
-                      Plate/Prov/Skel show height imprint across plate, crust-province, and skeleton-cause borders. Flip shows land/water cells changed by that stage.
+                      Plate/Prov/Skel show raw height imprint. Auth shows visible high-contrast edges explained by shared geologic feature authority. PLeak/PrLeak/OLeak/LLeak show visible plate/province jumps that lack shared feature authority. Flip shows land/water cells changed by that stage.
                     </div>
                   </div>
                 )}

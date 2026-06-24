@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import type { GeneratorParams } from "../../core/worldGenerator";
+import { createDefaultGeneratorParams, type GeneratorParams } from "../../core/worldGenerator";
 
 type Props = {
   onGenerate: (params: GeneratorParams) => void;
@@ -37,22 +37,13 @@ function Row({
 
 export default function GenerateControls({ onGenerate, onSave, saving, disabled }: Props) {
   const defaults: GeneratorParams = useMemo(() => {
-    const resolution = normalizeWidthToHeight(256);
+    const base = createDefaultGeneratorParams();
+    const resolution = normalizeWidthToHeight(base.width);
 
     return {
+      ...base,
       width: resolution.width,
       height: resolution.height,
-      seaLevel: 50,
-      plateActivity: 55,
-      axisTilt: 23,
-      planetAge: 50,
-      climateVar: 35,
-      moistureLevel: 50,
-      temperatureOffset: 0,
-      erosionIntensity: 50,
-      continentCount: 5,
-      seed: Math.floor(Math.random() * 1_000_000_000),
-      styleMode: "EARTHLIKE",
     };
   }, []);
 
@@ -196,102 +187,39 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
       </Row>
 
       <Row label={`Sea Level (0–100): ${params.seaLevel}`}>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={params.seaLevel}
-          style={rangeStyle}
-          {...rangeHandlers("seaLevel", 0, 100)}
-        />
+        <input type="range" min={0} max={100} value={params.seaLevel} style={rangeStyle} {...rangeHandlers("seaLevel", 0, 100)} />
       </Row>
 
       <Row label={`Plate Activity (0–100): ${params.plateActivity}`}>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={params.plateActivity}
-          style={rangeStyle}
-          {...rangeHandlers("plateActivity", 0, 100)}
-        />
+        <input type="range" min={0} max={100} value={params.plateActivity} style={rangeStyle} {...rangeHandlers("plateActivity", 0, 100)} />
       </Row>
 
       <Row label={`Axis Tilt (0–100): ${params.axisTilt}`}>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={params.axisTilt}
-          style={rangeStyle}
-          {...rangeHandlers("axisTilt", 0, 100)}
-        />
+        <input type="range" min={0} max={100} value={params.axisTilt} style={rangeStyle} {...rangeHandlers("axisTilt", 0, 100)} />
       </Row>
 
       <Row label={`Planet Age (0–100): ${params.planetAge}`}>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={params.planetAge}
-          style={rangeStyle}
-          {...rangeHandlers("planetAge", 0, 100)}
-        />
+        <input type="range" min={0} max={100} value={params.planetAge} style={rangeStyle} {...rangeHandlers("planetAge", 0, 100)} />
       </Row>
 
       <Row label={`Climate Variability (0–100): ${params.climateVar}`}>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={params.climateVar}
-          style={rangeStyle}
-          {...rangeHandlers("climateVar", 0, 100)}
-        />
+        <input type="range" min={0} max={100} value={params.climateVar} style={rangeStyle} {...rangeHandlers("climateVar", 0, 100)} />
       </Row>
 
       <Row label={`Moisture Level (0–100): ${params.moistureLevel}`}>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={params.moistureLevel}
-          style={rangeStyle}
-          {...rangeHandlers("moistureLevel", 0, 100)}
-        />
+        <input type="range" min={0} max={100} value={params.moistureLevel} style={rangeStyle} {...rangeHandlers("moistureLevel", 0, 100)} />
       </Row>
 
       <Row label={`Temperature Offset (-50 to +50): ${params.temperatureOffset > 0 ? "+" : ""}${params.temperatureOffset}`}>
-        <input
-          type="range"
-          min={-50}
-          max={50}
-          value={params.temperatureOffset}
-          style={rangeStyle}
-          {...rangeHandlers("temperatureOffset", -50, 50)}
-        />
+        <input type="range" min={-50} max={50} value={params.temperatureOffset} style={rangeStyle} {...rangeHandlers("temperatureOffset", -50, 50)} />
       </Row>
 
       <Row label={`Erosion Intensity (0–100): ${params.erosionIntensity}`}>
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={params.erosionIntensity}
-          style={rangeStyle}
-          {...rangeHandlers("erosionIntensity", 0, 100)}
-        />
+        <input type="range" min={0} max={100} value={params.erosionIntensity} style={rangeStyle} {...rangeHandlers("erosionIntensity", 0, 100)} />
       </Row>
 
       <Row label={`Continent Count (1–12): ${params.continentCount}`}>
-        <input
-          type="range"
-          min={1}
-          max={12}
-          value={params.continentCount}
-          style={rangeStyle}
-          {...rangeHandlers("continentCount", 1, 12)}
-        />
+        <input type="range" min={1} max={12} value={params.continentCount} style={rangeStyle} {...rangeHandlers("continentCount", 1, 12)} />
       </Row>
 
       <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
