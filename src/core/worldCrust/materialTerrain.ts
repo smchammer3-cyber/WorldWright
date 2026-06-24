@@ -1,4 +1,4 @@
-import { ContinentMarginType, IslandCause, type WorldBrain } from '../worldSchema';
+import { ContinentMarginType, IslandCause, PlateType, type WorldBrain } from '../worldSchema';
 import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
 import { ensureCrustFields } from './index';
 import {
@@ -175,7 +175,7 @@ function constrainDelta(world: WorldBrain, index: number, h: number, seaLevel: n
   const caused = isCausedIslandCell(cell);
   const strongCore = continentality > 0.72 && core > 0.68;
   const attachedLand = landNeighbors >= (stage === 'skeleton-obedience' ? 0.72 : 0.62) && continentality > 0.36;
-  const invalidFragment = cell.islandCause === IslandCause.INVALID_FRAGMENT || (continentality < 0.18 && cell.plateType === 'OCEANIC' && cell.shelfStrength < 0.20);
+  const invalidFragment = cell.islandCause === IslandCause.INVALID_FRAGMENT || (continentality < 0.18 && cell.plateType === PlateType.OCEANIC && cell.shelfStrength < 0.20);
   if (!wasLand && willBeLand && !(caused || strongCore || attachedLand)) return Math.max(0, seaLevel - 0.006 - h);
   if (wasLand && !willBeLand) {
     const protectedLand = caused || strongCore || continentality > 0.36 || core > 0.24 || landNeighbors >= 0.50;
