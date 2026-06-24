@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import type { GeneratorParams } from "../../core/worldGenerator";
 
@@ -57,18 +57,26 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
   }, []);
 
   const [params, setParams] = useState<GeneratorParams>(defaults);
+  const didSkipInitialRealtimeGenerate = useRef(false);
 
   // Generate once on first mount (so the preview is never empty).
   useEffect(() => {
-    onGenerate(params);
+    onGenerate(buildClampedParams(params));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Real-time updates: regenerate world whenever parameters change.
+  // Real-time updates: regenerate world only after the user stops changing parameters.
+  // This keeps sliders responsive and avoids repeatedly running the whole generator
+  // plus preview/diagnostic work while a range input is still moving.
   useEffect(() => {
+    if (!didSkipInitialRealtimeGenerate.current) {
+      didSkipInitialRealtimeGenerate.current = true;
+      return;
+    }
+
     const timer = setTimeout(() => {
       onGenerate(buildClampedParams(params));
-    }, 300);
+    }, 650);
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -114,7 +122,6 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
 
   function rangeHandlers<K extends keyof GeneratorParams>(key: K, min: number, max: number) {
     return {
-      onInput: (e: React.FormEvent<HTMLInputElement>) => set(key, numberFromRange(e.currentTarget.value, min, max) as GeneratorParams[K]),
       onChange: (e: React.ChangeEvent<HTMLInputElement>) => set(key, numberFromRange(e.currentTarget.value, min, max) as GeneratorParams[K]),
     };
   }
@@ -319,7 +326,7 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
       </div>
 
       <div style={{ fontSize: 11, opacity: 0.65, marginTop: 10, lineHeight: 1.35 }}>
-        Slider changes regenerate automatically after a short pause. Use Generate for an immediate rebuild.
+        Slider changes regenerate after you pause. Use Generate for an immediate rebuild.
       </div>
     </div>
   );
