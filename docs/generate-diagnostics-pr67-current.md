@@ -1,17 +1,25 @@
-# WorldWright Current-Repo Generate Diagnostics — Branch / PR 67 Context
+# WorldWright Current-Repo Generate Diagnostics — PR #67 Context
 
-This investigation was done against the current checked-out repo state, not an old snapshot.
+Status: diagnostic report only. This document does not change terrain, renderer, pipeline order, schema, or tests.
 
-Important branch context:
+## Scope and caveat
 
-- Current local branch: `work`.
-- The branch history shows PR #67 was merged, then several follow-up commits reverted or removed parts of PR #67.
-- This diagnostic reflects the current code after PR #67 plus later removals/reverts, not the original PR #67 merge commit by itself.
+This investigation was done against the current repository state after PR #67 was merged and then reverted/removed by follow-up commits. It is **not** a report on the original PR #67 merge commit by itself.
+
+The numeric conclusions below are from one diagnostic sample:
+
+```text
+width = 128
+height = 64
+seed = "67"
+continentCount = 4
+```
+
+Treat stage rankings as **single-sample evidence** until they are confirmed across more seeds. The report is still useful because it shows where the current pipeline first turns hidden cause fields into visible terrain/metadata risk.
 
 Relevant recent history:
 
 ```text
-work
 d82e1de Restore worldCrust export formatting
 33761e0 Remove PR #67 crust material authority tests
 c9ed6b2 Remove PR #67 material tiny cleanup
@@ -22,7 +30,7 @@ c9ed6b2 Remove PR #67 material tiny cleanup
 65e474a Merge pull request #67 from smchammer3-cyber/crust-material-fields-feature-relief
 ```
 
-The current Generate pipeline order is:
+## Current Generate pipeline order
 
 ```text
 seed continent skeleton fields
@@ -39,7 +47,7 @@ seed continent skeleton fields
 → seed crust fields
 ```
 
-The current stage diagnostics replay isolates these Generate stages:
+The current stage diagnostics replay isolates these stages:
 
 ```text
 RAW_GENERATOR
@@ -59,20 +67,11 @@ FINAL_CONTINENT_RESEED
 FINAL_CRUST_RESEED
 ```
 
-Diagnostic sample used:
-
-```text
-width = 128
-height = 64
-seed = "67"
-continentCount = 4
-```
-
-## Short Answers
+## Short answers
 
 ### 1. Which Generate stage first causes plate/skeleton/province imprint to jump?
 
-Plate imprint first jumps at `SKELETON_ELEVATION`.
+In this sample, plate-height imprint first jumps at `SKELETON_ELEVATION`:
 
 ```text
 RAW_GENERATOR plate imprint:      0.882×
@@ -80,40 +79,42 @@ CONTINENT_FIELDS plate imprint:   0.882×
 SKELETON_ELEVATION plate imprint: 1.209×
 ```
 
-Skeleton classification imprint appears as soon as `CONTINENT_FIELDS` are seeded:
+Skeleton identity appears at `CONTINENT_FIELDS`:
 
 ```text
 CONTINENT_FIELDS skeleton imprint: 1.362×
 ```
 
-Province imprint first appears at `CRUST_FIELDS`:
+That is expected because this stage creates skeleton identity. It becomes a problem only if skeleton identity becomes visible terrain/color/export authority without enough feature cause.
+
+Province identity appears at `CRUST_FIELDS`:
 
 ```text
 CRUST_FIELDS province imprint: 1.503×
 ```
 
-Then province imprint becomes more terrain-visible at `CRUST_PROVINCE_DELTA`:
+That is a label/metadata/debug risk at this stage, not yet a terrain change, because `CRUST_FIELDS` does not modify height.
+
+Province identity becomes terrain-visible at `CRUST_PROVINCE_DELTA`:
 
 ```text
 CRUST_PROVINCE_DELTA province imprint: 1.769×
 ```
 
-Final answer:
+Single-sample answer:
 
 ```text
-First plate height imprint jump:    SKELETON_ELEVATION
-First skeleton identity imprint:    CONTINENT_FIELDS
-First province identity imprint:    CRUST_FIELDS
-First province terrain imprint:     CRUST_PROVINCE_DELTA
+First plate height imprint jump:        SKELETON_ELEVATION
+First skeleton identity creation/risk:  CONTINENT_FIELDS
+First province label/metadata risk:     CRUST_FIELDS
+First province terrain imprint:         CRUST_PROVINCE_DELTA
 ```
 
 ### 2. Is skeleton elevation over-amplifying plate-shaped structure before crust runs?
 
-Somewhat, yes.
+In this sample: somewhat, yes.
 
-`SKELETON_ELEVATION` is the first stage that turns hidden continent/skeleton structure into visible height structure.
-
-In seed 67:
+`SKELETON_ELEVATION` is the first stage that turns hidden continent/skeleton structure into visible height structure:
 
 ```text
 Plate imprint:    0.882× → 1.209×
@@ -123,62 +124,40 @@ Topology flip:    5.82%
 Land relief:      0.0338 → 0.0341
 ```
 
-That means skeleton elevation is not just harmless guidance. It significantly changes terrain and sea-level topology.
+This stage is not uncontrolled. The current code has safeguards such as land protection, weak-ocean uplift reduction, invalid-fragment handling, caused-island exceptions, and seam damping.
 
-However, it is not totally uncontrolled. The current code has safeguards:
-
-- land protection
-- weak-ocean uplift reduction
-- invalid-fragment handling
-- caused-island exceptions
-- seam damping
-
-Conclusion:
-
-```text
-Skeleton elevation is restrained, but yes, it is the first stage that visibly amplifies hidden plate/skeleton structure before crust runs.
-```
+But it is still the first major visible amplification stage in this sample.
 
 ### 3. Does crust delta create too many land bodies/fragments?
 
-It creates extra land bodies, but not mainly medium fragments.
-
-Before crust delta:
+In this sample, it adds land bodies but does not increase medium fragments:
 
 ```text
+Before crust delta:
 CRUST_FIELDS
 land bodies:        34
 medium fragments:   4
 medium share:       7.8%
-```
 
 After crust delta:
-
-```text
 CRUST_PROVINCE_DELTA
 land bodies:        41
 medium fragments:   4
 medium share:       7.72%
 ```
 
-So crust delta adds:
+So the sample result is:
 
 ```text
 +7 land bodies
 +0 medium fragments
 ```
 
-Conclusion:
-
-```text
-Crust delta does increase total land-body count, but in this current code sample it does not explode medium fragments.
-```
+This suggests `CRUST_PROVINCE_DELTA` increases total fragmentation/topology complexity, but in this sample it does not specifically explode medium fragments.
 
 ### 4. Is crust cohere mostly repairing damage caused by crust delta?
 
-Partly, but no — it is not the main repair pass.
-
-Sequence after crust delta:
+Partly, but it is not the main repair pass in this sample.
 
 ```text
 CRUST_PROVINCE_DELTA:
@@ -202,13 +181,13 @@ land bodies:       29
 medium fragments:  2
 ```
 
-Crust cohere repairs some damage:
+`CRUST_COHERENCE` repairs some damage:
 
 ```text
 land bodies: 40 → 38
 ```
 
-But the bigger repairs come later:
+The bigger repairs come later:
 
 ```text
 CRUST_SKELETON_OBEDIENCE:
@@ -218,15 +197,9 @@ CRUST_TINY_ISLAND_CLEANUP:
 land bodies: 36 → 29
 ```
 
-Conclusion:
-
-```text
-Crust cohere helps, but the main repair burden is carried by crust skeleton obedience and tiny island cleanup.
-```
-
 ### 5. Is crust skeleton double-applying skeleton authority?
 
-Yes, but currently in a restrained way.
+Yes, but currently in a restrained and partly useful way.
 
 There are two skeleton terrain authority stages:
 
@@ -238,9 +211,7 @@ There are two skeleton terrain authority stages:
    applyContinentSkeletonTerrainObedience
 ```
 
-The current code explicitly says the late crust skeleton pass is intended to be restrained and should not behave like a second continent generator.
-
-But in seed 67 it still has a real effect:
+In this sample, the late pass repairs topology but still increases imprint:
 
 ```text
 Land fraction:      29.16% → 30.69%
@@ -252,15 +223,15 @@ Province imprint:   1.785× → 1.839×
 Skeleton imprint:   1.374× → 1.386×
 ```
 
-Conclusion:
+This means the late pass is useful but risky. It should be measured as:
 
 ```text
-Yes. Crust skeleton is a second skeleton-authority pass. It is restrained and useful for repair, but it still changes terrain and increases imprint.
+repair benefit vs added imprint cost
 ```
 
 ### 6. Are crust fields derived from height/oceanDepthClass in a way that creates feedback?
 
-Yes. This is one of the clearest current feedback risks.
+Yes. This is one of the clearest current hierarchy risks.
 
 Current crust field seeding reads current terrain and ocean classification:
 
@@ -284,7 +255,7 @@ crustAge
 crustProvince
 ```
 
-Then the next terrain pass reads those crust fields and modifies height:
+Then the terrain pass reads those crust fields and modifies height:
 
 ```text
 crustThickness / crustAge / crustProvince
@@ -292,7 +263,7 @@ crustThickness / crustAge / crustProvince
 → changed height
 ```
 
-So the loop is:
+Risk loop:
 
 ```text
 height / oceanDepthClass
@@ -303,15 +274,11 @@ height / oceanDepthClass
 → final crust reseed
 ```
 
-Conclusion:
-
-```text
-Yes. Crust fields are partly height-derived, then crust fields modify height. That creates a height → crust → height feedback loop.
-```
+This is a height → crust → height feedback loop.
 
 ### 7. Which stage helps land relief, and which stage hurts it?
 
-Using `landHeightStdDev` as the relief metric:
+Using `landHeightStdDev` as the relief metric in this sample:
 
 ```text
 RAW_GENERATOR:              0.0338
@@ -325,7 +292,7 @@ CRUST_SKELETON_OBEDIENCE:   0.0324
 FINAL:                      0.0324
 ```
 
-Stages that help relief:
+Stages that help relief in this sample:
 
 ```text
 SKELETON_ELEVATION
@@ -333,18 +300,18 @@ CRUST_COAST_BREAKUP, slightly
 CRUST_SKELETON_OBEDIENCE
 ```
 
-Stages that hurt relief:
+Stages that hurt relief in this sample:
 
 ```text
 QUALITY_PASS
 CRUST_PROVINCE_DELTA
 ```
 
-Conclusion:
+Single-sample conclusion:
 
 ```text
 Best relief helper: CRUST_SKELETON_OBEDIENCE
-Secondary helper: SKELETON_ELEVATION
+Secondary helper:   SKELETON_ELEVATION
 Biggest relief hurt: CRUST_PROVINCE_DELTA
 Unexpected relief hurt: QUALITY_PASS
 ```
@@ -355,12 +322,10 @@ There are two kinds of export risk:
 
 ```text
 A. terrain/export height risk
-B. metadata/debug/color/province export risk
+B. metadata/debug/export label risk
 ```
 
-Biggest terrain export risk: `CRUST_PROVINCE_DELTA`.
-
-It changes height based on crust province and increases visible imprint:
+Most terrain/export height risk in this sample: `CRUST_PROVINCE_DELTA`.
 
 ```text
 Plate imprint:     1.227× → 1.344×
@@ -369,9 +334,9 @@ Province leak:     13.53% → 18.70%
 Land bodies:       34 → 41
 ```
 
-Biggest metadata/debug/export classification risk: `CRUST_FIELDS`.
+Most metadata/debug/export label risk in this sample: `CRUST_FIELDS`.
 
-This stage does not change height, but it creates crust province labels that immediately have strong spatial imprint:
+This stage does not change height, but it creates crust province labels that immediately have strong spatial alignment with existing terrain/authority fields:
 
 ```text
 Province imprint appears at: 1.503×
@@ -380,11 +345,9 @@ Ocean leak jumps to:        13.31%
 Land leak jumps to:         9.44%
 ```
 
-Final export metadata risk: `FINAL_CRUST_RESEED`.
+Final export label risk: `FINAL_CRUST_RESEED`.
 
-This does not change terrain, but it changes/re-syncs final crust/province identity after terrain has settled.
-
-In seed 67:
+This does not change terrain, but it re-syncs final crust/province identity after terrain has settled:
 
 ```text
 Province imprint:  1.848× → 1.870×
@@ -392,16 +355,16 @@ Province leak:     20.30% → 20.76%
 Ocean leak:        15.06% → 15.92%
 ```
 
-Conclusion:
+Single-sample conclusion:
 
 ```text
-Most terrain export risk:       CRUST_PROVINCE_DELTA
-Most classification/export risk: CRUST_FIELDS
-Final export label risk:         FINAL_CRUST_RESEED
-Most visible late terrain risk:  CRUST_SKELETON_OBEDIENCE
+Most terrain export risk:           CRUST_PROVINCE_DELTA
+Most classification/export risk:    CRUST_FIELDS
+Final label risk:                   FINAL_CRUST_RESEED
+Most visible late terrain risk:     CRUST_SKELETON_OBEDIENCE
 ```
 
-## Full Stage Table
+## Full stage table
 
 ```text
 Stage                       Land     Bodies  Medium  Relief   Plate   Province  Skeleton  Flip
@@ -422,11 +385,11 @@ FINAL_CONTINENT_RESEED      30.48%   29      2       0.0324   1.403×  1.848×  
 FINAL_CRUST_RESEED          30.48%   29      2       0.0324   1.403×  1.870×    1.457×    0%
 ```
 
-## Main Current-Repo Issues
+## Main current-repo issues
 
 ### Issue A — Skeleton elevation is the first major visible cause imprint
 
-The raw generator has lower plate imprint:
+In this sample, the raw generator has lower plate imprint:
 
 ```text
 0.882×
@@ -438,7 +401,7 @@ After skeleton elevation:
 1.209×
 ```
 
-This means skeleton elevation is the first pass that visibly increases plate-shaped structure.
+This is the first stage that visibly increases plate-shaped height structure.
 
 ### Issue B — Crust fields are height-derived, so they can echo existing terrain
 
@@ -452,38 +415,30 @@ terrain already has shape
 → crust terrain pass reinforces that shape
 ```
 
-This creates feedback.
+### Issue C — Province labels create metadata/export risk before terrain changes
 
-### Issue C — Province labels create export-visible seams before terrain is changed
+`CRUST_FIELDS` does not change height. The risk here is not literal terrain visibility yet.
 
-`CRUST_FIELDS` does not change height, but province imprint immediately appears:
-
-```text
-1.503×
-```
-
-This means province labels are already aligned with visible terrain/height structure.
-
-That is risky for:
+The risk is that province labels become strongly aligned with existing terrain/authority fields:
 
 ```text
-debug overlays
-material exports
-province exports
-final color authority
-height export explanations
+Province imprint: 1.503×
+Province leak:    13.53%
 ```
 
-### Issue D — Crust province delta is the main terrain imprint amplifier
+This matters for debug overlays, material exports, province exports, final labels, and future terrain passes that read those labels.
 
-`CRUST_PROVINCE_DELTA` makes province identity visible in terrain:
+### Issue D — Crust province delta is the main province terrain amplifier
+
+`CRUST_PROVINCE_DELTA` makes province identity more visible in terrain:
 
 ```text
 Province imprint: 1.503× → 1.769×
 Land bodies:      34 → 41
+Relief:           0.0329 → 0.0313
 ```
 
-This is the main pass to inspect if hidden province structure is leaking into export height.
+This is the main pass to inspect if province structure is leaking into export height.
 
 ### Issue E — Crust skeleton is useful but still double-applies skeleton authority
 
@@ -500,21 +455,38 @@ Plate imprint:    1.382× → 1.430×
 Province imprint: 1.785× → 1.839×
 ```
 
-So it is useful but risky.
+It should remain repair-only and should be measured by repair benefit vs added imprint cost.
 
 ### Issue F — Quality pass may not be helping land relief enough
 
-The quality pass is supposed to add interior relief, but in this sample:
+The quality pass is expected to improve terrain quality, but in this sample it reduces land relief:
 
 ```text
 Land relief: 0.0341 → 0.0329
 ```
 
-This suggests the coast/strait/shelf components may be overpowering the intended interior relief.
+Possible causes:
 
-## Recommended Next Fixes
+```text
+coastal breakup overpowering interior relief
+strait cuts reducing relief
+shelf roughness not helping land relief
+interior relief too weak or too gated
+```
 
-### 1. Reduce crust feedback
+## Recommended next fixes
+
+### 1. Validate across multiple seeds before rewriting terrain
+
+This report identifies strong suspects, but it is one sample. Before another terrain rewrite, run the same table across several seeds and summarize stage deltas.
+
+Good next diagnostic target:
+
+```text
+multi-seed Generate stage ablation / ranking
+```
+
+### 2. Reduce crust feedback
 
 Separate crust cause fields from current height more strongly.
 
@@ -535,9 +507,9 @@ plate + skeleton + tectonic context
 → terrain influence
 ```
 
-Height should be a weak modifier, not a primary classifier.
+Height may be a weak modifier, but it should not be the primary classifier.
 
-### 2. Add explicit diagnostics for cause-only reseed risk
+### 3. Add diagnostics for cause-only label risk
 
 Stages like these do not change height but can change export labels:
 
@@ -547,17 +519,15 @@ FINAL_CONTINENT_RESEED
 FINAL_CRUST_RESEED
 ```
 
-Need a diagnostic like:
+Add a diagnostic for:
 
 ```text
 cause-only label changed export/color/debug risk
 ```
 
-Because the current issue is not only terrain height. It is also final labels/materials/province metadata.
+### 4. Treat `CRUST_PROVINCE_DELTA` as the main province terrain risk
 
-### 3. Treat `CRUST_PROVINCE_DELTA` as the main province terrain risk
-
-This pass should probably have stronger limits based on:
+This pass should have stronger limits based on:
 
 ```text
 province seam imprint
@@ -569,11 +539,11 @@ export-height risk
 
 Not only topology flips.
 
-### 4. Keep crust skeleton but enforce that it remains repair-only
+### 5. Keep crust skeleton but enforce repair-only behavior
 
-The current code says it is restrained, but the numbers show it still changes topology significantly.
+The current code says it is restrained, but the numbers show it still changes topology and imprint.
 
-It should maybe be measured by:
+It should be evaluated by:
 
 ```text
 allowed repair improvement
@@ -583,9 +553,9 @@ added imprint cost
 
 If it reduces fragments but increases plate/province imprint too much, it should back off.
 
-### 5. Rebalance quality pass for relief
+### 6. Rebalance quality pass for relief
 
-If land relief is the goal, the current quality pass should be checked because on seed 67 it reduces land relief.
+The quality pass should be checked because in this sample it reduces land relief.
 
 Possible causes:
 
@@ -596,37 +566,37 @@ shelf roughness not helping land relief
 interior relief too weak or too gated
 ```
 
-## Final Diagnostic Conclusions
+## Final diagnostic conclusions
 
 ```text
-1. First plate/skeleton/province imprint jump:
+1. First plate/skeleton/province imprint jump in this sample:
    - Plate height imprint: SKELETON_ELEVATION
-   - Skeleton identity imprint: CONTINENT_FIELDS
-   - Province identity imprint: CRUST_FIELDS
+   - Skeleton identity creation/risk: CONTINENT_FIELDS
+   - Province label/metadata risk: CRUST_FIELDS
    - Province terrain imprint: CRUST_PROVINCE_DELTA
 
 2. Skeleton elevation over-amplifies plate-shaped structure before crust:
-   - Yes, somewhat. It is the first major visible amplification stage.
+   - Yes, somewhat, in this sample.
 
 3. Crust delta creates too many land bodies/fragments:
-   - It adds land bodies, but not medium fragments in seed 67.
+   - It adds land bodies, but not medium fragments in this sample.
 
 4. Crust cohere repairs crust delta damage:
    - Partly, but main repairs are crust skeleton obedience and tiny island cleanup.
 
 5. Crust skeleton double-applies skeleton authority:
-   - Yes. It is restrained but still a second skeleton terrain pass.
+   - Yes. It is restrained and useful, but still a second skeleton terrain pass.
 
 6. Crust fields create feedback:
    - Yes. Current crust fields are partly derived from height/oceanDepthClass, then used to modify height.
 
-7. Stage that helps relief:
+7. Stage that helps relief in this sample:
    - Best: CRUST_SKELETON_OBEDIENCE
    - Also helps slightly: SKELETON_ELEVATION
    - Hurts most: CRUST_PROVINCE_DELTA
    - Unexpectedly hurts: QUALITY_PASS
 
-8. Pass that most increases export risk:
+8. Pass that most increases export risk in this sample:
    - Terrain export risk: CRUST_PROVINCE_DELTA
    - Metadata/debug/export label risk: CRUST_FIELDS
    - Final label risk: FINAL_CRUST_RESEED
