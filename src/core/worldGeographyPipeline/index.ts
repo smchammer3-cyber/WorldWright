@@ -22,7 +22,7 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   const allowContinents = allowsNormalContinentalMorphology(geologyStack);
   const allowRockyCrust = allowsNormalRockyCrustTerrain(geologyStack);
   const allowPlateFeatures = allowsPlateBoundaryFeatureTerrain(geologyStack);
-  const allowNormalOceanBathymetry = waterMode !== 'DRY' && waterMode !== 'ICE_OVER_ROCK' && waterMode !== 'SNOWBALL_SURFACE' && waterMode !== 'ICE_SHELL_OVER_OCEAN';
+  const allowNormalOceanBathymetry = waterMode === 'LIQUID_SURFACE_WATER' || waterMode === 'MIXED_LIQUID_ICE';
 
   if (allowContinents) seedContinentSkeletonFields(world);
   if (allowPlateFeatures) applyPlateBoundaryFeatureTerrain(world);
