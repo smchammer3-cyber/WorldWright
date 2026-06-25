@@ -68,8 +68,8 @@ export function resolveGeneratePlanetFoundation(input: GenerateFoundationInput =
   const evaporationPotential = clamp01(0.50 * normalizeAroundOne(effectiveHeatIndex) + 0.30 * normalizeAroundOne(stellarFluxEarth) + 0.20 * greenhouseStrength + moistureIntent * 0.18);
   const snowlineBias = clamp(1.0 - effectiveHeatIndex, -0.75, 0.75);
 
-  const volatileInventory = clamp01(unit01(input.volatileInventory, profileDefaults.volatileInventory) + moistureIntent * 0.04);
-  const waterInventory = clamp01(unit01(input.waterInventory, profileDefaults.waterInventory) + moistureIntent * 0.08);
+  const volatileInventory = clamp01(unit01(input.volatileInventory, profileDefaults.volatileInventory));
+  const waterInventory = clamp01(unit01(input.waterInventory, profileDefaults.waterInventory));
   const compositionRadioactivity = clamp01(unit01(input.compositionRadioactivity, profileDefaults.compositionRadioactivity));
   const tidalHeatingIndex = clamp01(unit01(input.tidalHeatingIntent, profileDefaults.tidalHeatingIntent));
   const coreHeatIntent = clamp01(unit01(input.coreHeatIntent, profileDefaults.coreHeatIntent));
