@@ -1,16 +1,29 @@
 import { BoundaryType, ContinentMarginType, OceanDepthClass, PlateType, type Cell, type WorldBrain } from '../worldSchema';
 import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
 import {
-  applyCrustTerrainInfluence as applyExistingCrustTerrainInfluence,
+  applyContinentSkeletonTerrainObedience,
+  cleanupAccidentalTinyIslands,
   ensureCrustFields,
 } from './index';
+import {
+  applyCrustProvinceTerrainDelta,
+  applyProvinceCoastBreakup,
+  applyProvinceCoherence,
+} from './materialAuthorityTerrain';
 
 export function applyCrustTerrainInfluence(world: WorldBrain): void {
   if (!world?.cells?.length) return;
   assertNoAuthoredTerrainDeltas(world, 'applyCrustTerrainInfluence');
   ensureCrustFields(world);
 
-  applyExistingCrustTerrainInfluence(world);
+  // Preserve the existing generated crust stage order, but route the first
+  // three subpasses through material/feature-backed terrain authority instead
+  // of raw crustProvince label switches.
+  applyCrustProvinceTerrainDelta(world);
+  applyProvinceCoastBreakup(world);
+  applyProvinceCoherence(world);
+  applyContinentSkeletonTerrainObedience(world);
+  cleanupAccidentalTinyIslands(world);
   applyMaterialReliefReinforcement(world);
 }
 
