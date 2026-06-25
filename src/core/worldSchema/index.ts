@@ -208,7 +208,7 @@ export interface Plate {
 }
 
 export interface River {
-  id: string;
+  id: string | number;
   sourceCellIndex: number;
   mouthCellIndex: number;
   path: number[];
