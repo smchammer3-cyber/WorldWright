@@ -149,8 +149,6 @@ function skeletonAuthorityContinuity(world: WorldBrain, index: number): number {
   let mismatch = 0;
   for (const neighborIndex of neighbors) {
     const n = world.cells[neighborIndex];
-    if (n.plateId !== cell.plateId) mismatch += 0.26;
-    if (n.continentId !== cell.continentId || n.oceanBasinId !== cell.oceanBasinId) mismatch += 0.30;
     if (n.marginType !== cell.marginType || n.islandCause !== cell.islandCause) mismatch += 0.14;
     mismatch += Math.abs(clamp01(n.continentality) - clamp01(cell.continentality)) * 0.34;
     mismatch += Math.abs(clamp01(n.continentCoreStrength) - clamp01(cell.continentCoreStrength)) * 0.22;
@@ -175,20 +173,16 @@ function skeletonSeamDamp(world: WorldBrain, index: number): number {
   const cell = world.cells[index];
   const neighbors = neighborIndices4(world, index);
   if (neighbors.length === 0) return 1;
-  let plateEdges = 0;
-  let identityEdges = 0;
   let marginEdges = 0;
   let gradient = 0;
   for (const neighborIndex of neighbors) {
     const n = world.cells[neighborIndex];
-    if (n.plateId !== cell.plateId) plateEdges++;
-    if (n.continentId !== cell.continentId || n.oceanBasinId !== cell.oceanBasinId) identityEdges++;
     if (n.marginType !== cell.marginType || n.islandCause !== cell.islandCause) marginEdges++;
     gradient += Math.abs(clamp01(n.continentality) - clamp01(cell.continentality));
     gradient += Math.abs(clamp01(n.continentCoreStrength) - clamp01(cell.continentCoreStrength)) * 0.65;
     gradient += Math.abs(clamp01(n.shelfStrength) - clamp01(cell.shelfStrength)) * 0.45;
   }
-  const edgeStrength = clamp01((plateEdges / neighbors.length) * 0.46 + (identityEdges / neighbors.length) * 0.50 + (marginEdges / neighbors.length) * 0.20 + (gradient / neighbors.length) * 0.50);
+  const edgeStrength = clamp01((marginEdges / neighbors.length) * 0.20 + (gradient / neighbors.length) * 0.50);
   return lerp(1, 0.40, edgeStrength * (isCausedIsland(cell) ? 0.45 : 1));
 }
 
