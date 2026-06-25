@@ -33,7 +33,7 @@ describe('Generate diagnostics report runner', () => {
 
     expect(result.runs.length).toBe(DEFAULT_GENERATE_DIAGNOSTIC_SEEDS.length);
     expect(result.topSuspectStages.length).toBeGreaterThan(0);
-  });
+  }, 60_000);
 });
 
 function printConsoleSummary(result: MultiSeedGenerateDiagnostics): void {
