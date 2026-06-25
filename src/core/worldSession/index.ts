@@ -149,6 +149,7 @@ class WorldSession {
   async createWorld(params: GeneratorParams): Promise<void> {
     const w = generateWorldFromParams(params);
     this.normalizeWorld(w);
+    recomputeWorld(w, ['GENERATED']);
     applyGeneratedGeographyPipeline(w);
 
     const errors = validateWorld(w);
