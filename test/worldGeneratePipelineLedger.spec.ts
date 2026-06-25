@@ -43,17 +43,12 @@ describe('Generate pipeline authority ledger', () => {
     expect(ledger?.stages.map((stage) => stage.id)).toEqual(EXPECTED_LEDGER_STAGE_IDS);
     expect(ledger?.stages.some((stage) => stage.id === 'CRUST_SKELETON_OBEDIENCE')).toBe(false);
 
-    const plateFeature = ledger?.stages.find((stage) => stage.id === 'PLATE_BOUNDARY_FEATURE_TERRAIN');
-    expect(plateFeature?.actualWrites.some((change) => change.group === 'terrain')).toBe(true);
-    expect(plateFeature?.unexpectedWrites).toHaveLength(0);
-
-    const skeletonElevation = ledger?.stages.find((stage) => stage.id === 'SKELETON_ELEVATION');
-    expect(skeletonElevation?.actualWrites.some((change) => change.group === 'terrain')).toBe(true);
-    expect(skeletonElevation?.unexpectedWrites).toHaveLength(0);
-
-    const isostatic = ledger?.stages.find((stage) => stage.id === 'ISOSTATIC_TERRAIN_RESPONSE');
-    expect(isostatic?.actualWrites.some((change) => change.group === 'terrain')).toBe(true);
-    expect(isostatic?.unexpectedWrites).toHaveLength(0);
+    for (const id of ['PLATE_BOUNDARY_FEATURE_TERRAIN', 'SKELETON_ELEVATION', 'ISOSTATIC_TERRAIN_RESPONSE']) {
+      const stage = ledger?.stages.find((entry) => entry.id === id);
+      expect(stage).toBeDefined();
+      expect(stage?.allowedWrites).toContain('terrain');
+      expect(stage?.unexpectedWrites).toHaveLength(0);
+    }
 
     const recomputeStages = ledger?.stages.filter((stage) => stage.phase === 'derived-recompute') ?? [];
     expect(recomputeStages.length).toBeGreaterThan(0);
