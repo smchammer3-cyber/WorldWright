@@ -1,7 +1,8 @@
 import { seedContinentSkeletonFields } from './worldContinents';
 import {
-  applyContinentSkeletonTerrainObedience,
+  applyCoastShapePass,
   applyCrustProvinceTerrainDelta,
+  applyMaterialReliefReinforcement,
   applyProvinceCoastBreakup,
   applyProvinceCoherence,
   cleanupAccidentalTinyIslands,
@@ -11,7 +12,9 @@ import { computeGeneratedStageDiagnostics, type GenerateStageDiagnostics, type G
 import { applyGeneratedGeographyPipeline, applySkeletonBaseElevation } from './worldGeographyPipeline';
 import { createDefaultGeneratorParams, generateWorldFromParams, type GeneratorParams } from './worldGenerator';
 import { applyOceanBathymetrySmoothing } from './worldOceanBathymetry';
+import { applyPlateBoundaryFeatureTerrain } from './worldPlateBoundaryFeatures';
 import { applyGeneratedWorldQualityPass } from './worldQualityPass';
+import { applyIsostaticTerrainResponse } from './worldTerrainResponse';
 import { recomputeWorld } from './worldRecompute';
 import type { WorldBrain } from './worldSchema';
 
@@ -20,12 +23,13 @@ export const DEFAULT_GENERATE_DIAGNOSTIC_WIDTH = 128;
 export const DEFAULT_GENERATE_DIAGNOSTIC_HEIGHT = 64;
 
 export type AblationStageId = Extract<GenerateStageId,
+  | 'PLATE_BOUNDARY_FEATURE_TERRAIN'
   | 'SKELETON_ELEVATION'
   | 'QUALITY_PASS'
+  | 'ISOSTATIC_TERRAIN_RESPONSE'
   | 'CRUST_PROVINCE_DELTA'
   | 'CRUST_COAST_BREAKUP'
   | 'CRUST_COHERENCE'
-  | 'CRUST_SKELETON_OBEDIENCE'
   | 'CRUST_TINY_ISLAND_CLEANUP'
   | 'OCEAN_BATHYMETRY_SMOOTHING'>;
 
@@ -157,16 +161,19 @@ function runAblation(params: GeneratorParams, skippedStage: AblationStageId, bas
 function replayGenerate(params: GeneratorParams, skip?: AblationStageId): WorldBrain {
   const world = generateWorldFromParams(params);
   seedContinentSkeletonFields(world);
+  if (skip !== 'PLATE_BOUNDARY_FEATURE_TERRAIN') applyPlateBoundaryFeatureTerrain(world);
   if (skip !== 'SKELETON_ELEVATION') applySkeletonBaseElevation(world);
   recomputeWorld(world, ['GENERATED']);
   if (skip !== 'QUALITY_PASS') applyGeneratedWorldQualityPass(world);
   recomputeWorld(world, ['GENERATED']);
   seedContinentSkeletonFields(world); seedCrustFields(world);
+  if (skip !== 'ISOSTATIC_TERRAIN_RESPONSE') applyIsostaticTerrainResponse(world);
   if (skip !== 'CRUST_PROVINCE_DELTA') applyCrustProvinceTerrainDelta(world);
   if (skip !== 'CRUST_COAST_BREAKUP') applyProvinceCoastBreakup(world);
   if (skip !== 'CRUST_COHERENCE') applyProvinceCoherence(world);
-  if (skip !== 'CRUST_SKELETON_OBEDIENCE') applyContinentSkeletonTerrainObedience(world);
   if (skip !== 'CRUST_TINY_ISLAND_CLEANUP') cleanupAccidentalTinyIslands(world);
+  applyMaterialReliefReinforcement(world);
+  applyCoastShapePass(world);
   if (skip !== 'OCEAN_BATHYMETRY_SMOOTHING') applyOceanBathymetrySmoothing(world);
   recomputeWorld(world, ['GENERATED']); seedContinentSkeletonFields(world); seedCrustFields(world);
   return world;

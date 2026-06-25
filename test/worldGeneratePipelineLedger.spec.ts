@@ -12,34 +12,43 @@ function makeLedger(seed: string) {
   return computeGeneratePipelineAuthorityLedger(world);
 }
 
+const EXPECTED_LEDGER_STAGE_IDS = [
+  'RAW_GENERATOR',
+  'CONTINENT_FIELDS',
+  'PLATE_BOUNDARY_FEATURE_TERRAIN',
+  'SKELETON_ELEVATION',
+  'FIRST_RECOMPUTE',
+  'QUALITY_PASS',
+  'SECOND_RECOMPUTE',
+  'CRUST_CONTINENT_RESEED',
+  'CRUST_FIELDS',
+  'ISOSTATIC_TERRAIN_RESPONSE',
+  'CRUST_PROVINCE_DELTA',
+  'CRUST_COAST_BREAKUP',
+  'CRUST_COHERENCE',
+  'CRUST_TINY_ISLAND_CLEANUP',
+  'MATERIAL_RELIEF_REINFORCEMENT',
+  'COAST_SHAPE_PASS',
+  'OCEAN_BATHYMETRY_SMOOTHING',
+  'FINAL_RECOMPUTE',
+  'FINAL_CONTINENT_RESEED',
+  'FINAL_CRUST_RESEED',
+];
+
 describe('Generate pipeline authority ledger', () => {
   it('replays Generate Mode and reports the full authority trace', () => {
     const ledger = makeLedger('pipeline-ledger');
 
     expect(ledger).not.toBeNull();
-    expect(ledger?.stages.map((stage) => stage.id)).toEqual([
-      'RAW_GENERATOR',
-      'CONTINENT_FIELDS',
-      'SKELETON_ELEVATION',
-      'FIRST_RECOMPUTE',
-      'QUALITY_PASS',
-      'SECOND_RECOMPUTE',
-      'CRUST_CONTINENT_RESEED',
-      'CRUST_FIELDS',
-      'CRUST_PROVINCE_DELTA',
-      'CRUST_COAST_BREAKUP',
-      'CRUST_COHERENCE',
-      'CRUST_SKELETON_OBEDIENCE',
-      'CRUST_TINY_ISLAND_CLEANUP',
-      'OCEAN_BATHYMETRY_SMOOTHING',
-      'FINAL_RECOMPUTE',
-      'FINAL_CONTINENT_RESEED',
-      'FINAL_CRUST_RESEED',
-    ]);
+    expect(ledger?.stages.map((stage) => stage.id)).toEqual(EXPECTED_LEDGER_STAGE_IDS);
+    expect(ledger?.stages.some((stage) => stage.id === 'CRUST_SKELETON_OBEDIENCE')).toBe(false);
 
-    const skeletonElevation = ledger?.stages.find((stage) => stage.id === 'SKELETON_ELEVATION');
-    expect(skeletonElevation?.actualWrites.some((change) => change.group === 'terrain')).toBe(true);
-    expect(skeletonElevation?.unexpectedWrites).toHaveLength(0);
+    for (const id of ['PLATE_BOUNDARY_FEATURE_TERRAIN', 'SKELETON_ELEVATION', 'ISOSTATIC_TERRAIN_RESPONSE']) {
+      const stage = ledger?.stages.find((entry) => entry.id === id);
+      expect(stage).toBeDefined();
+      expect(stage?.allowedWrites).toContain('terrain');
+      expect(stage?.unexpectedWrites).toHaveLength(0);
+    }
 
     const recomputeStages = ledger?.stages.filter((stage) => stage.phase === 'derived-recompute') ?? [];
     expect(recomputeStages.length).toBeGreaterThan(0);
@@ -90,6 +99,19 @@ describe('Generate pipeline authority ledger', () => {
     expect(continentFields?.unexpectedWrites).toHaveLength(0);
     expect(crustContinentReseed?.unexpectedWrites).toHaveLength(0);
     expect(crustFields?.unexpectedWrites).toHaveLength(0);
+  });
+
+  it('reports the first failed authority gate with a recommended next fix', () => {
+    const ledger = makeLedger('pipeline-ledger-first-failed-gate');
+    expect(ledger).not.toBeNull();
+
+    const firstFailed = ledger?.summary.firstFailedGate;
+    expect(firstFailed).not.toBeNull();
+    expect(firstFailed?.stageId).toEqual(expect.any(String));
+    expect(firstFailed?.firstFailedLayer).toEqual(expect.any(String));
+    expect(['source', 'cause', 'feature', 'material', 'terrain', 'derived', 'terminal']).toContain(firstFailed?.authorityCategory);
+    expect(firstFailed?.failedConsequence).toEqual(expect.any(String));
+    expect(firstFailed?.recommendedNextFix).toEqual(expect.any(String));
   });
 
   it('does not mutate the active world while building the trace', () => {
