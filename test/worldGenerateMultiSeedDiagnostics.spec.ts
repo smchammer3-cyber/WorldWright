@@ -34,7 +34,6 @@ describe('multi-seed Generate diagnostics', () => {
     expect(result.runs.map((run) => run.seed)).toEqual(seeds);
     expect(result.runs).toHaveLength(seeds.length);
     expect(result.runs[0].stages.map((stage) => stage.id)).toEqual(EXPECTED_STAGE_DIAGNOSTIC_IDS);
-    expect(result.runs[0].stages.some((stage) => stage.id === 'CRUST_SKELETON_OBEDIENCE')).toBe(false);
   });
 
   it('keeps aggregate rankings deterministic', () => {
