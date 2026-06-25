@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "test:run": "vitest run",
     "diagnostics:generate": "vitest run scripts/run-generate-diagnostics.test.ts --reporter=basic"
   },
   "dependencies": {
@@ -23,6 +24,6 @@
     "@vitejs/plugin-react-swc": "^3.7.0",
     "typescript": "^5.5.0",
     "vite": "^7.3.0",
-    "vitest": "^1.1.5"
+    "vitest": "^4.1.9"
   }
 }
