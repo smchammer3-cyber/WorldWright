@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getCurrentGenerateStageContract, listCurrentGenerateStageContracts } from '../src/core/generateCurrentStageRegistry';
+import { listCurrentGenerateStageContracts } from '../src/core/generateCurrentStageRegistry';
 import { validateGenerateFoundationRegistry } from '../src/core/generateFoundationRegistryValidation';
 import { isForbiddenColorRead, isForbiddenTerrainRead } from '../src/core/generateFieldOwnership';
 import { layerCanRunForPlanetProfile } from '../src/core/generateLayerGates';
@@ -21,9 +21,12 @@ describe('Generate foundation registry validation', () => {
     }
   });
 
-  it('keeps remaining current high-risk terrain stages explicit', () => {
-    expect(getCurrentGenerateStageContract('CRUST_SKELETON_OBEDIENCE').risk).toBe('problem');
-    expect(getCurrentGenerateStageContract('CRUST_SKELETON_OBEDIENCE').knownViolations).toContain('late skeleton -> baseHeight');
+  it('does not keep known direct authority violations in the current stage registry', () => {
+    for (const stage of listCurrentGenerateStageContracts()) {
+      expect(stage.knownViolations).not.toContain('crustProvince -> baseHeight');
+      expect(stage.knownViolations).not.toContain('late skeleton -> baseHeight');
+      expect(stage.knownViolations).not.toContain('double-applied skeleton authority risk');
+    }
   });
 
   it('does not allow terminal cause sync stages to be followed by terrain writers', () => {
