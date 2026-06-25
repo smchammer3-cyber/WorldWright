@@ -4,12 +4,14 @@ import { applyGeneratedWorldQualityPass } from '../worldQualityPass';
 import { seedContinentSkeletonFields } from '../worldContinents';
 import { applyCrustTerrainInfluence, seedCrustFields } from '../worldCrust';
 import { applyOceanBathymetrySmoothing } from '../worldOceanBathymetry';
+import { applyPlateBoundaryFeatureTerrain } from '../worldPlateBoundaryFeatures';
 import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
 
 export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   if (!world?.cells?.length) return;
   assertNoAuthoredTerrainDeltas(world, 'applyGeneratedGeographyPipeline');
   seedContinentSkeletonFields(world);
+  applyPlateBoundaryFeatureTerrain(world);
   applySkeletonBaseElevation(world);
   recomputeWorld(world, ['GENERATED']);
   applyGeneratedWorldQualityPass(world);
@@ -159,8 +161,8 @@ function capSkeletonDelta(delta: number, cell: Cell, continuity: number, invalid
   if (invalidFragment) return clamp(delta, -0.085, 0.060);
   if (isCausedIsland(cell)) return clamp(delta, -0.040, 0.060);
   const core = clamp01(cell.continentCoreStrength);
-  const shelf = clamp01(cell.shelfStrength);
   const continentality = clamp01(cell.continentality);
+  const shelf = clamp01(cell.shelfStrength);
   const marginBoost = cell.marginType === ContinentMarginType.NONE ? 0 : 0.010;
   const positiveCap = lerp(0.026, 0.052, continuity) + core * 0.030 + marginBoost;
   const negativeCap = lerp(0.024, 0.044, continuity) + (1 - continentality) * 0.014 + shelf * 0.010 + marginBoost;

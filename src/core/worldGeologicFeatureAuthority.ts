@@ -1,12 +1,12 @@
 import {
   BoundaryType,
   ContinentMarginType,
-  CrustProvince,
   IslandCause,
   OceanDepthClass,
   type Cell,
   type WorldBrain,
 } from './worldSchema';
+import { classifyPlateBoundaryFeatureAuthority } from './worldPlateBoundaryFeatures';
 
 export type GeologicFeatureAuthorityId =
   | 'CONTINENT_CORE'
@@ -19,6 +19,7 @@ export type GeologicFeatureAuthorityId =
   | 'RIFT_ZONE'
   | 'COLLISION_ZONE'
   | 'TRANSFORM_ZONE'
+  | 'DIFFUSE_BOUNDARY'
   | 'ISLAND_ARC'
   | 'HOTSPOT_CHAIN'
   | 'VOLCANIC_CENTER'
@@ -62,16 +63,15 @@ const VISIBLE_AUTHORITY_JUMP = 0.035;
 /**
  * Classifies the explicit geologic feature authority for a cell.
  *
- * This deliberately does not treat raw plateId, plateType, or crustProvince
- * borders as visible terrain authority by themselves. Plates/provinces may
- * explain feature causes; the feature authority is what may explain visible
- * terrain/color decisions.
+ * Raw plateId, plateType, and crustProvince labels are not terrain/color
+ * authority. Plate motion and crust material fields may explain features;
+ * the feature authority is what may explain visible terrain/color decisions.
  *
  * Important: oceanDepthClass is derived from height during recompute, so it is
  * not allowed to be strong terrain authority by itself. A deep cell should not
  * become a self-justifying trench merely because the current height made it
  * deep. Strong ridge/trench authority must come from cause fields such as
- * boundaryType, marginType, islandCause, uplift, or volcanism.
+ * boundaryType, marginType, islandCause, uplift, volcanism, and material state.
  */
 export function classifyGeologicFeatureAuthority(cell: Cell): GeologicFeatureAuthority {
   const features: Partial<Record<GeologicFeatureAuthorityId, number>> = {};
@@ -81,25 +81,39 @@ export function classifyGeologicFeatureAuthority(cell: Cell): GeologicFeatureAut
     features[id] = Math.max(features[id] ?? 0, clamp01(strength));
   }
 
+  const plateFeatureAuthority = classifyPlateBoundaryFeatureAuthority(cell);
+  for (const [id, strength] of Object.entries(plateFeatureAuthority.features) as [GeologicFeatureAuthorityId, number][]) {
+    add(id, strength);
+  }
+
+  const continentality = clamp01(cell.continentality);
+  const core = clamp01(cell.continentCoreStrength);
+  const shelf = clamp01(cell.shelfStrength);
+  const thickness = clamp01(cell.crustThickness);
+  const age = clamp01(cell.crustAge);
+  const volcanic = clamp01(cell.volcanicActivity);
+  const uplift = typeof cell.upliftRate === 'number' ? cell.upliftRate : 0;
+  const stableMaterial = Math.max(0, thickness - 0.56) * Math.max(0, age - 0.46);
+  const thinYoungMaterial = Math.max(0, 0.58 - thickness) * Math.max(0, 0.62 - age);
+
   const hasSubductionCause =
     cell.boundaryType === BoundaryType.CONVERGENT ||
     cell.marginType === ContinentMarginType.ACTIVE ||
     cell.marginType === ContinentMarginType.COLLISION ||
     cell.islandCause === IslandCause.ISLAND_ARC ||
-    cell.crustProvince === CrustProvince.ISLAND_ARC ||
-    (cell.volcanicActivity > 0.52 && cell.upliftRate > 0.18);
+    (volcanic > 0.52 && uplift > 0.18);
 
   const hasRiftCause =
     cell.boundaryType === BoundaryType.DIVERGENT ||
     cell.marginType === ContinentMarginType.RIFT ||
     cell.islandCause === IslandCause.RIFT_FRAGMENT ||
-    cell.crustProvince === CrustProvince.RIFT_MARGIN ||
-    cell.upliftRate < -0.12;
+    uplift < -0.12 ||
+    thinYoungMaterial > 0.04;
 
   if (cell.oceanDepthClass === OceanDepthClass.TRENCH) add('OCEAN_TRENCH', hasSubductionCause ? 0.94 : 0.32);
   if (cell.oceanDepthClass === OceanDepthClass.RIDGE) add('OCEAN_RIDGE', hasRiftCause ? 0.92 : 0.32);
-  if (cell.oceanDepthClass === OceanDepthClass.SHELF) add('CONTINENT_SHELF', cell.shelfStrength > 0.50 ? 0.52 : 0.34);
-  if (cell.oceanDepthClass === OceanDepthClass.SLOPE) add('CONTINENT_MARGIN', cell.shelfStrength > 0.42 ? 0.50 : 0.30);
+  if (cell.oceanDepthClass === OceanDepthClass.SHELF) add('CONTINENT_SHELF', shelf > 0.50 ? 0.52 : 0.34);
+  if (cell.oceanDepthClass === OceanDepthClass.SLOPE) add('CONTINENT_MARGIN', shelf > 0.42 ? 0.50 : 0.30);
   if (cell.oceanDepthClass === OceanDepthClass.ABYSSAL) add('OCEAN_BASIN', 0.16);
 
   if (cell.boundaryType === BoundaryType.CONVERGENT) {
@@ -128,24 +142,15 @@ export function classifyGeologicFeatureAuthority(cell: Cell): GeologicFeatureAut
   }
   if (cell.islandCause === IslandCause.RIFT_FRAGMENT) add('RIFT_ZONE', 0.74);
 
-  if (cell.crustProvince === CrustProvince.OLD_SHIELD && cell.continentCoreStrength > 0.52) add('CONTINENT_CORE', 0.62 + cell.continentCoreStrength * 0.22);
-  if (cell.crustProvince === CrustProvince.MOBILE_BELT) add('MOBILE_BELT', 0.72);
-  if (cell.crustProvince === CrustProvince.SEDIMENT_BASIN) add('SEDIMENT_BASIN', 0.46);
-  if (cell.crustProvince === CrustProvince.RIFT_MARGIN) add('RIFT_ZONE', 0.76);
-  if (cell.crustProvince === CrustProvince.COASTAL_PLAIN) add('COASTAL_PLAIN', 0.40);
-  if (cell.crustProvince === CrustProvince.VOLCANIC_PROVINCE) add('VOLCANIC_CENTER', 0.84);
-  if (cell.crustProvince === CrustProvince.OCEANIC_BASIN) add('OCEAN_BASIN', 0.20);
-  if (cell.crustProvince === CrustProvince.ISLAND_ARC) {
-    add('SUBDUCTION_ZONE', 0.84);
-    add('ISLAND_ARC', 0.88);
-  }
-
-  if (cell.continentCoreStrength > 0.72) add('CONTINENT_CORE', 0.82);
-  else if (cell.continentCoreStrength > 0.56) add('CONTINENT_CORE', 0.58);
-
-  if (cell.shelfStrength > 0.62) add('CONTINENT_SHELF', 0.54 + cell.shelfStrength * 0.18);
-  if (cell.volcanicActivity > 0.55) add('VOLCANIC_CENTER', 0.58 + cell.volcanicActivity * 0.28);
-  if (cell.upliftRate > 0.28) add('COLLISION_ZONE', 0.48 + clamp01(cell.upliftRate) * 0.24);
+  if (core > 0.72) add('CONTINENT_CORE', 0.82);
+  else if (core > 0.56) add('CONTINENT_CORE', 0.58);
+  if (stableMaterial > 0.035 && core > 0.42) add('CONTINENT_CORE', 0.58 + core * 0.18 + stableMaterial * 0.30);
+  if (stableMaterial > 0.020 && uplift > 0.10) add('MOBILE_BELT', 0.48 + clamp01(uplift) * 0.24);
+  if (thinYoungMaterial > 0.035 && shelf > 0.20) add('SEDIMENT_BASIN', 0.40 + thinYoungMaterial * 0.40);
+  if (shelf > 0.62) add('CONTINENT_SHELF', 0.54 + shelf * 0.18);
+  if (shelf > 0.50 && continentality > 0.32 && Math.abs(uplift) < 0.12) add('COASTAL_PLAIN', 0.36 + shelf * 0.18);
+  if (volcanic > 0.55) add('VOLCANIC_CENTER', 0.58 + volcanic * 0.28);
+  if (uplift > 0.28) add('COLLISION_ZONE', 0.48 + clamp01(uplift) * 0.24);
 
   let primary: GeologicFeatureAuthorityId | 'NONE' = 'NONE';
   let strength = 0;
