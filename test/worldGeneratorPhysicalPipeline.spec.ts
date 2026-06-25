@@ -55,6 +55,7 @@ describe('Generate physical pipeline selection', () => {
 
     expect(world.continentSkeletons?.length ?? 0).toBe(0);
     expect(world.cells.every((cell) => cell.continentId == null)).toBe(true);
+    expect(world.cells.every((cell) => !cell.isWater)).toBe(true);
     expect(world.cells.some((cell) => cell.surfaceType === SurfaceType.PERMAFROST)).toBe(true);
   });
 
