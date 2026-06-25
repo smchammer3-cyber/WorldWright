@@ -27,6 +27,27 @@ export default function GeneratePipelineAuthorityPanel({ ledger }: Props) {
         </div>
       </div>
 
+      {ledger.summary.firstFailedGate && (
+        <div
+          style={{
+            marginBottom: 8,
+            padding: '6px 8px',
+            borderRadius: 8,
+            border: '1px solid rgba(255,227,138,0.28)',
+            background: 'rgba(255,227,138,0.10)',
+            color: 'rgba(255,255,255,0.74)',
+            fontSize: 10,
+            lineHeight: 1.35,
+          }}
+        >
+          <div style={{ color: LEVEL_COLOR[ledger.summary.firstFailedGate.level], fontWeight: 900 }}>
+            First failed gate: {ledger.summary.firstFailedGate.firstFailedLayer} ({ledger.summary.firstFailedGate.authorityCategory})
+          </div>
+          <div>{ledger.summary.firstFailedGate.failedConsequence}</div>
+          <div style={{ color: 'rgba(255,255,255,0.58)' }}>{ledger.summary.firstFailedGate.recommendedNextFix}</div>
+        </div>
+      )}
+
       <div
         style={{
           display: 'grid',
