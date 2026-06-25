@@ -15,10 +15,11 @@ const JSON_PATH = `${OUTPUT_DIR}/generate-multiseed-latest.json`;
 const MARKDOWN_PATH = `${OUTPUT_DIR}/generate-multiseed-latest.md`;
 
 const ABLATIONS: AblationStageId[] = [
+  'PLATE_BOUNDARY_FEATURE_TERRAIN',
   'SKELETON_ELEVATION',
   'QUALITY_PASS',
+  'ISOSTATIC_TERRAIN_RESPONSE',
   'CRUST_PROVINCE_DELTA',
-  'CRUST_SKELETON_OBEDIENCE',
   'OCEAN_BATHYMETRY_SMOOTHING',
 ];
 
@@ -218,45 +219,29 @@ function summarizeAblations(result: MultiSeedGenerateDiagnostics): Record<string
   return Object.fromEntries(Array.from(groups, ([stage, rows]) => [stage, averageMetric(rows)]));
 }
 
-function ablationTable(rows: Record<string, Record<string, number>>): string {
-  const body = Object.entries(rows)
-    .map(([stage, values]) => `| \`${stage}\` | ${formatSigned(values.relief)} | ${formatSigned(values.plateImprint)} | ${formatSigned(values.provinceImprint)} | ${formatSigned(values.skeletonImprint)} | ${formatSigned(values.landComponents)} | ${formatNumber(values.topologyCollapse)} |`)
-    .join('\n');
-  return [
-    '| Skipped stage | Relief Δ | Plate imprint Δ | Province imprint Δ | Skeleton imprint Δ | Land bodies Δ | Collapse rate |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: |',
-    body || '| _none_ | 0 | 0 | 0 | 0 | 0 | 0 |',
-  ].join('\n');
+function ablationTable(groups: Record<string, Record<string, number>>): string {
+  const rows = Object.entries(groups).map(([stage, row]) => `| \`${stage}\` | ${formatSigned(row.landFraction)} | ${formatSigned(row.landComponents)} | ${formatSigned(row.mediumFragmentCount)} | ${formatSigned(row.relief)} | ${formatSigned(row.plateImprint)} | ${formatSigned(row.provinceImprint)} | ${formatSigned(row.skeletonImprint)} | ${formatNumber(row.topologyCollapse)} |`);
+  return ['| Skipped stage | Δ land | Δ bodies | Δ med fragments | Δ relief | Δ plate imprint | Δ province imprint | Δ skeleton imprint | Collapse |', '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |', ...rows].join('\n');
 }
 
-function metricTable(metrics: Record<string, number | null | undefined>): string {
-  const rows = Object.entries(metrics).map(([key, value]) => `| ${key} | ${formatNumber(value)} |`);
-  return ['| Metric | Average |', '| --- | ---: |', ...rows].join('\n');
+function metricTable(row: Record<string, number | null | undefined>): string {
+  const rows = Object.entries(row).map(([k, v]) => `| ${k} | ${formatNumber(v)} |`);
+  return ['| Metric | Value |', '| --- | ---: |', ...rows].join('\n');
 }
 
-function averageMetric<T extends Record<string, any>>(items: T[]): Record<string, number> {
-  const totals = new Map<string, { sum: number; count: number }>();
-  for (const item of items) {
-    for (const [key, value] of Object.entries(item)) {
-      if (typeof value !== 'number' || !Number.isFinite(value)) continue;
-      const current = totals.get(key) ?? { sum: 0, count: 0 };
-      current.sum += value;
-      current.count += 1;
-      totals.set(key, current);
-    }
-  }
-  return Object.fromEntries(Array.from(totals, ([key, value]) => [key, value.sum / Math.max(1, value.count)]));
+function averageMetric<T extends Record<string, number | null | undefined>>(rows: T[]): Record<string, number> {
+  const keys = new Set(rows.flatMap((row) => Object.keys(row)));
+  const out: Record<string, number> = {};
+  for (const key of keys) out[key] = mean(rows.map((row) => Number(row[key] ?? 0)));
+  return out;
 }
 
 function formatNumber(value: number | null | undefined): string {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return 'n/a';
-  if (Math.abs(value) >= 100) return value.toFixed(1);
-  if (Math.abs(value) >= 10) return value.toFixed(2);
-  return value.toFixed(4);
+  if (value == null || !Number.isFinite(value)) return '0';
+  return Math.abs(value) >= 1 ? value.toFixed(2) : value.toFixed(4);
 }
 
-function formatSigned(value: number | null | undefined): string {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return 'n/a';
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${formatNumber(value)}`;
+function formatSigned(value: number): string {
+  const v = formatNumber(value);
+  return value > 0 ? `+${v}` : v;
 }
