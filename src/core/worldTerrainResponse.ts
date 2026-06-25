@@ -6,7 +6,7 @@ import type { Cell, WorldBrain } from './worldSchema';
 export function applyIsostaticTerrainResponse(world: WorldBrain): void {
   if (!world?.cells?.length) return;
   assertNoAuthoredTerrainDeltas(world, 'applyIsostaticTerrainResponse');
-  const foundation = world.planetFoundation ?? resolveGeneratePlanetFoundation(world.parameters ?? {});
+  const foundation = world.planetFoundation ?? resolveGeneratePlanetFoundation((world.parameters ?? {}) as any);
   world.planetFoundation = foundation;
 
   const seed = seedToUint32(world.metadata.seed);
