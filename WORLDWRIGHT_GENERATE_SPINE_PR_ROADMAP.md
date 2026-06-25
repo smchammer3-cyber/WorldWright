@@ -84,7 +84,7 @@ Goal: make diagnostics and pipeline ledgers match the actual current Generate sp
 
 Required work:
 
-1. Update `worldGeneratePipelineLedger.ts` to match the actual `applyGeneratedGeographyPipeline` order:
+1. Update `worldGeneratePipelineLedger.ts` to match the actual `applyGeneratedGeographyPipeline` order and the decomposed `applyCrustTerrainInfluence` subpasses:
 
 ```text
 CONTINENT_FIELDS
@@ -100,13 +100,15 @@ CRUST_PROVINCE_DELTA
 CRUST_COAST_BREAKUP
 CRUST_COHERENCE
 CRUST_TINY_ISLAND_CLEANUP
+MATERIAL_RELIEF_REINFORCEMENT
+COAST_SHAPE_PASS
 OCEAN_BATHYMETRY_SMOOTHING
 FINAL_RECOMPUTE
 FINAL_CONTINENT_RESEED
 FINAL_CRUST_RESEED
 ```
 
-2. Remove stale ledger references to removed stages such as `CRUST_SKELETON_OBEDIENCE`.
+2. Remove stale ledger and diagnostic references to removed stages such as `CRUST_SKELETON_OBEDIENCE`.
 
 3. Ensure terminal reseeds are reported as terminal explanation sync only.
 
