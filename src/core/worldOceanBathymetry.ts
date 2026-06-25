@@ -1,9 +1,7 @@
 import {
   BoundaryType,
-  CrustProvince,
+  ContinentMarginType,
   IslandCause,
-  OceanDepthClass,
-  PlateType,
   type Cell,
   type WorldBrain,
 } from './worldSchema';
@@ -11,11 +9,11 @@ import { assertNoAuthoredTerrainDeltas } from './worldLayerAuthority';
 import { ensureCrustFields } from './worldCrust';
 
 /**
- * Smooths unexplained underwater plate/province ghosts without erasing caused
- * bathymetry. Ridges, trenches, island arcs, shelves, and coastal slopes get
- * protection. Uncaused ocean cells near hard plate/province edges are blended
- * toward nearby ocean heights so Final view and future heightmap export do not
- * reveal the raw plate polygon map.
+ * Smooths unexplained underwater height ghosts without letting derived labels or
+ * hidden IDs become bathymetry authority. Ridges, trenches, island arcs,
+ * shelves, and coastal slopes get protection only through explicit feature or
+ * material/morphology authority such as boundary type, uplift, volcanism,
+ * caused island fields, shelf strength, and margin type.
  */
 export function applyOceanBathymetrySmoothing(world: WorldBrain): void {
   if (!world?.cells?.length) return;
@@ -38,9 +36,8 @@ export function applyOceanBathymetrySmoothing(world: WorldBrain): void {
     const target = localOceanAverage(world, i, source, seaLevel);
     if (target == null) continue;
 
-    const shelfProtection = cell.oceanDepthClass === OceanDepthClass.SHELF || cell.oceanDepthClass === OceanDepthClass.SLOPE ? 0.58 : 0;
-    const causeProtection = clamp01(Math.max(cause, shelfProtection, coastProtection * 0.75));
-    const strength = clamp01(0.05 + edgeGhost * 0.26 + interiorBlock * 0.08) * lerp(1, 0.16, causeProtection);
+    const morphologyProtection = clamp01(Math.max(cause, coastProtection * 0.75));
+    const strength = clamp01(0.05 + edgeGhost * 0.26 + interiorBlock * 0.08) * lerp(1, 0.16, morphologyProtection);
     if (strength <= 0.002) continue;
 
     deltas[i] = clamp((target - h) * strength, -0.022, 0.022);
@@ -59,7 +56,6 @@ function localOceanAverage(world: WorldBrain, index: number, heights: number[], 
   const col = index % world.gridWidth;
   let sum = 0;
   let weightSum = 0;
-  const center = world.cells[index];
 
   for (let dr = -1; dr <= 1; dr++) {
     const r = row + dr;
@@ -72,8 +68,7 @@ function localOceanAverage(world: WorldBrain, index: number, heights: number[], 
       if (h >= seaLevel) continue;
       const neighbor = world.cells[idx];
       const cause = explicitOceanBathymetryCause(neighbor);
-      const acrossHiddenEdge = neighbor.plateId !== center.plateId || neighbor.crustProvince !== center.crustProvince;
-      const weight = (acrossHiddenEdge ? 1.35 : 1) * lerp(1, 0.34, cause);
+      const weight = lerp(1, 0.34, cause);
       sum += h * weight;
       weightSum += weight;
     }
@@ -91,8 +86,6 @@ function unexplainedOceanEdgeSignal(world: WorldBrain, index: number, heights: n
   for (const neighborIndex of neighbors) {
     const neighbor = world.cells[neighborIndex];
     if (heights[neighborIndex] >= seaLevel) continue;
-    const edge = neighbor.plateId !== cell.plateId || neighbor.crustProvince !== cell.crustProvince;
-    if (!edge) continue;
     count++;
     const caused = Math.max(explicitOceanBathymetryCause(cell), explicitOceanBathymetryCause(neighbor));
     const heightJump = Math.abs(heights[index] - heights[neighborIndex]);
@@ -104,24 +97,13 @@ function unexplainedOceanEdgeSignal(world: WorldBrain, index: number, heights: n
 function oceanInteriorBlockSignal(world: WorldBrain, index: number, heights: number[], seaLevel: number): number {
   const cell = world.cells[index];
   if (explicitOceanBathymetryCause(cell) > 0.20) return 0;
-  const neighbors = neighborIndices4(world, index).filter((idx) => heights[idx] < seaLevel);
-  if (neighbors.length < 2) return 0;
-  let samePlateJump = 0;
-  let samePlateCount = 0;
-  let differentPlateJump = 0;
-  let differentPlateCount = 0;
-  for (const idx of neighbors) {
-    const jump = Math.abs(heights[index] - heights[idx]);
-    if (world.cells[idx].plateId === cell.plateId) {
-      samePlateJump += jump;
-      samePlateCount++;
-    } else {
-      differentPlateJump += jump;
-      differentPlateCount++;
-    }
-  }
-  if (samePlateCount === 0 || differentPlateCount === 0) return 0;
-  return smoothstep(1.15, 2.10, (differentPlateJump / differentPlateCount) / Math.max(0.001, samePlateJump / samePlateCount));
+  const neighborHeights = neighborIndices4(world, index)
+    .filter((idx) => heights[idx] < seaLevel)
+    .map((idx) => heights[idx]);
+  if (neighborHeights.length < 2) return 0;
+  const min = Math.min(...neighborHeights);
+  const max = Math.max(...neighborHeights);
+  return smoothstep(0.025, 0.100, max - min);
 }
 
 function oceanCoastProtection(world: WorldBrain, index: number, heights: number[], seaLevel: number): number {
@@ -134,15 +116,14 @@ function oceanCoastProtection(world: WorldBrain, index: number, heights: number[
 
 function explicitOceanBathymetryCause(cell: Cell): number {
   let cause = 0;
-  if (cell.oceanDepthClass === OceanDepthClass.TRENCH) cause = Math.max(cause, 1.0);
-  if (cell.oceanDepthClass === OceanDepthClass.RIDGE) cause = Math.max(cause, 0.95);
-  if (cell.oceanDepthClass === OceanDepthClass.SHELF || cell.oceanDepthClass === OceanDepthClass.SLOPE) cause = Math.max(cause, 0.58);
   if (cell.boundaryType === BoundaryType.CONVERGENT || cell.boundaryType === BoundaryType.DIVERGENT) cause = Math.max(cause, 0.9);
   if (cell.boundaryType === BoundaryType.TRANSFORM) cause = Math.max(cause, 0.45);
-  if (cell.crustProvince === CrustProvince.ISLAND_ARC || cell.crustProvince === CrustProvince.VOLCANIC_PROVINCE) cause = Math.max(cause, 0.82);
   if (cell.islandCause === IslandCause.ISLAND_ARC || cell.islandCause === IslandCause.VOLCANIC_HOTSPOT) cause = Math.max(cause, 0.9);
   if (cell.volcanicActivity > 0.55) cause = Math.max(cause, 0.72);
-  if (cell.plateType === PlateType.OCEANIC && cell.crustProvince === CrustProvince.OCEANIC_BASIN) cause = Math.max(cause, 0.18);
+  if (Math.abs(cell.upliftRate) > 0.55) cause = Math.max(cause, 0.64);
+  if (cell.shelfStrength > 0.42) cause = Math.max(cause, 0.58);
+  if (cell.marginType === ContinentMarginType.ACTIVE || cell.marginType === ContinentMarginType.RIFT) cause = Math.max(cause, 0.50);
+  if (cell.marginType === ContinentMarginType.PASSIVE && cell.shelfStrength > 0.32) cause = Math.max(cause, 0.42);
   return clamp01(cause);
 }
 
