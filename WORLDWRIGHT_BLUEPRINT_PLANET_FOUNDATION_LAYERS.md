@@ -18,7 +18,7 @@ planet class / size / gravity / energy / interior
 -> render/export
 ```
 
-Earthlike worlds use the terrestrial rocky stack. Alien/fantasy worlds may use wider or alternate stacks, but each stack declares what layers are legal. A fully gas/cloud planet is no longer a normal Generate terrain profile because WorldWright Generate creates editable surface-bearing worlds. Gas giants may later exist as parent bodies, sky context, or moon-system context.
+Earthlike worlds use the terrestrial rocky stack. Alien/fantasy worlds may use wider or alternate stacks, but each stack declares what layers are legal. A fully gas/cloud planet is not a WorldWright Generate profile because WorldWright Generate creates editable surface-bearing worlds only. Gas giants and gas worlds are out of scope for generated bodies and must not be reintroduced as parent-body, sky-context, or moon-system loopholes.
 
 ## Source anchors
 
@@ -83,9 +83,12 @@ Removed from normal Generate terrain profiles:
 
 ```text
 CLOUD_GAS_WORLD
+GAS_WORLD
+GAS_GIANT
+CLOUD_GAS_GIANT
 ```
 
-Reason: a gas/cloud planet has no ordinary editable terrain surface. It belongs later as parent/sky/moon-system context, not as the generated terrain body itself.
+Reason: gas/cloud bodies have no ordinary editable terrain surface. WorldWright Generate is restricted to editable surface-bearing worlds.
 
 ## EARTHLIKE_ROCKY
 
@@ -136,6 +139,7 @@ Correct interpretation:
 ```text
 solid crust/lithosphere/shell above a hot volatile-rich layer
 not land floating on open gas
+not a gas world
 ```
 
 Allowed effects:
@@ -218,13 +222,10 @@ Permits non-natural support logic only when explicitly selected. It still must d
 
 ## Runtime math
 
-The current implementation lives in:
+See:
 
 ```text
+CURRENT_MATH.md
 src/core/generatePlanetFoundation.ts
-src/core/worldTerrainResponse.ts
-src/core/worldPlateBoundaryFeatures.ts
-src/core/worldCrust/materialFields.ts
+src/core/generatePlanetProfileContract.ts
 ```
-
-`CURRENT_MATH.md` is the authoritative formula index for the current code.
