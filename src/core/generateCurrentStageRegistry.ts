@@ -65,7 +65,7 @@ export const CURRENT_GENERATE_STAGE_CONTRACTS: readonly CurrentGenerateStageCont
     mayShapeTerrain: true,
     risk: 'watch',
     note: 'Broad morphology terrain guidance. Must not stamp continent/ocean IDs or be repeated late.',
-    knownViolations: ['Known first high-risk imprint stage from prior diagnostics.'],
+    knownViolations: [],
   },
   {
     id: 'FIRST_RECOMPUTE',
@@ -168,12 +168,12 @@ export const CURRENT_GENERATE_STAGE_CONTRACTS: readonly CurrentGenerateStageCont
     label: 'Ocean bathy',
     kind: 'terrain',
     registryLayerIds: ['TERRAIN_RESPONSE', 'WATER_SURFACE_STATE'],
-    allowedReads: ['baseHeight', 'isWater', 'oceanDepthClass', 'boundaryType', 'upliftRate', 'volcanicActivity', 'shelfStrength'],
+    allowedReads: ['baseHeight', 'isWater', 'boundaryType', 'upliftRate', 'volcanicActivity', 'shelfStrength', 'marginType', 'islandCause'],
     allowedWrites: ['baseHeight'],
     mayShapeTerrain: true,
     risk: 'watch',
     note: 'Ocean terrain cleanup is valid only when preserving explicit ridges, trenches, arcs, shelves, and not hiding identity leaks.',
-    knownViolations: ['oceanDepthClass alone cannot prove feature authority.'],
+    knownViolations: [],
   },
   {
     id: 'FINAL_RECOMPUTE',
