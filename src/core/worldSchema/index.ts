@@ -77,6 +77,43 @@ export enum IslandCause {
   INVALID_FRAGMENT = 'INVALID_FRAGMENT',
 }
 
+export type SurfaceWaterMode =
+  | 'DRY'
+  | 'LIQUID_SURFACE_WATER'
+  | 'MIXED_LIQUID_ICE'
+  | 'SNOWBALL_SURFACE'
+  | 'ICE_OVER_ROCK'
+  | 'ICE_SHELL_OVER_OCEAN'
+  | 'SUBSURFACE_BRINE'
+  | 'STEAM_OR_VAPOR_DOMINATED';
+
+export type SurfaceSupportMode =
+  | 'ROCKY_CRUST'
+  | 'LITHOSPHERE'
+  | 'ICE_OVER_ROCK'
+  | 'ICE_SHELL'
+  | 'REGOLITH'
+  | 'ARTIFICIAL_OR_FANTASY_SHELL';
+
+export type GroundSurfaceMaterial =
+  | 'ROCK'
+  | 'SEDIMENT'
+  | 'REGOLITH'
+  | 'ICE'
+  | 'ICE_OVER_ROCK'
+  | 'ICE_SHELL'
+  | 'ARTIFICIAL_SHELL';
+
+export type GeologyStack =
+  | 'PLATE_TECTONIC'
+  | 'STAGNANT_LID'
+  | 'RIFT_DOMINATED'
+  | 'HOTSPOT_DOMINATED'
+  | 'ICE_SHELL_TECTONIC'
+  | 'IMPACT_ANCIENT'
+  | 'VOLATILE_PRESSURE_SHELL'
+  | 'ARTIFICIAL_DECLARED';
+
 export interface PlanetFoundationSnapshot {
   planetProfile:
     | 'EARTHLIKE_ROCKY'
@@ -86,11 +123,20 @@ export interface PlanetFoundationSnapshot {
     | 'DWARF_ROCKY_OR_ICY'
     | 'SUPER_EARTH_ROCKY'
     | 'ARTIFICIAL_OR_FANTASY_SHELL';
-  surfaceSupportMode: 'ROCKY_CRUST' | 'LITHOSPHERE' | 'ICE_SHELL' | 'ARTIFICIAL_OR_FANTASY_SHELL';
+  surfaceSupportMode: SurfaceSupportMode;
   surfaceMaterialFamily: string;
   atmosphereFamily: string;
   waterPhaseFamily: string;
   validLayerStack: string[];
+
+  surfaceWaterMode: SurfaceWaterMode;
+  groundSurfaceMaterial: GroundSurfaceMaterial;
+  geologyStack: GeologyStack;
+  resolvedPhysicalConsequences: string[];
+  waterInventory: number;
+  seaLevelOffset: number;
+  iceStability: number;
+  adjustedAlbedo: number;
 
   planetRadiusEarth: number;
   planetDensityEarth: number;
@@ -256,6 +302,10 @@ export interface Location {
   name: string;
   cellIndex: number;
   type: string;
+  coordinates?: { lat: number; lon: number };
+  description?: string;
+  category?: string;
+  tags?: string[];
 }
 
 export interface Sticker {
