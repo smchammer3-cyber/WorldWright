@@ -1,8 +1,8 @@
 # WorldWright Current Math
 
-Status: PR #86 runtime math contract
+Status: PR #87 Generate spine contract
 
-Purpose: this document is the index for the math currently allowed to drive Generate Mode. It is not a full scientific simulator. It is a source-backed proxy-physics contract: every visible generated result must have a declared cause, and hidden identity labels must not directly shape terrain or final color.
+Purpose: this document is the current implementation index for Generate Mode math. It defines the allowed causal flow, proxy formulas, and authority boundaries enforced by tests/diagnostics. WorldWright is not a full scientific simulator; it uses source-backed proxy physics so every visible generated result has an explicit upstream cause.
 
 ## Source anchors
 
@@ -36,95 +36,58 @@ terrain response must read feature/material/support fields
 final color must read visible surface/climate/water/biome/terrain fields, not hidden IDs
 ```
 
-## Math index
+## Current Generate spine
 
-1. Planet profile / legal stack
-2. Size, density, mass, gravity
-3. Solar / stellar energy
-4. Core heat / interior activity
-5. Mantle / tectonic vigor
-6. Surface support model
-7. Plate shell / plate stress
-8. Boundary feature authority
-9. Crust / material fields
-10. Isostatic terrain response
-11. Ocean / shelf / bathymetry
-12. Climate / moisture / snow
-13. Hydrology / erosion / sediment
-14. Diagnostics / authority gates
+```text
+RAW_GENERATOR
+→ CONTINENT_FIELDS
+→ PLATE_BOUNDARY_FEATURE_TERRAIN
+→ SKELETON_ELEVATION
+→ FIRST_RECOMPUTE
+→ QUALITY_PASS
+→ CRUST_FIELDS
+→ ISOSTATIC_TERRAIN_RESPONSE
+→ CRUST_PROVINCE_DELTA
+→ CRUST_COAST_BREAKUP
+→ CRUST_COHERENCE
+→ CRUST_TINY_ISLAND_CLEANUP
+→ OCEAN_BATHYMETRY_SMOOTHING
+→ FINAL_RECOMPUTE
+→ FINAL_CONTINENT_RESEED
+→ FINAL_CRUST_RESEED
+```
 
----
+`FINAL_CONTINENT_RESEED` and `FINAL_CRUST_RESEED` are terminal explanation-sync stages. They may update labels for debugging/metadata, but no later terrain writer may consume them in the same pipeline.
 
 ## 1. Planet profile / legal stack
 
-### Fields
+Valid normal Generate terrain profiles:
 
 ```ts
-planetProfile:
-  | 'EARTHLIKE_ROCKY'
-  | 'ROCKY_ALIEN'
-  | 'VOLATILE_PRESSURE_ROCKY'
-  | 'ICE_SHELL_OCEAN_WORLD'
-  | 'DWARF_ROCKY_OR_ICY'
-  | 'SUPER_EARTH_ROCKY'
-  | 'ARTIFICIAL_OR_FANTASY_SHELL'
-
-surfaceSupportMode:
-  | 'ROCKY_CRUST'
-  | 'LITHOSPHERE'
-  | 'ICE_SHELL'
-  | 'ARTIFICIAL_OR_FANTASY_SHELL'
+'EARTHLIKE_ROCKY'
+'ROCKY_ALIEN'
+'VOLATILE_PRESSURE_ROCKY'
+'ICE_SHELL_OCEAN_WORLD'
+'DWARF_ROCKY_OR_ICY'
+'SUPER_EARTH_ROCKY'
+'ARTIFICIAL_OR_FANTASY_SHELL'
 ```
 
-### Removed as normal Generate terrain profile
+Removed from normal Generate terrain profiles:
 
 ```text
 CLOUD_GAS_WORLD
 ```
 
-WorldWright Generate Mode creates editable surface-bearing worlds. Gas giants may later appear as parent bodies, sky context, or moon-system context, but they are not normal terrain worlds.
-
-### Allowed outputs
-
-```text
-validLayerStack
-surfaceSupportMode
-surfaceMaterialFamily
-atmosphereFamily
-waterPhaseFamily
-```
-
-### Forbidden shortcuts
-
-```text
-planetProfile -> baseHeight directly
-planetProfile -> finalColor directly
-```
-
----
+Gas giants may later be parent/sky/moon-system context, not the editable terrain body.
 
 ## 2. Size, density, mass, gravity
 
-### Inputs
-
-```text
-planetRadiusEarth
-planetDensityEarth
-volatileInventory
-```
-
-### Formula
-
 ```ts
 planetMassEarth = planetDensityEarth * planetRadiusEarth ** 3
-
 surfaceGravityEarth = planetMassEarth / planetRadiusEarth ** 2
-// equivalent simplified proxy: planetDensityEarth * planetRadiusEarth
-
 escapeVelocityEarth = sqrt(planetMassEarth / planetRadiusEarth)
-
 reliefGravityScale = clamp(1 / max(0.35, surfaceGravityEarth), 0.45, 1.85)
-
 atmosphereRetentionIndex = clamp01(
   0.55 * escapeVelocityEarth +
   0.25 * surfaceGravityEarth +
@@ -132,155 +95,46 @@ atmosphereRetentionIndex = clamp01(
 )
 ```
 
-### Allowed downstream use
-
-```text
-reliefGravityScale -> terrain response amplitude
-surfaceGravityEarth -> slope tolerance / erosion-sediment scale
-atmosphereRetentionIndex -> climate/water persistence
-escapeVelocityEarth -> atmosphere retention expectations
-```
-
-### Forbidden shortcuts
-
-```text
-gravity -> plateId
-gravity -> crustProvince
-gravity -> baseHeight directly
-gravity -> finalColor directly
-```
-
----
+Allowed downstream use: relief scaling, slope/erosion expectations, atmosphere retention, water persistence. Forbidden: direct terrain/color/plate/province writes.
 
 ## 3. Solar / stellar energy
 
-### Inputs
-
-```text
-starLuminositySun
-orbitalDistanceAU
-albedo
-greenhouseStrength
-temperatureOffset
-```
-
-### Formula
-
 ```ts
 stellarFluxEarth = starLuminositySun / orbitalDistanceAU ** 2
-
 surfaceAbsorbedFlux = stellarFluxEarth * (1 - albedo)
-
 blackbodyHeatProxy = (surfaceAbsorbedFlux / 0.70) ** 0.25
-
 effectiveHeatIndex = clamp(
   blackbodyHeatProxy + greenhouseStrength * 0.22 + temperatureOffset * 0.18,
   0.35,
   1.85
 )
-
 evaporationPotential = clamp01(
   0.50 * normalizeAroundOne(effectiveHeatIndex) +
   0.30 * normalizeAroundOne(stellarFluxEarth) +
   0.20 * greenhouseStrength +
   0.18 * moistureIntent
 )
-
 snowlineBias = clamp(1.0 - effectiveHeatIndex, -0.75, 0.75)
 ```
 
-### Allowed downstream use
-
-```text
-effectiveHeatIndex -> temperature baseline
-evaporationPotential -> rainfall / moisture source
-snowlineBias -> snow/ice tendency
-stellarFluxEarth + albedo + greenhouse -> climate expectations
-```
-
-### Forbidden shortcuts
-
-```text
-stellarFluxEarth -> baseHeight directly
-stellarFluxEarth -> plate/crust/skeleton authority
-stellarFluxEarth -> finalColor directly
-```
-
----
+Allowed downstream use: temperature, evaporation, rainfall, snow/ice, biome bands. Forbidden: direct terrain/color/plate/province writes.
 
 ## 4. Core heat / interior activity
-
-### Inputs
-
-```text
-planetAge
-coreHeatIntent
-compositionRadioactivity
-tidalHeatingIntent
-volatileInventory
-```
-
-### Formula
 
 ```ts
 age01 = clamp01(planetAge / 100)
 thermalYouth = 1 - age01
-
 primordialHeat = clamp01(0.85 * thermalYouth ** 1.35 + 0.15 * coreHeatIntent)
-
 radiogenicHeat = clamp01(0.35 + 0.45 * compositionRadioactivity + 0.20 * thermalYouth)
-
 tidalHeatingIndex = clamp01(tidalHeatingIntent)
-
-coreHeat = clamp01(
-  0.45 * primordialHeat +
-  0.35 * radiogenicHeat +
-  0.20 * tidalHeatingIndex
-)
-
-mantleHeat = clamp01(
-  0.70 * coreHeat +
-  0.20 * volatileInventory +
-  0.10 * thermalYouth
-)
-
-heatFlowIndex = clamp01(
-  0.65 * mantleHeat +
-  0.25 * tidalHeatingIndex +
-  0.10 * riftWeakness
-)
+coreHeat = clamp01(0.45 * primordialHeat + 0.35 * radiogenicHeat + 0.20 * tidalHeatingIndex)
+mantleHeat = clamp01(0.70 * coreHeat + 0.20 * volatileInventory + 0.10 * thermalYouth)
+heatFlowIndex = clamp01(0.65 * mantleHeat + 0.25 * tidalHeatingIndex + 0.10 * riftWeakness)
 ```
 
-### Allowed downstream use
-
-```text
-coreHeat / mantleHeat -> mantle convection
-heatFlowIndex -> tectonic vigor / volcanism / rift likelihood / crust heat
-```
-
-### Forbidden shortcuts
-
-```text
-coreHeat -> baseHeight directly
-coreHeat -> finalColor directly
-```
-
----
+Allowed downstream use: mantle convection, tectonic vigor, volcanism, rifts, hotspot potential, crust heat. Forbidden: direct terrain/color writes.
 
 ## 5. Mantle / tectonic vigor
-
-### Inputs
-
-```text
-heatFlowIndex
-surfaceGravityEarth
-reliefGravityScale
-volatileInventory
-plateActivityIntent
-stagnantLidBias
-```
-
-### Formula
 
 ```ts
 lithosphereMobility = clamp01(
@@ -289,383 +143,147 @@ lithosphereMobility = clamp01(
   0.25 * normalizeRelief(reliefGravityScale) -
   0.25 * stagnantLidBias
 )
-
 mantleConvectionIndex = clamp01(
   heatFlowIndex * lithosphereMobility * (0.75 + normalizeRelief(reliefGravityScale) * 0.25)
 )
-
 tectonicVigor = clamp01(
   0.55 * mantleConvectionIndex +
   0.30 * plateActivityIntent +
   0.15 * volatileInventory
 )
-
-volcanismBias = clamp01(
-  0.50 * heatFlowIndex +
-  0.25 * tidalHeatingIndex +
-  0.25 * tectonicVigor
-)
-
-riftLikelihood = clamp01(
-  0.45 * mantleConvectionIndex +
-  0.25 * volatilePressure +
-  0.20 * plateActivityIntent +
-  0.10 * thermalYouth
-)
-
-hotspotPotential = clamp01(
-  0.50 * mantleHeat +
-  0.25 * heatFlowIndex +
-  0.25 * tidalHeatingIndex
-)
+volcanismBias = clamp01(0.50 * heatFlowIndex + 0.25 * tidalHeatingIndex + 0.25 * tectonicVigor)
+riftLikelihood = clamp01(0.45 * mantleConvectionIndex + 0.25 * volatilePressure + 0.20 * plateActivityIntent + 0.10 * thermalYouth)
+hotspotPotential = clamp01(0.50 * mantleHeat + 0.25 * heatFlowIndex + 0.25 * tidalHeatingIndex)
 ```
 
-### Allowed downstream use
+## 6. Boundary feature authority
 
-```text
-tectonicVigor -> plate count / plate speeds / boundary energy
-volcanismBias -> feature authority and crust material
-riftLikelihood -> rift feature likelihood / crust weakness
-hotspotPotential -> hotspot feature authority
-```
-
----
-
-## 6. Surface support model
-
-### Fields
-
-```text
-surfaceSupportMode
-surfaceMaterialFamily
-lithosphereStrength
-```
-
-### Formula
-
-```ts
-lithosphereStrength = clamp01(
-  0.35 +
-  0.25 * crustStrength +
-  0.20 * surfaceGravityEarth +
-  0.20 * age01 -
-  0.25 * heatFlowIndex
-)
-```
-
-### Hard rule
-
-```text
-landmass terrain requires rocky, lithosphere, ice, artificial, or fantasy shell support
-volatile pressure cannot replace a support shell as terrain authority
-```
-
----
-
-## 7. Plate shell / plate stress
-
-### Inputs
-
-```text
-tectonicVigor
-plateFragmentationIntent
-boundaryComplexity
-surfaceSupportMode
-```
-
-### Formula
-
-```ts
-majorPlateCount = round(lerp(6, 12, tectonicVigor))
-
-totalResolvedPlateDomains = round(
-  majorPlateCount * lerp(1.4, 3.5, plateFragmentationIntent)
-)
-
-relativeVelocity = velocityB - velocityA
-
-compression = clamp01(-dot(relativeVelocity, boundaryNormal) / maxSpeed)
-extension = clamp01(dot(relativeVelocity, boundaryNormal) / maxSpeed)
-shear = clamp01(abs(dot(relativeVelocity, boundaryTangent)) / maxSpeed)
-
-boundaryStrength = clamp01(
-  0.45 * max(compression, extension, shear) +
-  0.35 * tectonicVigor +
-  0.20 * boundaryComplexity
-)
-```
-
-### Boundary classification
-
-```text
-extension-dominant -> DIVERGENT
-compression-dominant -> CONVERGENT
-shear-dominant -> TRANSFORM
-weak/mixed -> DIFFUSE_BOUNDARY
-```
-
-### Forbidden shortcuts
-
-```text
-plateId -> baseHeight
-plateId -> finalColor
-plate polygon edge -> visible relief without feature authority
-```
-
----
-
-## 8. Boundary feature authority
-
-### Feature mapping
+Plate fields remain causes. Visible boundary relief must come through feature authority.
 
 ```text
 DIVERGENT + oceanic setting -> OCEAN_RIDGE
 DIVERGENT + continental setting -> RIFT_ZONE
-CONVERGENT + oceanic subduction -> SUBDUCTION_ZONE + OCEAN_TRENCH + ISLAND_ARC
+CONVERGENT + oceanic subduction -> OCEAN_TRENCH + ISLAND_ARC + SUBDUCTION_ZONE
 CONVERGENT + continental collision -> COLLISION_ZONE
 TRANSFORM -> TRANSFORM_ZONE
-weak/mixed -> DIFFUSE_BOUNDARY
+weak/mixed -> mostly invisible in Final
 ```
 
-### Strength formulas
+Weak ocean boundary relief should be smoothed away; strong ridge/trench/arc relief should be segmented and geologic, not a continuous plate outline.
 
-```ts
-ridgeStrength = extension * boundaryStrength * (1 - continentality)
-riftStrength = extension * boundaryStrength * continentality
-trenchStrength = compression * boundaryStrength * oceanicSubductionLikely
-arcStrength = trenchStrength * clamp01(0.45 + volcanismBias * 0.55)
-collisionStrength = compression * boundaryStrength * continentalCollisionLikely
-transformStrength = shear * boundaryStrength
-```
+## 7. Crust / material fields
 
-### Allowed downstream use
+Crust material writes:
 
 ```text
-boundary features -> crust/material fields
-boundary features -> terrain response
-boundary features -> diagnostics
+crustThickness
+crustAge
+crustProvince
 ```
 
----
+`crustProvince` is a label only. Terrain reads material signals from crust thickness/age, continentality, core strength, features, and foundation heat; it must not switch directly on `crustProvince`.
 
-## 9. Crust / material fields
-
-### Inputs
-
-```text
-continentality
-continentCoreStrength
-ridgeStrength
-riftStrength
-trenchStrength
-arcStrength
-collisionStrength
-heatFlowIndex
-volcanismBias
-thermalAge
-```
-
-### Formula
+Material signal proxy:
 
 ```ts
-crustThickness = clamp01(
-  lerp(0.24, 0.72, continentality) +
-  collisionStrength * 0.18 +
-  arcStrength * 0.06 -
-  ridgeStrength * 0.08 -
-  riftStrength * 0.10 +
-  continentCoreStrength * 0.06
-)
-
-crustAge = clamp01(
-  0.22 +
-  thermalAge * 0.38 +
-  continentCoreStrength * 0.28 -
-  ridgeStrength * 0.32 -
-  volcanismBias * 0.12
-)
-
 crustDensity = clamp(
   lerp(1.10, 0.84, continentality) +
   crustAge * (1 - continentality) * 0.08 -
-  volatilePorosity * 0.05,
+  volcanic * 0.04,
   0.72,
   1.22
 )
-
-crustStrength = clamp01(
-  0.30 +
-  crustAge * 0.30 +
-  crustThickness * 0.20 -
-  heatFlowIndex * 0.25 +
-  continentCoreStrength * 0.20
-)
-
-crustBuoyancy = clamp01(
-  0.50 * crustThickness +
-  0.30 * (1.15 - crustDensity) +
-  0.20 * crustStrength
-)
+crustStrength = clamp01(0.34 + crustAge * 0.30 + crustThickness * 0.24 - heatFlowIndex * 0.23 + continentCoreStrength * 0.24)
+crustBuoyancy = clamp01(0.54 * crustThickness + 0.32 * (1.15 - crustDensity) + 0.22 * crustStrength)
+sedimentTendency = clamp01(lowland + heatFlowIndex * 0.06 + max(0, 0.58 - crustThickness) * 0.14)
 ```
 
-### Allowed downstream use
+## 8. Isostatic terrain response
 
-```text
-crust material -> isostatic target height
-crust material -> erosion resistance
-crust material -> derived crustProvince label
-```
-
-### Forbidden shortcuts
-
-```text
-crustProvince -> baseHeight
-crustProvince -> finalColor
-```
-
----
-
-## 10. Isostatic terrain response
-
-### Formula
+Current PR #87 terrain response separates land and ocean targets so weak underwater boundary contrast can be suppressed.
 
 ```ts
-isostaticTargetHeight =
-  seaLevel +
-  continentality * 0.16 +
-  crustBuoyancy * 0.20 +
-  continentCoreStrength * 0.08 -
-  oceanicBasinStrength * 0.22 -
-  max(0, crustDensity - 1.0) * 0.10
+landMaterialTarget = seaLevel
+  + continentality * 0.18
+  + crustBuoyancy * 0.27
+  + continentCoreStrength * 0.12
+  - max(0, crustDensity - 1.0) * 0.10
 
-featureRelief =
-  collisionStrength * 0.16 * reliefGravityScale +
-  arcStrength * 0.08 * reliefGravityScale +
-  ridgeStrength * 0.07 * reliefGravityScale -
-  trenchStrength * 0.14 * reliefGravityScale -
-  riftStrength * 0.08 * reliefGravityScale +
-  transformStrength * shearTexture * 0.025 * reliefGravityScale
+oceanMaterialTarget = seaLevel
+  - oceanBasinStrength * 0.24
+  + ridge * 0.035 * reliefGravityScale * segmentation
+  - trench * 0.090 * reliefGravityScale * segmentation
+  + arc * 0.018 * reliefGravityScale * segmentation
 
-terrainTarget = lowFrequencyPlanetShape + isostaticTargetHeight + featureRelief - erosionWear + sedimentFill + smallTexture
+landFeatureRelief =
+  collision * 0.20 * reliefGravityScale
+  + arc * 0.10 * reliefGravityScale
+  - rift * 0.10 * reliefGravityScale
+  + transform * shearTexture * 0.024 * reliefGravityScale
 
-baseHeight = blend(baseHeight, terrainTarget, terrainResponseStrength)
+oceanFeatureRelief = strongOceanFeature
+  ? (ridge * 0.052 - trench * 0.092 + arc * 0.025 + transform * shearTexture * 0.010) * reliefGravityScale * segmentation
+  : 0
+
+terrainTarget = lowFrequencyPlanetShape + materialTarget + featureRelief - erosionWear + sedimentFill + smallTexture
 ```
 
-### Forbidden shortcuts
-
-```text
-plateId -> baseHeight
-plateType -> baseHeight
-crustProvince -> baseHeight
-oceanDepthClass -> terrain cause by itself
-```
-
----
-
-## 11. Ocean / shelf / bathymetry
-
-### Normalized bands
+Weak ocean boundary damping:
 
 ```ts
-relativeDepth = clamp01((seaLevel - height) / oceanDepthScale)
-
-SHELF: relativeDepth < 0.10 && shelfStrength > 0.45
-SLOPE: relativeDepth 0.10-0.22 && shelfStrength > 0.25
-ABYSSAL: relativeDepth 0.35-0.78 && oceanBasinStrength > 0.35
-TRENCH: trenchStrength > 0.55 && relativeDepth > 0.55
-RIDGE: ridgeStrength > 0.50 && localRelativeHighInOcean
+weakOceanSeamDamp = isOcean && !strongOceanFeature
+  ? 0.24 + 0.40 * smoothstep(0.30, 0.70, featureStrength)
+  : 1
 ```
 
-### Forbidden shortcuts
+## 9. Ocean / shelf / bathymetry
 
-```text
-oceanDepthClass -> ridge/trench cause by itself
+NOAA depth anchors guide normalized classes. In code, ocean smoothing protects only explicit feature-backed causes:
+
+```ts
+cause = max(
+  ridge * 0.95,
+  trench * 1.0,
+  arc * 0.88,
+  transform * 0.28,
+  shelfOrSlope * 0.38,
+  causedIsland * 0.82,
+  volcanicIfFeatureBacked * 0.66
+)
 ```
 
----
+Unexplained underwater height jumps across hidden plate/province edges are smoothed toward local ocean average. This is a deliberate anti-ghost pass, not feature creation.
 
-## 12. Climate / moisture / snow
-
-### Formula
+## 10. Climate / moisture / snow
 
 ```ts
 latitudeHeat = cos(latitudeRadians) ** latitudeExponent
-
 elevationCooling = max(0, height - seaLevel) * 0.38 * reliefGravityScale
-
 temperature = clamp01(
-  0.18 +
-  effectiveHeatIndex * 0.36 +
-  latitudeHeat * 0.38 +
-  oceanProximity * 0.06 -
-  elevationCooling -
-  snowlineBias * polarGate * 0.12
+  0.18 + effectiveHeatIndex * 0.36 + latitudeHeat * 0.38 + oceanProximity * 0.06
+  - elevationCooling - snowlineBias * polarGate * 0.12
 )
-
 rainfall = clamp01(
-  moistureLevel * 0.22 +
-  evaporationPotential * oceanProximity * 0.28 +
-  equatorialRainBelt * 0.18 +
-  orographicLift * 0.16 -
-  rainShadow * 0.18 -
-  subtropicalDryBelt * 0.14
+  moistureLevel * 0.22 + evaporationPotential * oceanProximity * 0.28
+  + equatorialRainBelt * 0.18 + orographicLift * 0.16
+  - rainShadow * 0.18 - subtropicalDryBelt * 0.14
 )
-
-snowCover = clamp01(
-  (1 - temperature) * 0.70 +
-  elevationAboveSea * 0.18 +
-  rainfall * 0.12 -
-  effectiveHeatIndex * 0.15
-)
+snowCover = clamp01((1 - temperature) * 0.70 + elevationAboveSea * 0.18 + rainfall * 0.12 - effectiveHeatIndex * 0.15)
 ```
 
----
+## 11. Diagnostics / tests
 
-## 13. Hydrology / erosion / sediment
-
-### Formula
-
-```ts
-flowDirection = steepestDownhillNeighbor(height)
-flowAccumulation = sum(upstream cells weighted by rainfall)
-riverPotential = flowAccumulation * rainfall * slopeGate
-
-slope = maxNeighborDrop(height)
-
-fluvialErosion = clamp01(flowAccumulationProxy * slope * rainfall * erosionIntensity)
-hillslopeDiffusion = slope * erosionIntensity * thermalAge * 0.12
-erosionWear = fluvialErosion * 0.055 + hillslopeDiffusion * 0.025
-
-sedimentFill = clamp01(sedimentTendency * lowSlopeGate * flowAccumulationProxy * thermalAge) * 0.060
-```
-
----
-
-## 14. Diagnostics / authority gates
-
-### Tests and diagnostics must prove
+Current tests should measure:
 
 ```text
-planetFoundationExists
-gasPlanetProfileRemoved
-solarDoesNotWriteTerrain
-gravityDoesNotWriteTerrain
-coreHeatDoesNotWriteTerrain
-plateIdDoesNotWriteTerrain
-plateBoundaryFeatureMappedShare
-visibleBoundaryReliefFeatureSupported
-unexplainedBoundaryReliefShare
-crustProvinceTerrainSwitchCount = 0
-terrainResponseReadsFeatureAndMaterial
+build compatibility
+stage order matches current Generate spine
+terminal cause sync remains terminal
+hidden labels are forbidden terrain/color reads
+profile contract excludes CLOUD_GAS_WORLD
+foundation math resolves core/sun/gravity values
+terrain authority stages write terrain, cause stages do not
+final renderer ignores hidden masks in Final
 ```
 
-### Invariant tests
-
-```text
-Change plateId only -> no terrain change in terrain response.
-Change crustProvince only -> no terrain change.
-Change stellarFlux -> climate changes, terrain does not directly.
-Change gravity -> relief scale changes, not plate identity.
-Change coreHeat -> tectonic vigor/volcanism changes, not direct height.
-Change boundary stress -> feature authority changes, terrain response changes.
-```
+Diagnostics should rank terrain-writing stages separately from terminal explanation-sync correlation.
