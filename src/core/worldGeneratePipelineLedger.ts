@@ -1,7 +1,8 @@
 import { seedContinentSkeletonFields } from './worldContinents';
 import {
-  applyContinentSkeletonTerrainObedience,
+  applyCoastShapePass,
   applyCrustProvinceTerrainDelta,
+  applyMaterialReliefReinforcement,
   applyProvinceCoastBreakup,
   applyProvinceCoherence,
   cleanupAccidentalTinyIslands,
@@ -12,17 +13,21 @@ import { createDefaultGeneratorParams, generateWorldFromParams, type GeneratorPa
 import { applyGeneratedWorldQualityPass } from './worldQualityPass';
 import { applySkeletonBaseElevation } from './worldGeographyPipeline';
 import { recomputeWorld } from './worldRecompute';
+import { applyPlateBoundaryFeatureTerrain } from './worldPlateBoundaryFeatures';
+import { applyIsostaticTerrainResponse } from './worldTerrainResponse';
 import type { Cell, WorldBrain } from './worldSchema';
 
 export type PipelineAuthorityPhase =
   | 'source'
   | 'cause-seed'
+  | 'feature-material'
   | 'terrain-shape'
   | 'derived-recompute'
   | 'terrain-cleanup'
   | 'final-cause-sync';
 
 export type PipelineAuthorityLevel = 'ok' | 'watch' | 'bad';
+export type PipelineAuthorityCategory = 'source' | 'cause' | 'feature' | 'material' | 'terrain' | 'derived' | 'terminal';
 
 export type PipelineFieldGroup =
   | 'terrain'
@@ -48,6 +53,7 @@ export type PipelineLedgerStage = {
   id: string;
   label: string;
   phase: PipelineAuthorityPhase;
+  authorityCategory: PipelineAuthorityCategory;
   authority: string;
   expectedReads: PipelineFieldGroup[];
   allowedWrites: PipelineFieldGroup[];
@@ -61,6 +67,17 @@ export type PipelineLedgerStage = {
   heightDeltaMax: number;
   collectionChanges: string[];
   warnings: string[];
+  failedConsequence: string | null;
+  recommendedNextFix: string | null;
+  level: PipelineAuthorityLevel;
+};
+
+export type PipelineAuthorityGateFailure = {
+  stageId: string;
+  firstFailedLayer: string;
+  failedConsequence: string;
+  authorityCategory: PipelineAuthorityCategory;
+  recommendedNextFix: string;
   level: PipelineAuthorityLevel;
 };
 
@@ -72,6 +89,7 @@ export type PipelineLedgerSummary = {
   firstDerivedWriter: string | null;
   firstBackwardRisk: string | null;
   firstUnexpectedWriter: string | null;
+  firstFailedGate: PipelineAuthorityGateFailure | null;
 };
 
 export type GeneratePipelineAuthorityLedger = {
@@ -125,11 +143,14 @@ type StageContract = {
   id: string;
   label: string;
   phase: PipelineAuthorityPhase;
+  authorityCategory: PipelineAuthorityCategory;
   authority: string;
   expectedReads: PipelineFieldGroup[];
   allowedWrites: PipelineFieldGroup[];
   warningsIfWrites?: Partial<Record<PipelineFieldGroup, string>>;
   intrinsicWarnings?: string[];
+  failedConsequence?: string;
+  recommendedNextFix?: string;
   run: (world: WorldBrain) => void;
 };
 
@@ -188,15 +209,14 @@ export function computeGeneratePipelineAuthorityLedger(sourceWorld: WorldBrain |
   const world = generateWorldFromParams(params);
   const stages: PipelineLedgerStage[] = [];
 
-  let previous = snapshotWorld(world);
-  stages.push(sourceStage(world, previous));
+  const source = snapshotWorld(world);
+  stages.push(sourceStage(world, source));
 
   for (const contract of stageContracts()) {
     const before = snapshotWorld(world);
     contract.run(world);
     const after = snapshotWorld(world);
     stages.push(stageFromDiff(contract, before, after));
-    previous = after;
   }
 
   const summary: PipelineLedgerSummary = {
@@ -205,8 +225,9 @@ export function computeGeneratePipelineAuthorityLedger(sourceWorld: WorldBrain |
     watchCount: stages.filter((stage) => stage.level === 'watch').length,
     firstTerrainWriter: stages.find((stage) => stage.terrainWriteShare > 0)?.label ?? null,
     firstDerivedWriter: stages.find((stage) => stage.changedGroups.some((group) => isDerivedGroup(group)))?.label ?? null,
-    firstBackwardRisk: stages.find((stage) => stage.warnings.some((warning) => /backward|derived|feedback|reseed/i.test(warning)))?.label ?? null,
+    firstBackwardRisk: stages.find((stage) => stage.warnings.some((warning) => /backward|feedback|reseed/i.test(warning)))?.label ?? null,
     firstUnexpectedWriter: stages.find((stage) => stage.unexpectedWrites.length > 0)?.label ?? null,
+    firstFailedGate: firstFailedGate(stages),
   };
 
   return { seed: String(params.seed), grid: `${params.width}×${params.height}`, summary, stages };
@@ -222,17 +243,31 @@ function stageContracts(): StageContract[] {
       id: 'CONTINENT_FIELDS',
       label: 'Continent fields',
       phase: 'cause-seed',
+      authorityCategory: 'cause',
       authority: 'Seeds continent/ocean skeleton identity from generated terrain and generator parameters.',
       expectedReads: ['terrain', 'plateCause'],
       allowedWrites: ['skeletonCause'],
       intrinsicWarnings: ['Height-derived cause seeding: acceptable as a first interpretation, but dangerous if repeated after terrain shaping.'],
+      failedConsequence: 'Cause fields are being interpreted from generated height instead of a fully upstream morphology resolver.',
+      recommendedNextFix: 'PR 3 should introduce the physical consequence resolver before further terrain tuning.',
       run: seedContinentSkeletonFields,
+    },
+    {
+      id: 'PLATE_BOUNDARY_FEATURE_TERRAIN',
+      label: 'Plate feature terrain',
+      phase: 'terrain-shape',
+      authorityCategory: 'feature',
+      authority: 'Turns explicit plate-boundary feature authority into legal terrain response.',
+      expectedReads: ['plateCause', 'featureCause', 'skeletonCause'],
+      allowedWrites: ['terrain'],
+      run: applyPlateBoundaryFeatureTerrain,
     },
     {
       id: 'SKELETON_ELEVATION',
       label: 'Skeleton elevation',
       phase: 'terrain-shape',
-      authority: 'Uses broad skeleton fields to push terrain toward continent, shelf, margin, and basin tendencies.',
+      authorityCategory: 'terrain',
+      authority: 'Uses broad morphology fields to push terrain toward continent, shelf, margin, and basin tendencies.',
       expectedReads: ['terrain', 'skeletonCause'],
       allowedWrites: ['terrain'],
       run: applySkeletonBaseElevation,
@@ -241,6 +276,7 @@ function stageContracts(): StageContract[] {
       id: 'FIRST_RECOMPUTE',
       label: 'First recompute',
       phase: 'derived-recompute',
+      authorityCategory: 'derived',
       authority: 'Derives water, ocean class, climate, biome, rivers, and snow from current terrain.',
       expectedReads: ['terrain', 'skeletonCause', 'plateCause'],
       allowedWrites: ['derivedSurface', 'climateDerived', 'biomeDerived', 'hydrologyDerived', 'worldCollections'],
@@ -251,6 +287,7 @@ function stageContracts(): StageContract[] {
       id: 'QUALITY_PASS',
       label: 'Quality pass',
       phase: 'terrain-cleanup',
+      authorityCategory: 'terrain',
       authority: 'Adds interior relief, coast breakup, shelf roughness, and strait cuts to improve generated terrain quality.',
       expectedReads: ['terrain', 'derivedSurface', 'skeletonCause', 'plateCause'],
       allowedWrites: ['terrain'],
@@ -260,6 +297,7 @@ function stageContracts(): StageContract[] {
       id: 'SECOND_RECOMPUTE',
       label: 'Second recompute',
       phase: 'derived-recompute',
+      authorityCategory: 'derived',
       authority: 'Refreshes derived fields after the quality pass changed terrain.',
       expectedReads: ['terrain', 'skeletonCause', 'plateCause'],
       allowedWrites: ['derivedSurface', 'climateDerived', 'biomeDerived', 'hydrologyDerived', 'worldCollections'],
@@ -270,27 +308,44 @@ function stageContracts(): StageContract[] {
       id: 'CRUST_CONTINENT_RESEED',
       label: 'Crust continent reseed',
       phase: 'cause-seed',
+      authorityCategory: 'cause',
       authority: 'Reinterprets continent/shelf/margin identity after terrain cleanup.',
       expectedReads: ['terrain', 'derivedSurface', 'plateCause'],
       allowedWrites: ['skeletonCause'],
       intrinsicWarnings: ['Backward-feedback risk: skeleton causes are being reseeded after terrain was already shaped.'],
+      failedConsequence: 'Terrain-shaped state is feeding a new cause layer before later terrain writers.',
+      recommendedNextFix: 'Move this to terminal-only sync or replace it with upstream morphology fields before PR 4 pipeline selection.',
       run: seedContinentSkeletonFields,
     },
     {
       id: 'CRUST_FIELDS',
       label: 'Crust fields',
-      phase: 'cause-seed',
+      phase: 'feature-material',
+      authorityCategory: 'material',
       authority: 'Seeds crust thickness, age, and province from plates, current height, ocean class, and skeleton context.',
       expectedReads: ['terrain', 'derivedSurface', 'plateCause', 'featureCause', 'skeletonCause'],
       allowedWrites: ['crustCause'],
-      intrinsicWarnings: ['Backward-feedback risk: crust province reads terrain/ocean class, then later crust terrain reads province to change terrain.'],
+      intrinsicWarnings: ['Backward-feedback risk: crust fields still read terrain/ocean class before later crust terrain stages.'],
+      failedConsequence: 'Material authority still partially derives from already-shaped terrain instead of a fully upstream material resolver.',
+      recommendedNextFix: 'PR 3 and PR 4 should move material support into the physical consequence/geology-stack resolver.',
       run: seedCrustFields,
+    },
+    {
+      id: 'ISOSTATIC_TERRAIN_RESPONSE',
+      label: 'Isostatic terrain',
+      phase: 'terrain-shape',
+      authorityCategory: 'terrain',
+      authority: 'Applies material/feature/gravity terrain response after crust material fields exist.',
+      expectedReads: ['terrain', 'crustCause', 'featureCause', 'skeletonCause', 'climateDerived'],
+      allowedWrites: ['terrain'],
+      run: applyIsostaticTerrainResponse,
     },
     {
       id: 'CRUST_PROVINCE_DELTA',
       label: 'Crust delta',
       phase: 'terrain-shape',
-      authority: 'Uses crust province as terrain influence. Should create broad tendencies, not hard province borders.',
+      authorityCategory: 'terrain',
+      authority: 'Uses material/feature-backed crust fields to create broad terrain tendencies.',
       expectedReads: ['terrain', 'crustCause', 'featureCause', 'derivedSurface'],
       allowedWrites: ['terrain'],
       run: applyCrustProvinceTerrainDelta,
@@ -299,7 +354,8 @@ function stageContracts(): StageContract[] {
       id: 'CRUST_COAST_BREAKUP',
       label: 'Crust coast',
       phase: 'terrain-shape',
-      authority: 'Uses province-aware coast behavior to notch and vary coastlines.',
+      authorityCategory: 'terrain',
+      authority: 'Uses material/feature-backed coast behavior to notch and vary coastlines.',
       expectedReads: ['terrain', 'crustCause', 'derivedSurface'],
       allowedWrites: ['terrain'],
       run: applyProvinceCoastBreakup,
@@ -308,36 +364,49 @@ function stageContracts(): StageContract[] {
       id: 'CRUST_COHERENCE',
       label: 'Crust cohere',
       phase: 'terrain-cleanup',
-      authority: 'Fills/cleans province-driven holes and frayed lowland edges.',
+      authorityCategory: 'terrain',
+      authority: 'Fills/cleans material-driven holes and frayed lowland edges.',
       expectedReads: ['terrain', 'crustCause', 'derivedSurface'],
       allowedWrites: ['terrain'],
       run: applyProvinceCoherence,
     },
     {
-      id: 'CRUST_SKELETON_OBEDIENCE',
-      label: 'Crust skeleton',
-      phase: 'terrain-shape',
-      authority: 'Applies a second, weaker skeleton obedience pass inside crust terrain influence.',
-      expectedReads: ['terrain', 'skeletonCause', 'crustCause'],
-      allowedWrites: ['terrain'],
-      intrinsicWarnings: ['Watch for double authority: skeleton already shaped terrain earlier, then shapes terrain again here.'],
-      run: applyContinentSkeletonTerrainObedience,
-    },
-    {
       id: 'CRUST_TINY_ISLAND_CLEANUP',
       label: 'Tiny cleanup',
       phase: 'terrain-cleanup',
+      authorityCategory: 'terrain',
       authority: 'Removes accidental tiny generated islands after crust shaping.',
       expectedReads: ['terrain', 'skeletonCause', 'crustCause'],
       allowedWrites: ['terrain'],
       run: cleanupAccidentalTinyIslands,
     },
     {
+      id: 'MATERIAL_RELIEF_REINFORCEMENT',
+      label: 'Material relief',
+      phase: 'terrain-shape',
+      authorityCategory: 'terrain',
+      authority: 'Adds bounded land relief from material and feature signals after crust cleanup.',
+      expectedReads: ['terrain', 'crustCause', 'featureCause', 'skeletonCause', 'derivedSurface'],
+      allowedWrites: ['terrain'],
+      run: applyMaterialReliefReinforcement,
+    },
+    {
+      id: 'COAST_SHAPE_PASS',
+      label: 'Coast shape',
+      phase: 'terrain-cleanup',
+      authorityCategory: 'terrain',
+      authority: 'Adds final local coast variation from solved terrain/water adjacency.',
+      expectedReads: ['terrain', 'derivedSurface', 'plateCause'],
+      allowedWrites: ['terrain'],
+      run: applyCoastShapePass,
+    },
+    {
       id: 'OCEAN_BATHYMETRY_SMOOTHING',
       label: 'Ocean bathy',
       phase: 'terrain-cleanup',
-      authority: 'Smooths unexplained underwater bathymetry ghosts while preserving caused features.',
-      expectedReads: ['terrain', 'derivedSurface', 'skeletonCause', 'crustCause', 'featureCause'],
+      authorityCategory: 'terrain',
+      authority: 'Smooths unexplained underwater bathymetry ghosts while preserving feature/material/morphology causes.',
+      expectedReads: ['terrain', 'featureCause', 'skeletonCause'],
       allowedWrites: ['terrain'],
       run: applyOceanBathymetrySmoothing,
     },
@@ -345,6 +414,7 @@ function stageContracts(): StageContract[] {
       id: 'FINAL_RECOMPUTE',
       label: 'Final recompute',
       phase: 'derived-recompute',
+      authorityCategory: 'derived',
       authority: 'Refreshes derived state after all terrain-changing generate passes.',
       expectedReads: ['terrain', 'skeletonCause', 'plateCause'],
       allowedWrites: ['derivedSurface', 'climateDerived', 'biomeDerived', 'hydrologyDerived', 'worldCollections'],
@@ -355,6 +425,7 @@ function stageContracts(): StageContract[] {
       id: 'FINAL_CONTINENT_RESEED',
       label: 'Final continent reseed',
       phase: 'final-cause-sync',
+      authorityCategory: 'terminal',
       authority: 'Synchronizes final skeleton identity to final terrain for debug/metadata, without changing terrain.',
       expectedReads: ['terrain', 'derivedSurface', 'plateCause'],
       allowedWrites: ['skeletonCause'],
@@ -365,6 +436,7 @@ function stageContracts(): StageContract[] {
       id: 'FINAL_CRUST_RESEED',
       label: 'Final crust reseed',
       phase: 'final-cause-sync',
+      authorityCategory: 'terminal',
       authority: 'Synchronizes final crust/province identity to final terrain for debug/metadata, without changing terrain.',
       expectedReads: ['terrain', 'derivedSurface', 'plateCause', 'skeletonCause', 'featureCause'],
       allowedWrites: ['crustCause'],
@@ -380,6 +452,7 @@ function sourceStage(world: WorldBrain, snapshot: WorldSnapshot): PipelineLedger
     id: 'RAW_GENERATOR',
     label: 'Raw generator',
     phase: 'source',
+    authorityCategory: 'source',
     authority: 'Initial source: creates base terrain plus first-pass plate and feature fields from the seed.',
     expectedReads: [],
     allowedWrites: ['terrain', 'plateCause', 'featureCause'],
@@ -397,6 +470,8 @@ function sourceStage(world: WorldBrain, snapshot: WorldSnapshot): PipelineLedger
     heightDeltaMax: 0,
     collectionChanges: collectionChangeText(null, world),
     warnings: [],
+    failedConsequence: null,
+    recommendedNextFix: null,
     level: 'ok',
   };
 }
@@ -418,8 +493,9 @@ function stageFromDiff(contract: StageContract, before: WorldSnapshot, after: Wo
     if (actualWrites.some((change) => change.group === group)) warnings.push(warning);
   }
   if (contract.phase === 'cause-seed' && actualWrites.some((change) => change.group === 'terrain')) warnings.push('Cause seed changed terrain. Cause seeding should write identity fields only.');
+  if (contract.phase === 'feature-material' && actualWrites.some((change) => change.group === 'terrain')) warnings.push('Feature/material stage changed terrain. It must only write authority fields before terrain response.');
   if (contract.phase === 'derived-recompute' && actualWrites.some((change) => change.group === 'crustCause' || change.group === 'skeletonCause')) warnings.push('Derived recompute changed cause fields. That points to authority feedback.');
-  if (contract.phase === 'terrain-shape' && terrain.changedShare > 0 && topologyFlipShare > 0.02) warnings.push('Terrain stage caused significant land/water flips. Verify feature authority, not raw masks.');
+  if ((contract.phase === 'terrain-shape' || contract.phase === 'terrain-cleanup') && terrain.changedShare > 0 && topologyFlipShare > 0.02) warnings.push('Terrain stage caused significant land/water flips. Verify feature/material authority, not raw masks.');
   if (contract.phase === 'final-cause-sync' && terrain.changedShare > 0) warnings.push('Final cause sync changed terrain. Final sync must be read-only for terrain.');
 
   const level: PipelineAuthorityLevel = unexpectedWrites.length > 0
@@ -432,6 +508,7 @@ function stageFromDiff(contract: StageContract, before: WorldSnapshot, after: Wo
     id: contract.id,
     label: contract.label,
     phase: contract.phase,
+    authorityCategory: contract.authorityCategory,
     authority: contract.authority,
     expectedReads: contract.expectedReads,
     allowedWrites: contract.allowedWrites,
@@ -445,7 +522,22 @@ function stageFromDiff(contract: StageContract, before: WorldSnapshot, after: Wo
     heightDeltaMax: terrain.maxAbsDelta,
     collectionChanges,
     warnings,
+    failedConsequence: level === 'ok' ? null : contract.failedConsequence ?? warnings[0] ?? null,
+    recommendedNextFix: level === 'ok' ? null : contract.recommendedNextFix ?? 'Inspect this stage against the Generate feature/material handoff contract.',
     level,
+  };
+}
+
+function firstFailedGate(stages: PipelineLedgerStage[]): PipelineAuthorityGateFailure | null {
+  const failed = stages.find((stage) => stage.level === 'bad') ?? stages.find((stage) => stage.level === 'watch');
+  if (!failed) return null;
+  return {
+    stageId: failed.id,
+    firstFailedLayer: failed.label,
+    failedConsequence: failed.failedConsequence ?? failed.warnings[0] ?? 'Stage failed the authority ledger contract.',
+    authorityCategory: failed.authorityCategory,
+    recommendedNextFix: failed.recommendedNextFix ?? 'Inspect this stage against the Generate feature/material handoff contract.',
+    level: failed.level,
   };
 }
 
