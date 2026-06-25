@@ -52,7 +52,7 @@ export function extractRiversFromHydrology(world: WorldBrain, threshold: number 
       // Only count meaningful rivers (>5 cells long)
       const mouthIdx = path[path.length - 1];
       rivers.push({
-        id: riverCount++,
+        id: `river-${riverCount++}`,
         sourceCellIndex: sourceCell.index,
         mouthCellIndex: mouthIdx,
         path,
@@ -76,7 +76,7 @@ export function addRiver(world: WorldBrain, sourceCellIdx: number, mouthCellIdx:
   const path = tracePathDownhill(world, sourceCellIdx);
 
   const newRiver: River = {
-    id: world.rivers.length,
+    id: `river-${world.rivers.length}`,
     sourceCellIndex: sourceCellIdx,
     mouthCellIndex: path[path.length - 1],
     path,
@@ -120,8 +120,8 @@ function tracePathDownhill(world: WorldBrain, startIdx: number): number[] {
 /**
  * Delete a river by ID.
  */
-export function deleteRiver(world: WorldBrain, riverId: number): boolean {
-  const index = world.rivers.findIndex((r) => r.id === riverId);
+export function deleteRiver(world: WorldBrain, riverId: string | number): boolean {
+  const index = world.rivers.findIndex((r) => String(r.id) === String(riverId));
   if (index >= 0) {
     world.rivers.splice(index, 1);
     return true;
@@ -132,8 +132,8 @@ export function deleteRiver(world: WorldBrain, riverId: number): boolean {
 /**
  * Reroute a river (change its path).
  */
-export function rerouteRiver(world: WorldBrain, riverId: number, newPath: number[]): boolean {
-  const river = world.rivers.find((r) => r.id === riverId);
+export function rerouteRiver(world: WorldBrain, riverId: string | number, newPath: number[]): boolean {
+  const river = world.rivers.find((r) => String(r.id) === String(riverId));
   if (!river) return false;
 
   river.path = newPath;
