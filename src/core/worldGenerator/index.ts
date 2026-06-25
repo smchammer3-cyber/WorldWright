@@ -9,11 +9,17 @@ import {
 } from '../worldSchema';
 import { buildTectonicsField, type TectonicsField } from '../tectonicsSystem';
 import { resolveGeneratePlanetFoundation } from '../generatePlanetFoundation';
+import {
+  allowsNormalContinentalMorphology,
+  allowsPlateBoundaryFeatureTerrain,
+} from '../generatePhysicalConsequenceResolver';
 
 export type GeneratorParams = {
   width: number;
   height: number;
   seaLevel: number;
+  seaLevelOffset?: number;
+  waterInventory?: number;
   plateActivity: number;
   axisTilt: number;
   planetAge: number;
@@ -50,6 +56,8 @@ export function createDefaultGeneratorParams(): GeneratorParams {
     width: 256,
     height: 128,
     seaLevel: 50,
+    seaLevelOffset: 50,
+    waterInventory: 0.54,
     plateActivity: 55,
     axisTilt: 45,
     planetAge: 70,
@@ -82,18 +90,18 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const seedUint = seedToUint32(effectiveSeed);
   const rng = mulberry32(seedUint);
   const nowIso = new Date().toISOString();
-  const foundation = resolveGeneratePlanetFoundation(params);
+  const foundation = resolveGeneratePlanetFoundation({ ...params, seaLevelOffset: params.seaLevelOffset ?? params.seaLevel });
 
-  const seaBias = clamp01(params.seaLevel / 100);
-  const targetContinentCount = clampInt(params.continentCount, 1, 12);
-  const targetLandFraction = computeTargetLandFraction(params.styleMode, seaBias, targetContinentCount, foundation.effectiveHeatIndex);
-  const plateCount = Math.max(6, Math.round(lerp(7, 18, foundation.tectonicVigor) + clamp01((targetContinentCount - 1) / 11) * 5));
+  const seaBias = foundation.seaLevelOffset;
+  const targetLandFraction = computeTargetLandFraction(params.styleMode, seaBias, foundation);
+  const plateCount = computePlateCount(foundation);
+  const plateFeatureTerrainAllowed = allowsPlateBoundaryFeatureTerrain(foundation.geologyStack);
 
   const cells: Cell[] = new Array(width * height);
   for (let i = 0; i < cells.length; i++) cells[i] = createEmptyCell(i);
 
   const tectonics = buildTectonicsField(width, height, cells, plateCount, rng, {
-    plateActivity: foundation.tectonicVigor * 100,
+    plateActivity: plateFeatureTerrainAllowed ? foundation.tectonicVigor * 100 : foundation.tectonicVigor * 28,
   });
 
   const plates = tectonics.plates;
@@ -104,9 +112,9 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     const f = fields[i];
     cell.plateId = f.plateId;
     cell.plateType = f.plateType;
-    cell.boundaryType = f.boundaryType;
-    cell.upliftRate = f.upliftRate * (0.45 + foundation.tectonicVigor * 0.55);
-    cell.volcanicActivity = initialVolcanicActivity(f, foundation.volcanismBias);
+    cell.boundaryType = plateFeatureTerrainAllowed ? f.boundaryType : BoundaryType.NONE;
+    cell.upliftRate = plateFeatureTerrainAllowed ? f.upliftRate * (0.45 + foundation.tectonicVigor * 0.55) : 0;
+    cell.volcanicActivity = initialVolcanicActivity(f, foundation.volcanismBias, foundation.geologyStack);
   }
 
   const terrain = buildFoundationTerrain({
@@ -122,14 +130,10 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     cells[i].baseHeight = terrain.heights[i];
     cells[i].editHeightDelta = 0;
     cells[i].simHeightDelta = 0;
-    cells[i].isWater = cells[i].baseHeight < terrain.seaLevel;
+    cells[i].isWater = cells[i].baseHeight < terrain.seaLevel && foundation.surfaceWaterMode !== 'DRY' && foundation.surfaceWaterMode !== 'ICE_OVER_ROCK';
     cells[i].oceanDepthClass = classifyOceanDepth(cells[i].baseHeight, terrain.seaLevel, cells[i].isWater);
     cells[i].surfaceAge = clamp01(0.18 + foundation.thermalAge * 0.72 + deterministicJitter(seedUint, i, 17) * 0.08 - cells[i].volcanicActivity * 0.10);
-    cells[i].surfaceType = cells[i].isWater
-      ? SurfaceType.ALLUVIAL
-      : cells[i].volcanicActivity > 0.55
-        ? SurfaceType.VOLCANIC
-        : SurfaceType.ROCK;
+    cells[i].surfaceType = initialSurfaceType(cells[i], foundation);
   }
 
   seedClimateAndBiomes(cells, width, height, terrain.seaLevel, seedUint, params, foundation);
@@ -166,11 +170,13 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
       ...params,
       seed: effectiveSeed,
       seaLevel: params.seaLevel,
+      seaLevelOffset: params.seaLevelOffset ?? params.seaLevel,
+      waterInventory: foundation.waterInventory,
     },
   };
 }
 
-function initialVolcanicActivity(f: TectonicsField, volcanismBias: number): number {
+function initialVolcanicActivity(f: TectonicsField, volcanismBias: number, geologyStack: NonNullable<WorldBrain['planetFoundation']>['geologyStack']): number {
   const boundary = f.boundaryType === BoundaryType.CONVERGENT
     ? 0.48
     : f.boundaryType === BoundaryType.DIVERGENT
@@ -178,7 +184,25 @@ function initialVolcanicActivity(f: TectonicsField, volcanismBias: number): numb
       : f.boundaryType === BoundaryType.TRANSFORM
         ? 0.12
         : 0;
-  return clamp01(boundary * f.boundaryStrength + volcanismBias * 0.32);
+  const stackBoost = geologyStack === 'HOTSPOT_DOMINATED'
+    ? 0.38
+    : geologyStack === 'RIFT_DOMINATED'
+      ? 0.24
+      : geologyStack === 'VOLATILE_PRESSURE_SHELL'
+        ? 0.18
+        : geologyStack === 'ICE_SHELL_TECTONIC'
+          ? 0.14
+          : 0;
+  const boundaryScale = allowsPlateBoundaryFeatureTerrain(geologyStack) ? boundary * f.boundaryStrength : 0;
+  return clamp01(boundaryScale + volcanismBias * 0.32 + stackBoost * volcanismBias);
+}
+
+function initialSurfaceType(cell: Cell, foundation: NonNullable<WorldBrain['planetFoundation']>): SurfaceType {
+  if (foundation.surfaceWaterMode === 'SNOWBALL_SURFACE' || foundation.surfaceWaterMode === 'ICE_OVER_ROCK' || foundation.groundSurfaceMaterial === 'ICE_OVER_ROCK' || foundation.groundSurfaceMaterial === 'ICE_SHELL') return SurfaceType.PERMAFROST;
+  if (foundation.surfaceWaterMode === 'STEAM_OR_VAPOR_DOMINATED' && !cell.isWater) return SurfaceType.SALT;
+  if (cell.isWater) return SurfaceType.ALLUVIAL;
+  if (cell.volcanicActivity > 0.55) return SurfaceType.VOLCANIC;
+  return SurfaceType.ROCK;
 }
 
 function buildFoundationTerrain(args: {
@@ -193,9 +217,9 @@ function buildFoundationTerrain(args: {
   const heights = new Float32Array(width * height);
   const age01 = clamp01(params.planetAge / 100);
   const erosion01 = clamp01(params.erosionIntensity / 100);
-  const count01 = clamp01((params.continentCount - 1) / 11);
+  const count01 = allowsNormalContinentalMorphology(foundation.geologyStack) ? clamp01((params.continentCount - 1) / 11) : 0.25;
   const terrainSharpness = lerp(1.18, 0.92, age01) * lerp(1.12, 0.82, foundation.surfaceGravityEarth > 1 ? clamp01((foundation.surfaceGravityEarth - 1) / 2) : 0);
-  const relief = foundation.reliefGravityScale * lerp(0.78, 1.18, foundation.tectonicVigor);
+  const relief = foundation.reliefGravityScale * reliefForGeologyStack(foundation.geologyStack, foundation.tectonicVigor);
   const continentFragmentation = lerp(0.82, 1.46, count01);
 
   for (let r = 0; r < height; r++) {
@@ -212,11 +236,7 @@ function buildFoundationTerrain(args: {
       const breakup = sphereFbm(shiftVec(dir, 6.4, 1.7, -13.2), seedUint, 4.25 * continentFragmentation, 3);
       const detail = sphereFbm(shiftVec(dir, -12.6, 4.2, 5.9), seedUint, 8.9, 2);
       const basin = sphereFbm(shiftVec(dir, -8.8, -2.6, 15.4), seedUint, 2.3, 3);
-      const supportBias = foundation.surfaceSupportMode === 'ICE_SHELL'
-        ? -0.030
-        : foundation.surfaceSupportMode === 'ARTIFICIAL_OR_FANTASY_SHELL'
-          ? 0.016
-          : 0;
+      const supportBias = supportHeightBias(foundation);
       const rawShape = broad * 0.150 + regional * 0.115 + breakup * 0.070 + detail * 0.026 - Math.max(0, -basin) * 0.045;
       heights[idx] = clamp((rawShape * relief * terrainSharpness + supportBias) * (1 - poleSoftener * 0.10), -1.4, 1.5);
     }
@@ -225,9 +245,32 @@ function buildFoundationTerrain(args: {
   smoothHeightField(heights, width, height, Math.max(1, Math.round(lerp(1, 2, erosion01))), lerp(0.024, 0.070, foundation.erosionSedimentScale));
   addSubtleTerrainTexture(heights, width, height, seedUint, lerp(0.010, 0.024, 1 - erosion01) * foundation.reliefGravityScale);
   const seaLevel = chooseSeaLevelForLandFraction(heights, width, height, targetLandFraction);
-  carveNearSeaLevelStraits(heights, width, height, seedUint, seaLevel, lerp(0.018, 0.050, 1 - erosion01) * foundation.reliefGravityScale);
-  applyCoastalShelfShaping(heights, width, height, seaLevel);
+  if (foundation.surfaceWaterMode !== 'DRY' && foundation.surfaceWaterMode !== 'ICE_OVER_ROCK') {
+    carveNearSeaLevelStraits(heights, width, height, seedUint, seaLevel, lerp(0.018, 0.050, 1 - erosion01) * foundation.reliefGravityScale);
+    applyCoastalShelfShaping(heights, width, height, seaLevel);
+  }
   return { heights, seaLevel };
+}
+
+function reliefForGeologyStack(geologyStack: NonNullable<WorldBrain['planetFoundation']>['geologyStack'], tectonicVigor: number): number {
+  switch (geologyStack) {
+    case 'PLATE_TECTONIC': return lerp(0.78, 1.18, tectonicVigor);
+    case 'RIFT_DOMINATED': return 1.10;
+    case 'HOTSPOT_DOMINATED': return 0.98;
+    case 'STAGNANT_LID': return 0.72;
+    case 'ICE_SHELL_TECTONIC': return 0.42;
+    case 'IMPACT_ANCIENT': return 0.60;
+    case 'VOLATILE_PRESSURE_SHELL': return 0.86;
+    case 'ARTIFICIAL_DECLARED': return 0.74;
+  }
+}
+
+function supportHeightBias(foundation: NonNullable<WorldBrain['planetFoundation']>): number {
+  if (foundation.surfaceSupportMode === 'ICE_SHELL') return -0.050;
+  if (foundation.surfaceSupportMode === 'ICE_OVER_ROCK') return -0.020;
+  if (foundation.surfaceSupportMode === 'REGOLITH') return -0.010;
+  if (foundation.surfaceSupportMode === 'ARTIFICIAL_OR_FANTASY_SHELL') return 0.016;
+  return 0;
 }
 
 function smoothHeightField(heights: Float32Array, width: number, height: number, passes: number, strength: number): void {
@@ -309,15 +352,33 @@ function localFractionAboveSea(heights: Float32Array, width: number, height: num
   return total > 0 ? land / total : 0;
 }
 
-function computeTargetLandFraction(styleMode: GeneratorParams['styleMode'], seaBias: number, continentCount: number, effectiveHeatIndex: number): number {
-  const base = lerp(0.43, 0.23, seaBias);
-  const count01 = clamp01((continentCount - 1) / 11);
+function computeTargetLandFraction(styleMode: GeneratorParams['styleMode'], seaBias: number, foundation: NonNullable<WorldBrain['planetFoundation']>): number {
+  if (foundation.surfaceWaterMode === 'DRY') return clamp(lerp(0.78, 0.48, seaBias) - foundation.waterInventory * 0.08, 0.48, 0.82);
+  if (foundation.surfaceWaterMode === 'ICE_SHELL_OVER_OCEAN') return clamp(lerp(0.22, 0.04, seaBias), 0.02, 0.24);
+  if (foundation.surfaceWaterMode === 'SNOWBALL_SURFACE' || foundation.surfaceWaterMode === 'ICE_OVER_ROCK') return clamp(lerp(0.44, 0.18, seaBias) - foundation.waterInventory * 0.10, 0.10, 0.46);
+  if (foundation.surfaceWaterMode === 'STEAM_OR_VAPOR_DOMINATED') return clamp(lerp(0.40, 0.14, seaBias) - foundation.waterInventory * 0.06, 0.10, 0.46);
+
+  const inventoryBase = 0.55 - foundation.waterInventory * 0.40;
+  const exposureShift = lerp(0.16, -0.16, seaBias);
   let styleAdjust = 0;
   if (styleMode === 'FANTASY') styleAdjust = 0.045;
   if (styleMode === 'STYLIZED') styleAdjust = 0.018;
   if (styleMode === 'ALIEN') styleAdjust = 0.010;
-  const heatWaterShift = clamp((effectiveHeatIndex - 1) * -0.020, -0.035, 0.035);
-  return clamp(base + lerp(-0.015, 0.035, count01) + styleAdjust + heatWaterShift, 0.18, 0.48);
+  const heatWaterShift = clamp((foundation.effectiveHeatIndex - 1) * -0.020, -0.035, 0.035);
+  return clamp(inventoryBase + exposureShift + styleAdjust + heatWaterShift, 0.08, 0.68);
+}
+
+function computePlateCount(foundation: NonNullable<WorldBrain['planetFoundation']>): number {
+  switch (foundation.geologyStack) {
+    case 'PLATE_TECTONIC': return Math.max(6, Math.round(lerp(7, 18, foundation.tectonicVigor)));
+    case 'RIFT_DOMINATED': return Math.max(4, Math.round(lerp(4, 9, foundation.riftLikelihood)));
+    case 'HOTSPOT_DOMINATED': return Math.max(3, Math.round(lerp(3, 7, foundation.hotspotPotential)));
+    case 'STAGNANT_LID': return 2;
+    case 'ICE_SHELL_TECTONIC': return 2;
+    case 'IMPACT_ANCIENT': return 2;
+    case 'VOLATILE_PRESSURE_SHELL': return 3;
+    case 'ARTIFICIAL_DECLARED': return 2;
+  }
 }
 
 function chooseSeaLevelForLandFraction(heights: Float32Array, width: number, height: number, targetLandFraction: number): number {
@@ -351,6 +412,7 @@ function seedClimateAndBiomes(cells: Cell[], width: number, height: number, seaL
       cell.temperature = clamp01(0.08 + foundation.effectiveHeatIndex * 0.34 + equatorWarmth * 0.42 + tempNoise * (0.05 + climateVar01 * 0.08) + oceanProx * 0.045 - elevAboveSea * 0.38 * foundation.reliefGravityScale - foundation.snowlineBias * smoothstep(0.60, 1.0, absLat01) * 0.10);
       cell.rainfall = clamp01(0.12 + moisture01 * 0.22 + foundation.evaporationPotential * oceanProx * 0.28 + hadleyWet * 0.18 - subtropicDry * 0.14 - polarDry + rainNoise * (0.08 + climateVar01 * 0.08) - rainShadow * 0.13 - elevAboveSea * 0.05);
       cell.snowCover = computeSnowCover(cell.temperature, cell.rainfall, elevAboveSea, foundation.effectiveHeatIndex);
+      if (foundation.surfaceWaterMode === 'SNOWBALL_SURFACE' || foundation.surfaceWaterMode === 'ICE_SHELL_OVER_OCEAN') cell.snowCover = Math.max(cell.snowCover, 0.62);
       cell.baseBiomeId = cell.isWater ? 0 : pickBiome(cell.temperature, cell.rainfall, cell.snowCover, elevAboveSea);
       cell.editBiomeId = cell.baseBiomeId;
     }

@@ -1,8 +1,14 @@
 import type { PlanetFoundationSnapshot } from './worldSchema';
+import {
+  resolveGeneratePhysicalConsequences,
+  type GeneratePhysicalConsequenceResolution,
+} from './generatePhysicalConsequenceResolver';
 
 export type GenerateFoundationInput = {
   styleMode?: 'EARTHLIKE' | 'FANTASY' | 'STYLIZED' | 'ALIEN';
   seaLevel?: number;
+  seaLevelOffset?: number;
+  waterInventory?: number;
   plateActivity?: number;
   planetAge?: number;
   erosionIntensity?: number;
@@ -35,7 +41,7 @@ const SOLID_SURFACE_PROFILES = [
 export function resolveGeneratePlanetFoundation(input: GenerateFoundationInput = {}): PlanetFoundationSnapshot {
   const styleMode = input.styleMode ?? 'EARTHLIKE';
   const profile = selectPlanetProfile(input.planetProfile, styleMode);
-  const sea01 = percent01(input.seaLevel, 50);
+  const seaLevelOffset01 = percent01(input.seaLevelOffset ?? input.seaLevel, 50);
   const age01 = percent01(input.planetAge, 70);
   const thermalYouth = 1 - age01;
   const plateActivityIntent = percent01(input.plateActivity, 55);
@@ -62,11 +68,12 @@ export function resolveGeneratePlanetFoundation(input: GenerateFoundationInput =
   const evaporationPotential = clamp01(0.50 * normalizeAroundOne(effectiveHeatIndex) + 0.30 * normalizeAroundOne(stellarFluxEarth) + 0.20 * greenhouseStrength + moistureIntent * 0.18);
   const snowlineBias = clamp(1.0 - effectiveHeatIndex, -0.75, 0.75);
 
-  const volatileInventory = clamp01(number(input.volatileInventory, profileDefaults.volatileInventory) + sea01 * 0.16 + moistureIntent * 0.10);
-  const compositionRadioactivity = clamp01(number(input.compositionRadioactivity, profileDefaults.compositionRadioactivity));
-  const tidalHeatingIndex = clamp01(number(input.tidalHeatingIntent, profileDefaults.tidalHeatingIntent));
-  const coreHeatIntent = clamp01(number(input.coreHeatIntent, profileDefaults.coreHeatIntent));
-  const stagnantLidBias = clamp01(number(input.stagnantLidBias, profileDefaults.stagnantLidBias));
+  const volatileInventory = clamp01(unit01(input.volatileInventory, profileDefaults.volatileInventory) + moistureIntent * 0.04);
+  const waterInventory = clamp01(unit01(input.waterInventory, profileDefaults.waterInventory) + moistureIntent * 0.08);
+  const compositionRadioactivity = clamp01(unit01(input.compositionRadioactivity, profileDefaults.compositionRadioactivity));
+  const tidalHeatingIndex = clamp01(unit01(input.tidalHeatingIntent, profileDefaults.tidalHeatingIntent));
+  const coreHeatIntent = clamp01(unit01(input.coreHeatIntent, profileDefaults.coreHeatIntent));
+  const stagnantLidBias = clamp01(unit01(input.stagnantLidBias, profileDefaults.stagnantLidBias));
 
   const primordialHeat = clamp01(0.85 * thermalYouth ** 1.35 + 0.15 * coreHeatIntent);
   const radiogenicHeat = clamp01(0.35 + 0.45 * compositionRadioactivity + 0.20 * thermalYouth);
@@ -76,20 +83,54 @@ export function resolveGeneratePlanetFoundation(input: GenerateFoundationInput =
   const heatFlowIndex = clamp01(0.65 * mantleHeat + 0.25 * tidalHeatingIndex + 0.10 * riftWeakness);
   const lithosphereMobility = clamp01(0.40 + 0.35 * volatileInventory + 0.25 * normalizeRelief(reliefGravityScale) - 0.25 * stagnantLidBias);
   const mantleConvectionIndex = clamp01(heatFlowIndex * lithosphereMobility * (0.75 + normalizeRelief(reliefGravityScale) * 0.25));
-  const tectonicVigor = clamp01(0.55 * mantleConvectionIndex + 0.30 * plateActivityIntent + 0.15 * volatileInventory);
+  const tectonicVigor = clamp01(0.55 * mantleConvectionIndex + 0.30 * plateActivityIntent + 0.15 * volatileInventory - 0.18 * stagnantLidBias);
   const volcanismBias = clamp01(0.50 * heatFlowIndex + 0.25 * tidalHeatingIndex + 0.25 * tectonicVigor);
   const riftLikelihood = clamp01(0.45 * mantleConvectionIndex + 0.25 * profileDefaults.volatilePressure + 0.20 * plateActivityIntent + 0.10 * thermalYouth);
   const hotspotPotential = clamp01(0.50 * mantleHeat + 0.25 * heatFlowIndex + 0.25 * tidalHeatingIndex);
   const atmosphereRetentionIndex = clamp01(0.55 * escapeVelocityEarth + 0.25 * surfaceGravityEarth + 0.20 * volatileInventory);
   const erosionSedimentScale = clamp01(0.38 * erosionIntent + 0.24 * age01 + 0.22 * normalizeAroundOne(surfaceGravityEarth) + 0.16 * evaporationPotential);
 
+  const physical = resolveGeneratePhysicalConsequences({
+    planetProfile: profile,
+    preferredSupportMode: profileDefaults.surfaceSupportMode,
+    waterInventory,
+    seaLevelOffset01,
+    stellarFluxEarth,
+    surfaceAbsorbedFlux,
+    effectiveHeatIndex,
+    evaporationPotential,
+    snowlineBias,
+    atmosphereRetentionIndex,
+    surfaceGravityEarth,
+    coreHeat,
+    heatFlowIndex,
+    mantleConvectionIndex,
+    tectonicVigor,
+    volcanismBias,
+    riftLikelihood,
+    hotspotPotential,
+    tidalHeatingIndex,
+    volatileInventory,
+    stagnantLidBias,
+    albedo,
+  });
+
   return {
     planetProfile: profile,
-    surfaceSupportMode: profileDefaults.surfaceSupportMode,
+    surfaceSupportMode: physical.surfaceSupportMode,
     surfaceMaterialFamily: profileDefaults.surfaceMaterialFamily,
     atmosphereFamily: profileDefaults.atmosphereFamily,
     waterPhaseFamily: profileDefaults.waterPhaseFamily,
-    validLayerStack: profileDefaults.validLayerStack,
+    validLayerStack: validLayerStackForPhysical(profileDefaults.validLayerStack, physical),
+
+    surfaceWaterMode: physical.surfaceWaterMode,
+    groundSurfaceMaterial: physical.groundSurfaceMaterial,
+    geologyStack: physical.geologyStack,
+    resolvedPhysicalConsequences: physical.resolvedPhysicalConsequences,
+    waterInventory: physical.waterInventory,
+    seaLevelOffset: physical.seaLevelOffset,
+    iceStability: physical.iceStability,
+    adjustedAlbedo: physical.adjustedAlbedo,
 
     planetRadiusEarth,
     planetDensityEarth,
@@ -145,6 +186,7 @@ type FoundationDefaults = {
   albedo: number;
   greenhouseStrength: number;
   volatileInventory: number;
+  waterInventory: number;
   volatilePressure: number;
   compositionRadioactivity: number;
   tidalHeatingIntent: number;
@@ -158,24 +200,24 @@ type FoundationDefaults = {
 };
 
 function defaultsForProfile(profile: PlanetFoundationSnapshot['planetProfile'], styleMode: GenerateFoundationInput['styleMode']): FoundationDefaults {
-  const commonStack = ['PLANET_PROFILE', 'PLANET_SIZE_GRAVITY', 'STELLAR_ENERGY', 'WORLD_CORE_HEAT', 'SURFACE_SUPPORT_MODEL', 'BOUNDARY_FEATURES', 'CRUST_MATERIAL', 'TERRAIN_RESPONSE', 'WATER_SURFACE_STATE', 'CLIMATE_HYDROLOGY_BIOME', 'FINAL_RENDER', 'EXPORT'];
+  const commonStack = ['PLANET_PROFILE', 'PLANET_SIZE_GRAVITY', 'STELLAR_ENERGY', 'WORLD_CORE_HEAT', 'SURFACE_SUPPORT_MODEL', 'GEOLOGY_STACK_SELECTION', 'BOUNDARY_FEATURES', 'CRUST_MATERIAL', 'TERRAIN_RESPONSE', 'WATER_SURFACE_STATE', 'CLIMATE_HYDROLOGY_BIOME', 'FINAL_RENDER', 'EXPORT'];
   if (profile === 'DWARF_ROCKY_OR_ICY') {
-    return baseDefaults({ radiusEarth: 0.42, densityEarth: 0.74, albedo: 0.36, greenhouseStrength: 0.16, volatileInventory: 0.32, coreHeatIntent: 0.32, stagnantLidBias: 0.45, surfaceMaterialFamily: 'rock-ice-regolith', waterPhaseFamily: 'ice-limited', validLayerStack: commonStack });
+    return baseDefaults({ radiusEarth: 0.42, densityEarth: 0.74, albedo: 0.36, greenhouseStrength: 0.16, volatileInventory: 0.32, waterInventory: 0.28, coreHeatIntent: 0.32, stagnantLidBias: 0.45, surfaceMaterialFamily: 'rock-ice-regolith', waterPhaseFamily: 'ice-limited', validLayerStack: commonStack });
   }
   if (profile === 'SUPER_EARTH_ROCKY') {
-    return baseDefaults({ radiusEarth: 1.42, densityEarth: 1.08, albedo: 0.31, greenhouseStrength: 0.36, volatileInventory: 0.64, coreHeatIntent: 0.58, surfaceMaterialFamily: 'rock-sediment-water', waterPhaseFamily: 'liquid-water-rich', validLayerStack: commonStack });
+    return baseDefaults({ radiusEarth: 1.42, densityEarth: 1.08, albedo: 0.31, greenhouseStrength: 0.36, volatileInventory: 0.64, waterInventory: 0.62, coreHeatIntent: 0.58, surfaceSupportMode: 'LITHOSPHERE', surfaceMaterialFamily: 'rock-sediment-water', waterPhaseFamily: 'liquid-water-rich', validLayerStack: commonStack });
   }
   if (profile === 'ICE_SHELL_OCEAN_WORLD') {
-    return baseDefaults({ radiusEarth: 0.38, densityEarth: 0.62, albedo: 0.58, greenhouseStrength: 0.10, volatileInventory: 0.78, tidalHeatingIntent: 0.42, coreHeatIntent: 0.38, surfaceSupportMode: 'ICE_SHELL', surfaceMaterialFamily: 'ice-brine-salt', waterPhaseFamily: 'subsurface-ocean', validLayerStack: ['PLANET_PROFILE', 'PLANET_SIZE_GRAVITY', 'STELLAR_ENERGY', 'WORLD_CORE_HEAT', 'SURFACE_SUPPORT_MODEL', 'ICE_SHELL_FEATURES', 'TERRAIN_RESPONSE', 'FINAL_RENDER', 'EXPORT'] });
+    return baseDefaults({ radiusEarth: 0.38, densityEarth: 0.62, albedo: 0.58, greenhouseStrength: 0.10, volatileInventory: 0.78, waterInventory: 0.82, tidalHeatingIntent: 0.42, coreHeatIntent: 0.38, surfaceSupportMode: 'ICE_SHELL', surfaceMaterialFamily: 'ice-brine-salt', waterPhaseFamily: 'subsurface-ocean', validLayerStack: ['PLANET_PROFILE', 'PLANET_SIZE_GRAVITY', 'STELLAR_ENERGY', 'WORLD_CORE_HEAT', 'SURFACE_SUPPORT_MODEL', 'GEOLOGY_STACK_SELECTION', 'ICE_SHELL_FEATURES', 'TERRAIN_RESPONSE', 'FINAL_RENDER', 'EXPORT'] });
   }
   if (profile === 'VOLATILE_PRESSURE_ROCKY') {
-    return baseDefaults({ radiusEarth: 0.92, densityEarth: 0.95, albedo: 0.28, greenhouseStrength: 0.46, volatileInventory: 0.78, volatilePressure: 0.62, coreHeatIntent: 0.62, surfaceMaterialFamily: 'volatile-rich-crust', atmosphereFamily: 'volatile-rich', waterPhaseFamily: 'mixed-volatiles', validLayerStack: commonStack });
+    return baseDefaults({ radiusEarth: 0.92, densityEarth: 0.95, albedo: 0.28, greenhouseStrength: 0.46, volatileInventory: 0.78, waterInventory: 0.46, volatilePressure: 0.62, coreHeatIntent: 0.62, surfaceSupportMode: 'LITHOSPHERE', surfaceMaterialFamily: 'volatile-rich-crust', atmosphereFamily: 'volatile-rich', waterPhaseFamily: 'mixed-volatiles', validLayerStack: commonStack });
   }
   if (profile === 'ARTIFICIAL_OR_FANTASY_SHELL') {
-    return baseDefaults({ radiusEarth: 1.0, densityEarth: 0.90, albedo: 0.34, greenhouseStrength: styleMode === 'FANTASY' ? 0.30 : 0.22, volatileInventory: 0.50, coreHeatIntent: 0.40, surfaceSupportMode: 'ARTIFICIAL_OR_FANTASY_SHELL', surfaceMaterialFamily: 'declared-shell-material', atmosphereFamily: 'declared', waterPhaseFamily: 'declared', validLayerStack: commonStack });
+    return baseDefaults({ radiusEarth: 1.0, densityEarth: 0.90, albedo: 0.34, greenhouseStrength: styleMode === 'FANTASY' ? 0.30 : 0.22, volatileInventory: 0.50, waterInventory: 0.50, coreHeatIntent: 0.40, surfaceSupportMode: 'ARTIFICIAL_OR_FANTASY_SHELL', surfaceMaterialFamily: 'declared-shell-material', atmosphereFamily: 'declared', waterPhaseFamily: 'declared', validLayerStack: commonStack });
   }
   if (profile === 'ROCKY_ALIEN') {
-    return baseDefaults({ radiusEarth: 0.96, densityEarth: 0.98, albedo: 0.30, greenhouseStrength: 0.30, volatileInventory: 0.52, coreHeatIntent: 0.54, surfaceMaterialFamily: 'rock-exotic-sediment', atmosphereFamily: 'alien-terrestrial', waterPhaseFamily: 'conditional-liquid', validLayerStack: commonStack });
+    return baseDefaults({ radiusEarth: 0.96, densityEarth: 0.98, albedo: 0.30, greenhouseStrength: 0.30, volatileInventory: 0.52, waterInventory: 0.50, coreHeatIntent: 0.54, surfaceMaterialFamily: 'rock-exotic-sediment', atmosphereFamily: 'alien-terrestrial', waterPhaseFamily: 'conditional-liquid', validLayerStack: commonStack });
   }
   return baseDefaults({ validLayerStack: commonStack });
 }
@@ -189,6 +231,7 @@ function baseDefaults(overrides: Partial<FoundationDefaults>): FoundationDefault
     albedo: 0.30,
     greenhouseStrength: 0.32,
     volatileInventory: 0.54,
+    waterInventory: 0.54,
     volatilePressure: 0.0,
     compositionRadioactivity: 0.50,
     tidalHeatingIntent: 0.0,
@@ -203,8 +246,25 @@ function baseDefaults(overrides: Partial<FoundationDefaults>): FoundationDefault
   };
 }
 
+function validLayerStackForPhysical(base: string[], physical: GeneratePhysicalConsequenceResolution): string[] {
+  const out = new Set(base);
+  out.add('WATER_INVENTORY_PHASE');
+  out.add('GEOLOGY_STACK_SELECTION');
+  out.add(`GEOLOGY_STACK_${physical.geologyStack}`);
+  out.add(`SURFACE_WATER_${physical.surfaceWaterMode}`);
+  out.add(`SURFACE_SUPPORT_${physical.surfaceSupportMode}`);
+  if (physical.geologyStack === 'ICE_SHELL_TECTONIC') out.add('ICE_SHELL_FEATURES');
+  if (physical.geologyStack === 'IMPACT_ANCIENT') out.add('IMPACT_ANCIENT_FEATURES');
+  return Array.from(out);
+}
+
 function percent01(value: unknown, fallback: number): number {
   return clamp01(number(value, fallback) / 100);
+}
+
+function unit01(value: unknown, fallback: number): number {
+  const n = number(value, fallback);
+  return clamp01(n > 1 ? n / 100 : n);
 }
 
 function number(value: unknown, fallback: number): number {

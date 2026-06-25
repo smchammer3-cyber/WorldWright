@@ -7,24 +7,41 @@ import { applyOceanBathymetrySmoothing } from '../worldOceanBathymetry';
 import { applyPlateBoundaryFeatureTerrain } from '../worldPlateBoundaryFeatures';
 import { applyIsostaticTerrainResponse } from '../worldTerrainResponse';
 import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
+import {
+  allowsNormalContinentalMorphology,
+  allowsNormalRockyCrustTerrain,
+  allowsPlateBoundaryFeatureTerrain,
+} from '../generatePhysicalConsequenceResolver';
 
 export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   if (!world?.cells?.length) return;
   assertNoAuthoredTerrainDeltas(world, 'applyGeneratedGeographyPipeline');
-  seedContinentSkeletonFields(world);
-  applyPlateBoundaryFeatureTerrain(world);
-  applySkeletonBaseElevation(world);
+
+  const geologyStack = world.planetFoundation?.geologyStack ?? 'PLATE_TECTONIC';
+  const waterMode = world.planetFoundation?.surfaceWaterMode ?? 'LIQUID_SURFACE_WATER';
+  const allowContinents = allowsNormalContinentalMorphology(geologyStack);
+  const allowRockyCrust = allowsNormalRockyCrustTerrain(geologyStack);
+  const allowPlateFeatures = allowsPlateBoundaryFeatureTerrain(geologyStack);
+  const allowNormalOceanBathymetry = waterMode !== 'DRY' && waterMode !== 'ICE_OVER_ROCK' && waterMode !== 'SNOWBALL_SURFACE' && waterMode !== 'ICE_SHELL_OVER_OCEAN';
+
+  if (allowContinents) seedContinentSkeletonFields(world);
+  if (allowPlateFeatures) applyPlateBoundaryFeatureTerrain(world);
+  if (allowContinents) applySkeletonBaseElevation(world);
   recomputeWorld(world, ['GENERATED']);
-  applyGeneratedWorldQualityPass(world);
+
+  if (allowContinents || allowRockyCrust) applyGeneratedWorldQualityPass(world);
   recomputeWorld(world, ['GENERATED']);
-  seedContinentSkeletonFields(world);
-  seedCrustFields(world);
-  applyIsostaticTerrainResponse(world);
-  applyCrustTerrainInfluence(world);
-  applyOceanBathymetrySmoothing(world);
+
+  if (allowContinents) seedContinentSkeletonFields(world);
+  if (allowRockyCrust) {
+    seedCrustFields(world);
+    applyIsostaticTerrainResponse(world);
+    applyCrustTerrainInfluence(world);
+  }
+  if (allowNormalOceanBathymetry) applyOceanBathymetrySmoothing(world);
   recomputeWorld(world, ['GENERATED']);
-  seedContinentSkeletonFields(world);
-  seedCrustFields(world);
+  if (allowContinents) seedContinentSkeletonFields(world);
+  if (allowRockyCrust) seedCrustFields(world);
 }
 
 export function applySkeletonBaseElevation(world: WorldBrain): void {
