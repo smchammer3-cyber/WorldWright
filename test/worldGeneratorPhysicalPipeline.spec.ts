@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/core/worldGenerator';
 import { applyGeneratedGeographyPipeline } from '../src/core/worldGeographyPipeline';
+import { recomputeWorld } from '../src/core/worldRecompute';
 import { BoundaryType, SurfaceType } from '../src/core/worldSchema';
 
 function landFraction(world: ReturnType<typeof generateWorldFromParams>): number {
@@ -78,5 +79,12 @@ describe('Generate physical pipeline selection', () => {
     expect(world.planetFoundation?.geologyStack).toBe('STAGNANT_LID');
     expect(world.cells.every((cell) => cell.boundaryType === BoundaryType.NONE)).toBe(true);
     expect(world.cells.every((cell) => Math.abs(cell.upliftRate) < 1e-9)).toBe(true);
+  });
+
+  it('keeps recomputed river ids compatible with the WorldBrain schema', () => {
+    const world = generateWorldFromParams({ ...createDefaultGeneratorParams(), width: 64, height: 32, seed: 'schema-safe-rivers' });
+    recomputeWorld(world, ['GENERATED']);
+
+    expect(world.rivers.every((river) => typeof river.id === 'string')).toBe(true);
   });
 });
