@@ -73,7 +73,7 @@ describe('world crust fields', () => {
     expect(after.meanContinentalCrustThickness).toBeGreaterThan(after.meanOceanicCrustThickness);
   });
 
-  it('keeps crust province deltas from creating unsupported isolated land', () => {
+  it('applies material terrain deltas without creating unsupported isolated land', () => {
     const params = createDefaultGeneratorParams();
     params.width = 16;
     params.height = 8;
@@ -100,7 +100,8 @@ describe('world crust fields', () => {
 
     const isolated = world.cells[3 * world.gridWidth + 7];
     isolated.baseHeight = -0.001;
-    isolated.crustProvince = CrustProvince.MOBILE_BELT;
+    isolated.crustThickness = 0.85;
+    isolated.crustAge = 0.70;
     isolated.upliftRate = 1;
 
     applyCrustProvinceTerrainDelta(world);
@@ -108,7 +109,7 @@ describe('world crust fields', () => {
     expect(isolated.baseHeight).toBeLessThan(0);
   });
 
-  it('pushes basins down and mobile belts up relative to their starting height', () => {
+  it('pushes material basins down and uplifted belts up relative to their starting height', () => {
     const params = createDefaultGeneratorParams();
     params.width = 16;
     params.height = 8;
@@ -128,14 +129,29 @@ describe('world crust fields', () => {
       cell.crustThickness = 0.58;
       cell.crustAge = 0.52;
       cell.crustProvince = CrustProvince.SEDIMENT_BASIN;
+      cell.continentCoreStrength = 0.20;
+      cell.continentality = 0.42;
+      cell.shelfStrength = 0.16;
+      cell.marginType = ContinentMarginType.NONE;
+      cell.islandCause = IslandCause.NONE;
     }
 
     const basin = world.cells[2 * world.gridWidth + 2];
-    basin.crustProvince = CrustProvince.SEDIMENT_BASIN;
+    basin.crustThickness = 0.30;
+    basin.crustAge = 0.18;
+    basin.continentCoreStrength = 0.02;
+    basin.continentality = 0.08;
+    basin.shelfStrength = 0.28;
+    basin.upliftRate = -0.15;
 
     const belt = world.cells[2 * world.gridWidth + 10];
-    belt.crustProvince = CrustProvince.MOBILE_BELT;
+    belt.crustThickness = 0.78;
+    belt.crustAge = 0.68;
+    belt.continentCoreStrength = 0.62;
+    belt.continentality = 0.78;
     belt.upliftRate = 0.5;
+    belt.boundaryType = BoundaryType.CONVERGENT;
+    belt.marginType = ContinentMarginType.COLLISION;
 
     applyCrustTerrainInfluence(world);
 
@@ -143,7 +159,7 @@ describe('world crust fields', () => {
     expect(belt.baseHeight).toBeGreaterThan(0.08);
   });
 
-  it('fills tiny shield holes surrounded by strong continental land', () => {
+  it('fills tiny material-supported holes surrounded by strong continental land', () => {
     const params = createDefaultGeneratorParams();
     params.width = 32;
     params.height = 16;
@@ -163,6 +179,8 @@ describe('world crust fields', () => {
       cell.crustThickness = 0.70;
       cell.crustAge = 0.70;
       cell.crustProvince = CrustProvince.OLD_SHIELD;
+      cell.continentality = 0.80;
+      cell.continentCoreStrength = 0.70;
     }
 
     const centerIndex = 5 * world.gridWidth + 5;
@@ -210,6 +228,8 @@ describe('world crust fields', () => {
     core.baseHeight = -0.02;
     core.continentCoreStrength = 0.95;
     core.continentality = 0.95;
+    core.crustThickness = 0.78;
+    core.crustAge = 0.72;
     core.distanceToContinentCore = 0.02;
 
     const invalid = world.cells[2 * world.gridWidth + 10];
@@ -219,6 +239,8 @@ describe('world crust fields', () => {
     invalid.continentality = 0.05;
     invalid.distanceToContinentCore = 0.95;
     invalid.plateType = PlateType.OCEANIC;
+    invalid.crustThickness = 0.24;
+    invalid.crustAge = 0.20;
     invalid.crustProvince = CrustProvince.OCEANIC_BASIN;
     invalid.islandCause = IslandCause.INVALID_FRAGMENT;
 
