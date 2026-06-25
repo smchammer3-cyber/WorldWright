@@ -11,7 +11,7 @@ import { resolveGeneratePlanetFoundation } from '../generatePlanetFoundation';
 
 export function seedCrustFields(world: WorldBrain): void {
   if (!world?.cells?.length) return;
-  const foundation = world.planetFoundation ?? resolveGeneratePlanetFoundation(world.parameters ?? {});
+  const foundation = world.planetFoundation ?? resolveGeneratePlanetFoundation((world.parameters ?? {}) as any);
   world.planetFoundation = foundation;
   const seed = seedToUint32(world.metadata?.seed ?? world.parameters?.seed ?? 0);
   const seaLevel = numeric(world.seaLevel, world.metadata?.seaLevel ?? 0);
