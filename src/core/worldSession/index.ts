@@ -149,6 +149,7 @@ class WorldSession {
   async createWorld(params: GeneratorParams): Promise<void> {
     const w = generateWorldFromParams(params);
     this.normalizeWorld(w);
+    recomputeWorld(w, ['GENERATED']);
     applyGeneratedGeographyPipeline(w);
 
     const errors = validateWorld(w);
@@ -286,42 +287,34 @@ class WorldSession {
   }
 
   /**
-   * Backward-compatible path. Keep behavior safe, but route through committed edit.
+   * Undo to the previous snapshot if available.
    */
-  applyLocalEdit(world: WorldBrain): void {
-    this.applyCommittedLocalEdit(world);
-  }
-
   undo(): void {
-    if (this.historyIndex > 0) {
-      this.historyIndex--;
-      this.world = cloneWorld(this.history[this.historyIndex]);
-      this.dirty = true;
-      this.notify();
-    }
+    if (this.historyIndex <= 0) return;
+    this.historyIndex--;
+    this.replaceWorld(this.history[this.historyIndex]);
+    this.dirty = true;
+    this.notify();
   }
 
+  /**
+   * Redo to the next snapshot if available.
+   */
   redo(): void {
-    if (this.historyIndex < this.history.length - 1) {
-      this.historyIndex++;
-      this.world = cloneWorld(this.history[this.historyIndex]);
-      this.dirty = true;
-      this.notify();
-    }
+    if (this.historyIndex >= this.history.length - 1) return;
+    this.historyIndex++;
+    this.replaceWorld(this.history[this.historyIndex]);
+    this.dirty = true;
+    this.notify();
   }
 
-  simulateTick(dt: number = 1): void {
+  /**
+   * Advance simulation by one tick. Simulation mutates sim deltas only.
+   */
+  tick(): void {
     if (!this.world) return;
-
-    simulateTick(this.world, dt);
+    simulateTick(this.world);
     recomputeWorld(this.world, ['SIM_STEP']);
-
-    const errors = validateWorld(this.world);
-    if (errors.length > 0) {
-      // eslint-disable-next-line no-console
-      console.warn('Validation warnings after sim tick:', errors);
-    }
-
     this.pushHistorySnapshot();
     this.dirty = true;
     this.notify();
