@@ -1,10 +1,10 @@
-import { BoundaryType, ContinentMarginType, OceanDepthClass, PlateType, type Cell, type WorldBrain } from '../worldSchema';
+import { BoundaryType, ContinentMarginType, OceanDepthClass, type Cell, type WorldBrain } from '../worldSchema';
 import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
 import {
   applyContinentSkeletonTerrainObedience,
   cleanupAccidentalTinyIslands,
-  ensureCrustFields,
 } from './index';
+import { ensureCrustFields } from './materialFields';
 import {
   applyCrustProvinceTerrainDelta,
   applyProvinceCoastBreakup,
@@ -16,9 +16,6 @@ export function applyCrustTerrainInfluence(world: WorldBrain): void {
   assertNoAuthoredTerrainDeltas(world, 'applyCrustTerrainInfluence');
   ensureCrustFields(world);
 
-  // Preserve the existing generated crust stage order, but route the first
-  // three subpasses through material/feature-backed terrain authority instead
-  // of raw crustProvince label switches.
   applyCrustProvinceTerrainDelta(world);
   applyProvinceCoastBreakup(world);
   applyProvinceCoherence(world);
@@ -60,7 +57,7 @@ export function applyMaterialReliefReinforcement(world: WorldBrain): void {
       (cell.boundaryType === BoundaryType.CONVERGENT ? 0.30 : 0) +
       (cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.ACTIVE ? 0.18 : 0),
     );
-    const volcanicSignal = volcanic * (cell.plateType === PlateType.OCEANIC ? 0.65 : 1);
+    const volcanicSignal = volcanic * (0.75 + clamp01(cell.continentality) * 0.25);
     const shelfDamp = cell.oceanDepthClass === OceanDepthClass.SHELF || cell.oceanDepthClass === OceanDepthClass.SLOPE ? 0.65 : 1;
 
     const broad = smoothTerrainTexture(seed, world, i, 32003);
@@ -83,19 +80,15 @@ export function applyMaterialReliefReinforcement(world: WorldBrain): void {
 }
 
 function keepLandDelta(heightBefore: number, seaLevel: number, delta: number): number {
-  if (heightBefore + delta < seaLevel + 0.006) {
-    return Math.max(0, seaLevel + 0.006 - heightBefore);
-  }
+  if (heightBefore + delta < seaLevel + 0.006) return Math.max(0, seaLevel + 0.006 - heightBefore);
   return delta;
 }
 
 function blendMaterialDelta(world: WorldBrain, index: number, deltas: Float32Array): number {
   const raw = deltas[index];
   if (raw === 0) return 0;
-
   const neighbors = neighborIndices4(world, index);
   if (neighbors.length === 0) return raw;
-
   let sum = 0;
   let count = 0;
   for (const neighbor of neighbors) {
@@ -104,7 +97,6 @@ function blendMaterialDelta(world: WorldBrain, index: number, deltas: Float32Arr
     count++;
   }
   if (count === 0) return raw;
-
   const neighborAverage = sum / count;
   const edgeBlend = materialSeamBlendStrength(world, index);
   const softened = raw * 0.72 + neighborAverage * 0.28;
@@ -126,44 +118,34 @@ function materialSeamBlendStrength(world: WorldBrain, index: number): number {
   const cell = world.cells[index];
   const neighbors = neighborIndices4(world, index);
   if (neighbors.length === 0) return 0;
-
-  let plateEdges = 0;
   let gradient = 0;
   for (const neighborIndex of neighbors) {
     const neighbor = world.cells[neighborIndex];
-    if (neighbor.plateId !== cell.plateId) plateEdges++;
     gradient += Math.abs(clamp01(neighbor.continentality) - clamp01(cell.continentality));
     gradient += Math.abs(clamp01(neighbor.continentCoreStrength) - clamp01(cell.continentCoreStrength)) * 0.45;
     gradient += Math.abs(clamp01(neighbor.crustThickness) - clamp01(cell.crustThickness)) * 0.35;
   }
-
-  return clamp01((plateEdges / neighbors.length) * 0.30 + (gradient / neighbors.length) * 0.28);
+  return clamp01((gradient / neighbors.length) * 0.40);
 }
 
 function terrainSeamDamp(world: WorldBrain, index: number): number {
   const cell = world.cells[index];
   const neighbors = neighborIndices4(world, index);
   if (neighbors.length === 0) return 1;
-
-  let plateEdges = 0;
   let gradient = 0;
   for (const neighborIndex of neighbors) {
     const neighbor = world.cells[neighborIndex];
-    if (neighbor.plateId !== cell.plateId) plateEdges++;
     gradient += Math.abs(clamp01(neighbor.continentality) - clamp01(cell.continentality));
     gradient += Math.abs(clamp01(neighbor.crustThickness) - clamp01(cell.crustThickness)) * 0.35;
   }
-
-  return lerp(1, 0.70, clamp01((plateEdges / neighbors.length) * 0.45 + (gradient / neighbors.length) * 0.25));
+  return lerp(1, 0.74, clamp01((gradient / neighbors.length) * 0.34));
 }
 
 function landNeighborFractionByHeight(world: WorldBrain, index: number, seaLevel: number, heights: number[]): number {
   const neighbors = neighborIndices4(world, index);
   if (neighbors.length === 0) return 0;
   let land = 0;
-  for (const neighbor of neighbors) {
-    if (heights[neighbor] >= seaLevel) land++;
-  }
+  for (const neighbor of neighbors) if (heights[neighbor] >= seaLevel) land++;
   return land / neighbors.length;
 }
 
