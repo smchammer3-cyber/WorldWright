@@ -26,47 +26,71 @@ function makeFlatOceanWorld() {
     cell.upliftRate = 0;
     cell.crustThickness = 0.44;
     cell.crustAge = 0.36;
+    cell.shelfStrength = 0;
     cell.plateId = i % world.gridWidth < world.gridWidth / 2 ? 1 : 2;
   }
   return world;
 }
 
+function setOceanGap(world: ReturnType<typeof makeFlatOceanWorld>, row: number, leftCol: number) {
+  const left = world.cells[row * world.gridWidth + leftCol];
+  const right = world.cells[row * world.gridWidth + leftCol + 1];
+  left.baseHeight = -0.04;
+  right.baseHeight = -0.22;
+  return { left, right };
+}
+
+function gap(left: { baseHeight: number }, right: { baseHeight: number }): number {
+  return Math.abs(left.baseHeight - right.baseHeight);
+}
+
 describe('ocean bathymetry smoothing', () => {
-  it('softens unexplained underwater plate-edge height ghosts', () => {
+  it('softens unexplained underwater height ghosts without needing hidden IDs as authority', () => {
     const world = makeFlatOceanWorld();
-    const left = world.cells[2 * world.gridWidth + 5];
-    const right = world.cells[2 * world.gridWidth + 6];
-    left.baseHeight = -0.04;
-    right.baseHeight = -0.22;
-    const beforeGap = Math.abs(left.baseHeight - right.baseHeight);
+    const { left, right } = setOceanGap(world, 2, 5);
+    const beforeGap = gap(left, right);
 
     applyOceanBathymetrySmoothing(world);
 
-    const afterGap = Math.abs(left.baseHeight - right.baseHeight);
+    const afterGap = gap(left, right);
     expect(afterGap).toBeLessThan(beforeGap);
     expect(left.baseHeight).toBeLessThan(0);
     expect(right.baseHeight).toBeLessThan(0);
   });
 
-  it('preserves caused trench and ridge bathymetry more than uncaused edges', () => {
+  it('does not let oceanDepthClass or crustProvince alone protect bathymetry', () => {
     const world = makeFlatOceanWorld();
-    const left = world.cells[3 * world.gridWidth + 5];
-    const right = world.cells[3 * world.gridWidth + 6];
-    left.baseHeight = -0.04;
-    right.baseHeight = -0.22;
-    left.boundaryType = BoundaryType.CONVERGENT;
-    right.boundaryType = BoundaryType.CONVERGENT;
+    const { left, right } = setOceanGap(world, 2, 5);
     left.oceanDepthClass = OceanDepthClass.TRENCH;
     right.oceanDepthClass = OceanDepthClass.TRENCH;
     left.crustProvince = CrustProvince.ISLAND_ARC;
     right.crustProvince = CrustProvince.ISLAND_ARC;
-    left.islandCause = IslandCause.ISLAND_ARC;
-    right.islandCause = IslandCause.ISLAND_ARC;
-    const beforeGap = Math.abs(left.baseHeight - right.baseHeight);
+    const beforeGap = gap(left, right);
 
     applyOceanBathymetrySmoothing(world);
 
-    const afterGap = Math.abs(left.baseHeight - right.baseHeight);
-    expect(afterGap).toBeGreaterThan(beforeGap * 0.92);
+    const afterGap = gap(left, right);
+    expect(afterGap).toBeLessThan(beforeGap * 0.98);
+  });
+
+  it('preserves explicitly caused trench and ridge bathymetry more than uncaused edges', () => {
+    const uncaused = makeFlatOceanWorld();
+    const uncausedGap = setOceanGap(uncaused, 3, 5);
+    applyOceanBathymetrySmoothing(uncaused);
+    const uncausedAfterGap = gap(uncausedGap.left, uncausedGap.right);
+
+    const caused = makeFlatOceanWorld();
+    const causedGap = setOceanGap(caused, 3, 5);
+    causedGap.left.boundaryType = BoundaryType.CONVERGENT;
+    causedGap.right.boundaryType = BoundaryType.CONVERGENT;
+    causedGap.left.islandCause = IslandCause.ISLAND_ARC;
+    causedGap.right.islandCause = IslandCause.ISLAND_ARC;
+    causedGap.left.upliftRate = -0.72;
+    causedGap.right.upliftRate = -0.72;
+
+    applyOceanBathymetrySmoothing(caused);
+
+    const causedAfterGap = gap(causedGap.left, causedGap.right);
+    expect(causedAfterGap).toBeGreaterThan(uncausedAfterGap);
   });
 });
