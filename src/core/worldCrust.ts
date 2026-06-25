@@ -1,10 +1,12 @@
 export {
   applyContinentSkeletonTerrainObedience,
-  classifyCrustProvince,
   cleanupAccidentalTinyIslands,
+} from './worldCrust/index';
+export {
+  classifyCrustProvince,
   ensureCrustFields,
   seedCrustFields,
-} from './worldCrust/index';
+} from './worldCrust/materialFields';
 export {
   applyCrustProvinceTerrainDelta,
   applyProvinceCoastBreakup,
