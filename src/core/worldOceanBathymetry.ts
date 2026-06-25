@@ -1,21 +1,19 @@
 import {
-  BoundaryType,
-  CrustProvince,
   IslandCause,
   OceanDepthClass,
-  PlateType,
   type Cell,
   type WorldBrain,
 } from './worldSchema';
 import { assertNoAuthoredTerrainDeltas } from './worldLayerAuthority';
 import { ensureCrustFields } from './worldCrust';
+import { classifyPlateBoundaryFeatureAuthority } from './worldPlateBoundaryFeatures';
 
 /**
  * Smooths unexplained underwater plate/province ghosts without erasing caused
- * bathymetry. Ridges, trenches, island arcs, shelves, and coastal slopes get
- * protection. Uncaused ocean cells near hard plate/province edges are blended
- * toward nearby ocean heights so Final view and future heightmap export do not
- * reveal the raw plate polygon map.
+ * bathymetry. A raw plate boundary, province label, or derived oceanDepthClass
+ * is not enough to protect a line in Final. Protection must come from explicit
+ * feature authority: ridge, trench, arc, subduction, transform, shelf/coast, or
+ * caused volcanic/island logic.
  */
 export function applyOceanBathymetrySmoothing(world: WorldBrain): void {
   if (!world?.cells?.length) return;
@@ -38,12 +36,12 @@ export function applyOceanBathymetrySmoothing(world: WorldBrain): void {
     const target = localOceanAverage(world, i, source, seaLevel);
     if (target == null) continue;
 
-    const shelfProtection = cell.oceanDepthClass === OceanDepthClass.SHELF || cell.oceanDepthClass === OceanDepthClass.SLOPE ? 0.58 : 0;
-    const causeProtection = clamp01(Math.max(cause, shelfProtection, coastProtection * 0.75));
-    const strength = clamp01(0.05 + edgeGhost * 0.26 + interiorBlock * 0.08) * lerp(1, 0.16, causeProtection);
+    const shelfProtection = cell.oceanDepthClass === OceanDepthClass.SHELF || cell.oceanDepthClass === OceanDepthClass.SLOPE ? 0.38 : 0;
+    const causeProtection = clamp01(Math.max(cause, shelfProtection, coastProtection * 0.70));
+    const strength = clamp01(0.08 + edgeGhost * 0.42 + interiorBlock * 0.14) * lerp(1, 0.10, causeProtection);
     if (strength <= 0.002) continue;
 
-    deltas[i] = clamp((target - h) * strength, -0.022, 0.022);
+    deltas[i] = clamp((target - h) * strength, -0.035, 0.035);
   }
 
   for (let i = 0; i < world.cells.length; i++) {
@@ -61,10 +59,10 @@ function localOceanAverage(world: WorldBrain, index: number, heights: number[], 
   let weightSum = 0;
   const center = world.cells[index];
 
-  for (let dr = -1; dr <= 1; dr++) {
+  for (let dr = -2; dr <= 2; dr++) {
     const r = row + dr;
     if (r < 0 || r >= world.gridHeight) continue;
-    for (let dc = -1; dc <= 1; dc++) {
+    for (let dc = -2; dc <= 2; dc++) {
       if (dr === 0 && dc === 0) continue;
       const c = (col + dc + world.gridWidth) % world.gridWidth;
       const idx = r * world.gridWidth + c;
@@ -72,8 +70,9 @@ function localOceanAverage(world: WorldBrain, index: number, heights: number[], 
       if (h >= seaLevel) continue;
       const neighbor = world.cells[idx];
       const cause = explicitOceanBathymetryCause(neighbor);
-      const acrossHiddenEdge = neighbor.plateId !== center.plateId || neighbor.crustProvince !== center.crustProvince;
-      const weight = (acrossHiddenEdge ? 1.35 : 1) * lerp(1, 0.34, cause);
+      const hiddenEdge = neighbor.plateId !== center.plateId || neighbor.crustProvince !== center.crustProvince;
+      const distance = Math.max(1, Math.sqrt(dr * dr + dc * dc));
+      const weight = (hiddenEdge ? 1.60 : 1) * lerp(1, 0.28, cause) / distance;
       sum += h * weight;
       weightSum += weight;
     }
@@ -96,7 +95,7 @@ function unexplainedOceanEdgeSignal(world: WorldBrain, index: number, heights: n
     count++;
     const caused = Math.max(explicitOceanBathymetryCause(cell), explicitOceanBathymetryCause(neighbor));
     const heightJump = Math.abs(heights[index] - heights[neighborIndex]);
-    signal += smoothstep(0.018, 0.075, heightJump) * (1 - caused);
+    signal += smoothstep(0.012, 0.070, heightJump) * (1 - caused);
   }
   return count > 0 ? clamp01(signal / count) : 0;
 }
@@ -121,7 +120,7 @@ function oceanInteriorBlockSignal(world: WorldBrain, index: number, heights: num
     }
   }
   if (samePlateCount === 0 || differentPlateCount === 0) return 0;
-  return smoothstep(1.15, 2.10, (differentPlateJump / differentPlateCount) / Math.max(0.001, samePlateJump / samePlateCount));
+  return smoothstep(1.05, 1.90, (differentPlateJump / differentPlateCount) / Math.max(0.001, samePlateJump / samePlateCount));
 }
 
 function oceanCoastProtection(world: WorldBrain, index: number, heights: number[], seaLevel: number): number {
@@ -133,16 +132,20 @@ function oceanCoastProtection(world: WorldBrain, index: number, heights: number[
 }
 
 function explicitOceanBathymetryCause(cell: Cell): number {
+  const authority = classifyPlateBoundaryFeatureAuthority(cell);
+  const feature = authority.features;
+  const maxFeature = Math.max(0, ...Object.values(feature).map((value) => typeof value === 'number' ? value : 0));
   let cause = 0;
-  if (cell.oceanDepthClass === OceanDepthClass.TRENCH) cause = Math.max(cause, 1.0);
-  if (cell.oceanDepthClass === OceanDepthClass.RIDGE) cause = Math.max(cause, 0.95);
-  if (cell.oceanDepthClass === OceanDepthClass.SHELF || cell.oceanDepthClass === OceanDepthClass.SLOPE) cause = Math.max(cause, 0.58);
-  if (cell.boundaryType === BoundaryType.CONVERGENT || cell.boundaryType === BoundaryType.DIVERGENT) cause = Math.max(cause, 0.9);
-  if (cell.boundaryType === BoundaryType.TRANSFORM) cause = Math.max(cause, 0.45);
-  if (cell.crustProvince === CrustProvince.ISLAND_ARC || cell.crustProvince === CrustProvince.VOLCANIC_PROVINCE) cause = Math.max(cause, 0.82);
-  if (cell.islandCause === IslandCause.ISLAND_ARC || cell.islandCause === IslandCause.VOLCANIC_HOTSPOT) cause = Math.max(cause, 0.9);
-  if (cell.volcanicActivity > 0.55) cause = Math.max(cause, 0.72);
-  if (cell.plateType === PlateType.OCEANIC && cell.crustProvince === CrustProvince.OCEANIC_BASIN) cause = Math.max(cause, 0.18);
+  cause = Math.max(cause, (feature.OCEAN_TRENCH ?? 0) * 1.0);
+  cause = Math.max(cause, (feature.OCEAN_RIDGE ?? 0) * 0.95);
+  cause = Math.max(cause, (feature.ISLAND_ARC ?? 0) * 0.88);
+  cause = Math.max(cause, (feature.SUBDUCTION_ZONE ?? 0) * 0.75);
+  cause = Math.max(cause, (feature.TRANSFORM_ZONE ?? 0) * 0.48);
+  cause = Math.max(cause, (feature.RIFT_ZONE ?? 0) * 0.40);
+  if (cell.oceanDepthClass === OceanDepthClass.SHELF || cell.oceanDepthClass === OceanDepthClass.SLOPE) cause = Math.max(cause, 0.36);
+  if (cell.oceanDepthClass === OceanDepthClass.TRENCH || cell.oceanDepthClass === OceanDepthClass.RIDGE) cause = Math.max(cause, maxFeature * 0.72);
+  if (cell.islandCause === IslandCause.ISLAND_ARC || cell.islandCause === IslandCause.VOLCANIC_HOTSPOT) cause = Math.max(cause, 0.88);
+  if (cell.volcanicActivity > 0.55 && maxFeature > 0.30) cause = Math.max(cause, 0.68);
   return clamp01(cause);
 }
 
