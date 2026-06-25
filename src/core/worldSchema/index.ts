@@ -1,13 +1,6 @@
 // ========================================================
 // WORLDWRIGHT -- WORLD SCHEMA (V1.3)
 // File: src/core/worldSchema/index.ts
-//
-// Contract lock:
-// - Global seaLevel lives on WorldBrain (and mirrored to metadata.seaLevel for storage/compat).
-// - Cells DO NOT store seaLevel.
-// - Cells only store editable + derived layers.
-//
-// This is a "spine contract" file. Change only with migration + validator updates.
 // ========================================================
 
 export type Vec2 = [number, number];
@@ -84,14 +77,63 @@ export enum IslandCause {
   INVALID_FRAGMENT = 'INVALID_FRAGMENT',
 }
 
+export interface PlanetFoundationSnapshot {
+  planetProfile:
+    | 'EARTHLIKE_ROCKY'
+    | 'ROCKY_ALIEN'
+    | 'VOLATILE_PRESSURE_ROCKY'
+    | 'ICE_SHELL_OCEAN_WORLD'
+    | 'DWARF_ROCKY_OR_ICY'
+    | 'SUPER_EARTH_ROCKY'
+    | 'ARTIFICIAL_OR_FANTASY_SHELL';
+  surfaceSupportMode: 'ROCKY_CRUST' | 'LITHOSPHERE' | 'ICE_SHELL' | 'ARTIFICIAL_OR_FANTASY_SHELL';
+  surfaceMaterialFamily: string;
+  atmosphereFamily: string;
+  waterPhaseFamily: string;
+  validLayerStack: string[];
+
+  planetRadiusEarth: number;
+  planetDensityEarth: number;
+  planetMassEarth: number;
+  surfaceGravityEarth: number;
+  escapeVelocityEarth: number;
+  reliefGravityScale: number;
+  atmosphereRetentionIndex: number;
+
+  starLuminositySun: number;
+  orbitalDistanceAU: number;
+  stellarFluxEarth: number;
+  albedo: number;
+  greenhouseStrength: number;
+  surfaceAbsorbedFlux: number;
+  effectiveHeatIndex: number;
+  evaporationPotential: number;
+  snowlineBias: number;
+
+  thermalAge: number;
+  primordialHeat: number;
+  radiogenicHeat: number;
+  tidalHeatingIndex: number;
+  coreHeat: number;
+  mantleHeat: number;
+  heatFlowIndex: number;
+  mantleConvectionIndex: number;
+  tectonicVigor: number;
+  volcanismBias: number;
+  riftLikelihood: number;
+  hotspotPotential: number;
+  volatileInventory: number;
+  erosionSedimentScale: number;
+}
+
 export interface ContinentSkeleton {
   id: number;
   shapeType: ContinentShapeType;
   coreLat: number;
   coreLon: number;
-  size: number; // 0..1 broad intended size/influence
-  axisAngle: number; // radians in local lat/lon approximation
-  elongation: number; // >= 1, higher means more stretched
+  size: number;
+  axisAngle: number;
+  elongation: number;
   lobeCount: number;
 }
 
@@ -99,20 +141,15 @@ export interface OceanBasinSkeleton {
   id: number;
   centerLat: number;
   centerLon: number;
-  strength: number; // 0..1 broad basin identity strength
+  strength: number;
 }
 
 export interface WorldMetadata {
   id: string;
   name: string;
   seed: string;
-
-  // REQUIRED: worldStorage expects this to exist and will default to "v3"
   schemaVersion: string;
-
-  // mirrored global sea level threshold used by generator/renderer (V1.3)
   seaLevel?: number;
-
   version: string;
   styleMode: 'EARTHLIKE' | 'FANTASY' | 'STYLIZED' | 'ALIEN';
   gridWidth: number;
@@ -125,68 +162,39 @@ export interface WorldMetadata {
 
 export interface Cell {
   index: number;
-
-  // Terrain layers
   baseHeight: number;
   editHeightDelta: number;
   simHeightDelta: number;
-
-  // Derived
   isWater: boolean;
-
-  // Hydrology (derived or sim)
   flowDirection: number | null;
   flowAccumulation: number;
   basinId: number | null;
-
-  // Climate (derived or sim)
-  temperature: number; // 0..1
-  rainfall: number; // 0..1
+  temperature: number;
+  rainfall: number;
   climateCellId: number;
   prevailingWind: Vec2;
-
-  // Tectonics / geology (base or derived)
   plateId: number;
   plateType: PlateType;
   boundaryType: BoundaryType;
-
-  upliftRate: number; // -1..1
-  surfaceAge: number; // 0..1
-  volcanicActivity: number; // 0..1
-
-  // Continent/ocean skeleton layer (derived cause layer)
-  // These fields describe geological identity before sea level reveals land.
+  upliftRate: number;
+  surfaceAge: number;
+  volcanicActivity: number;
   continentId: number | null;
-  continentCoreStrength: number; // 0..1 old/stable core influence
-  continentality: number; // 0..1 how strongly this cell belongs to continental crust
-  distanceToContinentCore: number; // 0..1 normalized angular distance to nearest continent core
+  continentCoreStrength: number;
+  continentality: number;
+  distanceToContinentCore: number;
   marginType: ContinentMarginType;
   oceanBasinId: number | null;
-  shelfStrength: number; // 0..1 flooded continental margin/shelf tendency
+  shelfStrength: number;
   islandCause: IslandCause;
-
-  // Crust cause layer (base or derived)
-  // These are intentionally separate from plateType so future generator work can
-  // model old continental cores, young ocean basins, rifts, shelves, and buried
-  // crust without making plate polygons directly paint land/water.
-  crustThickness: number; // 0..1, higher means thicker/more buoyant crust
-  crustAge: number; // 0..1, higher means older/more stable crust
-  crustProvince: CrustProvince; // derived cause classification for terrain/coasts/islands
-
-  // Biomes
+  crustThickness: number;
+  crustAge: number;
+  crustProvince: CrustProvince;
   baseBiomeId: number;
   editBiomeId: number;
-
-  // Surface classification
   surfaceType: SurfaceType;
-
-  // Cryosphere
-  snowCover: number; // 0..1
-
-  // Ocean
+  snowCover: number;
   oceanDepthClass: OceanDepthClass | null;
-
-  // Political / cultural overlays (creative layers)
   countryId?: string;
   cultureId?: string;
   cultureMix?: { cultureId: string; weight: number }[];
@@ -195,15 +203,15 @@ export interface Cell {
 export interface Plate {
   id: number;
   type: PlateType;
-  velocity: Vec2; // plate motion vector
+  velocity: Vec2;
   polygons?: { lat: number; lon: number }[][];
 }
 
 export interface River {
-  id: number;
+  id: string;
   sourceCellIndex: number;
   mouthCellIndex: number;
-  path: number[]; // cell indices
+  path: number[];
 }
 
 export interface Country {
@@ -223,8 +231,8 @@ export interface CultureRegion {
   id: string;
   cultureId: string;
   polygon: { lat: number; lon: number }[];
-  falloff: number; // 0..1
-  opacity: number; // 0..1
+  falloff: number;
+  opacity: number;
 }
 
 export interface City {
@@ -234,13 +242,11 @@ export interface City {
   population: number;
   countryId?: string;
   cultureId?: string;
-
-  // Extended metadata (V1.3 blueprint)
   type?: 'VILLAGE' | 'TOWN' | 'CITY' | 'METROPOLIS' | 'FORT' | 'PORT';
   isCapital?: boolean;
-  populationTier?: 1 | 2 | 3 | 4 | 5; // 1=village, 5=metropolis
+  populationTier?: 1 | 2 | 3 | 4 | 5;
   economicRoles?: ('AGRICULTURAL' | 'INDUSTRIAL' | 'TRADE' | 'RELIGIOUS' | 'MILITARY')[];
-  strategicValue?: number; // 0..1
+  strategicValue?: number;
   tags?: string[];
   description?: string;
 }
@@ -258,7 +264,7 @@ export interface Sticker {
   type: 'BIOME' | 'CULTURE' | 'HEIGHT';
   mode: 'WORLD_RULES' | 'OVERRIDE';
   polygon: { lat: number; lon: number }[];
-  falloff: number; // 0..1
+  falloff: number;
   payload: {
     biomeId?: number;
     cultureId?: string;
@@ -269,62 +275,43 @@ export interface Sticker {
 export interface WorldBrain {
   gridWidth: number;
   gridHeight: number;
-
-  // GLOBAL sea level threshold (0..1 space of generator’s normalized height field)
   seaLevel: number;
-
   cells: Cell[];
-
   plates: Plate[];
   rivers: River[];
-
   countries: Country[];
   cultures: Culture[];
   cultureRegions: CultureRegion[];
   cities: City[];
-
   locations?: Location[];
   stickers?: Sticker[];
-
   continentSkeletons?: ContinentSkeleton[];
   oceanBasinSkeletons?: OceanBasinSkeleton[];
-
+  planetFoundation?: PlanetFoundationSnapshot;
   metadata: WorldMetadata;
-
-  // Optional: generator parameters snapshot (not enforced by schema)
   parameters?: Record<string, unknown>;
 }
 
-// -----------------------------
-// Helpers
-// -----------------------------
 export function createEmptyCell(index: number): Cell {
   return {
     index,
-
     baseHeight: 0,
     editHeightDelta: 0,
     simHeightDelta: 0,
-
     isWater: false,
-
     flowDirection: null,
     flowAccumulation: 0,
     basinId: null,
-
     temperature: 0.5,
     rainfall: 0.5,
     climateCellId: 0,
     prevailingWind: [0, 0],
-
     plateId: 0,
     plateType: PlateType.CONTINENTAL,
     boundaryType: BoundaryType.NONE,
-
     upliftRate: 0,
     surfaceAge: 0.5,
     volcanicActivity: 0,
-
     continentId: null,
     continentCoreStrength: 0,
     continentality: 0,
@@ -333,16 +320,12 @@ export function createEmptyCell(index: number): Cell {
     oceanBasinId: null,
     shelfStrength: 0,
     islandCause: IslandCause.NONE,
-
     crustThickness: 0.5,
     crustAge: 0.5,
     crustProvince: CrustProvince.OLD_SHIELD,
-
     baseBiomeId: 0,
     editBiomeId: 0,
-
     surfaceType: SurfaceType.ROCK,
-
     snowCover: 0,
     oceanDepthClass: null,
   };

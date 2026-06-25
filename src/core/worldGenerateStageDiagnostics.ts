@@ -1,6 +1,5 @@
 import { seedContinentSkeletonFields } from './worldContinents';
 import {
-  applyContinentSkeletonTerrainObedience,
   applyCrustProvinceTerrainDelta,
   applyProvinceCoastBreakup,
   applyProvinceCoherence,
@@ -12,23 +11,26 @@ import {
   type GeologicFeatureAuthorityDiagnostics,
 } from './worldGeologicFeatureAuthority';
 import { applyOceanBathymetrySmoothing } from './worldOceanBathymetry';
+import { applyPlateBoundaryFeatureTerrain } from './worldPlateBoundaryFeatures';
 import { createDefaultGeneratorParams, generateWorldFromParams, type GeneratorParams } from './worldGenerator';
 import { applyGeneratedWorldQualityPass } from './worldQualityPass';
 import { applySkeletonBaseElevation } from './worldGeographyPipeline';
+import { applyIsostaticTerrainResponse } from './worldTerrainResponse';
 import { recomputeWorld } from './worldRecompute';
 import { PlateType, type WorldBrain } from './worldSchema';
 
 export type GenerateStageId =
   | 'RAW_GENERATOR'
   | 'CONTINENT_FIELDS'
+  | 'PLATE_BOUNDARY_FEATURE_TERRAIN'
   | 'SKELETON_ELEVATION'
   | 'FIRST_RECOMPUTE'
   | 'QUALITY_PASS'
   | 'CRUST_FIELDS'
+  | 'ISOSTATIC_TERRAIN_RESPONSE'
   | 'CRUST_PROVINCE_DELTA'
   | 'CRUST_COAST_BREAKUP'
   | 'CRUST_COHERENCE'
-  | 'CRUST_SKELETON_OBEDIENCE'
   | 'CRUST_TINY_ISLAND_CLEANUP'
   | 'OCEAN_BATHYMETRY_SMOOTHING'
   | 'FINAL_RECOMPUTE'
@@ -112,37 +114,39 @@ export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null 
     previousTrace = trace;
   }
 
-  record('RAW_GENERATOR', 'Raw generator', 'Continuous terrain before continent/crust pipeline stages.');
+  record('RAW_GENERATOR', 'Raw generator', 'Foundation/noise terrain after planet foundation and tectonic cause seeding.');
   seedContinentSkeletonFields(world);
-  record('CONTINENT_FIELDS', 'Continent fields', 'Skeleton identity fields seeded; terrain should not change here.');
+  record('CONTINENT_FIELDS', 'Continent fields', 'Skeleton/morphology identity fields seeded; terrain should not change here.');
+  applyPlateBoundaryFeatureTerrain(world);
+  record('PLATE_BOUNDARY_FEATURE_TERRAIN', 'Plate feature terrain', 'Boundary feature terrain pass. Relief must be feature-backed, not raw plateId-backed.');
   applySkeletonBaseElevation(world);
-  record('SKELETON_ELEVATION', 'Skeleton elevation', 'Broad continent/ocean height guidance applied. Watch skeleton seam and land flips here.');
+  record('SKELETON_ELEVATION', 'Skeleton elevation', 'One broad continent/ocean morphology terrain guidance pass.');
   recomputeWorld(world, ['GENERATED']);
-  record('FIRST_RECOMPUTE', 'First recompute', 'Derived water, climate, rivers, snow, and biomes refreshed after skeleton elevation.');
+  record('FIRST_RECOMPUTE', 'First recompute', 'Derived water, climate, rivers, snow, and biomes refreshed after initial feature/morphology terrain.');
   applyGeneratedWorldQualityPass(world);
-  record('QUALITY_PASS', 'Quality pass', 'Interior relief, coastline breakup, shelf roughness, and strait cuts applied.');
+  record('QUALITY_PASS', 'Quality pass', 'Terrain cleanup after initial generated relief. Watch that cleanup does not hide upstream authority mistakes.');
   recomputeWorld(world, ['GENERATED']);
   seedContinentSkeletonFields(world);
   seedCrustFields(world);
-  record('CRUST_FIELDS', 'Crust fields', 'Crust thickness, age, and province causes seeded after quality pass. Height should not change here.');
+  record('CRUST_FIELDS', 'Crust fields', 'Feature-backed crust thickness, age, and province label seeded. Height should not change here.');
+  applyIsostaticTerrainResponse(world);
+  record('ISOSTATIC_TERRAIN_RESPONSE', 'Isostatic terrain', 'Material/feature/gravity terrain response. This is the main PR #86 terrain authority stage.');
   applyCrustProvinceTerrainDelta(world);
-  record('CRUST_PROVINCE_DELTA', 'Crust delta', 'Province height deltas only. Watch province seam and topology flips here.');
+  record('CRUST_PROVINCE_DELTA', 'Crust delta', 'Legacy-named material/feature crust terrain pass. It must not switch on crustProvince.');
   applyProvinceCoastBreakup(world);
-  record('CRUST_COAST_BREAKUP', 'Crust coast', 'Province-aware coastline breakup only.');
+  record('CRUST_COAST_BREAKUP', 'Crust coast', 'Feature/material-backed coastline breakup.');
   applyProvinceCoherence(world);
-  record('CRUST_COHERENCE', 'Crust cohere', 'Province coherence: fills holes and trims frayed lowland edges.');
-  applyContinentSkeletonTerrainObedience(world);
-  record('CRUST_SKELETON_OBEDIENCE', 'Crust skeleton', 'Skeleton obedience inside the crust pass. This should not act like a second full skeleton elevation pass.');
+  record('CRUST_COHERENCE', 'Crust cohere', 'Material/feature coherence cleanup.');
   cleanupAccidentalTinyIslands(world);
-  record('CRUST_TINY_ISLAND_CLEANUP', 'Tiny cleanup', 'Tiny accidental island cleanup after crust subpasses.');
+  record('CRUST_TINY_ISLAND_CLEANUP', 'Tiny cleanup', 'Tiny accidental island cleanup after crust material subpasses.');
   applyOceanBathymetrySmoothing(world);
-  record('OCEAN_BATHYMETRY_SMOOTHING', 'Ocean bathy', 'Cause-aware ocean-only smoothing to hide unexplained underwater plate/province ghosts while preserving ridges, trenches, arcs, and shelves.');
+  record('OCEAN_BATHYMETRY_SMOOTHING', 'Ocean bathy', 'Cause-aware ocean-only smoothing preserving ridges, trenches, arcs, and shelves.');
   recomputeWorld(world, ['GENERATED']);
-  record('FINAL_RECOMPUTE', 'Final recompute', 'Final derived state after the generated geography pipeline before final skeleton/crust reseeding.');
+  record('FINAL_RECOMPUTE', 'Final recompute', 'Final derived state after generated geography pipeline terrain stages.');
   seedContinentSkeletonFields(world);
-  record('FINAL_CONTINENT_RESEED', 'Final continent reseed', 'Final continent/shelf/margin identity reseed. If skeleton imprint jumps here, the reseed, not recompute, is the cause.');
+  record('FINAL_CONTINENT_RESEED', 'Final continent reseed', 'Terminal continent/shelf/margin explanation sync. It must not feed later terrain writers.');
   seedCrustFields(world);
-  record('FINAL_CRUST_RESEED', 'Final crust reseed', 'Final crust/province cause reseed after final continent fields. Height should not change here.');
+  record('FINAL_CRUST_RESEED', 'Final crust reseed', 'Terminal crust/province explanation sync. Height should not change here.');
 
   return { seed: String(params.seed), grid: `${params.width}×${params.height}`, stages };
 }
@@ -164,6 +168,18 @@ function generatorParamsFromWorld(world: WorldBrain): GeneratorParams {
     continentCount: numberParam(p.continentCount, defaults.continentCount),
     seed: typeof p.seed === 'string' || typeof p.seed === 'number' ? p.seed : world.metadata?.seed ?? defaults.seed,
     styleMode: isStyleMode(p.styleMode) ? p.styleMode : world.metadata?.styleMode ?? defaults.styleMode,
+    planetProfile: isPlanetProfile(p.planetProfile) ? p.planetProfile : defaults.planetProfile,
+    planetRadiusEarth: numberParam(p.planetRadiusEarth, defaults.planetRadiusEarth ?? 1),
+    planetDensityEarth: numberParam(p.planetDensityEarth, defaults.planetDensityEarth ?? 1),
+    starLuminositySun: numberParam(p.starLuminositySun, defaults.starLuminositySun ?? 1),
+    orbitalDistanceAU: numberParam(p.orbitalDistanceAU, defaults.orbitalDistanceAU ?? 1),
+    albedo: numberParam(p.albedo, defaults.albedo ?? 0.30),
+    greenhouseStrength: numberParam(p.greenhouseStrength, defaults.greenhouseStrength ?? 0.32),
+    volatileInventory: numberParam(p.volatileInventory, defaults.volatileInventory ?? 0.54),
+    coreHeatIntent: numberParam(p.coreHeatIntent, defaults.coreHeatIntent ?? 0.52),
+    tidalHeatingIntent: numberParam(p.tidalHeatingIntent, defaults.tidalHeatingIntent ?? 0),
+    stagnantLidBias: numberParam(p.stagnantLidBias, defaults.stagnantLidBias ?? 0.10),
+    compositionRadioactivity: numberParam(p.compositionRadioactivity, defaults.compositionRadioactivity ?? 0.50),
   };
 }
 
@@ -356,6 +372,16 @@ function numberParam(value: unknown, fallback: number): number {
 
 function isStyleMode(value: unknown): value is GeneratorParams['styleMode'] {
   return value === 'EARTHLIKE' || value === 'FANTASY' || value === 'STYLIZED' || value === 'ALIEN';
+}
+
+function isPlanetProfile(value: unknown): value is NonNullable<GeneratorParams['planetProfile']> {
+  return value === 'EARTHLIKE_ROCKY'
+    || value === 'ROCKY_ALIEN'
+    || value === 'VOLATILE_PRESSURE_ROCKY'
+    || value === 'ICE_SHELL_OCEAN_WORLD'
+    || value === 'DWARF_ROCKY_OR_ICY'
+    || value === 'SUPER_EARTH_ROCKY'
+    || value === 'ARTIFICIAL_OR_FANTASY_SHELL';
 }
 
 function clamp01(value: number): number {

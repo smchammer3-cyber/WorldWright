@@ -5,6 +5,7 @@ import { seedContinentSkeletonFields } from '../worldContinents';
 import { applyCrustTerrainInfluence, seedCrustFields } from '../worldCrust';
 import { applyOceanBathymetrySmoothing } from '../worldOceanBathymetry';
 import { applyPlateBoundaryFeatureTerrain } from '../worldPlateBoundaryFeatures';
+import { applyIsostaticTerrainResponse } from '../worldTerrainResponse';
 import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
 
 export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
@@ -18,6 +19,7 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   recomputeWorld(world, ['GENERATED']);
   seedContinentSkeletonFields(world);
   seedCrustFields(world);
+  applyIsostaticTerrainResponse(world);
   applyCrustTerrainInfluence(world);
   applyOceanBathymetrySmoothing(world);
   recomputeWorld(world, ['GENERATED']);

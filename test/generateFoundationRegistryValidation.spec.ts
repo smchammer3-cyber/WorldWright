@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getCurrentGenerateStageContract, listCurrentGenerateStageContracts } from '../src/core/generateCurrentStageRegistry';
+import { listCurrentGenerateStageContracts } from '../src/core/generateCurrentStageRegistry';
 import { validateGenerateFoundationRegistry } from '../src/core/generateFoundationRegistryValidation';
 import { isForbiddenColorRead, isForbiddenTerrainRead } from '../src/core/generateFieldOwnership';
 import { layerCanRunForPlanetProfile } from '../src/core/generateLayerGates';
-import { getPlanetProfileContract } from '../src/core/generatePlanetProfileContract';
+import { PLANET_PROFILE_CONTRACTS, getPlanetProfileContract } from '../src/core/generatePlanetProfileContract';
 import { getSliderContract } from '../src/core/generateSliderContract';
 
 describe('Generate foundation registry validation', () => {
@@ -21,11 +21,12 @@ describe('Generate foundation registry validation', () => {
     }
   });
 
-  it('marks known current bad terrain stages as explicit transitional problems', () => {
-    expect(getCurrentGenerateStageContract('CRUST_PROVINCE_DELTA').risk).toBe('problem');
-    expect(getCurrentGenerateStageContract('CRUST_PROVINCE_DELTA').knownViolations).toContain('crustProvince -> baseHeight');
-    expect(getCurrentGenerateStageContract('CRUST_COAST_BREAKUP').risk).toBe('problem');
-    expect(getCurrentGenerateStageContract('CRUST_SKELETON_OBEDIENCE').knownViolations).toContain('late skeleton -> baseHeight');
+  it('does not keep known direct authority violations in the current stage registry', () => {
+    for (const stage of listCurrentGenerateStageContracts()) {
+      expect(stage.knownViolations).not.toContain('crustProvince -> baseHeight');
+      expect(stage.knownViolations).not.toContain('late skeleton -> baseHeight');
+      expect(stage.knownViolations).not.toContain('double-applied skeleton authority risk');
+    }
   });
 
   it('does not allow terminal cause sync stages to be followed by terrain writers', () => {
@@ -37,13 +38,10 @@ describe('Generate foundation registry validation', () => {
     }
   });
 
-  it('keeps gas/cloud profiles out of the normal rocky landmass stack', () => {
-    const gas = getPlanetProfileContract('CLOUD_GAS_WORLD');
-
-    expect(gas.surfaceSupportMode).toBe('CLOUD_GAS_NO_SURFACE');
-    expect(gas.forbiddenLayers).toContain('CONTINENTAL_MORPHOLOGY');
-    expect(gas.forbiddenLayers).toContain('LANDMASS_TERRAIN');
-    expect(layerCanRunForPlanetProfile('CRUST_MATERIAL', 'CLOUD_GAS_WORLD')).toBe(false);
+  it('removes cloud/gas worlds from normal Generate terrain profiles', () => {
+    expect(PLANET_PROFILE_CONTRACTS.map((profile) => profile.id)).not.toContain('CLOUD_GAS_WORLD');
+    expect(() => getPlanetProfileContract('CLOUD_GAS_WORLD' as never)).toThrow(/Unknown planet profile/);
+    expect(layerCanRunForPlanetProfile('CRUST_MATERIAL', 'EARTHLIKE_ROCKY')).toBe(true);
   });
 
   it('keeps slider extremes creative without relaxing authority invariants', () => {
