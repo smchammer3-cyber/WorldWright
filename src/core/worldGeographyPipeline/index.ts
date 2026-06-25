@@ -18,9 +18,11 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
   assertNoAuthoredTerrainDeltas(world, 'applyGeneratedGeographyPipeline');
 
   const geologyStack = world.planetFoundation?.geologyStack ?? 'PLATE_TECTONIC';
+  const waterMode = world.planetFoundation?.surfaceWaterMode ?? 'LIQUID_SURFACE_WATER';
   const allowContinents = allowsNormalContinentalMorphology(geologyStack);
   const allowRockyCrust = allowsNormalRockyCrustTerrain(geologyStack);
   const allowPlateFeatures = allowsPlateBoundaryFeatureTerrain(geologyStack);
+  const allowNormalOceanBathymetry = waterMode !== 'DRY' && waterMode !== 'ICE_OVER_ROCK' && waterMode !== 'SNOWBALL_SURFACE' && waterMode !== 'ICE_SHELL_OVER_OCEAN';
 
   if (allowContinents) seedContinentSkeletonFields(world);
   if (allowPlateFeatures) applyPlateBoundaryFeatureTerrain(world);
@@ -36,7 +38,7 @@ export function applyGeneratedGeographyPipeline(world: WorldBrain): void {
     applyIsostaticTerrainResponse(world);
     applyCrustTerrainInfluence(world);
   }
-  applyOceanBathymetrySmoothing(world);
+  if (allowNormalOceanBathymetry) applyOceanBathymetrySmoothing(world);
   recomputeWorld(world, ['GENERATED']);
   if (allowContinents) seedContinentSkeletonFields(world);
   if (allowRockyCrust) seedCrustFields(world);
