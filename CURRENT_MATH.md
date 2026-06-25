@@ -57,7 +57,7 @@ RAW_GENERATOR
 → FINAL_CRUST_RESEED
 ```
 
-`FINAL_CONTINENT_RESEED` and `FINAL_CRUST_RESEED` are terminal explanation-sync stages. They may update labels for debugging/metadata, but no later terrain writer may consume them in the same pipeline.
+`FINAL_CONTINENT_RESEED` and `FINAL_CRUST_RESEED` are terminal explanation-sync stages. They may update labels for debugging/metadata, but no later terrain writer may consume them in the same pipeline. Multi-seed terrain-suspect rankings exclude terminal reseed stages.
 
 ## 1. Planet profile / legal stack
 
@@ -183,7 +183,7 @@ crustProvince
 
 `crustProvince` is a label only. Terrain reads material signals from crust thickness/age, continentality, core strength, features, and foundation heat; it must not switch directly on `crustProvince`.
 
-Material signal proxy:
+Current material signal proxy:
 
 ```ts
 crustDensity = clamp(
@@ -193,9 +193,16 @@ crustDensity = clamp(
   0.72,
   1.22
 )
-crustStrength = clamp01(0.34 + crustAge * 0.30 + crustThickness * 0.24 - heatFlowIndex * 0.23 + continentCoreStrength * 0.24)
-crustBuoyancy = clamp01(0.54 * crustThickness + 0.32 * (1.15 - crustDensity) + 0.22 * crustStrength)
-sedimentTendency = clamp01(lowland + heatFlowIndex * 0.06 + max(0, 0.58 - crustThickness) * 0.14)
+crustStrength = clamp01(
+  0.30 + crustAge * 0.30 + crustThickness * 0.22 - heatFlowIndex * 0.23 + continentCoreStrength * 0.24
+)
+crustBuoyancy = clamp01(
+  0.52 * crustThickness + 0.30 * (1.15 - crustDensity) + 0.18 * crustStrength
+)
+stableCore = clamp01(continentCoreStrength * continentality * crustStrength * (0.45 + crustAge * 0.55))
+sedimentTendency = clamp01(lowland + heatFlowIndex * 0.06)
+basinSubsidence = clamp01(sedimentTendency * (1 - continentCoreStrength) * (0.35 + (1 - continentality) * 0.45))
+reliefEnergy = clamp01(0.34 + crustStrength * 0.30 + crustBuoyancy * 0.24 + stableCore * 0.22)
 ```
 
 ## 8. Isostatic terrain response
@@ -203,58 +210,76 @@ sedimentTendency = clamp01(lowland + heatFlowIndex * 0.06 + max(0, 0.58 - crustT
 Current PR #87 terrain response separates land and ocean targets so weak underwater boundary contrast can be suppressed.
 
 ```ts
-landMaterialTarget = seaLevel
+oceanFeatureGate = smoothstep(0.42, 0.78, featureStrength)
+landFeatureGate = smoothstep(0.10, 0.45, featureStrength)
+materialGate = isOcean ? lerp(0.18, 1, oceanFeatureGate) : 1
+
+isostaticTarget = seaLevel
   + continentality * 0.18
-  + crustBuoyancy * 0.27
-  + continentCoreStrength * 0.12
-  - max(0, crustDensity - 1.0) * 0.10
-
-oceanMaterialTarget = seaLevel
+  + crustBuoyancy * 0.27 * materialGate
+  + stableCore * 0.11
+  + continentCoreStrength * 0.10
   - oceanBasinStrength * 0.24
-  + ridge * 0.035 * reliefGravityScale * segmentation
-  - trench * 0.090 * reliefGravityScale * segmentation
-  + arc * 0.018 * reliefGravityScale * segmentation
+  - max(0, crustDensity - 1.0) * 0.08 * materialGate
+  - basinSubsidence * 0.065
 
-landFeatureRelief =
-  collision * 0.20 * reliefGravityScale
-  + arc * 0.10 * reliefGravityScale
-  - rift * 0.10 * reliefGravityScale
-  + transform * shearTexture * 0.024 * reliefGravityScale
+featureRelief =
+  collision * 0.18 * reliefGravityScale * landFeatureGate
+  + arc * 0.09 * reliefGravityScale * max(landFeatureGate, oceanFeatureGate)
+  + ridge * 0.075 * reliefGravityScale * ridgeSegmentation * featureGate
+  - trench * 0.145 * reliefGravityScale * trenchSegmentation * featureGate
+  - rift * 0.09 * reliefGravityScale * max(landFeatureGate, oceanFeatureGate * 0.55)
+  + transform * shearTexture * 0.020 * reliefGravityScale * featureGate
 
-oceanFeatureRelief = strongOceanFeature
-  ? (ridge * 0.052 - trench * 0.092 + arc * 0.025 + transform * shearTexture * 0.010) * reliefGravityScale * segmentation
-  : 0
-
-terrainTarget = lowFrequencyPlanetShape + materialTarget + featureRelief - erosionWear + sedimentFill + smallTexture
+terrainTarget = lowFrequencyPlanetShape + isostaticTarget + featureRelief - erosionWear + sedimentFill + smallTexture
 ```
 
 Weak ocean boundary damping:
 
 ```ts
-weakOceanSeamDamp = isOcean && !strongOceanFeature
-  ? 0.24 + 0.40 * smoothstep(0.30, 0.70, featureStrength)
-  : 1
+if (isOcean && oceanFeatureGate < 0.18) {
+  target = lerp(target, localOceanAverage - 0.010, 0.46 * (1 - oceanFeatureGate))
+}
 ```
 
-## 9. Ocean / shelf / bathymetry
+## 9. Material crust finishing
+
+`CRUST_PROVINCE_DELTA` is a legacy stage name. The implementation reads material signals and feature authority, not `crustProvince` switches.
+
+```ts
+materialDelta += crustBuoyancy * 0.070 * landGate
+materialDelta += crustStrength * 0.030 * landGate
+materialDelta += stableCore * 0.070 * emergenceGate
+materialDelta -= basinSubsidence * 0.060 * landGate
+materialDelta += collision * 0.035 * landGate
+materialDelta += islandArc * 0.026 * max(landGate, coastGate)
+materialDelta += oceanRidge * 0.024 * max(oceanGate * oceanFeatureGate, coastGate * 0.35)
+materialDelta -= oceanTrench * 0.035 * oceanGate * oceanFeatureGate
+materialDelta -= rift * 0.030 * max(landGate, coastGate * 0.5)
+```
+
+## 10. Ocean / shelf / bathymetry
 
 NOAA depth anchors guide normalized classes. In code, ocean smoothing protects only explicit feature-backed causes:
 
 ```ts
 cause = max(
-  ridge * 0.95,
   trench * 1.0,
-  arc * 0.88,
-  transform * 0.28,
-  shelfOrSlope * 0.38,
-  causedIsland * 0.82,
-  volcanicIfFeatureBacked * 0.66
+  ridge * 0.95,
+  islandArc * 0.88,
+  subduction * 0.75,
+  transform * 0.48,
+  rift * 0.40,
+  shelfOrSlope * 0.36,
+  depthClassRidgeOrTrench * maxFeature * 0.72,
+  causedIsland * 0.88,
+  volcanicIfFeatureBacked * 0.68
 )
 ```
 
 Unexplained underwater height jumps across hidden plate/province edges are smoothed toward local ocean average. This is a deliberate anti-ghost pass, not feature creation.
 
-## 10. Climate / moisture / snow
+## 11. Climate / moisture / snow
 
 ```ts
 latitudeHeat = cos(latitudeRadians) ** latitudeExponent
@@ -271,7 +296,7 @@ rainfall = clamp01(
 snowCover = clamp01((1 - temperature) * 0.70 + elevationAboveSea * 0.18 + rainfall * 0.12 - effectiveHeatIndex * 0.15)
 ```
 
-## 11. Diagnostics / tests
+## 12. Diagnostics / tests
 
 Current tests should measure:
 
@@ -283,6 +308,7 @@ hidden labels are forbidden terrain/color reads
 profile contract excludes CLOUD_GAS_WORLD
 foundation math resolves core/sun/gravity values
 terrain authority stages write terrain, cause stages do not
+crust material tests measure material fields, not crustProvince switches
 final renderer ignores hidden masks in Final
 ```
 
