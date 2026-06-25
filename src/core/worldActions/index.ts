@@ -30,7 +30,7 @@ export type AddCountryAction = { type: 'ADD_COUNTRY'; country: Country };
 
 export type AddRiverAction = { type: 'ADD_RIVER'; river: River };
 
-export type RemoveRiverAction = { type: 'REMOVE_RIVER'; riverId: number };
+export type RemoveRiverAction = { type: 'REMOVE_RIVER'; riverId: string | number };
 
 export type SetLakeLevelAction = {
   type: 'SET_LAKE_LEVEL';
@@ -88,110 +88,69 @@ export function applyWorldAction(world: WorldBrain, action: WorldAction): void {
     case 'SET_LAKE_LEVEL':
       applySetLakeLevel(world, action);
       return;
-
-    default:
-      return;
   }
 }
 
 function applyTerrainStroke(world: WorldBrain, action: TerrainStrokeAction): void {
-  const { tool, center, radius, strength } = action;
-  if (!world || !Array.isArray(world.cells)) return;
+  const { center, radius, strength, tool } = action;
+  const gw = world.gridWidth;
+  const gh = world.gridHeight;
 
-  const gridWidth = world.gridWidth;
-  const gridHeight = world.gridHeight;
-  const cells = world.cells;
-
-  const rad = Math.max(1, Math.floor(Number.isFinite(radius) ? radius : 1));
-  const str = Number.isFinite(strength) && strength >= 0 ? strength : 0;
-
-  let targetHeight = 0;
-  let count = 0;
-
-  if (tool === 'FLATTEN' || tool === 'SMOOTH') {
-    for (let dr = -rad; dr <= rad; dr++) {
-      const r = center.row + dr;
-      if (r < 0 || r >= gridHeight) continue;
-
-      for (let dc = -rad; dc <= rad; dc++) {
-        const dist = Math.sqrt(dr * dr + dc * dc);
-        if (dist > radius) continue;
-
-        const c = center.col + dc;
-        const cc = ((c % gridWidth) + gridWidth) % gridWidth;
-        const idx = r * gridWidth + cc;
-        const cell = cells[idx];
-        const h =
-          (typeof cell.baseHeight === 'number' ? cell.baseHeight : 0) +
-          (typeof cell.editHeightDelta === 'number' ? cell.editHeightDelta : 0);
-
-        targetHeight += h;
-        count++;
-      }
-    }
-
-    if (count > 0) targetHeight /= count;
-  }
-
-  for (let dr = -rad; dr <= rad; dr++) {
-    const r = center.row + dr;
-    if (r < 0 || r >= gridHeight) continue;
-
-    for (let dc = -rad; dc <= rad; dc++) {
+  for (let r = Math.max(0, center.row - radius); r <= Math.min(gh - 1, center.row + radius); r++) {
+    for (let c = Math.max(0, center.col - radius); c <= Math.min(gw - 1, center.col + radius); c++) {
+      const dr = r - center.row;
+      const dc = c - center.col;
       const dist = Math.sqrt(dr * dr + dc * dc);
       if (dist > radius) continue;
 
-      const c = center.col + dc;
-      const cc = ((c % gridWidth) + gridWidth) % gridWidth;
-      const idx = r * gridWidth + cc;
-      const cell = cells[idx];
-      const weight = (radius - dist) / radius;
+      const idx = r * gw + c;
+      const cell = world.cells[idx];
+      if (!cell) continue;
+
+      const falloff = 1 - dist / Math.max(1, radius);
+      const delta = strength * falloff;
 
       if (tool === 'RAISE') {
-        cell.editHeightDelta = (cell.editHeightDelta || 0) + str * weight;
-      } else if (tool === 'LOWER') {
-        cell.editHeightDelta = (cell.editHeightDelta || 0) - str * weight;
-      } else if (tool === 'FLATTEN' || tool === 'SMOOTH') {
-        const current =
-          (typeof cell.baseHeight === 'number' ? cell.baseHeight : 0) +
-          (typeof cell.editHeightDelta === 'number' ? cell.editHeightDelta : 0);
-
-        const delta = (targetHeight - current) * str * weight;
         cell.editHeightDelta = (cell.editHeightDelta || 0) + delta;
+      } else if (tool === 'LOWER') {
+        cell.editHeightDelta = (cell.editHeightDelta || 0) - delta;
+      } else if (tool === 'FLATTEN') {
+        const target = averageHeight(world, center.row, center.col, radius);
+        const current = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
+        cell.editHeightDelta = (cell.editHeightDelta || 0) + (target - current) * falloff * 0.5;
+      } else if (tool === 'SMOOTH') {
+        const local = averageHeight(world, r, c, Math.max(1, Math.floor(radius / 2)));
+        const current = cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
+        cell.editHeightDelta = (cell.editHeightDelta || 0) + (local - current) * falloff * 0.35;
       }
     }
   }
 }
 
+function averageHeight(world: WorldBrain, row: number, col: number, radius: number): number {
+  const gw = world.gridWidth;
+  const gh = world.gridHeight;
+  let sum = 0;
+  let count = 0;
+
+  for (let r = Math.max(0, row - radius); r <= Math.min(gh - 1, row + radius); r++) {
+    for (let c = Math.max(0, col - radius); c <= Math.min(gw - 1, col + radius); c++) {
+      const cell = world.cells[r * gw + c];
+      if (!cell) continue;
+      sum += cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
+      count++;
+    }
+  }
+
+  return count > 0 ? sum / count : 0;
+}
+
 function applySticker(world: WorldBrain, action: StickerApplyAction): void {
-  const { sticker } = action;
-  const { gridWidth, gridHeight, cells } = world;
-
-  const lats = sticker.polygon.map((p) => p.lat);
-  const lons = sticker.polygon.map((p) => p.lon);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
-
-  const rMin = Math.floor(((90 - maxLat) / 180) * gridHeight);
-  const rMax = Math.ceil(((90 - minLat) / 180) * gridHeight);
-  const cMin = Math.floor(((minLon + 180) / 360) * gridWidth);
-  const cMax = Math.ceil(((maxLon + 180) / 360) * gridWidth);
-
-  for (let r = rMin; r <= rMax; r++) {
-    for (let c = cMin; c <= cMax; c++) {
-      const rr = (r + gridHeight) % gridHeight;
-      const cc = (c + gridWidth) % gridWidth;
-      const idx = rr * gridWidth + cc;
-      const cell = cells[idx];
-
-      const lat = 90 - (rr / gridHeight) * 180;
-      const lon = (cc / gridWidth) * 360 - 180;
-
-      if (!pointInPolygon({ lat, lon }, sticker.polygon)) continue;
-
-      if (sticker.type === 'BIOME' && sticker.payload.biomeId != null) {
+  const sticker = action.sticker;
+  for (const cell of world.cells) {
+    const point = cellToLatLon(world, cell.index);
+    if (pointInPolygon(point, sticker.polygon)) {
+      if (sticker.type === 'BIOME' && typeof sticker.payload.biomeId === 'number') {
         cell.editBiomeId = sticker.payload.biomeId;
       }
 
@@ -225,7 +184,7 @@ function applyAddRiver(world: WorldBrain, action: AddRiverAction): void {
 }
 
 function applyRemoveRiver(world: WorldBrain, action: RemoveRiverAction): void {
-  world.rivers = (world.rivers ?? []).filter((r) => r.id !== action.riverId);
+  world.rivers = (world.rivers ?? []).filter((r) => String(r.id) !== String(action.riverId));
 }
 
 function applySetLakeLevel(world: WorldBrain, action: SetLakeLevelAction): void {
@@ -250,22 +209,25 @@ function pointInPolygon(
   polygon: { lat: number; lon: number }[]
 ): boolean {
   let inside = false;
-
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     const xi = polygon[i].lon;
     const yi = polygon[i].lat;
     const xj = polygon[j].lon;
     const yj = polygon[j].lat;
 
-    const intersect =
+    const intersects =
       yi > point.lat !== yj > point.lat &&
-      point.lon < ((xj - xi) * (point.lat - yi)) / (yj - yi + 1e-12) + xi;
+      point.lon < ((xj - xi) * (point.lat - yi)) / (yj - yi + 1e-9) + xi;
 
-    if (intersect) inside = !inside;
+    if (intersects) inside = !inside;
   }
-
   return inside;
 }
 
-// Alias used by worldEditor; maintained for backward compatibility.
-export const applyAction = applyWorldAction;
+function cellToLatLon(world: WorldBrain, index: number): { lat: number; lon: number } {
+  const row = Math.floor(index / world.gridWidth);
+  const col = index % world.gridWidth;
+  const lat = 90 - (row / Math.max(1, world.gridHeight - 1)) * 180;
+  const lon = (col / Math.max(1, world.gridWidth - 1)) * 360 - 180;
+  return { lat, lon };
+}
