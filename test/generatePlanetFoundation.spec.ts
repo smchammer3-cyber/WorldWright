@@ -53,6 +53,15 @@ describe('Generate planet foundation math', () => {
     expect(foundation.validLayerStack).toContain(`GEOLOGY_STACK_${foundation.geologyStack}`);
   });
 
+  it('does not let climate moisture rewrite physical water inventory', () => {
+    const dryLowMoisture = resolveGeneratePlanetFoundation({ waterInventory: 0.12, moistureLevel: 0 });
+    const dryHighMoisture = resolveGeneratePlanetFoundation({ waterInventory: 0.12, moistureLevel: 100 });
+
+    expect(dryLowMoisture.waterInventory).toBeCloseTo(0.12, 8);
+    expect(dryHighMoisture.waterInventory).toBeCloseTo(0.12, 8);
+    expect(dryLowMoisture.waterInventory).toBeCloseTo(dryHighMoisture.waterInventory, 8);
+  });
+
   it('places a foundation snapshot on generated worlds', () => {
     const params = createDefaultGeneratorParams();
     const world = generateWorldFromParams({ ...params, width: 64, height: 32, seed: 'foundation-test' });
