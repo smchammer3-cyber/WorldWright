@@ -1,9 +1,6 @@
 import { BoundaryType, ContinentMarginType, OceanDepthClass, type Cell, type WorldBrain } from '../worldSchema';
 import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
-import {
-  applyContinentSkeletonTerrainObedience,
-  cleanupAccidentalTinyIslands,
-} from './index';
+import { cleanupAccidentalTinyIslands } from './index';
 import { ensureCrustFields } from './materialFields';
 import {
   applyCrustProvinceTerrainDelta,
@@ -19,7 +16,6 @@ export function applyCrustTerrainInfluence(world: WorldBrain): void {
   applyCrustProvinceTerrainDelta(world);
   applyProvinceCoastBreakup(world);
   applyProvinceCoherence(world);
-  applyContinentSkeletonTerrainObedience(world);
   cleanupAccidentalTinyIslands(world);
   applyMaterialReliefReinforcement(world);
 }
