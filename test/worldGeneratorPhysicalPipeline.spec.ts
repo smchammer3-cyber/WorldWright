@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/core/worldGenerator';
 import { applyGeneratedGeographyPipeline } from '../src/core/worldGeographyPipeline';
+import { BoundaryType, SurfaceType } from '../src/core/worldSchema';
 
 function landFraction(world: ReturnType<typeof generateWorldFromParams>): number {
   const land = world.cells.filter((cell) => !cell.isWater).length;
@@ -54,7 +55,7 @@ describe('Generate physical pipeline selection', () => {
 
     expect(world.continentSkeletons?.length ?? 0).toBe(0);
     expect(world.cells.every((cell) => cell.continentId == null)).toBe(true);
-    expect(world.cells.some((cell) => cell.surfaceType === 'PERMAFROST')).toBe(true);
+    expect(world.cells.some((cell) => cell.surfaceType === SurfaceType.PERMAFROST)).toBe(true);
   });
 
   it('suppresses plate boundary terrain causes on stagnant-lid rocky worlds', () => {
@@ -74,7 +75,7 @@ describe('Generate physical pipeline selection', () => {
     });
 
     expect(world.planetFoundation?.geologyStack).toBe('STAGNANT_LID');
-    expect(world.cells.every((cell) => cell.boundaryType === 'NONE')).toBe(true);
+    expect(world.cells.every((cell) => cell.boundaryType === BoundaryType.NONE)).toBe(true);
     expect(world.cells.every((cell) => Math.abs(cell.upliftRate) < 1e-9)).toBe(true);
   });
 });
