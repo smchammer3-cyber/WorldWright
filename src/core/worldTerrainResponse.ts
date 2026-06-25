@@ -17,41 +17,57 @@ export function applyIsostaticTerrainResponse(world: WorldBrain): void {
   for (let i = 0; i < world.cells.length; i++) {
     const cell = world.cells[i];
     const h = before[i];
+    const isOcean = h < seaLevel;
     const material = materialSignals(cell, foundation);
     const feature = classifyPlateBoundaryFeatureAuthority(cell).features;
+    const featureStrength = maxFeatureStrength(feature);
     const oceanBasinStrength = clamp01((1 - cell.continentality) * (1 - cell.shelfStrength));
     const texture = smoothTexture(seed, world, i, 80341);
     const shearTexture = smoothTexture(seed, world, i, 80357);
-    const lowFrequencyPlanetShape = smoothTexture(seed, world, i, 80369) * 0.018 * foundation.reliefGravityScale;
+    const segmentTexture = smoothTexture(seed, world, i, 80383);
+    const lowFrequencyPlanetShape = smoothTexture(seed, world, i, 80369) * 0.022 * foundation.reliefGravityScale;
+    const oceanFeatureGate = smoothstep(0.42, 0.78, featureStrength);
+    const landFeatureGate = smoothstep(0.10, 0.45, featureStrength);
+    const featureGate = isOcean ? oceanFeatureGate : landFeatureGate;
+    const materialGate = isOcean ? lerp(0.18, 1, oceanFeatureGate) : 1;
+    const ridgeSegmentGate = isOcean ? smoothstep(-0.15, 0.70, segmentTexture) : 1;
+    const trenchSegmentGate = isOcean ? smoothstep(-0.30, 0.55, -segmentTexture) : 1;
 
     const isostaticTarget = seaLevel
-      + cell.continentality * 0.16
-      + material.crustBuoyancy * 0.20
-      + cell.continentCoreStrength * 0.08
-      - oceanBasinStrength * 0.22
-      - Math.max(0, material.crustDensity - 1.0) * 0.10;
+      + cell.continentality * 0.18
+      + material.crustBuoyancy * 0.27 * materialGate
+      + material.stableCore * 0.11
+      + cell.continentCoreStrength * 0.10
+      - oceanBasinStrength * 0.24
+      - Math.max(0, material.crustDensity - 1.0) * 0.08 * materialGate
+      - material.basinSubsidence * 0.065;
 
     const featureRelief =
-      (feature.COLLISION_ZONE ?? 0) * 0.16 * foundation.reliefGravityScale
-      + (feature.ISLAND_ARC ?? 0) * 0.08 * foundation.reliefGravityScale
-      + (feature.OCEAN_RIDGE ?? 0) * 0.07 * foundation.reliefGravityScale
-      - (feature.OCEAN_TRENCH ?? 0) * 0.14 * foundation.reliefGravityScale
-      - (feature.RIFT_ZONE ?? 0) * 0.08 * foundation.reliefGravityScale
-      + (feature.TRANSFORM_ZONE ?? 0) * shearTexture * 0.025 * foundation.reliefGravityScale;
+      (feature.COLLISION_ZONE ?? 0) * 0.18 * foundation.reliefGravityScale * landFeatureGate
+      + (feature.ISLAND_ARC ?? 0) * 0.09 * foundation.reliefGravityScale * Math.max(landFeatureGate, oceanFeatureGate)
+      + (feature.OCEAN_RIDGE ?? 0) * 0.075 * foundation.reliefGravityScale * ridgeSegmentGate * featureGate
+      - (feature.OCEAN_TRENCH ?? 0) * 0.145 * foundation.reliefGravityScale * trenchSegmentGate * featureGate
+      - (feature.RIFT_ZONE ?? 0) * 0.09 * foundation.reliefGravityScale * Math.max(landFeatureGate, oceanFeatureGate * 0.55)
+      + (feature.TRANSFORM_ZONE ?? 0) * shearTexture * 0.020 * foundation.reliefGravityScale * featureGate;
 
     const slope = localSlope(world, i, before);
     const flowProxy = localFlowProxy(world, i, before, seaLevel);
     const rainfall = clamp01(cell.rainfall);
     const lowlandGate = 1 - smoothstep(0.03, 0.22, Math.abs(h - seaLevel));
-    const erosionWear = clamp01(flowProxy * slope * rainfall * foundation.erosionSedimentScale) * 0.055 + slope * foundation.thermalAge * 0.020;
-    const sedimentFill = material.sedimentTendency * lowlandGate * flowProxy * foundation.thermalAge * 0.060;
-    const smallTexture = texture * 0.018 * foundation.reliefGravityScale * (0.35 + material.crustStrength * 0.65);
+    const erosionWear = clamp01(flowProxy * slope * rainfall * foundation.erosionSedimentScale) * 0.046 + slope * foundation.thermalAge * 0.016;
+    const sedimentFill = material.sedimentTendency * lowlandGate * flowProxy * foundation.thermalAge * 0.050;
+    const smallTexture = texture * 0.023 * foundation.reliefGravityScale * material.reliefEnergy * (isOcean ? lerp(0.20, 0.72, oceanFeatureGate) : 1);
 
-    const target = lowFrequencyPlanetShape + isostaticTarget + featureRelief - erosionWear + sedimentFill + smallTexture;
-    const terrainResponseStrength = clamp01(0.42 + foundation.tectonicVigor * 0.24 + material.crustBuoyancy * 0.10);
+    let target = lowFrequencyPlanetShape + isostaticTarget + featureRelief - erosionWear + sedimentFill + smallTexture;
+    if (isOcean && oceanFeatureGate < 0.18) {
+      const local = localHeightAverage(world, i, before, seaLevel, true);
+      if (local != null) target = lerp(target, local - 0.010, 0.46 * (1 - oceanFeatureGate));
+    }
+
+    const terrainResponseStrength = clamp01(0.45 + foundation.tectonicVigor * 0.20 + material.crustBuoyancy * 0.12 + material.stableCore * 0.10);
     let delta = (target - h) * terrainResponseStrength;
     delta = constrainTopologyDelta(world, i, h, seaLevel, delta, before, feature);
-    deltas[i] = clamp(delta, -0.095, 0.105);
+    deltas[i] = clamp(delta, -0.110, 0.125);
   }
 
   for (let i = 0; i < world.cells.length; i++) {
@@ -65,18 +81,30 @@ export function materialSignals(cell: Cell, foundation = { heatFlowIndex: 0.5, v
   crustStrength: number;
   crustBuoyancy: number;
   sedimentTendency: number;
+  stableCore: number;
+  basinSubsidence: number;
+  reliefEnergy: number;
 } {
   const continentality = clamp01(cell.continentality);
   const thickness = clamp01(cell.crustThickness);
   const age = clamp01(cell.crustAge);
+  const core = clamp01(cell.continentCoreStrength);
+  const shelf = clamp01(cell.shelfStrength);
   const heat = clamp01(foundation.heatFlowIndex ?? 0.5);
   const volcanic = clamp01(cell.volcanicActivity + (foundation.volcanismBias ?? 0.5) * 0.12);
   const crustDensity = clamp(lerp(1.10, 0.84, continentality) + age * (1 - continentality) * 0.08 - volcanic * 0.04, 0.72, 1.22);
-  const crustStrength = clamp01(0.30 + age * 0.30 + thickness * 0.20 - heat * 0.25 + cell.continentCoreStrength * 0.20);
-  const crustBuoyancy = clamp01(0.50 * thickness + 0.30 * (1.15 - crustDensity) + 0.20 * crustStrength);
-  const lowland = clamp01(1 - cell.continentCoreStrength) * clamp01(1 - age) * (0.35 + clamp01(cell.shelfStrength) * 0.35 + (1 - continentality) * 0.30);
+  const crustStrength = clamp01(0.30 + age * 0.30 + thickness * 0.22 - heat * 0.23 + core * 0.24);
+  const crustBuoyancy = clamp01(0.52 * thickness + 0.30 * (1.15 - crustDensity) + 0.18 * crustStrength);
+  const stableCore = clamp01(core * continentality * crustStrength * (0.45 + age * 0.55));
+  const lowland = clamp01(1 - core) * clamp01(1 - age) * (0.35 + shelf * 0.35 + (1 - continentality) * 0.30);
   const sedimentTendency = clamp01(lowland + heat * 0.06);
-  return { crustDensity, crustStrength, crustBuoyancy, sedimentTendency };
+  const basinSubsidence = clamp01(sedimentTendency * (1 - core) * (0.35 + (1 - continentality) * 0.45));
+  const reliefEnergy = clamp01(0.34 + crustStrength * 0.30 + crustBuoyancy * 0.24 + stableCore * 0.22);
+  return { crustDensity, crustStrength, crustBuoyancy, sedimentTendency, stableCore, basinSubsidence, reliefEnergy };
+}
+
+function maxFeatureStrength(feature: Partial<Record<string, number>>): number {
+  return Math.max(0, ...Object.values(feature).map((value) => typeof value === 'number' ? value : 0));
 }
 
 function constrainTopologyDelta(world: WorldBrain, index: number, h: number, seaLevel: number, delta: number, heights: number[], feature: Partial<Record<string, number>>): number {
@@ -86,10 +114,10 @@ function constrainTopologyDelta(world: WorldBrain, index: number, h: number, sea
   const cell = world.cells[index];
   const landNeighbors = landNeighborFraction(world, index, heights, seaLevel);
   const waterNeighbors = 1 - landNeighbors;
-  const featureRaisedLand = (feature.COLLISION_ZONE ?? 0) > 0.25 || (feature.ISLAND_ARC ?? 0) > 0.25 || (feature.OCEAN_RIDGE ?? 0) > 0.45;
+  const featureRaisedLand = (feature.COLLISION_ZONE ?? 0) > 0.25 || (feature.ISLAND_ARC ?? 0) > 0.25 || (feature.OCEAN_RIDGE ?? 0) > 0.55;
   const featureSunkLand = (feature.RIFT_ZONE ?? 0) > 0.25 || (feature.OCEAN_TRENCH ?? 0) > 0.25;
-  if (!wasLand && willBeLand && !featureRaisedLand && !(cell.continentality > 0.52 && landNeighbors > 0.35)) return Math.min(delta, seaLevel - 0.006 - h);
-  if (wasLand && !willBeLand && !featureSunkLand && !(cell.continentality < 0.24 && waterNeighbors > 0.62)) return Math.max(delta, seaLevel + 0.006 - h);
+  if (!wasLand && willBeLand && !featureRaisedLand && !(cell.continentality > 0.50 && landNeighbors > 0.30)) return Math.min(delta, seaLevel - 0.006 - h);
+  if (wasLand && !willBeLand && !featureSunkLand && !(cell.continentality < 0.22 && waterNeighbors > 0.58)) return Math.max(delta, seaLevel + 0.006 - h);
   return delta;
 }
 
@@ -116,7 +144,19 @@ function blendDelta(world: WorldBrain, index: number, deltas: Float32Array): num
   if (!neighbors.length) return deltas[index];
   let sum = 0;
   for (const n of neighbors) sum += deltas[n];
-  return deltas[index] * 0.72 + (sum / neighbors.length) * 0.28;
+  return deltas[index] * 0.70 + (sum / neighbors.length) * 0.30;
+}
+
+function localHeightAverage(world: WorldBrain, index: number, heights: number[], seaLevel: number, oceanOnly: boolean): number | null {
+  const neighbors = neighborIndices4(world, index);
+  let sum = 0;
+  let count = 0;
+  for (const n of neighbors) {
+    if (oceanOnly && heights[n] >= seaLevel) continue;
+    sum += heights[n];
+    count++;
+  }
+  return count > 0 ? sum / count : null;
 }
 
 function landNeighborFraction(world: WorldBrain, index: number, heights: number[], seaLevel: number): number {
