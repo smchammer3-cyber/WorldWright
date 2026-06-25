@@ -15,7 +15,7 @@ import { applySkeletonBaseElevation } from './worldGeographyPipeline';
 import { recomputeWorld } from './worldRecompute';
 import { applyPlateBoundaryFeatureTerrain } from './worldPlateBoundaryFeatures';
 import { applyIsostaticTerrainResponse } from './worldTerrainResponse';
-import type { Cell, WorldBrain } from './worldSchema';
+import type { Cell, PlanetProfile, WorldBrain } from './worldSchema';
 
 export type PipelineAuthorityPhase =
   | 'source'
@@ -705,6 +705,18 @@ function generatorParamsFromWorld(world: WorldBrain): GeneratorParams {
     continentCount: numberParam(p.continentCount, defaults.continentCount),
     seed: typeof p.seed === 'string' || typeof p.seed === 'number' ? p.seed : world.metadata?.seed ?? defaults.seed,
     styleMode: isStyleMode(p.styleMode) ? p.styleMode : world.metadata?.styleMode ?? defaults.styleMode,
+    planetProfile: isPlanetProfile(p.planetProfile) ? p.planetProfile : defaults.planetProfile,
+    planetRadiusEarth: numberParam(p.planetRadiusEarth, defaults.planetRadiusEarth ?? 1),
+    planetDensityEarth: numberParam(p.planetDensityEarth, defaults.planetDensityEarth ?? 1),
+    starLuminositySun: numberParam(p.starLuminositySun, defaults.starLuminositySun ?? 1),
+    orbitalDistanceAU: numberParam(p.orbitalDistanceAU, defaults.orbitalDistanceAU ?? 1),
+    albedo: numberParam(p.albedo, defaults.albedo ?? 0.30),
+    greenhouseStrength: numberParam(p.greenhouseStrength, defaults.greenhouseStrength ?? 0.32),
+    volatileInventory: numberParam(p.volatileInventory, defaults.volatileInventory ?? 0.54),
+    coreHeatIntent: numberParam(p.coreHeatIntent, defaults.coreHeatIntent ?? 0.52),
+    tidalHeatingIntent: numberParam(p.tidalHeatingIntent, defaults.tidalHeatingIntent ?? 0),
+    stagnantLidBias: numberParam(p.stagnantLidBias, defaults.stagnantLidBias ?? 0.10),
+    compositionRadioactivity: numberParam(p.compositionRadioactivity, defaults.compositionRadioactivity ?? 0.50),
   };
 }
 
@@ -721,6 +733,16 @@ function isStyleMode(value: unknown): value is GeneratorParams['styleMode'] {
   return value === 'EARTHLIKE' || value === 'FANTASY' || value === 'STYLIZED' || value === 'ALIEN';
 }
 
+function isPlanetProfile(value: unknown): value is PlanetProfile {
+  return value === 'EARTHLIKE_ROCKY' ||
+    value === 'ROCKY_ALIEN' ||
+    value === 'VOLATILE_PRESSURE_ROCKY' ||
+    value === 'ICE_SHELL_OCEAN_WORLD' ||
+    value === 'DWARF_ROCKY_OR_ICY' ||
+    value === 'SUPER_EARTH_ROCKY' ||
+    value === 'ARTIFICIAL_OR_FANTASY_SHELL';
+}
+
 function numberValue(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
@@ -731,8 +753,7 @@ function nullableNumber(value: unknown): number | null {
 
 function stringValue(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
-}
-
+}\n
 function unique<T>(values: T[]): T[] {
   return Array.from(new Set(values));
 }
