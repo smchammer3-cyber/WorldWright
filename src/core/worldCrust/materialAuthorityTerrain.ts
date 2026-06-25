@@ -17,22 +17,27 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
     const cell = world.cells[i];
     const h = before[i];
     const aboveSea = h - seaLevel;
-    const landGate = smoothstep(-0.02, 0.20, aboveSea);
+    const landGate = smoothstep(-0.06, 0.20, aboveSea);
+    const emergenceGate = smoothstep(-0.08, 0.08, aboveSea);
     const oceanGate = 1 - smoothstep(-0.18, 0.04, aboveSea);
     const coastGate = 1 - smoothstep(0.02, 0.22, Math.abs(aboveSea));
     const mat = materialSignals(cell, world.planetFoundation);
     const feature = classifyPlateBoundaryFeatureAuthority(cell).features;
     const rough = smoothTexture(seed, world, i, 7019);
+    const featureStrength = Math.max(0, ...Object.values(feature).map((value) => typeof value === 'number' ? value : 0));
+    const oceanFeatureGate = smoothstep(0.42, 0.78, featureStrength);
     let delta = 0;
-    delta += mat.crustBuoyancy * 0.060 * landGate;
-    delta += mat.crustStrength * 0.026 * landGate;
-    delta += (feature.COLLISION_ZONE ?? 0) * 0.026 * landGate;
-    delta += (feature.ISLAND_ARC ?? 0) * 0.020 * Math.max(landGate, coastGate);
-    delta += (feature.OCEAN_RIDGE ?? 0) * 0.026 * Math.max(oceanGate, coastGate * 0.4);
-    delta -= (feature.OCEAN_TRENCH ?? 0) * 0.032 * oceanGate;
-    delta -= (feature.RIFT_ZONE ?? 0) * 0.026 * Math.max(landGate, coastGate * 0.5);
-    delta += rough * 0.016 * (0.35 + mat.crustStrength * 0.65) * Math.max(landGate, coastGate * 0.5);
-    deltas[i] = constrainTopology(world, i, h, seaLevel, clamp(delta, -0.055, 0.060), before);
+    delta += mat.crustBuoyancy * 0.070 * landGate;
+    delta += mat.crustStrength * 0.030 * landGate;
+    delta += mat.stableCore * 0.070 * emergenceGate;
+    delta -= mat.basinSubsidence * 0.060 * landGate;
+    delta += (feature.COLLISION_ZONE ?? 0) * 0.035 * landGate;
+    delta += (feature.ISLAND_ARC ?? 0) * 0.026 * Math.max(landGate, coastGate);
+    delta += (feature.OCEAN_RIDGE ?? 0) * 0.024 * Math.max(oceanGate * oceanFeatureGate, coastGate * 0.35);
+    delta -= (feature.OCEAN_TRENCH ?? 0) * 0.035 * oceanGate * oceanFeatureGate;
+    delta -= (feature.RIFT_ZONE ?? 0) * 0.030 * Math.max(landGate, coastGate * 0.5);
+    delta += rough * 0.018 * mat.reliefEnergy * Math.max(landGate, coastGate * 0.5) * (oceanGate > 0.5 ? oceanFeatureGate : 1);
+    deltas[i] = constrainTopology(world, i, h, seaLevel, clamp(delta, -0.070, 0.080), before);
   }
 
   applyDeltas(world, before, seaLevel, deltas);
@@ -58,10 +63,10 @@ export function applyProvinceCoastBreakup(world: WorldBrain): void {
     const mat = materialSignals(cell, world.planetFoundation);
     const notch = smoothTexture(seed, world, i, 11213);
     let delta = 0;
-    delta -= Math.max(0, -notch) * ((feature.RIFT_ZONE ?? 0) * 0.030 + mat.sedimentTendency * 0.020) * nearShore * edgeGate;
-    delta += Math.max(0, notch) * ((feature.ISLAND_ARC ?? 0) * 0.018 + (feature.COLLISION_ZONE ?? 0) * 0.014) * nearShore;
+    delta -= Math.max(0, -notch) * ((feature.RIFT_ZONE ?? 0) * 0.034 + mat.sedimentTendency * 0.024 + mat.basinSubsidence * 0.018) * nearShore * edgeGate;
+    delta += Math.max(0, notch) * ((feature.ISLAND_ARC ?? 0) * 0.022 + (feature.COLLISION_ZONE ?? 0) * 0.018 + mat.stableCore * 0.012) * nearShore;
     if (delta !== 0) {
-      const safe = constrainTopology(world, i, h, seaLevel, clamp(delta, -0.040, 0.035), before);
+      const safe = constrainTopology(world, i, h, seaLevel, clamp(delta, -0.045, 0.040), before);
       if (safe !== 0) cell.baseHeight = clamp(cell.baseHeight + safe, -1.4, 1.5);
     }
   }
@@ -82,10 +87,10 @@ export function applyProvinceCoherence(world: WorldBrain): void {
     const mat = materialSignals(cell, world.planetFoundation);
     const feature = classifyPlateBoundaryFeatureAuthority(cell).features;
     let delta = 0;
-    if (h < seaLevel && landNeighbors >= 0.55) delta += mat.crustBuoyancy * 0.020 * smoothstep(0.50, 1.0, landNeighbors);
-    if (h >= seaLevel && waterNeighbors >= 0.62 && cell.continentality < 0.28 && !(feature.ISLAND_ARC || feature.COLLISION_ZONE)) delta -= mat.sedimentTendency * 0.018 * smoothstep(0.55, 1.0, waterNeighbors);
+    if (h < seaLevel && landNeighbors >= 0.50) delta += Math.max(mat.crustBuoyancy, mat.stableCore) * 0.030 * smoothstep(0.45, 1.0, landNeighbors);
+    if (h >= seaLevel && waterNeighbors >= 0.58 && cell.continentality < 0.30 && !(feature.ISLAND_ARC || feature.COLLISION_ZONE)) delta -= Math.max(mat.sedimentTendency, mat.basinSubsidence) * 0.026 * smoothstep(0.52, 1.0, waterNeighbors);
     if (delta !== 0) {
-      const safe = constrainTopology(world, i, h, seaLevel, clamp(delta, -0.030, 0.035), before);
+      const safe = constrainTopology(world, i, h, seaLevel, clamp(delta, -0.038, 0.045), before);
       if (safe !== 0) cell.baseHeight = clamp(cell.baseHeight + safe, -1.4, 1.5);
     }
   }
@@ -108,7 +113,7 @@ function constrainTopology(world: WorldBrain, index: number, h: number, seaLevel
   const land = landNeighborFraction(world, index, seaLevel, heights);
   const water = 1 - land;
   const caused = isCausedIslandCell(cell);
-  if (!wasLand && willBeLand && !(caused || cell.continentality > 0.42 || land > 0.55)) return Math.min(delta, seaLevel - 0.006 - h);
+  if (!wasLand && willBeLand && !(caused || cell.continentality > 0.40 || cell.continentCoreStrength > 0.55 || land > 0.55)) return Math.min(delta, seaLevel - 0.006 - h);
   if (wasLand && !willBeLand && (caused || cell.continentality > 0.34 || land > 0.48) && water < 0.74) return Math.max(delta, seaLevel + 0.006 - h);
   return delta;
 }
@@ -118,7 +123,7 @@ function blendDelta(world: WorldBrain, index: number, deltas: Float32Array): num
   if (!neighbors.length) return deltas[index];
   let sum = 0;
   for (const n of neighbors) sum += deltas[n];
-  return deltas[index] * 0.70 + (sum / neighbors.length) * 0.30;
+  return deltas[index] * 0.74 + (sum / neighbors.length) * 0.26;
 }
 
 function smoothTexture(seed: number, world: WorldBrain, index: number, salt: number): number {
