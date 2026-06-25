@@ -3,7 +3,7 @@
 // File: src/core/worldRecompute/index.ts
 // ========================================================
 
-import type { WorldBrain } from '../worldSchema';
+import type { River, WorldBrain } from '../worldSchema';
 import { OceanDepthClass } from '../worldSchema';
 
 export type RecomputeReason =
@@ -200,7 +200,7 @@ function recomputeRivers(world: WorldBrain): void {
   const cells = world.cells;
   const total = world.gridWidth * world.gridHeight;
   const threshold = Math.max(24, Math.round(total / 3800));
-  const rivers: { id: number; sourceCellIndex: number; mouthCellIndex: number; path: number[] }[] = [];
+  const rivers: River[] = [];
   const used = new Set<number>();
   let nextId = 1;
   for (let i = 0; i < cells.length; i++) {
@@ -221,9 +221,9 @@ function recomputeRivers(world: WorldBrain): void {
       if (used.has(d)) { path.push(d); break; }
       cur = d;
     }
-    if (path.length >= 2) rivers.push({ id: nextId++, sourceCellIndex: i, mouthCellIndex: path[path.length - 1], path });
+    if (path.length >= 2) rivers.push({ id: `river-${nextId++}`, sourceCellIndex: i, mouthCellIndex: path[path.length - 1], path });
   }
-  world.rivers = rivers.map((r) => ({ id: r.id, sourceCellIndex: r.sourceCellIndex, mouthCellIndex: r.mouthCellIndex, path: r.path }));
+  world.rivers = rivers;
 }
 
 function recomputeSnow(world: WorldBrain): void {
