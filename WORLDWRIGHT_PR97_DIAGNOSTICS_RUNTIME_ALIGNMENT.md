@@ -15,6 +15,35 @@ surfaceWaterMode -> allowNormalOceanBathymetry
 
 But the diagnostics and ledger still manually replay older or decomposed sequences. That means diagnostics can describe a different pipeline than the one a generated world actually runs through.
 
+## CI / snapshot artifact integration
+
+PR #98 added repository CI and fixed-seed visual preview artifacts. PR97 and later Generate-spine PRs should use those artifacts as the visual evidence layer while diagnostics are being repaired.
+
+The snapshot artifact cases are intentionally fixed so terrain changes are repeatable:
+
+```text
+earthlike-baseline-01
+wet-high-sea-01
+dry-rocky-01
+stagnant-lid-01
+ice-shell-01
+```
+
+The artifact modes are:
+
+```text
+FINAL
+HEIGHT
+LAND_WATER
+OCEAN_DEPTH
+CRUST_PROVINCE
+CONTINENTS
+PLATES
+RIVERS
+```
+
+PR97 should not tune terrain to make those snapshots prettier yet. It should use them to confirm whether diagnostics/runtime alignment is exposing the same world state that the renderer shows.
+
 ## First safe step in this PR
 
 This PR starts with a metadata-only `generateRuntimeStagePlan` scaffold. It does not replace runtime, diagnostics, or terrain math yet.
@@ -62,6 +91,7 @@ Those remain follow-up steps inside PR97 or its immediate successor after the sc
 3. `worldGenerateMultiSeedDiagnostics.ts` still has its own manual ablation replay.
 4. Crust/province terrain still switches on `crustProvince` after `seedCrustFields` derives province partly from terrain.
 5. Continent reseed before crust fields is still a known backward-feedback risk.
+6. CI now exposes stale/failing generator diagnostics and crust tests that must be triaged before test status becomes green.
 
 ## Intended next edits
 
@@ -69,3 +99,4 @@ Those remain follow-up steps inside PR97 or its immediate successor after the sc
 2. Make stage diagnostics read the runtime stage plan and record only stages that production would run.
 3. Make pipeline ledger read the same stage plan, removing stale PR-number recommendations.
 4. Then make multi-seed ablation use the same stage IDs.
+5. Use fixed-seed CI snapshots as visual evidence, not as a new terrain-tuning target yet.
