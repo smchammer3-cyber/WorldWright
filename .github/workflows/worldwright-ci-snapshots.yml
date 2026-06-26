@@ -1,0 +1,65 @@
+name: WorldWright CI + Jarvis Snapshots
+
+on:
+  push:
+    branches:
+      - WorldWright-new
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+jobs:
+  ci:
+    name: Build and tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm run test:run
+
+      - name: Build
+        run: npm run build
+
+  jarvis-snapshots:
+    name: Jarvis snapshots
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+
+      - name: Generate Jarvis snapshots
+        run: npm run snapshots:jarvis
+
+      - name: Upload Jarvis snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-snapshots
+          path: artifacts/jarvis-snapshots/
+          if-no-files-found: warn
