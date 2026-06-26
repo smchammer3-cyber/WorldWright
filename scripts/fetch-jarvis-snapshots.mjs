@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -25,6 +26,8 @@ const seeds = String(args.seeds ?? DEFAULT_SEEDS.join(','))
   .map((seed) => seed.trim())
   .filter(Boolean);
 const width = Number(args.width ?? 384);
+const worldResolution = normalizeWorldResolution(width);
+const globeImageSize = parseImageSize(args['globe-image-size'] ?? `${worldResolution.width}x${worldResolution.width}`);
 const viewport = parseViewport(args.viewport ?? '1440x1100');
 const timeoutMs = positiveNumber(args['timeout-ms'], DEFAULT_TIMEOUT_MS);
 const downloadTimeoutMs = positiveNumber(args['download-timeout-ms'], DEFAULT_DOWNLOAD_TIMEOUT_MS);
@@ -39,6 +42,8 @@ const manifest = {
   baseUrl,
   seeds,
   width,
+  worldResolution,
+  globeImageSize,
   viewport,
   timeoutMs,
   downloadTimeoutMs,
@@ -53,6 +58,8 @@ let browser = null;
 try {
   log(`Writing Jarvis snapshots to ${outputDir}`);
   log(`Seeds: ${seeds.join(', ') || '(none)'}`);
+  log(`World grid: ${worldResolution.width}x${worldResolution.height}`);
+  log(`Globe images: ${globeImageSize.width}x${globeImageSize.height}`);
   log(`Viewport: ${viewport.width}x${viewport.height}; width=${width}`);
   log(`Review pack export: ${shouldExportReviewPack ? 'enabled' : 'disabled'}`);
 
@@ -78,6 +85,7 @@ try {
         timeoutMs,
         downloadTimeoutMs,
         shouldExportReviewPack,
+        globeImageSize,
       });
       manifest.snapshots.push(snapshot);
       log(`Completed seed ${seed}`);
@@ -113,7 +121,7 @@ if (manifest.failures.length > 0) {
   log(`Completed ${manifest.snapshots.length} snapshot(s).`);
 }
 
-async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs, shouldExportReviewPack }) {
+async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs, shouldExportReviewPack, globeImageSize }) {
   const slug = safeName(`seed-${seed}`);
   const seedDir = path.join(outputDir, slug);
   await mkdir(seedDir, { recursive: true });
@@ -147,12 +155,12 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
     log(`[${seed}] Capturing final globe ${view.label}`);
     await setGlobeSnapshotRotation(page, globeCanvas, view.rotation);
     const viewPath = path.join(seedDir, `final-globe-${view.id}.png`);
-    await globeCanvas.screenshot({ path: viewPath, timeout: timeoutMs });
+    await saveCanvasPngAtSize(globeCanvas, viewPath, globeImageSize);
     finalGlobeViews[view.id] = relativeArtifactPath(outputDir, viewPath);
 
     if (view.id === 'front') {
       legacyFinalGlobePath = path.join(seedDir, 'final-globe.png');
-      await globeCanvas.screenshot({ path: legacyFinalGlobePath, timeout: timeoutMs });
+      await saveCanvasPngAtSize(globeCanvas, legacyFinalGlobePath, globeImageSize);
     }
   }
 
@@ -196,6 +204,22 @@ async function setGlobeSnapshotRotation(page, globeCanvas, rotation) {
   await page.waitForTimeout(120);
 }
 
+async function saveCanvasPngAtSize(globeCanvas, filePath, imageSize) {
+  const pngBase64 = await globeCanvas.evaluate((canvas, nextImageSize) => {
+    const output = document.createElement('canvas');
+    output.width = nextImageSize.width;
+    output.height = nextImageSize.height;
+    const context = output.getContext('2d');
+    if (!context) {
+      throw new Error('Could not create snapshot output canvas context.');
+    }
+    context.drawImage(canvas, 0, 0, output.width, output.height);
+    return output.toDataURL('image/png').split(',')[1];
+  }, imageSize);
+
+  await writeFile(filePath, Buffer.from(pngBase64, 'base64'));
+}
+
 async function driveGenerateControls(page, { seed, width, timeoutMs }) {
   const numericInputs = page.locator('input[inputmode="numeric"]');
   await numericInputs.first().waitFor({ state: 'visible', timeout: timeoutMs });
@@ -227,6 +251,18 @@ function parseViewport(value) {
   const viewportWidth = Math.max(800, Number(rawWidth) || 1440);
   const viewportHeight = Math.max(600, Number(rawHeight) || 1100);
   return { width: viewportWidth, height: viewportHeight };
+}
+
+function parseImageSize(value) {
+  const [rawWidth, rawHeight] = String(value).toLowerCase().split('x');
+  const imageWidth = Math.max(1, Math.round(Number(rawWidth) || 384));
+  const imageHeight = Math.max(1, Math.round(Number(rawHeight) || imageWidth));
+  return { width: imageWidth, height: imageHeight };
+}
+
+function normalizeWorldResolution(widthValue) {
+  const safeWidth = Math.max(64, Math.min(1024, Math.round(Number(widthValue) || 384)));
+  return { width: safeWidth, height: Math.floor(safeWidth / 2) };
 }
 
 function positiveNumber(value, fallback) {
