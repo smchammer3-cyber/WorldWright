@@ -10,17 +10,24 @@ function stageIds(world: ReturnType<typeof generateWorldFromParams>): string[] {
 }
 
 describe('Generate runtime stage plan', () => {
-  it('describes the current normal rocky/liquid runtime order without decomposing hidden subpasses', () => {
+  it('describes the current active rocky/liquid runtime order without decomposing hidden subpasses', () => {
     const world = generateWorldFromParams({
       ...createDefaultGeneratorParams(),
       width: 64,
       height: 32,
-      seed: 'runtime-plan-earthlike',
+      seed: 'runtime-plan-active-rocky',
       planetProfile: 'EARTHLIKE_ROCKY',
       waterInventory: 0.54,
       seaLevelOffset: 50,
+      plateActivity: 100,
+      planetAge: 5,
+      coreHeatIntent: 1,
+      compositionRadioactivity: 1,
+      stagnantLidBias: 0,
     });
 
+    const plan = buildGenerateRuntimeStagePlan(world);
+    expect(plan.gates.allowPlateFeatures).toBe(true);
     expect(stageIds(world)).toEqual([
       'RAW_GENERATOR',
       'CONTINENT_FIELDS',
