@@ -23,6 +23,7 @@ const viewport = parseViewport(args.viewport ?? '1440x1100');
 const timeoutMs = positiveNumber(args['timeout-ms'], DEFAULT_TIMEOUT_MS);
 const downloadTimeoutMs = positiveNumber(args['download-timeout-ms'], DEFAULT_DOWNLOAD_TIMEOUT_MS);
 const shouldStartServer = args['no-server'] !== 'true';
+const shouldExportReviewPack = args['export-review-pack'] === 'true';
 
 const { chromium } = await importPlaywright();
 await mkdir(outputDir, { recursive: true });
@@ -35,6 +36,7 @@ const manifest = {
   viewport,
   timeoutMs,
   downloadTimeoutMs,
+  exportReviewPack: shouldExportReviewPack,
   snapshots: [],
   failures: [],
 };
@@ -45,6 +47,7 @@ try {
   log(`Writing Jarvis snapshots to ${outputDir}`);
   log(`Seeds: ${seeds.join(', ') || '(none)'}`);
   log(`Viewport: ${viewport.width}x${viewport.height}; width=${width}`);
+  log(`Review pack export: ${shouldExportReviewPack ? 'enabled' : 'disabled'}`);
 
   if (shouldStartServer) {
     log(`Starting Vite dev server on ${host}:${port}`);
@@ -60,7 +63,15 @@ try {
   for (const seed of seeds) {
     const page = await browser.newPage({ viewport, acceptDownloads: true });
     try {
-      const snapshot = await captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs });
+      const snapshot = await captureSeed(page, {
+        seed,
+        width,
+        outputDir,
+        baseUrl,
+        timeoutMs,
+        downloadTimeoutMs,
+        shouldExportReviewPack,
+      });
       manifest.snapshots.push(snapshot);
       log(`Completed seed ${seed}`);
     } catch (error) {
@@ -95,7 +106,7 @@ if (manifest.failures.length > 0) {
   log(`Completed ${manifest.snapshots.length} snapshot(s).`);
 }
 
-async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs }) {
+async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs, shouldExportReviewPack }) {
   const slug = safeName(`seed-${seed}`);
   const seedDir = path.join(outputDir, slug);
   await mkdir(seedDir, { recursive: true });
@@ -122,6 +133,17 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
   const appScreenshotPath = path.join(seedDir, 'generate-app-final.png');
   await page.screenshot({ path: appScreenshotPath, fullPage: false, timeout: timeoutMs });
 
+  const snapshot = {
+    seed,
+    url,
+    appScreenshot: relativeArtifactPath(outputDir, appScreenshotPath),
+  };
+
+  if (!shouldExportReviewPack) {
+    log(`[${seed}] Skipping full Jarvis review pack export for fast snapshot mode`);
+    return snapshot;
+  }
+
   log(`[${seed}] Clicking Export Jarvis Pack`);
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: downloadTimeoutMs }),
@@ -133,9 +155,7 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
   await download.saveAs(packPath);
 
   return {
-    seed,
-    url,
-    appScreenshot: relativeArtifactPath(outputDir, appScreenshotPath),
+    ...snapshot,
     reviewPack: relativeArtifactPath(outputDir, packPath),
   };
 }
