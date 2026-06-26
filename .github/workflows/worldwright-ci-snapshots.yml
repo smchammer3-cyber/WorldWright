@@ -4,6 +4,9 @@ on:
   pull_request:
     branches:
       - WorldWright-new
+  push:
+    branches:
+      - WorldWright-new
   workflow_dispatch:
 
 concurrency:
@@ -24,9 +27,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run tests
         run: npm run test:run
@@ -47,9 +51,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Install Playwright
         run: |
