@@ -42,17 +42,19 @@ try {
     };
 
     for (const seed of seeds) {
-      const page = await browser.newPage({ viewport });
+      const page = await browser.newPage({ viewport, acceptDownloads: true });
       const slug = safeName(`seed-${seed}`);
       const seedDir = path.join(outputDir, slug);
       await mkdir(seedDir, { recursive: true });
 
-      const url = `${baseUrl}/generate?seed=${encodeURIComponent(seed)}&width=${encodeURIComponent(String(width))}&jarvisSnapshot=1`;
+      const url = `${baseUrl}/generate`;
       await page.goto(url, { waitUntil: 'networkidle', timeout: 120_000 });
+      await driveGenerateControls(page, { seed, width });
 
       const exportButton = page.getByTestId('jarvis-review-export-button');
       await exportButton.waitFor({ state: 'visible', timeout: 120_000 });
       await page.locator('canvas').first().waitFor({ state: 'visible', timeout: 120_000 });
+      await page.getByText(new RegExp(`seed\\s+${escapeRegExp(seed)}`)).waitFor({ timeout: 120_000 });
       await page.waitForTimeout(1_000);
 
       const appScreenshotPath = path.join(seedDir, 'generate-app-final.png');
@@ -81,6 +83,18 @@ try {
   }
 } finally {
   if (server) await stopServer(server);
+}
+
+async function driveGenerateControls(page, { seed, width }) {
+  const numericInputs = page.locator('input[inputmode="numeric"]');
+  await numericInputs.first().waitFor({ state: 'visible', timeout: 120_000 });
+  await numericInputs.first().fill(String(seed));
+
+  if (Number.isFinite(width)) {
+    await numericInputs.nth(1).fill(String(width));
+  }
+
+  await page.getByRole('button', { name: /^Generate$/ }).last().click();
 }
 
 function parseArgs(argv) {
@@ -166,4 +180,8 @@ function relativeArtifactPath(root, filePath) {
 
 function safeName(value) {
   return value.replace(/[^a-z0-9_.-]+/gi, '-').replace(/^-+|-+$/g, '') || 'snapshot';
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
