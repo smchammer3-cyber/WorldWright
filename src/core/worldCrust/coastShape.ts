@@ -70,9 +70,23 @@ function coastDamp(world: WorldBrain, index: number): number {
   const cell = world.cells[index];
   const neighbors = neighborIndices4(world, index);
   if (neighbors.length === 0) return 1;
-  let plateEdges = 0;
-  for (const neighborIndex of neighbors) if (world.cells[neighborIndex].plateId !== cell.plateId) plateEdges++;
-  return lerp(1, 0.78, plateEdges / neighbors.length);
+
+  let gradient = 0;
+  let labelBreaks = 0;
+  for (const neighborIndex of neighbors) {
+    const neighbor = world.cells[neighborIndex];
+    gradient += Math.abs(clamp01(neighbor.continentality) - clamp01(cell.continentality)) * 0.34;
+    gradient += Math.abs(clamp01(neighbor.shelfStrength) - clamp01(cell.shelfStrength)) * 0.28;
+    gradient += Math.abs(clamp01(neighbor.crustThickness) - clamp01(cell.crustThickness)) * 0.18;
+    gradient += Math.abs(clamp01(neighbor.crustAge) - clamp01(cell.crustAge)) * 0.10;
+    gradient += Math.abs(clamp01(neighbor.volcanicActivity) - clamp01(cell.volcanicActivity)) * 0.10;
+    gradient += Math.abs(Math.max(0, neighbor.upliftRate) - Math.max(0, cell.upliftRate)) * 0.08;
+    if (neighbor.marginType !== cell.marginType) labelBreaks += 0.16;
+    if (neighbor.islandCause !== cell.islandCause) labelBreaks += 0.14;
+  }
+
+  const authorityBreak = clamp01((gradient + labelBreaks) / neighbors.length);
+  return lerp(1, 0.78, authorityBreak);
 }
 
 function landNeighborFractionByHeight(world: WorldBrain, index: number, seaLevel: number, heights: number[]): number {
