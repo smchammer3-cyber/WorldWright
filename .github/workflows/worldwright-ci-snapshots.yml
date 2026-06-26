@@ -68,7 +68,7 @@ jobs:
   jarvis-snapshots:
     name: Jarvis snapshots
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       EXPORT_REVIEW_PACK: ${{ github.event_name == 'workflow_dispatch' && inputs.export_review_pack == true }}
 
@@ -96,7 +96,7 @@ jobs:
           if [ "$EXPORT_REVIEW_PACK" = "true" ]; then
             EXTRA_ARGS="--export-review-pack=true"
           fi
-          npm run snapshots:jarvis -- --seeds=1040037 --width=256 --viewport=1600x1100 --timeout-ms=30000 --download-timeout-ms=30000 $EXTRA_ARGS
+          npm run snapshots:jarvis -- --seeds=1040037 --width=384 --viewport=1800x1200 --timeout-ms=45000 --download-timeout-ms=45000 $EXTRA_ARGS
 
       - name: Upload Jarvis snapshots
         if: always()
