@@ -12,6 +12,7 @@ import {
   PLANET_PREVIEW_MODES,
   type PlanetPreviewMode,
 } from "../../core/planetRenderer";
+import { exportJarvisReviewPack } from "../../core/jarvisReviewPackExport";
 import GeneratePipelineAuthorityPanel from "./GeneratePipelineAuthorityPanel";
 import GenerateWorldSpineAuditPanel from "./GenerateWorldSpineAuditPanel";
 
@@ -26,6 +27,7 @@ export default function GeneratePreview({ world, error }: Props) {
   const [showStageAudit, setShowStageAudit] = useState(false);
   const [showPipelineTrace, setShowPipelineTrace] = useState(false);
   const [showWorldSpineAudit, setShowWorldSpineAudit] = useState(false);
+  const [exportingReviewPack, setExportingReviewPack] = useState(false);
   const activeMode = PLANET_PREVIEW_MODES.find((option) => option.id === previewMode);
 
   useEffect(() => {
@@ -71,6 +73,19 @@ export default function GeneratePreview({ world, error }: Props) {
 
   function toggleDiagnostics() {
     setShowDiagnostics((value) => !value);
+  }
+
+  async function handleExportReviewPack() {
+    if (!world || exportingReviewPack) return;
+    setExportingReviewPack(true);
+    try {
+      await exportJarvisReviewPack(world, { activeMode: previewMode });
+    } catch (error) {
+      console.error(error);
+      window.alert("Jarvis Review Pack export failed. Check the browser console for details.");
+    } finally {
+      setExportingReviewPack(false);
+    }
   }
 
   return (
@@ -125,6 +140,26 @@ export default function GeneratePreview({ world, error }: Props) {
               }}
             >
               Diagnostics {diagnostics && diagnostics.summary.problemCount > 0 ? `(${diagnostics.summary.problemCount} issues)` : ""}
+            </button>
+          )}
+          {world && (
+            <button
+              type="button"
+              onClick={handleExportReviewPack}
+              disabled={exportingReviewPack}
+              title="Download one HTML review pack with the current Globe3D view, fixed-angle layer images, and world metadata for Jarvis to inspect."
+              style={{
+                background: exportingReviewPack ? "rgba(255,255,255,0.08)" : "rgba(139, 92, 246, 0.25)",
+                border: "1px solid rgba(196,181,253,0.42)",
+                borderRadius: 999,
+                color: "#fff",
+                fontSize: 12,
+                padding: "5px 10px",
+                cursor: exportingReviewPack ? "wait" : "pointer",
+                fontWeight: 900,
+              }}
+            >
+              {exportingReviewPack ? "Exporting pack…" : "Export Jarvis Pack"}
             </button>
           )}
         </div>
