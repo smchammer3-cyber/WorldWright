@@ -1,2 +1,5 @@
 node_modules/
 diagnostics-output/
+artifacts/
+generate-previews/
+preview-output/

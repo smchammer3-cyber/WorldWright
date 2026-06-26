@@ -30,7 +30,7 @@ export type AddCountryAction = { type: 'ADD_COUNTRY'; country: Country };
 
 export type AddRiverAction = { type: 'ADD_RIVER'; river: River };
 
-export type RemoveRiverAction = { type: 'REMOVE_RIVER'; riverId: number };
+export type RemoveRiverAction = { type: 'REMOVE_RIVER'; riverId: string | number };
 
 export type SetLakeLevelAction = {
   type: 'SET_LAKE_LEVEL';
@@ -225,7 +225,8 @@ function applyAddRiver(world: WorldBrain, action: AddRiverAction): void {
 }
 
 function applyRemoveRiver(world: WorldBrain, action: RemoveRiverAction): void {
-  world.rivers = (world.rivers ?? []).filter((r) => r.id !== action.riverId);
+  const id = String(action.riverId);
+  world.rivers = (world.rivers ?? []).filter((r) => String(r.id) !== id);
 }
 
 function applySetLakeLevel(world: WorldBrain, action: SetLakeLevelAction): void {
