@@ -6,24 +6,8 @@ const OUT_DIR = join(process.cwd(), 'artifacts', 'live-globe-snapshots');
 const PORT = Number(process.env.WORLDWRIGHT_SNAPSHOT_PORT ?? 4177);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
-const CASES = [
-  'earthlike-baseline-01',
-  'wet-high-sea-01',
-  'dry-rocky-01',
-  'stagnant-lid-01',
-  'ice-shell-01',
-];
-
-const MODES = [
-  'FINAL',
-  'HEIGHT',
-  'LAND_WATER',
-  'OCEAN_DEPTH',
-  'CRUST_PROVINCE',
-  'CONTINENTS',
-  'PLATES',
-];
-
+const CASES = ['earthlike-baseline-01', 'wet-high-sea-01', 'dry-rocky-01', 'stagnant-lid-01', 'ice-shell-01'];
+const MODES = ['FINAL', 'HEIGHT', 'LAND_WATER', 'OCEAN_DEPTH', 'CRUST_PROVINCE', 'CONTINENTS', 'PLATES'];
 const VIEWS = ['front', 'east', 'west', 'north', 'south'];
 
 async function main() {
@@ -42,35 +26,29 @@ async function main() {
   server.stdout.on('data', (chunk) => serverLog.push(String(chunk)));
   server.stderr.on('data', (chunk) => serverLog.push(String(chunk)));
 
+  let browser = null;
   try {
     await waitForServer(BASE_URL);
 
-    const browser = await chromium.launch({
-      headless: true,
-      args: ['--disable-dev-shm-usage', '--use-gl=swiftshader'],
-    });
-
+    browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage', '--use-gl=swiftshader'] });
     const manifest = [];
-    const page = await browser.newPage({
-      viewport: { width: 960, height: 720 },
-      deviceScaleFactor: 1,
-    });
+    const page = await browser.newPage({ viewport: { width: 960, height: 720 }, deviceScaleFactor: 1 });
+    page.setDefaultNavigationTimeout(20000);
+    page.setDefaultTimeout(20000);
 
     for (const caseId of CASES) {
       const caseDir = join(OUT_DIR, caseId);
       mkdirSync(caseDir, { recursive: true });
-
       for (const mode of MODES) {
         const modeDir = join(caseDir, mode);
         mkdirSync(modeDir, { recursive: true });
-
         for (const view of VIEWS) {
           const url = `${BASE_URL}/__snapshot?case=${encodeURIComponent(caseId)}&mode=${encodeURIComponent(mode)}&view=${encodeURIComponent(view)}`;
-          await page.goto(url, { waitUntil: 'networkidle' });
-          await page.locator('[data-snapshot-ready="true"]').waitFor({ timeout: 15000 });
-          await page.locator('[data-testid="worldwright-globe-canvas"]').waitFor({ timeout: 15000 });
-          await page.waitForTimeout(180);
-
+          console.log(`[snapshot] ${caseId} ${mode} ${view}`);
+          await page.goto(url, { waitUntil: 'domcontentloaded' });
+          await page.locator('[data-snapshot-ready="true"]').waitFor({ timeout: 20000 });
+          await page.locator('[data-testid="worldwright-globe-canvas"]').waitFor({ timeout: 20000 });
+          await page.waitForTimeout(250);
           const file = join(modeDir, `${view}.png`);
           await page.screenshot({ path: file, fullPage: true });
           manifest.push({ caseId, mode, view, file: `${caseId}/${mode}/${view}.png`, url });
@@ -78,14 +56,22 @@ async function main() {
       }
     }
 
-    await browser.close();
-
     writeFileSync(join(OUT_DIR, 'manifest.json'), JSON.stringify({ cases: CASES, modes: MODES, views: VIEWS, screenshots: manifest }, null, 2));
-    writeFileSync(join(OUT_DIR, 'viewer.html'), buildViewerHtml(manifest));
+    writeFileSync(join(OUT_DIR, 'viewer.html'), buildViewerHtml());
   } finally {
+    if (browser) await browser.close().catch(() => undefined);
     writeFileSync(join(OUT_DIR, 'vite-server.log'), serverLog.join(''));
-    server.kill('SIGTERM');
+    await stopServer(server);
   }
+}
+
+async function stopServer(server) {
+  if (server.exitCode != null || server.signalCode != null) return;
+  await new Promise((resolve) => {
+    const timer = setTimeout(() => { server.kill('SIGKILL'); resolve(); }, 2500);
+    server.once('exit', () => { clearTimeout(timer); resolve(); });
+    server.kill('SIGTERM');
+  });
 }
 
 async function waitForServer(url) {
@@ -104,7 +90,7 @@ async function waitForServer(url) {
   throw new Error(`Timed out waiting for ${url}: ${lastError?.message ?? 'unknown error'}`);
 }
 
-function buildViewerHtml(manifest) {
+function buildViewerHtml() {
   const caseSections = CASES.map((caseId) => {
     const modeSections = MODES.map((mode) => {
       const figures = VIEWS.map((view) => {
@@ -113,38 +99,13 @@ function buildViewerHtml(manifest) {
       }).join('\n');
       return `<section class="mode"><h3>${mode}</h3><div class="grid">${figures}</div></section>`;
     }).join('\n');
-
     return `<article id="${caseId}"><h2>${caseId}</h2>${modeSections}</article>`;
   }).join('\n');
 
   return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WorldWright Live Globe Snapshots</title>
-  <style>
-    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #070b14; color: #edf3ff; }
-    body { margin: 0; padding: 24px; background: radial-gradient(circle at top, #1a2440, #070b14 72%); }
-    h1 { margin: 0 0 8px; }
-    p { color: #b7c2d9; max-width: 920px; line-height: 1.5; }
-    nav { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 28px; }
-    nav a { color: #e4edff; text-decoration: none; border: 1px solid rgba(255,255,255,0.16); border-radius: 999px; padding: 8px 12px; background: rgba(255,255,255,0.06); }
-    article { border-top: 1px solid rgba(255,255,255,0.14); padding-top: 22px; margin-top: 28px; }
-    h3 { color: #b8c7ec; margin-top: 22px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
-    figure { margin: 0; background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 10px; box-shadow: 0 18px 40px rgba(0,0,0,0.22); }
-    img { display: block; width: 100%; height: auto; border-radius: 10px; background: #03060d; }
-    figcaption { margin-top: 8px; font-size: 12px; color: #aeb9d4; }
-  </style>
-</head>
-<body>
-  <h1>WorldWright Live Globe Snapshots</h1>
-  <p>These images are captured by browser automation from the actual Vite React app using the real <code>Globe3D</code> component and WebGL canvas. They are CI artifacts only and are not committed generated outputs.</p>
-  <nav>${CASES.map((caseId) => `<a href="#${caseId}">${caseId}</a>`).join('')}</nav>
-  ${caseSections}
-</body>
-</html>`;
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>WorldWright Live Globe Snapshots</title><style>
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#070b14;color:#edf3ff}body{margin:0;padding:24px;background:radial-gradient(circle at top,#1a2440,#070b14 72%)}h1{margin:0 0 8px}p{color:#b7c2d9;max-width:920px;line-height:1.5}nav{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 28px}nav a{color:#e4edff;text-decoration:none;border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:8px 12px;background:rgba(255,255,255,.06)}article{border-top:1px solid rgba(255,255,255,.14);padding-top:22px;margin-top:28px}h3{color:#b8c7ec;margin-top:22px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}figure{margin:0;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:10px;box-shadow:0 18px 40px rgba(0,0,0,.22)}img{display:block;width:100%;height:auto;border-radius:10px;background:#03060d}figcaption{margin-top:8px;font-size:12px;color:#aeb9d4}
+</style></head><body><h1>WorldWright Live Globe Snapshots</h1><p>These images are captured by browser automation from the actual Vite React app using the real <code>Globe3D</code> component and WebGL canvas. They are CI artifacts only and are not committed generated outputs.</p><nav>${CASES.map((caseId) => `<a href="#${caseId}">${caseId}</a>`).join('')}</nav>${caseSections}</body></html>`;
 }
 
 main().catch((error) => {
