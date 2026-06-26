@@ -39,6 +39,24 @@ describe('Generate physical pipeline selection', () => {
     expect(landFraction(lowOffset)).toBeGreaterThan(landFraction(highOffset));
   });
 
+  it('does not seed surface water or ocean classes for an ice shell raw world', () => {
+    const world = generateWorldFromParams({
+      ...createDefaultGeneratorParams(),
+      width: 64,
+      height: 32,
+      seed: 'raw-ice-shell-water-mode',
+      planetProfile: 'ICE_SHELL_OCEAN_WORLD',
+      waterInventory: 0.90,
+      tidalHeatingIntent: 0.80,
+      orbitalDistanceAU: 2.0,
+    });
+
+    expect(world.planetFoundation?.surfaceWaterMode).toBe('ICE_SHELL_OVER_OCEAN');
+    expect(world.cells.every((cell) => !cell.isWater)).toBe(true);
+    expect(world.cells.every((cell) => cell.oceanDepthClass == null)).toBe(true);
+    expect(world.cells.filter((cell) => cell.baseHeight < world.seaLevel).some((cell) => cell.flowAccumulation > 0)).toBe(true);
+  });
+
   it('does not run normal continent/crust terrain passes for an ice shell ocean world', () => {
     const world = generateWorldFromParams({
       ...createDefaultGeneratorParams(),

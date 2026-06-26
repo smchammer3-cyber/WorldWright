@@ -125,12 +125,13 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
     foundation,
     targetLandFraction,
   });
+  const liquidSurface = hasLiquidSurfaceWater(foundation);
 
   for (let i = 0; i < cells.length; i++) {
     cells[i].baseHeight = terrain.heights[i];
     cells[i].editHeightDelta = 0;
     cells[i].simHeightDelta = 0;
-    cells[i].isWater = cells[i].baseHeight < terrain.seaLevel && foundation.surfaceWaterMode !== 'DRY' && foundation.surfaceWaterMode !== 'ICE_OVER_ROCK';
+    cells[i].isWater = liquidSurface && cells[i].baseHeight < terrain.seaLevel;
     cells[i].oceanDepthClass = classifyOceanDepth(cells[i].baseHeight, terrain.seaLevel, cells[i].isWater);
     cells[i].surfaceAge = clamp01(0.18 + foundation.thermalAge * 0.72 + deterministicJitter(seedUint, i, 17) * 0.08 - cells[i].volcanicActivity * 0.10);
     cells[i].surfaceType = initialSurfaceType(cells[i], foundation);
@@ -197,6 +198,10 @@ function initialVolcanicActivity(f: TectonicsField, volcanismBias: number, geolo
   return clamp01(boundaryScale + volcanismBias * 0.32 + stackBoost * volcanismBias);
 }
 
+function hasLiquidSurfaceWater(foundation: NonNullable<WorldBrain['planetFoundation']>): boolean {
+  return foundation.surfaceWaterMode === 'LIQUID_SURFACE_WATER' || foundation.surfaceWaterMode === 'MIXED_LIQUID_ICE';
+}
+
 function initialSurfaceType(cell: Cell, foundation: NonNullable<WorldBrain['planetFoundation']>): SurfaceType {
   if (foundation.surfaceWaterMode === 'SNOWBALL_SURFACE' || foundation.surfaceWaterMode === 'ICE_OVER_ROCK' || foundation.groundSurfaceMaterial === 'ICE_OVER_ROCK' || foundation.groundSurfaceMaterial === 'ICE_SHELL') return SurfaceType.PERMAFROST;
   if (foundation.surfaceWaterMode === 'STEAM_OR_VAPOR_DOMINATED' && !cell.isWater) return SurfaceType.SALT;
@@ -245,7 +250,7 @@ function buildFoundationTerrain(args: {
   smoothHeightField(heights, width, height, Math.max(1, Math.round(lerp(1, 2, erosion01))), lerp(0.024, 0.070, foundation.erosionSedimentScale));
   addSubtleTerrainTexture(heights, width, height, seedUint, lerp(0.010, 0.024, 1 - erosion01) * foundation.reliefGravityScale);
   const seaLevel = chooseSeaLevelForLandFraction(heights, width, height, targetLandFraction);
-  if (foundation.surfaceWaterMode !== 'DRY' && foundation.surfaceWaterMode !== 'ICE_OVER_ROCK') {
+  if (hasLiquidSurfaceWater(foundation)) {
     carveNearSeaLevelStraits(heights, width, height, seedUint, seaLevel, lerp(0.018, 0.050, 1 - erosion01) * foundation.reliefGravityScale);
     applyCoastalShelfShaping(heights, width, height, seaLevel);
   }
@@ -421,6 +426,7 @@ function seedClimateAndBiomes(cells: Cell[], width: number, height: number, seaL
 
 function seedHydrology(cells: Cell[], width: number, height: number, seaLevel: number, rng: () => number): void {
   void rng;
+  void seaLevel;
   const order = cells.map((cell) => cell.index).sort((a, b) => cells[b].baseHeight - cells[a].baseHeight);
   for (const cell of cells) {
     cell.flowDirection = null;
@@ -441,7 +447,7 @@ function seedHydrology(cells: Cell[], width: number, height: number, seaLevel: n
     cell.flowDirection = bestIdx;
     if (bestIdx != null) cells[bestIdx].flowAccumulation += cell.flowAccumulation * 0.92;
   }
-  for (const cell of cells) if (cell.baseHeight < seaLevel) cell.flowAccumulation = 0;
+  for (const cell of cells) if (cell.isWater) cell.flowAccumulation = 0;
 }
 
 function classifyOceanDepth(h: number, seaLevel: number, isWater: boolean): OceanDepthClass | null {
