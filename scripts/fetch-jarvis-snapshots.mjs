@@ -122,37 +122,43 @@ if (manifest.failures.length > 0) {
 }
 
 async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs, shouldExportReviewPack, globeImageSize }) {
+  const stepLog = createStepLogger(`[${seed}]`);
   const slug = safeName(`seed-${seed}`);
   const seedDir = path.join(outputDir, slug);
   await mkdir(seedDir, { recursive: true });
 
   const url = `${baseUrl}/generate`;
-  log(`[${seed}] Opening ${url}`);
+  stepLog(`Opening ${url}`);
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
 
-  log(`[${seed}] Driving Generate controls`);
+  stepLog('Driving Generate controls');
   await driveGenerateControls(page, { seed, width, timeoutMs });
 
-  log(`[${seed}] Waiting for export button`);
-  const exportButton = page.getByTestId('jarvis-review-export-button');
-  await exportButton.waitFor({ state: 'visible', timeout: timeoutMs });
+  let exportButton = null;
+  if (shouldExportReviewPack) {
+    stepLog('Waiting for export button');
+    exportButton = page.getByTestId('jarvis-review-export-button');
+    await exportButton.waitFor({ state: 'visible', timeout: timeoutMs });
+  } else {
+    stepLog('Skipping export button wait for fast smoke mode');
+  }
 
-  log(`[${seed}] Waiting for final globe canvas`);
+  stepLog('Waiting for final globe canvas');
   const globeCanvas = page.getByTestId('worldwright-globe-canvas');
   await globeCanvas.waitFor({ state: 'visible', timeout: timeoutMs });
 
-  log(`[${seed}] Waiting for seed confirmation text`);
+  stepLog('Waiting for seed confirmation text');
   await page.getByText(new RegExp(`seed\\s+${escapeRegExp(seed)}`, 'i')).waitFor({ timeout: timeoutMs });
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(250);
 
-  log(`[${seed}] Capturing Generate page screenshot`);
+  stepLog('Capturing Generate page screenshot');
   const appScreenshotPath = path.join(seedDir, 'generate-app-final.png');
   await page.screenshot({ path: appScreenshotPath, fullPage: false, timeout: timeoutMs });
 
   const finalGlobeViews = {};
   let legacyFinalGlobePath = null;
   for (const view of FINAL_GLOBE_VIEWS) {
-    log(`[${seed}] Capturing final globe ${view.label}`);
+    stepLog(`Capturing final globe ${view.label}`);
     await setGlobeSnapshotRotation(page, globeCanvas, view.rotation);
     const viewPath = path.join(seedDir, `final-globe-${view.id}.png`);
     await saveCanvasPngAtSize(globeCanvas, viewPath, globeImageSize);
@@ -176,17 +182,21 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
   };
 
   if (!shouldExportReviewPack) {
-    log(`[${seed}] Skipping full Jarvis review pack export for fast snapshot mode`);
+    stepLog('Fast smoke snapshot complete; skipping full Jarvis review pack export');
     return snapshot;
   }
 
-  log(`[${seed}] Clicking Export Jarvis Pack`);
+  if (!exportButton) {
+    throw new Error('Review pack export was requested, but the export button was not prepared.');
+  }
+
+  stepLog('Clicking Export Jarvis Pack');
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: downloadTimeoutMs }),
     exportButton.click({ timeout: timeoutMs }),
   ]);
 
-  log(`[${seed}] Saving Jarvis review pack`);
+  stepLog('Saving Jarvis review pack');
   const packPath = path.join(seedDir, 'jarvis-review-pack.html');
   await download.saveAs(packPath);
 
@@ -348,6 +358,18 @@ function formatError(error) {
 
 function log(message) {
   console.log(`[jarvis-snapshots] ${message}`);
+}
+
+function createStepLogger(prefix) {
+  const startedAt = Date.now();
+  let previousAt = startedAt;
+  return (message) => {
+    const now = Date.now();
+    const stepSeconds = ((now - previousAt) / 1000).toFixed(1);
+    const totalSeconds = ((now - startedAt) / 1000).toFixed(1);
+    previousAt = now;
+    log(`${prefix} ${message} (+${stepSeconds}s, total ${totalSeconds}s)`);
+  };
 }
 
 function relativeArtifactPath(root, filePath) {
