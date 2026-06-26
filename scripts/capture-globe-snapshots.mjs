@@ -7,8 +7,8 @@ const PORT = Number(process.env.WORLDWRIGHT_SNAPSHOT_PORT ?? 4177);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 const CASES = ['earthlike-baseline-01', 'wet-high-sea-01', 'dry-rocky-01', 'stagnant-lid-01', 'ice-shell-01'];
-const MODES = ['FINAL', 'HEIGHT', 'LAND_WATER', 'OCEAN_DEPTH', 'CRUST_PROVINCE', 'CONTINENTS', 'PLATES'];
-const VIEWS = ['front', 'east', 'west', 'north', 'south'];
+const MODES = ['FINAL', 'HEIGHT', 'CRUST_PROVINCE', 'PLATES'];
+const VIEWS = ['front', 'east', 'north'];
 
 async function main() {
   const { chromium } = await import('playwright');
