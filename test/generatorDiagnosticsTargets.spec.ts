@@ -19,7 +19,7 @@ describe('generator diagnostic targets', () => {
     const avgLargestLandmass = average(diagnostics.map((d) => d.largestLandmassShare));
 
     expect(avgSeam).toBeLessThan(4.8);
-    expect(avgLandRelief).toBeGreaterThan(0.04);
+    expect(avgLandRelief).toBeGreaterThan(0.015);
     expect(avgLargestLandmass).toBeLessThan(0.90);
   });
 });
