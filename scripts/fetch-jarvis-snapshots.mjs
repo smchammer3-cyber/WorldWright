@@ -10,12 +10,9 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_DOWNLOAD_TIMEOUT_MS = 30_000;
 
 const FINAL_GLOBE_VIEWS = [
-  { id: 'front', label: 'Front', rotation: { x: 0, y: 0 } },
-  { id: 'east', label: 'East', rotation: { x: 0, y: Math.PI / 2 } },
-  { id: 'west', label: 'West', rotation: { x: 0, y: -Math.PI / 2 } },
-  { id: 'back', label: 'Back', rotation: { x: 0, y: Math.PI } },
-  { id: 'north', label: 'North', rotation: { x: -Math.PI / 2, y: 0 } },
-  { id: 'south', label: 'South', rotation: { x: Math.PI / 2, y: 0 } },
+  { id: 'front', label: 'Triad 0°', rotation: { x: 0, y: 0 } },
+  { id: 'triad-120', label: 'Triad +120°', rotation: { x: 0, y: (Math.PI * 2) / 3 } },
+  { id: 'triad-240', label: 'Triad -120°', rotation: { x: 0, y: -(Math.PI * 2) / 3 } },
 ];
 
 const args = parseArgs(process.argv.slice(2));
@@ -27,7 +24,7 @@ const seeds = String(args.seeds ?? DEFAULT_SEEDS.join(','))
   .split(',')
   .map((seed) => seed.trim())
   .filter(Boolean);
-const width = Number(args.width ?? 256);
+const width = Number(args.width ?? 384);
 const viewport = parseViewport(args.viewport ?? '1440x1100');
 const timeoutMs = positiveNumber(args['timeout-ms'], DEFAULT_TIMEOUT_MS);
 const downloadTimeoutMs = positiveNumber(args['download-timeout-ms'], DEFAULT_DOWNLOAD_TIMEOUT_MS);
