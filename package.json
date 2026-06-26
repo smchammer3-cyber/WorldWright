@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "diagnostics:generate": "vitest run scripts/run-generate-diagnostics.test.ts",
-    "previews:generate": "vitest run scripts/render-generate-previews.test.ts",
+    "previews:generate": "vitest run scripts/render-generate-previews.test.ts --testTimeout=120000",
     "snapshots:globe": "node scripts/capture-globe-snapshots.mjs",
     "test:run": "vitest run test"
   },
