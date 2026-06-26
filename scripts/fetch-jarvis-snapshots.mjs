@@ -156,7 +156,10 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
     await setGlobeSnapshotRotation(page, globeCanvas, view.rotation);
     const viewPath = path.join(seedDir, `final-globe-${view.id}.png`);
     await saveCanvasPngAtSize(globeCanvas, viewPath, globeImageSize);
-    finalGlobeViews[view.id] = relativeArtifactPath(outputDir, viewPath);
+    finalGlobeViews[view.id] = {
+      path: relativeArtifactPath(outputDir, viewPath),
+      imageSize: globeImageSize,
+    };
 
     if (view.id === 'front') {
       legacyFinalGlobePath = path.join(seedDir, 'final-globe.png');
@@ -168,7 +171,7 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
     seed,
     url,
     appScreenshot: relativeArtifactPath(outputDir, appScreenshotPath),
-    finalGlobe: legacyFinalGlobePath ? relativeArtifactPath(outputDir, legacyFinalGlobePath) : finalGlobeViews.front,
+    finalGlobe: legacyFinalGlobePath ? relativeArtifactPath(outputDir, legacyFinalGlobePath) : finalGlobeViews.front?.path,
     finalGlobeViews,
   };
 
