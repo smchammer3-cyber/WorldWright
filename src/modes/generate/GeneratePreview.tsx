@@ -145,6 +145,7 @@ export default function GeneratePreview({ world, error }: Props) {
           {world && (
             <button
               type="button"
+              data-testid="jarvis-review-export-button"
               onClick={handleExportReviewPack}
               disabled={exportingReviewPack}
               title="Download one HTML review pack with the current Globe3D view, fixed-angle layer images, and world metadata for Jarvis to inspect."
@@ -228,107 +229,52 @@ export default function GeneratePreview({ world, error }: Props) {
                 <div
                   style={{
                     marginBottom: 9,
-                    padding: "6px 8px",
+                    padding: 8,
                     borderRadius: 8,
-                    background: diagnosticContext.mode === "extreme" ? "rgba(255, 190, 80, 0.14)" : "rgba(255,255,255,0.07)",
-                    border: "1px solid rgba(255,255,255,0.11)",
-                    fontSize: 10,
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.10)",
+                    fontSize: 11,
                     lineHeight: 1.35,
-                    color: "rgba(255,255,255,0.72)",
+                    color: "rgba(255,255,255,0.78)",
                   }}
                 >
-                  <div style={{ color: "#fff", fontWeight: 900 }}>{diagnosticContext.label}</div>
-                  <div>{diagnosticContext.note}</div>
-                  {diagnosticContext.warnings.length > 0 && <div>{diagnosticContext.warnings[0]}</div>}
+                  {diagnosticContext.reason}
                 </div>
               )}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: "6px 8px", fontSize: 11 }}>
-                {diagnostics.metrics.map((metric) => (
-                  <React.Fragment key={metric.id}>
-                    <div title={metric.detail} style={{ color: "rgba(255,255,255,0.78)" }}>{metric.label}</div>
-                    <div style={{ fontVariantNumeric: "tabular-nums", fontWeight: 800 }}>{metric.value}</div>
-                    <DiagnosticBadge level={metric.level} />
-                  </React.Fragment>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowStageAudit((value) => !value)}
+                  style={smallDiagButtonStyle(showStageAudit)}
+                >
+                  {showStageAudit ? "Hide" : "Show"} stage audit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPipelineTrace((value) => !value)}
+                  style={smallDiagButtonStyle(showPipelineTrace)}
+                >
+                  {showPipelineTrace ? "Hide" : "Show"} pipeline trace
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowWorldSpineAudit((value) => !value)}
+                  style={smallDiagButtonStyle(showWorldSpineAudit)}
+                >
+                  {showWorldSpineAudit ? "Hide" : "Show"} world spine audit
+                </button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+                {diagnostics.problems.slice(0, 10).map((problem) => (
+                  <DiagnosticCard key={`${problem.id}:${problem.title}`} level={problem.level} title={problem.title} detail={problem.detail} />
                 ))}
-              </div>
-              <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.14)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: stageDiagnostics || pipelineLedger || worldSpineAudit ? 6 : 0 }}>
-                  <div>
-                    <div style={{ fontWeight: 900, fontSize: 12 }}>Generate cause-order tools</div>
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>Expensive replay; run only when needed.</div>
-                  </div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    <SmallDiagnosticButton active={showStageAudit} onClick={() => setShowStageAudit((value) => !value)}>
-                      {showStageAudit ? "Hide audit" : "Run audit"}
-                    </SmallDiagnosticButton>
-                    <SmallDiagnosticButton active={showPipelineTrace} onClick={() => setShowPipelineTrace((value) => !value)}>
-                      {showPipelineTrace ? "Hide trace" : "Trace pipeline"}
-                    </SmallDiagnosticButton>
-                    <SmallDiagnosticButton active={showWorldSpineAudit} onClick={() => setShowWorldSpineAudit((value) => !value)}>
-                      {showWorldSpineAudit ? "Hide spine" : "World spine"}
-                    </SmallDiagnosticButton>
-                  </div>
-                </div>
-                {stageDiagnostics && (
-                  <div style={{ marginBottom: pipelineLedger || worldSpineAudit ? 14 : 0 }}>
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, alignItems: "baseline", marginBottom: 6 }}>
-                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.55)" }}>{stageDiagnostics.grid} • seed {stageDiagnostics.seed}</div>
-                    </div>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1.35fr repeat(13, auto)",
-                        gap: "5px 8px",
-                        fontSize: 10,
-                        alignItems: "baseline",
-                        minWidth: 820,
-                      }}
-                    >
-                      <StageHeader label="Stage" />
-                      <StageHeader label="Land" />
-                      <StageHeader label="Bodies" />
-                      <StageHeader label="Med." />
-                      <StageHeader label="Relief" />
-                      <StageHeader label="Plate" />
-                      <StageHeader label="Prov" />
-                      <StageHeader label="Skel" />
-                      <StageHeader label="Auth" />
-                      <StageHeader label="PLeak" />
-                      <StageHeader label="PrLeak" />
-                      <StageHeader label="OLeak" />
-                      <StageHeader label="LLeak" />
-                      <StageHeader label="Flip" />
-                      {stageDiagnostics.stages.map((stage) => {
-                        const oceanLeak = Math.max(stage.raw.oceanPlateAuthorityLeakShare, stage.raw.oceanProvinceAuthorityLeakShare);
-                        const landLeak = Math.max(stage.raw.landPlateAuthorityLeakShare, stage.raw.landProvinceAuthorityLeakShare);
-                        return (
-                          <React.Fragment key={stage.id}>
-                            <div title={stage.note} style={{ color: "rgba(255,255,255,0.78)", fontWeight: 800 }}>{stage.label}</div>
-                            <StageValue value={percent(stage.raw.landFraction)} delta={stage.deltaFromPrevious?.landFraction} formatDelta={percentDelta} />
-                            <StageValue value={String(stage.raw.landComponents)} delta={stage.deltaFromPrevious?.landComponents} />
-                            <StageValue value={String(stage.raw.mediumFragmentCount)} delta={stage.deltaFromPrevious?.mediumFragmentCount} />
-                            <StageValue value={fixed(stage.raw.landHeightStdDev)} delta={stage.deltaFromPrevious?.landHeightStdDev} />
-                            <StageValue value={ratio(stage.raw.plateSeamHeightRatio)} delta={stage.deltaFromPrevious?.plateSeamHeightRatio ?? undefined} />
-                            <StageValue value={ratio(stage.raw.provinceSeamHeightRatio)} delta={stage.deltaFromPrevious?.provinceSeamHeightRatio ?? undefined} />
-                            <StageValue value={ratio(stage.raw.skeletonSeamHeightRatio)} delta={stage.deltaFromPrevious?.skeletonSeamHeightRatio ?? undefined} />
-                            <StageValue value={percent(stage.raw.featureAuthorityCoverage)} delta={stage.deltaFromPrevious?.featureAuthorityCoverage} formatDelta={percentDelta} />
-                            <StageValue value={percent(stage.raw.plateAuthorityLeakShare)} />
-                            <StageValue value={percent(stage.raw.provinceAuthorityLeakShare)} />
-                            <StageValue value={percent(oceanLeak)} />
-                            <StageValue value={percent(landLeak)} />
-                            <StageValue value={stage.transitionFromPrevious ? percent(stage.transitionFromPrevious.topologyFlipShare) : "—"} />
-                          </React.Fragment>
-                        );
-                      })}
-                    </div>
-                    <div style={{ marginTop: 6, color: "rgba(255,255,255,0.52)", fontSize: 10, lineHeight: 1.35 }}>
-                      Plate/Prov/Skel show raw height imprint. Auth shows visible high-contrast edges explained by shared geologic feature authority. PLeak/PrLeak/OLeak/LLeak show visible plate/province jumps that lack shared feature authority. Flip shows land/water cells changed by that stage.
-                    </div>
-                  </div>
+                {diagnostics.problems.length === 0 && (
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.72)" }}>No blocking diagnostics found.</div>
                 )}
-                {pipelineLedger && <GeneratePipelineAuthorityPanel ledger={pipelineLedger} />}
-                {worldSpineAudit && <GenerateWorldSpineAuditPanel audit={worldSpineAudit} />}
               </div>
+              {stageDiagnostics && <GenerateStageAuditTable stages={stageDiagnostics.stages} />}
+              {pipelineLedger && <GeneratePipelineAuthorityPanel ledger={pipelineLedger} />}
+              {worldSpineAudit && <GenerateWorldSpineAuditPanel audit={worldSpineAudit} />}
             </div>
           )}
         </div>
@@ -337,86 +283,83 @@ export default function GeneratePreview({ world, error }: Props) {
   );
 }
 
-function DiagnosticBadge({ level }: { level: DiagnosticLevel }) {
-  const colors: Record<DiagnosticLevel, { background: string; color: string; label: string }> = {
-    ok: { background: "rgba(87, 217, 143, 0.20)", color: "#8dffba", label: "ok" },
-    watch: { background: "rgba(255, 206, 86, 0.20)", color: "#ffe38a", label: "watch" },
-    problem: { background: "rgba(255, 107, 107, 0.20)", color: "#ff9a9a", label: "bad" },
-  };
-  const c = colors[level];
+function DiagnosticCard({ level, title, detail }: { level: DiagnosticLevel; title: string; detail: string }) {
+  const color = level === "problem" ? "#ffb4b4" : level === "watch" ? "#ffe3a3" : "#b8f7c7";
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        justifyContent: "center",
-        minWidth: 40,
-        padding: "1px 5px",
-        borderRadius: 999,
-        background: c.background,
-        color: c.color,
-        fontSize: 10,
-        fontWeight: 800,
-        textTransform: "uppercase",
-        letterSpacing: 0.3,
-      }}
-    >
-      {c.label}
-    </span>
-  );
-}
-
-function SmallDiagnosticButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        border: "1px solid rgba(255,255,255,0.18)",
-        borderRadius: 999,
-        background: active ? "rgba(76, 190, 255, 0.22)" : "rgba(255,255,255,0.10)",
-        color: "#fff",
-        fontSize: 10,
-        fontWeight: 900,
-        padding: "5px 8px",
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function StageHeader({ label }: { label: string }) {
-  return <div style={{ color: "rgba(255,255,255,0.48)", fontWeight: 900, textAlign: label === "Stage" ? "left" : "right" }}>{label}</div>;
-}
-
-function StageValue({ value, delta, formatDelta = fixedDelta }: { value: string; delta?: number; formatDelta?: (value: number) => string }) {
-  const hasDelta = typeof delta === "number" && Number.isFinite(delta) && Math.abs(delta) > 1e-6;
-  return (
-    <div style={{ color: "rgba(255,255,255,0.76)", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
-      <span style={{ fontWeight: 800 }}>{value}</span>
-      {hasDelta && <span style={{ marginLeft: 3, color: delta > 0 ? "#ffe38a" : "#8dffba" }}>{formatDelta(delta)}</span>}
+    <div style={{ padding: 8, borderRadius: 8, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}>
+      <div style={{ fontWeight: 900, fontSize: 12, color }}>{title}</div>
+      <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.35, color: "rgba(255,255,255,0.72)" }}>{detail}</div>
     </div>
   );
 }
 
-function percent(value: number): string {
+function GenerateStageAuditTable({ stages }: { stages: ReturnType<typeof computeGeneratedStageDiagnostics>["stages"] }) {
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontWeight: 900, fontSize: 12, marginBottom: 6 }}>Generate stage audit</div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+          <thead>
+            <tr style={{ color: "rgba(255,255,255,0.72)" }}>
+              <th style={thStyle}>Stage</th>
+              <th style={thStyle}>Land</th>
+              <th style={thStyle}>Bodies</th>
+              <th style={thStyle}>Frag</th>
+              <th style={thStyle}>Relief</th>
+              <th style={thStyle}>Plate</th>
+              <th style={thStyle}>Prov</th>
+              <th style={thStyle}>Skel</th>
+              <th style={thStyle}>Auth</th>
+              <th style={thStyle}>PLeak</th>
+              <th style={thStyle}>CLeak</th>
+              <th style={thStyle}>SLeak</th>
+              <th style={thStyle}>Flip</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stages.map((stage) => (
+              <tr key={stage.id} style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                <td style={tdStyle}>{stage.label}</td>
+                <td style={tdStyle}>{pct(stage.metrics.landFraction)}</td>
+                <td style={tdStyle}>{stage.metrics.landBodyCount}/{stage.metrics.oceanBodyCount}</td>
+                <td style={tdStyle}>{pct(stage.metrics.fragmentLandShare)}</td>
+                <td style={tdStyle}>{stage.metrics.reliefStdDev.toFixed(3)}</td>
+                <td style={tdStyle}>{stage.metrics.plateSeamHeightImprint.toFixed(3)}</td>
+                <td style={tdStyle}>{stage.metrics.provinceSeamHeightImprint.toFixed(3)}</td>
+                <td style={tdStyle}>{stage.metrics.skeletonSeamHeightImprint.toFixed(3)}</td>
+                <td style={tdStyle}>{stage.authority.level}</td>
+                <td style={tdStyle}>{stage.authority.plateLeakCount}</td>
+                <td style={tdStyle}>{stage.authority.provinceLeakCount}</td>
+                <td style={tdStyle}>{stage.authority.skeletonLeakCount}</td>
+                <td style={tdStyle}>{pct(stage.authority.topologyFlipShare)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ marginTop: 6, fontSize: 10, lineHeight: 1.35, color: "rgba(255,255,255,0.58)" }}>
+        Plate/Prov/Skel columns show seam imprint ratios. PLeak/CLeak/SLeak count sharp height jumps where hidden IDs changed without matching terrain authority.
+      </div>
+    </div>
+  );
+}
+
+const thStyle: React.CSSProperties = { textAlign: "left", padding: "4px 6px", fontWeight: 900, whiteSpace: "nowrap" };
+const tdStyle: React.CSSProperties = { padding: "4px 6px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.78)" };
+
+function smallDiagButtonStyle(active: boolean): React.CSSProperties {
+  return {
+    border: "1px solid rgba(255,255,255,0.16)",
+    background: active ? "rgba(76,190,255,0.20)" : "rgba(255,255,255,0.07)",
+    color: "#fff",
+    borderRadius: 999,
+    padding: "4px 8px",
+    fontSize: 11,
+    fontWeight: 900,
+    cursor: "pointer",
+  };
+}
+
+function pct(value: number): string {
   return `${Math.round(value * 100)}%`;
-}
-
-function ratio(value: number | null | undefined): string {
-  return value == null ? "—" : `${fixed(value)}×`;
-}
-
-function fixed(value: number): string {
-  return value.toFixed(2);
-}
-
-function fixedDelta(value: number): string {
-  return `${value > 0 ? "+" : ""}${value.toFixed(2)}`;
-}
-
-function percentDelta(value: number): string {
-  return `${value > 0 ? "+" : ""}${Math.round(value * 100)}%`;
 }

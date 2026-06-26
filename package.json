@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "diagnostics:generate": "vitest run scripts/run-generate-diagnostics.test.ts",
+    "snapshots:jarvis": "node scripts/fetch-jarvis-snapshots.mjs",
     "test:run": "vitest run"
   },
   "dependencies": {
