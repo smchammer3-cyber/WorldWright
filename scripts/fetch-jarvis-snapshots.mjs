@@ -9,6 +9,8 @@ const DEFAULT_PORT = 4174;
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_DOWNLOAD_TIMEOUT_MS = 30_000;
+const SNAPSHOT_STATE_FILE = 'snapshot-state.json';
+const BROWSER_CONSOLE_FILE = 'browser-console.json';
 
 const FINAL_GLOBE_VIEWS = [
   { id: 'front', label: 'Triad 0°', rotation: { x: 0, y: 0 } },
@@ -79,6 +81,9 @@ try {
 
   for (const seed of seeds) {
     const page = await browser.newPage({ viewport, acceptDownloads: true });
+    const browserEvents = createBrowserEventRecorder(page);
+    const captureContext = { timings: [] };
+    const paths = seedArtifactPaths(outputDir, seed);
     try {
       const snapshot = await withTimeout(
         captureSeed(page, {
@@ -90,6 +95,7 @@ try {
           downloadTimeoutMs,
           shouldExportReviewPack,
           globeImageSize,
+          captureContext,
         }),
         perSeedTimeoutMs,
         `[${seed}] Snapshot watchdog expired after ${perSeedTimeoutMs}ms before the globe could be captured. Partial artifacts will be written.`
@@ -98,23 +104,35 @@ try {
       log(`Completed seed ${seed}`);
     } catch (error) {
       const failure = serializeFailure(seed, error);
+      failure.timings = captureContext.timings;
+      failure.snapshotState = relativeArtifactPath(outputDir, paths.snapshotStatePath);
+      failure.browserConsole = relativeArtifactPath(outputDir, paths.browserConsolePath);
       manifest.failures.push(failure);
       console.error(`[jarvis-snapshots] Seed ${seed} failed: ${failure.message}`);
       try {
-        const slug = safeName(`seed-${seed}`);
-        const seedDir = path.join(outputDir, slug);
-        await mkdir(seedDir, { recursive: true });
-        const failureScreenshotPath = path.join(seedDir, 'failure-page.png');
+        await mkdir(paths.seedDir, { recursive: true });
+        await writeSnapshotState(page, paths.snapshotStatePath, {
+          seed,
+          status: 'failure',
+          failureMessage: failure.message,
+          timings: captureContext.timings,
+        });
+      } catch (stateError) {
+        console.error(`[jarvis-snapshots] Could not capture snapshot state for seed ${seed}: ${formatError(stateError)}`);
+      }
+      try {
+        await mkdir(paths.seedDir, { recursive: true });
         await withTimeout(
-          page.screenshot({ path: failureScreenshotPath, fullPage: true, timeout: 10_000 }),
+          page.screenshot({ path: paths.failureScreenshotPath, fullPage: true, timeout: 10_000 }),
           12_000,
           `[${seed}] Could not capture failure screenshot before the screenshot watchdog expired.`
         );
-        failure.failureScreenshot = relativeArtifactPath(outputDir, failureScreenshotPath);
+        failure.failureScreenshot = relativeArtifactPath(outputDir, paths.failureScreenshotPath);
       } catch (screenshotError) {
         console.error(`[jarvis-snapshots] Could not capture failure screenshot for seed ${seed}: ${formatError(screenshotError)}`);
       }
     } finally {
+      await writeBrowserEvents(paths.browserConsolePath, browserEvents.events);
       await writeManifest(outputDir, manifest);
       await page.close().catch(() => {});
     }
@@ -132,11 +150,10 @@ if (manifest.failures.length > 0) {
   log(`Completed ${manifest.snapshots.length} snapshot(s).`);
 }
 
-async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs, shouldExportReviewPack, globeImageSize }) {
-  const stepLog = createStepLogger(`[${seed}]`);
-  const slug = safeName(`seed-${seed}`);
-  const seedDir = path.join(outputDir, slug);
-  await mkdir(seedDir, { recursive: true });
+async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs, shouldExportReviewPack, globeImageSize, captureContext }) {
+  const stepLog = createStepLogger(`[${seed}]`, captureContext.timings);
+  const paths = seedArtifactPaths(outputDir, seed);
+  await mkdir(paths.seedDir, { recursive: true });
 
   const url = `${baseUrl}/generate`;
   stepLog(`Opening ${url}`);
@@ -162,8 +179,15 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
   await page.getByText(new RegExp(`seed\\s+${escapeRegExp(seed)}`, 'i')).waitFor({ timeout: timeoutMs });
   await page.waitForTimeout(250);
 
+  stepLog('Writing snapshot state');
+  await writeSnapshotState(page, paths.snapshotStatePath, {
+    seed,
+    status: 'ready-before-capture',
+    timings: captureContext.timings,
+  });
+
   stepLog('Capturing Generate page screenshot');
-  const appScreenshotPath = path.join(seedDir, 'generate-app-final.png');
+  const appScreenshotPath = path.join(paths.seedDir, 'generate-app-final.png');
   await page.screenshot({ path: appScreenshotPath, fullPage: false, timeout: timeoutMs });
 
   const finalGlobeViews = {};
@@ -171,7 +195,7 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
   for (const view of FINAL_GLOBE_VIEWS) {
     stepLog(`Capturing final globe ${view.label}`);
     await setGlobeSnapshotRotation(page, globeCanvas, view.rotation);
-    const viewPath = path.join(seedDir, `final-globe-${view.id}.png`);
+    const viewPath = path.join(paths.seedDir, `final-globe-${view.id}.png`);
     await saveCanvasPngAtSize(globeCanvas, viewPath, globeImageSize);
     finalGlobeViews[view.id] = {
       path: relativeArtifactPath(outputDir, viewPath),
@@ -179,15 +203,25 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
     };
 
     if (view.id === 'front') {
-      legacyFinalGlobePath = path.join(seedDir, 'final-globe.png');
+      legacyFinalGlobePath = path.join(paths.seedDir, 'final-globe.png');
       await saveCanvasPngAtSize(globeCanvas, legacyFinalGlobePath, globeImageSize);
     }
   }
+
+  stepLog('Writing final snapshot state');
+  await writeSnapshotState(page, paths.snapshotStatePath, {
+    seed,
+    status: 'captured',
+    timings: captureContext.timings,
+  });
 
   const snapshot = {
     seed,
     url,
     appScreenshot: relativeArtifactPath(outputDir, appScreenshotPath),
+    snapshotState: relativeArtifactPath(outputDir, paths.snapshotStatePath),
+    browserConsole: relativeArtifactPath(outputDir, paths.browserConsolePath),
+    timings: captureContext.timings,
     finalGlobe: legacyFinalGlobePath ? relativeArtifactPath(outputDir, legacyFinalGlobePath) : finalGlobeViews.front?.path,
     finalGlobeViews,
   };
@@ -208,7 +242,7 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
   ]);
 
   stepLog('Saving Jarvis review pack');
-  const packPath = path.join(seedDir, 'jarvis-review-pack.html');
+  const packPath = path.join(paths.seedDir, 'jarvis-review-pack.html');
   await download.saveAs(packPath);
 
   return {
@@ -254,6 +288,101 @@ async function driveGenerateControls(page, { seed, width, timeoutMs }) {
   }
 
   await page.waitForTimeout(900);
+}
+
+function createBrowserEventRecorder(page) {
+  const events = [];
+  const record = (event) => {
+    events.push({
+      capturedAt: new Date().toISOString(),
+      ...event,
+    });
+  };
+
+  page.on('console', (message) => {
+    record({
+      kind: 'console',
+      type: message.type(),
+      text: message.text(),
+      location: message.location(),
+    });
+  });
+
+  page.on('pageerror', (error) => {
+    record({
+      kind: 'pageerror',
+      message: formatError(error),
+      stack: error?.stack ? String(error.stack) : undefined,
+    });
+  });
+
+  page.on('requestfailed', (request) => {
+    record({
+      kind: 'requestfailed',
+      url: request.url(),
+      method: request.method(),
+      failure: request.failure()?.errorText ?? null,
+    });
+  });
+
+  return { events };
+}
+
+async function writeBrowserEvents(filePath, events) {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify({ generatedAt: new Date().toISOString(), events }, null, 2)}\n`, 'utf8');
+}
+
+async function writeSnapshotState(page, filePath, extra) {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  let pageState = null;
+  let pageStateError = null;
+
+  try {
+    pageState = await withTimeout(
+      page.evaluate(() => {
+        const bodyText = document.body?.innerText ?? '';
+        return {
+          url: window.location.href,
+          title: document.title,
+          readyState: document.readyState,
+          snapshotState: window.__WORLDWRIGHT_SNAPSHOT_STATE__ ?? null,
+          bodyTextSample: bodyText.slice(0, 4000),
+        };
+      }),
+      5_000,
+      'Timed out reading browser snapshot state.'
+    );
+  } catch (error) {
+    pageStateError = formatError(error);
+  }
+
+  await writeFile(
+    filePath,
+    `${JSON.stringify(
+      {
+        capturedAt: new Date().toISOString(),
+        ...extra,
+        pageState,
+        pageStateError,
+      },
+      null,
+      2
+    )}\n`,
+    'utf8'
+  );
+}
+
+function seedArtifactPaths(root, seed) {
+  const slug = safeName(`seed-${seed}`);
+  const seedDir = path.join(root, slug);
+  return {
+    slug,
+    seedDir,
+    snapshotStatePath: path.join(seedDir, SNAPSHOT_STATE_FILE),
+    browserConsolePath: path.join(seedDir, BROWSER_CONSOLE_FILE),
+    failureScreenshotPath: path.join(seedDir, 'failure-page.png'),
+  };
 }
 
 function parseArgs(argv) {
@@ -384,15 +513,21 @@ function log(message) {
   console.log(`[jarvis-snapshots] ${message}`);
 }
 
-function createStepLogger(prefix) {
+function createStepLogger(prefix, timings) {
   const startedAt = Date.now();
   let previousAt = startedAt;
   return (message) => {
     const now = Date.now();
-    const stepSeconds = ((now - previousAt) / 1000).toFixed(1);
-    const totalSeconds = ((now - startedAt) / 1000).toFixed(1);
+    const stepMs = now - previousAt;
+    const totalMs = now - startedAt;
     previousAt = now;
-    log(`${prefix} ${message} (+${stepSeconds}s, total ${totalSeconds}s)`);
+    timings.push({
+      capturedAt: new Date().toISOString(),
+      message,
+      stepMs,
+      totalMs,
+    });
+    log(`${prefix} ${message} (+${(stepMs / 1000).toFixed(1)}s, total ${(totalMs / 1000).toFixed(1)}s)`);
   };
 }
 
