@@ -36,6 +36,20 @@ describe('world crust fields', () => {
     expect(validateWorld(world)).toEqual([]);
   });
 
+  it('does not silently collapse generated crust provinces across representative seeds', () => {
+    const provinceCounts = ['crust-scaffold', 'crust-diversity-a', 'crust-diversity-b', 'crust-diversity-c'].map((seed) => {
+      const params = createDefaultGeneratorParams();
+      params.width = 96;
+      params.height = 48;
+      params.seed = seed;
+      const world = generateWorldFromParams(params);
+      seedCrustFields(world);
+      return new Set(world.cells.map((cell) => cell.crustProvince)).size;
+    });
+
+    expect(Math.max(...provinceCounts)).toBeGreaterThan(1);
+  });
+
   it('repairs legacy worlds missing crust fields and provinces', () => {
     const params = createDefaultGeneratorParams();
     params.width = 64;
