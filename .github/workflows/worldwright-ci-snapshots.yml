@@ -102,7 +102,7 @@ jobs:
           fi
 
           set +e
-          timeout 150s npm run snapshots:jarvis -- \
+          timeout --kill-after=15s 150s npm run snapshots:jarvis -- \
             --out=artifacts/jarvis-snapshot-canary \
             --seeds=1040037 \
             --width=192 \
@@ -117,6 +117,17 @@ jobs:
           if [ "$STATUS" != "0" ]; then
             echo "Jarvis snapshot canary failed or timed out with exit code $STATUS" > artifacts/jarvis-snapshot-canary/snapshot-failure.txt
           fi
+
+          {
+            echo "## Jarvis snapshot canary"
+            echo "- Artifact: \`jarvis-snapshot-canary\`"
+            echo "- World grid: \`192x96\`"
+            echo "- Globe images: \`192x192\`"
+            echo "- Exit code: \`$STATUS\`"
+            echo "- Output directory: \`artifacts/jarvis-snapshot-canary\`"
+            echo "- Diagnostic files: \`manifest.json\`, \`preflight.txt\`, \`snapshot-exit-code.txt\`, \`seed-1040037/snapshot-state.json\`, \`seed-1040037/browser-console.json\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
           exit "$STATUS"
 
       - name: Upload Jarvis snapshot canary
@@ -165,7 +176,7 @@ jobs:
           fi
 
           set +e
-          timeout 480s npm run snapshots:jarvis -- \
+          timeout --kill-after=15s 480s npm run snapshots:jarvis -- \
             --out=artifacts/jarvis-full-globe-review \
             --seeds=1040037 \
             --width=384 \
@@ -180,6 +191,18 @@ jobs:
           if [ "$STATUS" != "0" ]; then
             echo "Full-quality Jarvis globe review failed or timed out with exit code $STATUS" > artifacts/jarvis-full-globe-review/snapshot-failure.txt
           fi
+
+          {
+            echo "## Full-quality Jarvis globe review"
+            echo "- Artifact: \`jarvis-full-globe-review\`"
+            echo "- World grid: \`384x192\`"
+            echo "- Globe images: \`384x384\`"
+            echo "- Required phone views: front, +120°, -120°"
+            echo "- Exit code: \`$STATUS\`"
+            echo "- Output directory: \`artifacts/jarvis-full-globe-review\`"
+            echo "- Success images: \`seed-1040037/final-globe-front.png\`, \`seed-1040037/final-globe-triad-120.png\`, \`seed-1040037/final-globe-triad-240.png\`"
+            echo "- Diagnostic files: \`manifest.json\`, \`preflight.txt\`, \`snapshot-exit-code.txt\`, \`seed-1040037/snapshot-state.json\`, \`seed-1040037/browser-console.json\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
           # Full-quality visuals are review artifacts for phone-first inspection.
           # Do not let this optional review job block the PR forever; upload whatever was produced.
