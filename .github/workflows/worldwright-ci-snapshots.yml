@@ -96,7 +96,7 @@ jobs:
           if [ "$EXPORT_REVIEW_PACK" = "true" ]; then
             EXTRA_ARGS="--export-review-pack=true"
           fi
-          npm run snapshots:jarvis -- --seeds=1040037 --width=384 --viewport=1800x1200 --timeout-ms=45000 --download-timeout-ms=45000 $EXTRA_ARGS
+          npm run snapshots:jarvis -- --seeds=1040037 --width=384 --globe-image-size=384x384 --viewport=1800x1200 --timeout-ms=45000 --download-timeout-ms=45000 $EXTRA_ARGS
 
       - name: Upload Jarvis snapshots
         if: always()
