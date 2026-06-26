@@ -7,7 +7,6 @@ import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import HomeScreen from "./screens/HomeScreen";
-import VisualSnapshotHarness from "./screens/VisualSnapshotHarness";
 
 import GenerateModeApp from "./modes/generate/GenerateModeApp";
 import CreateModeApp from "./modes/create/CreateModeApp";
@@ -21,7 +20,6 @@ export default function App() {
       <Route path="/generate" element={<GenerateModeApp />} />
       <Route path="/create/:worldId" element={<CreateModeApp />} />
       <Route path="/sim/:worldId" element={<SimModeApp />} />
-      <Route path="/__snapshot" element={<VisualSnapshotHarness />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
