@@ -31,6 +31,7 @@ const globeImageSize = parseImageSize(args['globe-image-size'] ?? `${worldResolu
 const viewport = parseViewport(args.viewport ?? '1440x1100');
 const timeoutMs = positiveNumber(args['timeout-ms'], DEFAULT_TIMEOUT_MS);
 const downloadTimeoutMs = positiveNumber(args['download-timeout-ms'], DEFAULT_DOWNLOAD_TIMEOUT_MS);
+const perSeedTimeoutMs = positiveNumber(args['per-seed-timeout-ms'], Math.max(timeoutMs + 15_000, 60_000));
 const shouldStartServer = args['no-server'] !== 'true';
 const shouldExportReviewPack = args['export-review-pack'] === 'true';
 
@@ -47,6 +48,7 @@ const manifest = {
   viewport,
   timeoutMs,
   downloadTimeoutMs,
+  perSeedTimeoutMs,
   exportReviewPack: shouldExportReviewPack,
   finalGlobeViews: FINAL_GLOBE_VIEWS.map(({ id, label }) => ({ id, label })),
   snapshots: [],
@@ -61,6 +63,7 @@ try {
   log(`World grid: ${worldResolution.width}x${worldResolution.height}`);
   log(`Globe images: ${globeImageSize.width}x${globeImageSize.height}`);
   log(`Viewport: ${viewport.width}x${viewport.height}; width=${width}`);
+  log(`Per-seed watchdog: ${perSeedTimeoutMs}ms`);
   log(`Review pack export: ${shouldExportReviewPack ? 'enabled' : 'disabled'}`);
 
   if (shouldStartServer) {
@@ -77,16 +80,20 @@ try {
   for (const seed of seeds) {
     const page = await browser.newPage({ viewport, acceptDownloads: true });
     try {
-      const snapshot = await captureSeed(page, {
-        seed,
-        width,
-        outputDir,
-        baseUrl,
-        timeoutMs,
-        downloadTimeoutMs,
-        shouldExportReviewPack,
-        globeImageSize,
-      });
+      const snapshot = await withTimeout(
+        captureSeed(page, {
+          seed,
+          width,
+          outputDir,
+          baseUrl,
+          timeoutMs,
+          downloadTimeoutMs,
+          shouldExportReviewPack,
+          globeImageSize,
+        }),
+        perSeedTimeoutMs,
+        `[${seed}] Snapshot watchdog expired after ${perSeedTimeoutMs}ms before the globe could be captured. Partial artifacts will be written.`
+      );
       manifest.snapshots.push(snapshot);
       log(`Completed seed ${seed}`);
     } catch (error) {
@@ -98,7 +105,11 @@ try {
         const seedDir = path.join(outputDir, slug);
         await mkdir(seedDir, { recursive: true });
         const failureScreenshotPath = path.join(seedDir, 'failure-page.png');
-        await page.screenshot({ path: failureScreenshotPath, fullPage: true, timeout: 10_000 });
+        await withTimeout(
+          page.screenshot({ path: failureScreenshotPath, fullPage: true, timeout: 10_000 }),
+          12_000,
+          `[${seed}] Could not capture failure screenshot before the screenshot watchdog expired.`
+        );
         failure.failureScreenshot = relativeArtifactPath(outputDir, failureScreenshotPath);
       } catch (screenshotError) {
         console.error(`[jarvis-snapshots] Could not capture failure screenshot for seed ${seed}: ${formatError(screenshotError)}`);
@@ -281,6 +292,19 @@ function normalizeWorldResolution(widthValue) {
 function positiveNumber(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function withTimeout(promise, timeoutMs, message) {
+  let timer = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 async function importPlaywright() {
