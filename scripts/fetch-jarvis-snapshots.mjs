@@ -150,6 +150,8 @@ if (manifest.failures.length > 0) {
   log(`Completed ${manifest.snapshots.length} snapshot(s).`);
 }
 
+process.exit(process.exitCode ?? 0);
+
 async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs, shouldExportReviewPack, globeImageSize, captureContext }) {
   const stepLog = createStepLogger(`[${seed}]`, captureContext.timings);
   const paths = seedArtifactPaths(outputDir, seed);
@@ -264,6 +266,16 @@ async function setGlobeSnapshotRotation(page, globeCanvas, rotation) {
 
 async function saveCanvasPngAtSize(globeCanvas, filePath, imageSize) {
   const pngBase64 = await globeCanvas.evaluate((canvas, nextImageSize) => {
+    const sourceWidth = canvas.width || canvas.clientWidth;
+    const sourceHeight = canvas.height || canvas.clientHeight;
+    if (!sourceWidth || !sourceHeight) {
+      throw new Error('Cannot capture globe snapshot from an empty canvas.');
+    }
+
+    const cropSize = Math.min(sourceWidth, sourceHeight);
+    const cropX = Math.floor((sourceWidth - cropSize) / 2);
+    const cropY = Math.floor((sourceHeight - cropSize) / 2);
+
     const output = document.createElement('canvas');
     output.width = nextImageSize.width;
     output.height = nextImageSize.height;
@@ -271,7 +283,8 @@ async function saveCanvasPngAtSize(globeCanvas, filePath, imageSize) {
     if (!context) {
       throw new Error('Could not create snapshot output canvas context.');
     }
-    context.drawImage(canvas, 0, 0, output.width, output.height);
+    context.clearRect(0, 0, output.width, output.height);
+    context.drawImage(canvas, cropX, cropY, cropSize, cropSize, 0, 0, output.width, output.height);
     return output.toDataURL('image/png').split(',')[1];
   }, imageSize);
 
