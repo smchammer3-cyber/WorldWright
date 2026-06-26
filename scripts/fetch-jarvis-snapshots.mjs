@@ -6,6 +6,8 @@ import { spawn } from 'node:child_process';
 const DEFAULT_SEEDS = ['1040037', '860009786'];
 const DEFAULT_PORT = 4174;
 const DEFAULT_HOST = '127.0.0.1';
+const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_DOWNLOAD_TIMEOUT_MS = 30_000;
 
 const args = parseArgs(process.argv.slice(2));
 const outputDir = path.resolve(args.out ?? 'artifacts/jarvis-snapshots');
@@ -18,83 +20,136 @@ const seeds = String(args.seeds ?? DEFAULT_SEEDS.join(','))
   .filter(Boolean);
 const width = Number(args.width ?? 256);
 const viewport = parseViewport(args.viewport ?? '1440x1100');
+const timeoutMs = positiveNumber(args['timeout-ms'], DEFAULT_TIMEOUT_MS);
+const downloadTimeoutMs = positiveNumber(args['download-timeout-ms'], DEFAULT_DOWNLOAD_TIMEOUT_MS);
 const shouldStartServer = args['no-server'] !== 'true';
 
 const { chromium } = await importPlaywright();
 await mkdir(outputDir, { recursive: true });
 
+const manifest = {
+  generatedAt: new Date().toISOString(),
+  baseUrl,
+  seeds,
+  width,
+  viewport,
+  timeoutMs,
+  downloadTimeoutMs,
+  snapshots: [],
+  failures: [],
+};
+
 let server = null;
+let browser = null;
 try {
+  log(`Writing Jarvis snapshots to ${outputDir}`);
+  log(`Seeds: ${seeds.join(', ') || '(none)'}`);
+  log(`Viewport: ${viewport.width}x${viewport.height}; width=${width}`);
+
   if (shouldStartServer) {
+    log(`Starting Vite dev server on ${host}:${port}`);
     server = startViteServer({ host, port });
   }
-  await waitForServer(baseUrl, 90_000);
 
-  const browser = await chromium.launch();
-  try {
-    const manifest = {
-      generatedAt: new Date().toISOString(),
-      baseUrl,
-      seeds,
-      width,
-      viewport,
-      snapshots: [],
-    };
+  log(`Waiting for server at ${baseUrl}`);
+  await waitForServer(baseUrl, Math.max(timeoutMs, 45_000));
+  log('Server is ready. Launching Chromium.');
 
-    for (const seed of seeds) {
-      const page = await browser.newPage({ viewport, acceptDownloads: true });
-      const slug = safeName(`seed-${seed}`);
-      const seedDir = path.join(outputDir, slug);
-      await mkdir(seedDir, { recursive: true });
+  browser = await chromium.launch();
 
-      const url = `${baseUrl}/generate`;
-      await page.goto(url, { waitUntil: 'networkidle', timeout: 120_000 });
-      await driveGenerateControls(page, { seed, width });
-
-      const exportButton = page.getByTestId('jarvis-review-export-button');
-      await exportButton.waitFor({ state: 'visible', timeout: 120_000 });
-      await page.locator('canvas').first().waitFor({ state: 'visible', timeout: 120_000 });
-      await page.getByText(new RegExp(`seed\\s+${escapeRegExp(seed)}`)).waitFor({ timeout: 120_000 });
-      await page.waitForTimeout(1_000);
-
-      const appScreenshotPath = path.join(seedDir, 'generate-app-final.png');
-      await page.screenshot({ path: appScreenshotPath, fullPage: false });
-
-      const [download] = await Promise.all([
-        page.waitForEvent('download', { timeout: 180_000 }),
-        exportButton.click(),
-      ]);
-      const packPath = path.join(seedDir, 'jarvis-review-pack.html');
-      await download.saveAs(packPath);
-
-      manifest.snapshots.push({
-        seed,
-        url,
-        appScreenshot: relativeArtifactPath(outputDir, appScreenshotPath),
-        reviewPack: relativeArtifactPath(outputDir, packPath),
-      });
-
-      await page.close();
+  for (const seed of seeds) {
+    const page = await browser.newPage({ viewport, acceptDownloads: true });
+    try {
+      const snapshot = await captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs });
+      manifest.snapshots.push(snapshot);
+      log(`Completed seed ${seed}`);
+    } catch (error) {
+      const failure = serializeFailure(seed, error);
+      manifest.failures.push(failure);
+      console.error(`[jarvis-snapshots] Seed ${seed} failed: ${failure.message}`);
+      try {
+        const slug = safeName(`seed-${seed}`);
+        const seedDir = path.join(outputDir, slug);
+        await mkdir(seedDir, { recursive: true });
+        const failureScreenshotPath = path.join(seedDir, 'failure-page.png');
+        await page.screenshot({ path: failureScreenshotPath, fullPage: true, timeout: 10_000 });
+        failure.failureScreenshot = relativeArtifactPath(outputDir, failureScreenshotPath);
+      } catch (screenshotError) {
+        console.error(`[jarvis-snapshots] Could not capture failure screenshot for seed ${seed}: ${formatError(screenshotError)}`);
+      }
+    } finally {
+      await writeManifest(outputDir, manifest);
+      await page.close().catch(() => {});
     }
-
-    await writeFile(path.join(outputDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-  } finally {
-    await browser.close();
   }
 } finally {
+  if (browser) await browser.close().catch(() => {});
+  await writeManifest(outputDir, manifest);
   if (server) await stopServer(server);
 }
 
-async function driveGenerateControls(page, { seed, width }) {
+if (manifest.failures.length > 0) {
+  console.error(`[jarvis-snapshots] Completed with ${manifest.failures.length} failure(s). Partial artifacts were written.`);
+  process.exitCode = 1;
+} else {
+  log(`Completed ${manifest.snapshots.length} snapshot(s).`);
+}
+
+async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs }) {
+  const slug = safeName(`seed-${seed}`);
+  const seedDir = path.join(outputDir, slug);
+  await mkdir(seedDir, { recursive: true });
+
+  const url = `${baseUrl}/generate`;
+  log(`[${seed}] Opening ${url}`);
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+
+  log(`[${seed}] Driving Generate controls`);
+  await driveGenerateControls(page, { seed, width, timeoutMs });
+
+  log(`[${seed}] Waiting for export button`);
+  const exportButton = page.getByTestId('jarvis-review-export-button');
+  await exportButton.waitFor({ state: 'visible', timeout: timeoutMs });
+
+  log(`[${seed}] Waiting for canvas`);
+  await page.locator('canvas').first().waitFor({ state: 'visible', timeout: timeoutMs });
+
+  log(`[${seed}] Waiting for seed confirmation text`);
+  await page.getByText(new RegExp(`seed\\s+${escapeRegExp(seed)}`, 'i')).waitFor({ timeout: timeoutMs });
+  await page.waitForTimeout(500);
+
+  log(`[${seed}] Capturing Generate screenshot`);
+  const appScreenshotPath = path.join(seedDir, 'generate-app-final.png');
+  await page.screenshot({ path: appScreenshotPath, fullPage: false, timeout: timeoutMs });
+
+  log(`[${seed}] Clicking Export Jarvis Pack`);
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: downloadTimeoutMs }),
+    exportButton.click({ timeout: timeoutMs }),
+  ]);
+
+  log(`[${seed}] Saving Jarvis review pack`);
+  const packPath = path.join(seedDir, 'jarvis-review-pack.html');
+  await download.saveAs(packPath);
+
+  return {
+    seed,
+    url,
+    appScreenshot: relativeArtifactPath(outputDir, appScreenshotPath),
+    reviewPack: relativeArtifactPath(outputDir, packPath),
+  };
+}
+
+async function driveGenerateControls(page, { seed, width, timeoutMs }) {
   const numericInputs = page.locator('input[inputmode="numeric"]');
-  await numericInputs.first().waitFor({ state: 'visible', timeout: 120_000 });
-  await numericInputs.first().fill(String(seed));
+  await numericInputs.first().waitFor({ state: 'visible', timeout: timeoutMs });
+  await numericInputs.first().fill(String(seed), { timeout: timeoutMs });
 
   if (Number.isFinite(width)) {
-    await numericInputs.nth(1).fill(String(width));
+    await numericInputs.nth(1).fill(String(width), { timeout: timeoutMs });
   }
 
-  await page.getByRole('button', { name: /^Generate$/ }).last().click();
+  await page.getByRole('button', { name: /^Generate$/ }).last().click({ timeout: timeoutMs });
 }
 
 function parseArgs(argv) {
@@ -116,6 +171,11 @@ function parseViewport(value) {
   const viewportWidth = Math.max(800, Number(rawWidth) || 1440);
   const viewportHeight = Math.max(600, Number(rawHeight) || 1100);
   return { width: viewportWidth, height: viewportHeight };
+}
+
+function positiveNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 async function importPlaywright() {
@@ -172,6 +232,27 @@ async function stopServer(child) {
     });
   });
   if (child.exitCode == null) child.kill('SIGKILL');
+}
+
+async function writeManifest(root, manifest) {
+  await mkdir(root, { recursive: true });
+  await writeFile(path.join(root, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+}
+
+function serializeFailure(seed, error) {
+  return {
+    seed,
+    message: formatError(error),
+    stack: error?.stack ? String(error.stack) : undefined,
+  };
+}
+
+function formatError(error) {
+  return error?.message ? String(error.message) : String(error);
+}
+
+function log(message) {
+  console.log(`[jarvis-snapshots] ${message}`);
 }
 
 function relativeArtifactPath(root, filePath) {
