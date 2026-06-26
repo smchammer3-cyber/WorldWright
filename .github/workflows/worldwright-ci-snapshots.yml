@@ -4,15 +4,17 @@ on:
   push:
     branches:
       - WorldWright-new
-  pull_request:
-    branches:
-      - WorldWright-new
   workflow_dispatch:
+
+concurrency:
+  group: worldwright-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ci:
     name: Build and tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Check out repo
@@ -35,6 +37,7 @@ jobs:
   jarvis-snapshots:
     name: Jarvis snapshots
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Check out repo
@@ -54,7 +57,7 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Generate Jarvis snapshots
-        run: npm run snapshots:jarvis
+        run: npm run snapshots:jarvis -- --seeds=1040037 --width=96 --viewport=1280x900 --timeout-ms=20000 --download-timeout-ms=20000
 
       - name: Upload Jarvis snapshots
         if: always()
