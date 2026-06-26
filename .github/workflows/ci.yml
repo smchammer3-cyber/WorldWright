@@ -36,12 +36,14 @@ jobs:
           npm run test:run 2>&1 | tee artifacts/ci-logs/test.log
 
       - name: Generate diagnostics
+        if: always()
         run: |
           mkdir -p artifacts/ci-logs
           set -o pipefail
           npm run diagnostics:generate 2>&1 | tee artifacts/ci-logs/diagnostics.log
 
       - name: Generate visual previews
+        if: always()
         run: |
           mkdir -p artifacts/ci-logs
           set -o pipefail
