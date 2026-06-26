@@ -242,7 +242,7 @@ async function driveGenerateControls(page, { seed, width, timeoutMs }) {
     await numericInputs.nth(1).fill(String(width), { timeout: timeoutMs });
   }
 
-  await page.getByRole('button', { name: /^Generate$/ }).last().click({ timeout: timeoutMs });
+  await page.waitForTimeout(900);
 }
 
 function parseArgs(argv) {
