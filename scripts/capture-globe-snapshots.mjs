@@ -26,15 +26,16 @@ async function main() {
   server.stdout.on('data', (chunk) => serverLog.push(String(chunk)));
   server.stderr.on('data', (chunk) => serverLog.push(String(chunk)));
 
+  const manifest = [];
+  const errors = [];
   let browser = null;
+
   try {
     await waitForServer(BASE_URL);
-
     browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage', '--use-gl=swiftshader'] });
-    const manifest = [];
     const page = await browser.newPage({ viewport: { width: 960, height: 720 }, deviceScaleFactor: 1 });
-    page.setDefaultNavigationTimeout(20000);
-    page.setDefaultTimeout(20000);
+    page.setDefaultNavigationTimeout(15000);
+    page.setDefaultTimeout(15000);
 
     for (const caseId of CASES) {
       const caseDir = join(OUT_DIR, caseId);
@@ -44,24 +45,52 @@ async function main() {
         mkdirSync(modeDir, { recursive: true });
         for (const view of VIEWS) {
           const url = `${BASE_URL}/__snapshot?case=${encodeURIComponent(caseId)}&mode=${encodeURIComponent(mode)}&view=${encodeURIComponent(view)}`;
-          console.log(`[snapshot] ${caseId} ${mode} ${view}`);
-          await page.goto(url, { waitUntil: 'domcontentloaded' });
-          await page.locator('[data-snapshot-ready="true"]').waitFor({ timeout: 20000 });
-          await page.locator('[data-testid="worldwright-globe-canvas"]').waitFor({ timeout: 20000 });
-          await page.waitForTimeout(250);
           const file = join(modeDir, `${view}.png`);
-          await page.screenshot({ path: file, fullPage: true });
-          manifest.push({ caseId, mode, view, file: `${caseId}/${mode}/${view}.png`, url });
+          try {
+            console.log(`[snapshot] ${caseId} ${mode} ${view}`);
+            await withTimeout(captureSnapshot(page, url, file), 22000, `${caseId} ${mode} ${view}`);
+            manifest.push({ caseId, mode, view, file: `${caseId}/${mode}/${view}.png`, url });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.warn(`[snapshot skipped] ${caseId} ${mode} ${view}: ${message}`);
+            errors.push({ caseId, mode, view, url, message });
+          }
         }
       }
     }
-
-    writeFileSync(join(OUT_DIR, 'manifest.json'), JSON.stringify({ cases: CASES, modes: MODES, views: VIEWS, screenshots: manifest }, null, 2));
-    writeFileSync(join(OUT_DIR, 'viewer.html'), buildViewerHtml());
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[snapshot runner warning] ${message}`);
+    errors.push({ message });
   } finally {
     if (browser) await browser.close().catch(() => undefined);
+    writeFileSync(join(OUT_DIR, 'manifest.json'), JSON.stringify({ cases: CASES, modes: MODES, views: VIEWS, screenshots: manifest, errors }, null, 2));
+    writeFileSync(join(OUT_DIR, 'viewer.html'), buildViewerHtml());
+    writeFileSync(join(OUT_DIR, 'snapshot-errors.json'), JSON.stringify(errors, null, 2));
     writeFileSync(join(OUT_DIR, 'vite-server.log'), serverLog.join(''));
     await stopServer(server);
+  }
+}
+
+async function captureSnapshot(page, url, file) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.locator('[data-snapshot-ready="true"]').waitFor({ timeout: 15000 });
+  await page.locator('[data-testid="worldwright-globe-canvas"]').waitFor({ timeout: 15000 });
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: file, fullPage: true, timeout: 15000 });
+}
+
+async function withTimeout(promise, ms, label) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Timed out capturing ${label}`)), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -105,7 +134,7 @@ function buildViewerHtml() {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>WorldWright Live Globe Snapshots</title><style>
 :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#070b14;color:#edf3ff}body{margin:0;padding:24px;background:radial-gradient(circle at top,#1a2440,#070b14 72%)}h1{margin:0 0 8px}p{color:#b7c2d9;max-width:920px;line-height:1.5}nav{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0 28px}nav a{color:#e4edff;text-decoration:none;border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:8px 12px;background:rgba(255,255,255,.06)}article{border-top:1px solid rgba(255,255,255,.14);padding-top:22px;margin-top:28px}h3{color:#b8c7ec;margin-top:22px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}figure{margin:0;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:10px;box-shadow:0 18px 40px rgba(0,0,0,.22)}img{display:block;width:100%;height:auto;border-radius:10px;background:#03060d}figcaption{margin-top:8px;font-size:12px;color:#aeb9d4}
-</style></head><body><h1>WorldWright Live Globe Snapshots</h1><p>These images are captured by browser automation from the actual Vite React app using the real <code>Globe3D</code> component and WebGL canvas. They are CI artifacts only and are not committed generated outputs.</p><nav>${CASES.map((caseId) => `<a href="#${caseId}">${caseId}</a>`).join('')}</nav>${caseSections}</body></html>`;
+</style></head><body><h1>WorldWright Live Globe Snapshots</h1><p>These images are captured by browser automation from the actual Vite React app using the real <code>Globe3D</code> component and WebGL canvas. They are CI artifacts only and are not committed generated outputs. Missing images are recorded in <code>snapshot-errors.json</code>.</p><nav>${CASES.map((caseId) => `<a href="#${caseId}">${caseId}</a>`).join('')}</nav>${caseSections}</body></html>`;
 }
 
 main().catch((error) => {
