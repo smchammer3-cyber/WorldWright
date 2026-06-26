@@ -236,6 +236,10 @@ function averageMetric<T extends Record<string, number | null | undefined>>(rows
   return out;
 }
 
+function mean(values: number[]): number {
+  return values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length);
+}
+
 function formatNumber(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '0';
   return Math.abs(value) >= 1 ? value.toFixed(2) : value.toFixed(4);
