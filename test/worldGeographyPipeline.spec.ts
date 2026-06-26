@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/core/worldGenerator';
 import { applyGeneratedGeographyPipeline, applySkeletonBaseElevation } from '../src/core/worldGeographyPipeline';
+import { applyCoastShapePass } from '../src/core/worldCrust';
 import { seedContinentSkeletonFields } from '../src/core/worldContinents';
 import { validateWorld } from '../src/core/worldValidation';
 import { ContinentMarginType, IslandCause } from '../src/core/worldSchema';
@@ -106,6 +107,35 @@ describe('world geography pipeline', () => {
     const stableDelta = stable.world.cells[stable.centerIndex].baseHeight - stableBefore;
     const scrambledDelta = scrambled.world.cells[scrambled.centerIndex].baseHeight - scrambledBefore;
     expect(scrambledDelta).toBeCloseTo(stableDelta, 6);
+  });
+
+  it('does not let raw plate IDs change coast shape terrain output', () => {
+    const makeWorld = (scramblePlateIds: boolean) => {
+      const params = createDefaultGeneratorParams();
+      params.width = 32;
+      params.height = 16;
+      params.seed = 'coast-shape-raw-plate-id-invariance';
+      const world = generateWorldFromParams(params);
+      seedContinentSkeletonFields(world);
+
+      if (scramblePlateIds) {
+        for (let i = 0; i < world.cells.length; i++) {
+          world.cells[i].plateId = (i * 17 + 5) % 23;
+        }
+      }
+
+      return world;
+    };
+
+    const stable = makeWorld(false);
+    const scrambled = makeWorld(true);
+
+    applyCoastShapePass(stable);
+    applyCoastShapePass(scrambled);
+
+    for (let i = 0; i < stable.cells.length; i++) {
+      expect(scrambled.cells[i].baseHeight).toBeCloseTo(stable.cells[i].baseHeight, 8);
+    }
   });
 
   it('pulls shelves toward shallow water instead of turning them into bridges', () => {
