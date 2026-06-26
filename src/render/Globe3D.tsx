@@ -10,6 +10,10 @@ type Props = {
   preview?: PlanetPreview | null;
   className?: string;
   style?: React.CSSProperties;
+  initialRotation?: { x: number; y: number };
+  hideControls?: boolean;
+  snapshotKey?: string;
+  onSnapshotReady?: () => void;
 };
 
 type GlobeRuntime = {
@@ -45,11 +49,11 @@ const CUBE_FACES: FaceBasis[] = [
 
 const CUBE_SPHERE_FACE_SIZE = 72;
 
-export default function Globe3D({ world, preview, className, style }: Props) {
+export default function Globe3D({ world, preview, className, style, initialRotation, hideControls = false, snapshotKey, onSnapshotReady }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const runtimeRef = useRef<GlobeRuntime | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const meshRotationRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const meshRotationRef = useRef<{ x: number; y: number }>(initialRotation ?? { x: 0, y: 0 });
 
   function renderRuntime() {
     const rt = runtimeRef.current;
@@ -69,9 +73,9 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     if (!rt) return;
     rt.velX = 0;
     rt.velY = 0;
-    rt.mesh.rotation.x = 0;
-    rt.mesh.rotation.y = 0;
-    meshRotationRef.current = { x: 0, y: 0 };
+    rt.mesh.rotation.x = initialRotation?.x ?? 0;
+    rt.mesh.rotation.y = initialRotation?.y ?? 0;
+    meshRotationRef.current = { x: rt.mesh.rotation.x, y: rt.mesh.rotation.y };
     rt.camera.position.z = 2.6;
     renderRuntime();
   }
@@ -96,13 +100,14 @@ export default function Globe3D({ world, preview, className, style }: Props) {
       camera.updateProjectionMatrix();
     }
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(width, height, false);
     renderer.domElement.style.touchAction = 'none';
     renderer.domElement.style.display = 'block';
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
+    renderer.domElement.setAttribute('data-testid', 'worldwright-globe-canvas');
     el.appendChild(renderer.domElement);
 
     const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
@@ -307,6 +312,18 @@ export default function Globe3D({ world, preview, className, style }: Props) {
 
   useEffect(() => {
     const rt = runtimeRef.current;
+    if (!rt) return;
+    const rotation = initialRotation ?? { x: 0, y: 0 };
+    rt.velX = 0;
+    rt.velY = 0;
+    rt.mesh.rotation.x = rotation.x;
+    rt.mesh.rotation.y = rotation.y;
+    meshRotationRef.current = rotation;
+    rt.mountedPreviewKey = null;
+  }, [snapshotKey, initialRotation?.x, initialRotation?.y]);
+
+  useEffect(() => {
+    const rt = runtimeRef.current;
     if (!rt || !preview) return;
 
     const previewKey = buildPreviewKey(preview, world);
@@ -319,30 +336,33 @@ export default function Globe3D({ world, preview, className, style }: Props) {
     rt.material.needsUpdate = true;
     rt.mountedPreviewKey = previewKey;
     renderRuntime();
-  }, [preview, world]);
+    window.setTimeout(() => onSnapshotReady?.(), 80);
+  }, [preview, world, snapshotKey]);
 
   return (
     <div className={className} style={{ position: 'relative', width: '100%', height: '100%', ...style }}>
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
-      <div
-        style={{
-          position: 'absolute',
-          right: 12,
-          bottom: 12,
-          display: 'flex',
-          gap: 8,
-          alignItems: 'center',
-          background: 'rgba(0,0,0,0.34)',
-          border: '1px solid rgba(255,255,255,0.14)',
-          borderRadius: 999,
-          padding: 6,
-          backdropFilter: 'blur(6px)',
-        }}
-      >
-        <button type="button" onClick={() => zoomBy(0.22)} style={controlButtonStyle}>−</button>
-        <button type="button" onClick={resetView} style={{ ...controlButtonStyle, width: 'auto', padding: '0 12px' }}>Reset</button>
-        <button type="button" onClick={() => zoomBy(-0.22)} style={controlButtonStyle}>+</button>
-      </div>
+      {!hideControls && (
+        <div
+          style={{
+            position: 'absolute',
+            right: 12,
+            bottom: 12,
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+            background: 'rgba(0,0,0,0.34)',
+            border: '1px solid rgba(255,255,255,0.14)',
+            borderRadius: 999,
+            padding: 6,
+            backdropFilter: 'blur(6px)',
+          }}
+        >
+          <button type="button" onClick={() => zoomBy(0.22)} style={controlButtonStyle}>−</button>
+          <button type="button" onClick={resetView} style={{ ...controlButtonStyle, width: 'auto', padding: '0 12px' }}>Reset</button>
+          <button type="button" onClick={() => zoomBy(-0.22)} style={controlButtonStyle}>+</button>
+        </div>
+      )}
     </div>
   );
 }

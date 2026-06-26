@@ -29,6 +29,14 @@ jobs:
           set -o pipefail
           npm run build 2>&1 | tee artifacts/ci-logs/build.log
 
+      - name: Install browser automation
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npm install --no-save playwright 2>&1 | tee artifacts/ci-logs/playwright-install.log
+          npx playwright install --with-deps chromium 2>&1 | tee -a artifacts/ci-logs/playwright-install.log
+
       - name: Test
         run: |
           mkdir -p artifacts/ci-logs
@@ -48,6 +56,13 @@ jobs:
           mkdir -p artifacts/ci-logs
           set -o pipefail
           npm run previews:generate 2>&1 | tee artifacts/ci-logs/previews.log
+
+      - name: Capture live Globe3D snapshots
+        if: always()
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npm run snapshots:globe 2>&1 | tee artifacts/ci-logs/live-globe-snapshots.log
 
       - name: Upload CI artifacts
         uses: actions/upload-artifact@v4
