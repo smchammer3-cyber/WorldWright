@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "diagnostics:generate": "vitest run scripts/run-generate-diagnostics.test.ts",
+    "previews:generate": "vitest run scripts/render-generate-previews.test.ts",
     "test:run": "vitest run"
   },
   "dependencies": {
