@@ -24,21 +24,33 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npm run build 2>&1 | tee artifacts/ci-logs/build.log
 
       - name: Test
-        run: npm run test:run
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npm run test:run 2>&1 | tee artifacts/ci-logs/test.log
 
       - name: Generate diagnostics
-        run: npm run diagnostics:generate
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npm run diagnostics:generate 2>&1 | tee artifacts/ci-logs/diagnostics.log
 
       - name: Generate visual previews
-        run: npm run previews:generate
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npm run previews:generate 2>&1 | tee artifacts/ci-logs/previews.log
 
-      - name: Upload visual previews
+      - name: Upload CI artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: worldwright-generate-previews
-          path: artifacts/generate-previews
+          name: worldwright-ci-artifacts
+          path: artifacts
           if-no-files-found: warn
