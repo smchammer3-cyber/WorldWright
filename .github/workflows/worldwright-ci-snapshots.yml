@@ -42,7 +42,19 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm run test:run
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npm run test:run 2>&1 | tee artifacts/ci-logs/tests.log
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-test-logs
+          path: artifacts/ci-logs/tests.log
+          if-no-files-found: warn
+          retention-days: 14
 
   build:
     name: Build
@@ -63,7 +75,19 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npm run build 2>&1 | tee artifacts/ci-logs/build.log
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-build-logs
+          path: artifacts/ci-logs/build.log
+          if-no-files-found: warn
+          retention-days: 14
 
   jarvis-snapshot-canary:
     name: Jarvis snapshot canary
