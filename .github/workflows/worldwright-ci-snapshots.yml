@@ -96,6 +96,7 @@ jobs:
           if [ "$EXPORT_REVIEW_PACK" = "true" ]; then
             EXTRA_ARGS="--export-review-pack=true"
           fi
+          # World grid is 384x192. Globe images are square 384x384 so the globe is not vertically squashed.
           npm run snapshots:jarvis -- --seeds=1040037 --width=384 --globe-image-size=384x384 --viewport=1800x1200 --timeout-ms=45000 --download-timeout-ms=45000 $EXTRA_ARGS
 
       - name: Upload Jarvis snapshots
