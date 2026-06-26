@@ -19,7 +19,7 @@ const ABLATIONS: AblationStageId[] = [
   'SKELETON_ELEVATION',
   'QUALITY_PASS',
   'ISOSTATIC_TERRAIN_RESPONSE',
-  'CRUST_PROVINCE_DELTA',
+  'CRUST_TERRAIN_INFLUENCE',
   'OCEAN_BATHYMETRY_SMOOTHING',
 ];
 
@@ -234,6 +234,10 @@ function averageMetric<T extends Record<string, number | null | undefined>>(rows
   const out: Record<string, number> = {};
   for (const key of keys) out[key] = mean(rows.map((row) => Number(row[key] ?? 0)));
   return out;
+}
+
+function mean(values: number[]): number {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 }
 
 function formatNumber(value: number | null | undefined): string {

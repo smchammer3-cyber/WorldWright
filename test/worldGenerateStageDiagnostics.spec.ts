@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { computeGeneratedStageDiagnostics } from '../src/core/worldGenerateStageDiagnostics';
+import { buildGenerateRuntimeStagePlan } from '../src/core/generateRuntimeStagePlan';
 import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/core/worldGenerator';
 
 describe('generated stage diagnostics', () => {
-  it('replays the generated pipeline and reports all authority stages', () => {
+  it('replays the runtime stage plan and reports authority stages', () => {
     const params = createDefaultGeneratorParams();
     params.width = 64;
     params.height = 32;
@@ -11,26 +12,13 @@ describe('generated stage diagnostics', () => {
     params.continentCount = 4;
 
     const world = generateWorldFromParams(params);
+    const runtimePlan = buildGenerateRuntimeStagePlan(world);
     const diagnostics = computeGeneratedStageDiagnostics(world);
 
     expect(diagnostics).not.toBeNull();
-    expect(diagnostics?.stages.map((stage) => stage.id)).toEqual([
-      'RAW_GENERATOR',
-      'CONTINENT_FIELDS',
-      'SKELETON_ELEVATION',
-      'FIRST_RECOMPUTE',
-      'QUALITY_PASS',
-      'CRUST_FIELDS',
-      'CRUST_PROVINCE_DELTA',
-      'CRUST_COAST_BREAKUP',
-      'CRUST_COHERENCE',
-      'CRUST_SKELETON_OBEDIENCE',
-      'CRUST_TINY_ISLAND_CLEANUP',
-      'OCEAN_BATHYMETRY_SMOOTHING',
-      'FINAL_RECOMPUTE',
-      'FINAL_CONTINENT_RESEED',
-      'FINAL_CRUST_RESEED',
-    ]);
+    expect(diagnostics?.stages.map((stage) => stage.id)).toEqual(runtimePlan.stages.map((stage) => stage.id));
+    expect(diagnostics?.stages.some((stage) => stage.id === 'CRUST_TERRAIN_INFLUENCE')).toBe(runtimePlan.stages.some((stage) => stage.id === 'CRUST_TERRAIN_INFLUENCE'));
+    expect(diagnostics?.stages.some((stage) => stage.id === 'CRUST_PROVINCE_DELTA')).toBe(false);
 
     for (const stage of diagnostics?.stages ?? []) {
       expect(Number.isFinite(stage.raw.landFraction)).toBe(true);
