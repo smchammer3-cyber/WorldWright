@@ -9,6 +9,15 @@ const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_DOWNLOAD_TIMEOUT_MS = 30_000;
 
+const FINAL_GLOBE_VIEWS = [
+  { id: 'front', label: 'Front', rotation: { x: 0, y: 0 } },
+  { id: 'east', label: 'East', rotation: { x: 0, y: Math.PI / 2 } },
+  { id: 'west', label: 'West', rotation: { x: 0, y: -Math.PI / 2 } },
+  { id: 'back', label: 'Back', rotation: { x: 0, y: Math.PI } },
+  { id: 'north', label: 'North', rotation: { x: -Math.PI / 2, y: 0 } },
+  { id: 'south', label: 'South', rotation: { x: Math.PI / 2, y: 0 } },
+];
+
 const args = parseArgs(process.argv.slice(2));
 const outputDir = path.resolve(args.out ?? 'artifacts/jarvis-snapshots');
 const host = args.host ?? DEFAULT_HOST;
@@ -37,6 +46,7 @@ const manifest = {
   timeoutMs,
   downloadTimeoutMs,
   exportReviewPack: shouldExportReviewPack,
+  finalGlobeViews: FINAL_GLOBE_VIEWS.map(({ id, label }) => ({ id, label })),
   snapshots: [],
   failures: [],
 };
@@ -123,7 +133,7 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
   await exportButton.waitFor({ state: 'visible', timeout: timeoutMs });
 
   log(`[${seed}] Waiting for final globe canvas`);
-  const globeCanvas = page.locator('canvas').first();
+  const globeCanvas = page.getByTestId('worldwright-globe-canvas');
   await globeCanvas.waitFor({ state: 'visible', timeout: timeoutMs });
 
   log(`[${seed}] Waiting for seed confirmation text`);
@@ -134,15 +144,27 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
   const appScreenshotPath = path.join(seedDir, 'generate-app-final.png');
   await page.screenshot({ path: appScreenshotPath, fullPage: false, timeout: timeoutMs });
 
-  log(`[${seed}] Capturing final globe screenshot`);
-  const finalGlobePath = path.join(seedDir, 'final-globe.png');
-  await globeCanvas.screenshot({ path: finalGlobePath, timeout: timeoutMs });
+  const finalGlobeViews = {};
+  let legacyFinalGlobePath = null;
+  for (const view of FINAL_GLOBE_VIEWS) {
+    log(`[${seed}] Capturing final globe ${view.label}`);
+    await setGlobeSnapshotRotation(page, globeCanvas, view.rotation);
+    const viewPath = path.join(seedDir, `final-globe-${view.id}.png`);
+    await globeCanvas.screenshot({ path: viewPath, timeout: timeoutMs });
+    finalGlobeViews[view.id] = relativeArtifactPath(outputDir, viewPath);
+
+    if (view.id === 'front') {
+      legacyFinalGlobePath = path.join(seedDir, 'final-globe.png');
+      await globeCanvas.screenshot({ path: legacyFinalGlobePath, timeout: timeoutMs });
+    }
+  }
 
   const snapshot = {
     seed,
     url,
     appScreenshot: relativeArtifactPath(outputDir, appScreenshotPath),
-    finalGlobe: relativeArtifactPath(outputDir, finalGlobePath),
+    finalGlobe: legacyFinalGlobePath ? relativeArtifactPath(outputDir, legacyFinalGlobePath) : finalGlobeViews.front,
+    finalGlobeViews,
   };
 
   if (!shouldExportReviewPack) {
@@ -164,6 +186,17 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
     ...snapshot,
     reviewPack: relativeArtifactPath(outputDir, packPath),
   };
+}
+
+async function setGlobeSnapshotRotation(page, globeCanvas, rotation) {
+  await globeCanvas.evaluate((canvas, nextRotation) => {
+    const setRotation = canvas.__worldwrightSetSnapshotRotation;
+    if (typeof setRotation !== 'function') {
+      throw new Error('Globe snapshot rotation hook is not available on the canvas.');
+    }
+    setRotation(nextRotation);
+  }, rotation);
+  await page.waitForTimeout(120);
 }
 
 async function driveGenerateControls(page, { seed, width, timeoutMs }) {
