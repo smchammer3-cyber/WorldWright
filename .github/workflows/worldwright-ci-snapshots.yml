@@ -1,7 +1,7 @@
 name: WorldWright CI + Jarvis Snapshots
 
 on:
-  push:
+  pull_request:
     branches:
       - WorldWright-new
   workflow_dispatch:
