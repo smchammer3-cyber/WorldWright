@@ -6,8 +6,24 @@ const OUT_DIR = join(process.cwd(), 'artifacts', 'live-globe-snapshots');
 const PORT = Number(process.env.WORLDWRIGHT_SNAPSHOT_PORT ?? 4177);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
-const CASES = ['earthlike-baseline-01', 'wet-high-sea-01', 'dry-rocky-01', 'stagnant-lid-01', 'ice-shell-01'];
-const MODES = ['FINAL', 'HEIGHT', 'LAND_WATER', 'OCEAN_DEPTH', 'CRUST_PROVINCE', 'CONTINENTS', 'PLATES'];
+const CASES = [
+  'earthlike-baseline-01',
+  'wet-high-sea-01',
+  'dry-rocky-01',
+  'stagnant-lid-01',
+  'ice-shell-01',
+];
+
+const MODES = [
+  'FINAL',
+  'HEIGHT',
+  'LAND_WATER',
+  'OCEAN_DEPTH',
+  'CRUST_PROVINCE',
+  'CONTINENTS',
+  'PLATES',
+];
+
 const VIEWS = ['front', 'east', 'west', 'north', 'south'];
 
 async function main() {
@@ -26,19 +42,19 @@ async function main() {
   server.stdout.on('data', (chunk) => serverLog.push(String(chunk)));
   server.stderr.on('data', (chunk) => serverLog.push(String(chunk)));
 
-  let browser = null;
   try {
     await waitForServer(BASE_URL);
 
-    browser = await chromium.launch({
+    const browser = await chromium.launch({
       headless: true,
       args: ['--disable-dev-shm-usage', '--use-gl=swiftshader'],
     });
 
     const manifest = [];
-    const page = await browser.newPage({ viewport: { width: 960, height: 720 }, deviceScaleFactor: 1 });
-    page.setDefaultNavigationTimeout(20000);
-    page.setDefaultTimeout(20000);
+    const page = await browser.newPage({
+      viewport: { width: 960, height: 720 },
+      deviceScaleFactor: 1,
+    });
 
     for (const caseId of CASES) {
       const caseDir = join(OUT_DIR, caseId);
@@ -50,11 +66,10 @@ async function main() {
 
         for (const view of VIEWS) {
           const url = `${BASE_URL}/__snapshot?case=${encodeURIComponent(caseId)}&mode=${encodeURIComponent(mode)}&view=${encodeURIComponent(view)}`;
-          console.log(`[snapshot] ${caseId} ${mode} ${view}`);
-          await page.goto(url, { waitUntil: 'domcontentloaded' });
-          await page.locator('[data-snapshot-ready="true"]').waitFor({ timeout: 20000 });
-          await page.locator('[data-testid="worldwright-globe-canvas"]').waitFor({ timeout: 20000 });
-          await page.waitForTimeout(250);
+          await page.goto(url, { waitUntil: 'networkidle' });
+          await page.locator('[data-snapshot-ready="true"]').waitFor({ timeout: 15000 });
+          await page.locator('[data-testid="worldwright-globe-canvas"]').waitFor({ timeout: 15000 });
+          await page.waitForTimeout(180);
 
           const file = join(modeDir, `${view}.png`);
           await page.screenshot({ path: file, fullPage: true });
@@ -63,28 +78,14 @@ async function main() {
       }
     }
 
+    await browser.close();
+
     writeFileSync(join(OUT_DIR, 'manifest.json'), JSON.stringify({ cases: CASES, modes: MODES, views: VIEWS, screenshots: manifest }, null, 2));
     writeFileSync(join(OUT_DIR, 'viewer.html'), buildViewerHtml(manifest));
   } finally {
-    if (browser) await browser.close().catch(() => undefined);
     writeFileSync(join(OUT_DIR, 'vite-server.log'), serverLog.join(''));
-    await stopServer(server);
-  }
-}
-
-async function stopServer(server) {
-  if (server.exitCode != null || server.signalCode != null) return;
-  await new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      server.kill('SIGKILL');
-      resolve();
-    }, 2500);
-    server.once('exit', () => {
-      clearTimeout(timer);
-      resolve();
-    });
     server.kill('SIGTERM');
-  });
+  }
 }
 
 async function waitForServer(url) {
@@ -103,7 +104,7 @@ async function waitForServer(url) {
   throw new Error(`Timed out waiting for ${url}: ${lastError?.message ?? 'unknown error'}`);
 }
 
-function buildViewerHtml() {
+function buildViewerHtml(manifest) {
   const caseSections = CASES.map((caseId) => {
     const modeSections = MODES.map((mode) => {
       const figures = VIEWS.map((view) => {
@@ -112,6 +113,7 @@ function buildViewerHtml() {
       }).join('\n');
       return `<section class="mode"><h3>${mode}</h3><div class="grid">${figures}</div></section>`;
     }).join('\n');
+
     return `<article id="${caseId}"><h2>${caseId}</h2>${modeSections}</article>`;
   }).join('\n');
 
