@@ -122,21 +122,27 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
   const exportButton = page.getByTestId('jarvis-review-export-button');
   await exportButton.waitFor({ state: 'visible', timeout: timeoutMs });
 
-  log(`[${seed}] Waiting for canvas`);
-  await page.locator('canvas').first().waitFor({ state: 'visible', timeout: timeoutMs });
+  log(`[${seed}] Waiting for final globe canvas`);
+  const globeCanvas = page.locator('canvas').first();
+  await globeCanvas.waitFor({ state: 'visible', timeout: timeoutMs });
 
   log(`[${seed}] Waiting for seed confirmation text`);
   await page.getByText(new RegExp(`seed\\s+${escapeRegExp(seed)}`, 'i')).waitFor({ timeout: timeoutMs });
   await page.waitForTimeout(500);
 
-  log(`[${seed}] Capturing Generate screenshot`);
+  log(`[${seed}] Capturing Generate page screenshot`);
   const appScreenshotPath = path.join(seedDir, 'generate-app-final.png');
   await page.screenshot({ path: appScreenshotPath, fullPage: false, timeout: timeoutMs });
+
+  log(`[${seed}] Capturing final globe screenshot`);
+  const finalGlobePath = path.join(seedDir, 'final-globe.png');
+  await globeCanvas.screenshot({ path: finalGlobePath, timeout: timeoutMs });
 
   const snapshot = {
     seed,
     url,
     appScreenshot: relativeArtifactPath(outputDir, appScreenshotPath),
+    finalGlobe: relativeArtifactPath(outputDir, finalGlobePath),
   };
 
   if (!shouldExportReviewPack) {
