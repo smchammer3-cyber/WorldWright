@@ -59,17 +59,19 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
     const shelf = clamp01(cell.shelfStrength);
     const localLand = localFractionAboveSea(world, source, i, seaLevel, 4);
     const tightLand = localFractionAboveSea(world, source, i, seaLevel, 1);
+    const adjacentLand = cardinalFractionAboveSea(world, source, i, seaLevel);
+    const directLandSupport = Math.max(adjacentLand, tightLand * 0.45, localLand * 0.20);
     const skeletonContinuity = skeletonAuthorityContinuity(world, i);
     const nearSurface = 1 - smoothstep(0.10, 0.46, Math.abs(aboveSea));
     const landTexture = skeletonLandTexture(world, i, seed);
     const continentLandIntent = clamp01(continentality * 0.72 + core * 0.34 + landTexture * 0.22 - shelf * 0.08);
     const strongCoreLand = continentality > 0.66 && core > 0.38 && continentLandIntent > 0.72;
-    const attachedMarginLand = continentality > 0.48 && Math.max(localLand, tightLand) >= 0.22 && continentLandIntent > 0.66;
+    const attachedMarginLand = continentality > 0.48 && directLandSupport >= 0.22 && continentLandIntent > 0.66;
     const shouldCaptureContinentLand = strongCoreLand || attachedMarginLand || isCausedIsland(cell);
     const unsupportedSubmergedContinent = !wasLand
       && !shouldCaptureContinentLand
       && continentality > 0.52
-      && Math.max(localLand, tightLand) < 0.22;
+      && directLandSupport < 0.22;
     let target = h;
     let strength = 0;
 
@@ -102,7 +104,7 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
     }
 
     if (shelf > 0.30 && core < 0.70) {
-      const coastAttached = Math.max(localLand, tightLand) >= 0.22 || wasLand;
+      const coastAttached = adjacentLand >= 0.25 || wasLand;
       const shelfTarget = coastAttached
         ? seaLevel - 0.024 + shelf * 0.018
         : seaLevel - 0.085 - shelf * 0.035;
@@ -191,6 +193,16 @@ function localFractionAboveSea(world: WorldBrain, heights: number[], index: numb
     }
   }
   return total > 0 ? land / total : 0;
+}
+
+function cardinalFractionAboveSea(world: WorldBrain, heights: number[], index: number, seaLevel: number): number {
+  const neighbors = neighborIndices4(world, index);
+  if (neighbors.length === 0) return 0;
+  let land = 0;
+  for (const neighborIndex of neighbors) {
+    if (heights[neighborIndex] >= seaLevel) land++;
+  }
+  return land / neighbors.length;
 }
 
 function skeletonAuthorityContinuity(world: WorldBrain, index: number): number {
