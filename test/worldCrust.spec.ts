@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { computeWorldDiagnostics } from '../src/core/worldDiagnostics';
 import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/core/worldGenerator';
 import { applyCrustProvinceTerrainDelta, applyCrustTerrainInfluence, seedCrustFields, ensureCrustFields } from '../src/core/worldCrust';
+import { classifyCrustProvince } from '../src/core/worldCrust/materialFields';
 import { makePlanetPreviewFromWorldBrain, PLANET_PREVIEW_MODES } from '../src/core/planetRenderer';
 import { recomputeWorld } from '../src/core/worldRecompute';
 import { validateWorld } from '../src/core/worldValidation';
-import { BoundaryType, ContinentMarginType, CrustProvince, IslandCause, PlateType } from '../src/core/worldSchema';
+import { BoundaryType, ContinentMarginType, CrustProvince, IslandCause, PlateType, type Cell } from '../src/core/worldSchema';
 
 describe('world crust fields', () => {
   it('seeds deterministic crust thickness, age, and province values in range', () => {
@@ -36,18 +37,55 @@ describe('world crust fields', () => {
     expect(validateWorld(world)).toEqual([]);
   });
 
-  it('does not silently collapse generated crust provinces across representative seeds', () => {
-    const provinceCounts = ['crust-scaffold', 'crust-diversity-a', 'crust-diversity-b', 'crust-diversity-c'].map((seed) => {
-      const params = createDefaultGeneratorParams();
-      params.width = 96;
-      params.height = 48;
-      params.seed = seed;
-      const world = generateWorldFromParams(params);
-      seedCrustFields(world);
-      return new Set(world.cells.map((cell) => cell.crustProvince)).size;
+  it('classifies distinct crust provinces from explicit material signals', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 8;
+    params.height = 4;
+    params.seed = 'crust-classifier-cases';
+    const world = generateWorldFromParams(params);
+    const base = world.cells[0];
+    const seaLevel = 0;
+
+    const oceanic = caseCell(base, {
+      baseHeight: -0.24,
+      plateType: PlateType.OCEANIC,
+      continentality: 0.05,
+      shelfStrength: 0.02,
+      crustThickness: 0.32,
+      crustAge: 0.34,
+    });
+    const coast = caseCell(base, {
+      baseHeight: 0.02,
+      plateType: PlateType.CONTINENTAL,
+      marginType: ContinentMarginType.PASSIVE,
+      continentality: 0.45,
+      shelfStrength: 0.80,
+      crustThickness: 0.52,
+      crustAge: 0.48,
+    });
+    const shield = caseCell(base, {
+      baseHeight: 0.18,
+      plateType: PlateType.CONTINENTAL,
+      continentCoreStrength: 0.80,
+      continentality: 0.92,
+      crustThickness: 0.72,
+      crustAge: 0.72,
+    });
+    const mobile = caseCell(base, {
+      baseHeight: 0.20,
+      plateType: PlateType.CONTINENTAL,
+      boundaryType: BoundaryType.CONVERGENT,
+      marginType: ContinentMarginType.ACTIVE,
+      upliftRate: 0.35,
+      continentality: 0.66,
+      crustThickness: 0.64,
+      crustAge: 0.44,
     });
 
-    expect(Math.max(...provinceCounts)).toBeGreaterThan(1);
+    expect(classifyCrustProvince(oceanic, oceanic.baseHeight, seaLevel)).toBe(CrustProvince.OCEANIC_BASIN);
+    expect(classifyCrustProvince(coast, coast.baseHeight, seaLevel)).toBe(CrustProvince.COASTAL_PLAIN);
+    expect(classifyCrustProvince(shield, shield.baseHeight, seaLevel)).toBe(CrustProvince.OLD_SHIELD);
+    expect(classifyCrustProvince(mobile, mobile.baseHeight, seaLevel)).toBe(CrustProvince.MOBILE_BELT);
   });
 
   it('repairs legacy worlds missing crust fields and provinces', () => {
@@ -306,6 +344,26 @@ describe('world crust fields', () => {
     expect(provincePreview.rgba.length).toBe(world.gridWidth * world.gridHeight * 4);
   });
 });
+
+function caseCell(base: Cell, overrides: Partial<Cell>): Cell {
+  return {
+    ...base,
+    baseHeight: 0,
+    editHeightDelta: 0,
+    simHeightDelta: 0,
+    boundaryType: BoundaryType.NONE,
+    marginType: ContinentMarginType.NONE,
+    continentCoreStrength: 0,
+    continentality: 0.5,
+    shelfStrength: 0,
+    upliftRate: 0,
+    volcanicActivity: 0,
+    islandCause: IslandCause.NONE,
+    crustThickness: 0.5,
+    crustAge: 0.5,
+    ...overrides,
+  };
+}
 
 function average(values: number[]): number {
   return values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length);
