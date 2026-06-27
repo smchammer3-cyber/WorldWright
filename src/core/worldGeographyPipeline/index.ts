@@ -48,6 +48,7 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
   assertNoAuthoredTerrainDeltas(world, 'applySkeletonBaseElevation');
   const seaLevel = typeof world.seaLevel === 'number' ? world.seaLevel : world.metadata?.seaLevel ?? 0;
   const source = world.cells.map((cell) => totalHeight(cell));
+  const seed = seedToUint32(world.metadata?.seed ?? world.parameters?.seed ?? 0);
   for (let i = 0; i < world.cells.length; i++) {
     const cell = world.cells[i];
     const h = source[i];
@@ -60,12 +61,28 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
     const tightLand = localFractionAboveSea(world, source, i, seaLevel, 1);
     const skeletonContinuity = skeletonAuthorityContinuity(world, i);
     const nearSurface = 1 - smoothstep(0.10, 0.46, Math.abs(aboveSea));
+    const landTexture = skeletonLandTexture(world, i, seed);
+    const continentLandIntent = clamp01(continentality * 0.72 + core * 0.34 + landTexture * 0.22 - shelf * 0.08);
+    const strongCoreLand = continentality > 0.66 && core > 0.38 && continentLandIntent > 0.72;
+    const attachedMarginLand = continentality > 0.48 && Math.max(localLand, tightLand) >= 0.22 && continentLandIntent > 0.66;
+    const shouldCaptureContinentLand = strongCoreLand || attachedMarginLand || isCausedIsland(cell);
+    const unsupportedSubmergedContinent = !wasLand
+      && !shouldCaptureContinentLand
+      && continentality > 0.52
+      && Math.max(localLand, tightLand) < 0.22;
     let target = h;
     let strength = 0;
+
     if (continentality > 0.62) {
-      const coreTarget = seaLevel + 0.052 + continentality * 0.048 + core * 0.082;
-      target = blendTarget(target, coreTarget, 0.30 + core * 0.14);
-      strength = Math.max(strength, 0.20 + core * 0.12);
+      if (!wasLand && !shouldCaptureContinentLand) {
+        const basinTarget = seaLevel - 0.080 - (continentality - 0.62) * 0.13 - core * 0.035;
+        target = blendTarget(target, basinTarget, 0.36 + core * 0.16 + nearSurface * 0.10);
+        strength = Math.max(strength, 0.24 + core * 0.14 + nearSurface * 0.08);
+      } else {
+        const coreTarget = seaLevel + 0.044 + continentality * 0.050 + core * 0.088 + landTexture * 0.016;
+        target = blendTarget(target, coreTarget, 0.42 + core * 0.22 + (wasLand ? 0.06 : 0.12));
+        strength = Math.max(strength, 0.26 + core * 0.18 + (wasLand ? 0.04 : 0.10));
+      }
     } else if (continentality > 0.38) {
       const marginTarget = seaLevel + 0.014 + (continentality - 0.38) * 0.060 - shelf * 0.014;
       target = blendTarget(target, marginTarget, 0.18 + nearSurface * 0.08);
@@ -77,13 +94,24 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
       target = blendTarget(target, basinTarget, basinPull);
       strength = Math.max(strength, (0.10 + nearSurface * 0.06) * lerp(1, 0.45, attachedLandProtection));
     }
+
+    if (unsupportedSubmergedContinent) {
+      const ghostTarget = seaLevel - 0.095 - (continentality - 0.52) * 0.12 - shelf * 0.025;
+      target = Math.min(target, ghostTarget);
+      strength = Math.max(strength, 0.30 + nearSurface * 0.12);
+    }
+
     if (shelf > 0.30 && core < 0.70) {
-      const shelfTarget = seaLevel - 0.024 + shelf * 0.018;
-      const shelfPull = wasLand ? 0.10 * shelf : 0.18 * shelf;
+      const coastAttached = Math.max(localLand, tightLand) >= 0.22 || wasLand;
+      const shelfTarget = coastAttached
+        ? seaLevel - 0.024 + shelf * 0.018
+        : seaLevel - 0.085 - shelf * 0.035;
+      const shelfPull = wasLand ? 0.10 * shelf : (coastAttached ? 0.18 * shelf : 0.24 * shelf);
       const attachedLandProtection = wasLand ? smoothstep(0.40, 0.82, Math.max(localLand, tightLand)) : 0;
       target = blendTarget(target, shelfTarget, shelfPull * lerp(1, 0.40, attachedLandProtection));
       strength = Math.max(strength, (0.10 + shelf * 0.06) * lerp(1, 0.65, attachedLandProtection));
     }
+
     switch (cell.marginType) {
       case ContinentMarginType.COLLISION:
       case ContinentMarginType.ACTIVE:
@@ -101,6 +129,7 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
       default:
         break;
     }
+
     const invalidFragment = cell.islandCause === IslandCause.INVALID_FRAGMENT && continentality < 0.22 && shelf < 0.28;
     if (invalidFragment) {
       target = Math.min(target, seaLevel - 0.090);
@@ -117,9 +146,9 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
     }
     if (wasLand && h + delta < seaLevel && !canSkeletonSinkLand(cell, localLand, tightLand, continentality, shelf, core, invalidFragment)) delta = Math.max(delta, seaLevel + 0.006 - h);
     if (delta > 0 && !wasLand && continentality < 0.26 && shelf < 0.24 && !isCausedIsland(cell)) delta *= 0.35;
-    if (!wasLand && h + delta >= seaLevel && !canSkeletonRaiseWater(cell, localLand, tightLand, continentality, shelf, core)) delta = Math.min(delta, seaLevel - 0.006 - h);
+    if (!wasLand && h + delta >= seaLevel && !canSkeletonRaiseWater(cell, localLand, tightLand, continentality, shelf, core, shouldCaptureContinentLand)) delta = Math.min(delta, seaLevel - 0.006 - h);
     delta *= lerp(0.70, 1, skeletonContinuity) * skeletonSeamDamp(world, i);
-    delta = capSkeletonDelta(delta, cell, skeletonContinuity, invalidFragment);
+    delta = capSkeletonDelta(delta, cell, skeletonContinuity, invalidFragment, shouldCaptureContinentLand);
     cell.baseHeight = clamp(cell.baseHeight + delta, -1.4, 1.5);
   }
 }
@@ -131,7 +160,8 @@ function canSkeletonSinkLand(cell: Cell, localLand: number, tightLand: number, c
   return localLand < 0.34 && tightLand < 0.38;
 }
 
-function canSkeletonRaiseWater(cell: Cell, localLand: number, tightLand: number, continentality: number, shelf: number, core: number): boolean {
+function canSkeletonRaiseWater(cell: Cell, localLand: number, tightLand: number, continentality: number, shelf: number, core: number, continentLandIntent: boolean): boolean {
+  if (continentLandIntent) return true;
   if (isCausedIsland(cell)) return true;
   if (continentality > 0.70 && core > 0.56) return true;
   if (continentality > 0.46 && shelf > 0.42 && Math.max(localLand, tightLand) >= 0.34) return true;
@@ -174,16 +204,51 @@ function skeletonAuthorityContinuity(world: WorldBrain, index: number): number {
   return 1 - clamp01(mismatch / neighbors.length);
 }
 
-function capSkeletonDelta(delta: number, cell: Cell, continuity: number, invalidFragment: boolean): number {
+function skeletonLandTexture(world: WorldBrain, index: number, seed: number): number {
+  const row = Math.floor(index / world.gridWidth);
+  const col = index % world.gridWidth;
+  const x = col / Math.max(1, world.gridWidth);
+  const y = row / Math.max(1, world.gridHeight);
+  const broad = valueNoise2D(seed, x * 5.0, y * 3.0, 3101);
+  const medium = valueNoise2D(seed, x * 11.0, y * 7.0, 3203);
+  const coast = valueNoise2D(seed, x * 23.0, y * 13.0, 3307);
+  return clamp01(broad * 0.48 + medium * 0.34 + coast * 0.18);
+}
+
+function valueNoise2D(seed: number, x: number, y: number, salt: number): number {
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const tx = x - x0;
+  const ty = y - y0;
+  const a = hashGrid(seed, x0, y0, salt);
+  const b = hashGrid(seed, x0 + 1, y0, salt);
+  const c = hashGrid(seed, x0, y0 + 1, salt);
+  const d = hashGrid(seed, x0 + 1, y0 + 1, salt);
+  const sx = tx * tx * (3 - 2 * tx);
+  const sy = ty * ty * (3 - 2 * ty);
+  return lerp(lerp(a, b, sx), lerp(c, d, sx), sy);
+}
+
+function hashGrid(seed: number, x: number, y: number, salt: number): number {
+  let h = seed ^ Math.imul(x + 4099, 374761393) ^ Math.imul(y + 9176, 668265263) ^ Math.imul(salt + 1, 1274126177);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967295;
+}
+
+function capSkeletonDelta(delta: number, cell: Cell, continuity: number, invalidFragment: boolean, continentLandIntent = false): number {
   if (invalidFragment) return clamp(delta, -0.085, 0.060);
   if (isCausedIsland(cell)) return clamp(delta, -0.040, 0.060);
   const core = clamp01(cell.continentCoreStrength);
   const continentality = clamp01(cell.continentality);
   const shelf = clamp01(cell.shelfStrength);
   const marginBoost = cell.marginType === ContinentMarginType.NONE ? 0 : 0.010;
-  const positiveCap = lerp(0.026, 0.052, continuity) + core * 0.030 + marginBoost;
+  const positiveCap = continentLandIntent
+    ? 0.120 + core * 0.080 + continentality * 0.030
+    : lerp(0.026, 0.052, continuity) + core * 0.030 + marginBoost;
   const negativeCap = lerp(0.024, 0.044, continuity) + (1 - continentality) * 0.014 + shelf * 0.010 + marginBoost;
-  return delta > 0 ? Math.min(delta, positiveCap) : Math.max(delta, -negativeCap);
+  const ghostSinkCap = !continentLandIntent && continentality > 0.52 ? 0.080 + shelf * 0.030 : negativeCap;
+  return delta > 0 ? Math.min(delta, positiveCap) : Math.max(delta, -ghostSinkCap);
 }
 
 function skeletonSeamDamp(world: WorldBrain, index: number): number {
@@ -228,6 +293,16 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
+}
+
+function seedToUint32(s: string | number): number {
+  if (typeof s === 'number') return s >>> 0;
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < String(s).length; i++) {
+    h ^= String(s).charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) & 0xffffffff;
 }
 
 function clamp(value: number, lo: number, hi: number): number {
