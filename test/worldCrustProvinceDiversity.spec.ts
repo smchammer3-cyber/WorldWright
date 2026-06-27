@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { seedCrustFields } from '../src/core/worldCrust';
+import { applyGeneratedGeographyPipeline } from '../src/core/worldGeographyPipeline';
 import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/core/worldGenerator';
 import { CrustProvince } from '../src/core/worldSchema';
 
 describe('generated crust province diversity', () => {
-  it('does not collapse representative generated worlds into one crust province label', () => {
+  it('does not collapse production generated worlds into one crust province label', () => {
     const provinceSets = ['crust-scaffold', 'crust-diversity-a', 'crust-diversity-b', 'crust-diversity-c'].map((seed) => {
       const params = createDefaultGeneratorParams();
       params.width = 96;
       params.height = 48;
       params.seed = seed;
       const world = generateWorldFromParams(params);
-      seedCrustFields(world);
+      applyGeneratedGeographyPipeline(world);
       return new Set(world.cells.map((cell) => cell.crustProvince));
     });
 
