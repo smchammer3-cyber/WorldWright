@@ -65,26 +65,26 @@ function applyContinentIntentBirthTerrain(world: WorldBrain): void {
     const h = before[i];
     const texture = terrainTexture(seedUint, world, i);
     const fine = centeredJitter(seedUint, i, 47021);
-    const continentGate = smoothstep(0.28, 0.82, intent.continentality);
-    const coreGate = smoothstep(0.30, 0.88, intent.continentCoreStrength);
-    const shelfGate = smoothstep(0.20, 0.78, intent.shelfTendency);
-    const basinGate = smoothstep(0.16, 0.86, intent.oceanBasinTendency);
-    const marginGate = smoothstep(0.18, 0.74, intent.marginTendency);
-    const featureLift = Math.max(0, cell.upliftRate) * 0.030 * tectonicVigor;
-    const volcanicLift = clamp01(cell.volcanicActivity) * 0.020 * Math.max(0.35, tectonicVigor);
+    const continentGate = smoothstep(0.34, 0.86, intent.continentality);
+    const coreGate = smoothstep(0.36, 0.90, intent.continentCoreStrength);
+    const shelfGate = smoothstep(0.24, 0.80, intent.shelfTendency);
+    const basinGate = smoothstep(0.20, 0.90, intent.oceanBasinTendency);
+    const marginGate = smoothstep(0.22, 0.78, intent.marginTendency);
+    const featureLift = Math.max(0, cell.upliftRate) * 0.024 * tectonicVigor;
+    const volcanicLift = clamp01(cell.volcanicActivity) * 0.016 * Math.max(0.35, tectonicVigor);
 
     const terrainTarget = oldSeaLevel
-      - basinGate * 0.150 * reliefScale
-      + continentGate * 0.145 * reliefScale
-      + coreGate * 0.085 * reliefScale
-      - shelfGate * 0.040 * reliefScale
-      - marginGate * 0.020 * reliefScale
+      - basinGate * 0.095 * reliefScale
+      + continentGate * 0.094 * reliefScale
+      + coreGate * 0.052 * reliefScale
+      - shelfGate * 0.026 * reliefScale
+      - marginGate * 0.012 * reliefScale
       + featureLift
       + volcanicLift
-      + texture * (0.030 + coreGate * 0.025 + tectonicVigor * 0.018) * reliefScale * erosionDamp
-      + fine * 0.009 * reliefScale * erosionDamp;
+      + texture * (0.022 + coreGate * 0.018 + tectonicVigor * 0.012) * reliefScale * erosionDamp
+      + fine * 0.006 * reliefScale * erosionDamp;
 
-    const continentAuthority = clamp01(0.18 + continentGate * 0.42 + coreGate * 0.20 + basinGate * 0.20 + marginGate * 0.10);
+    const continentAuthority = clamp01(0.08 + continentGate * 0.28 + coreGate * 0.12 + basinGate * 0.10 + marginGate * 0.05);
     const blended = lerp(h, terrainTarget, continentAuthority);
     cell.baseHeight = clamp(blended, -1.4, 1.5);
   }
