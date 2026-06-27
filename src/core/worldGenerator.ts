@@ -55,7 +55,7 @@ function applyContinentIntentBirthTerrain(world: WorldBrain): void {
   const seedUint = seedToUint32(seed);
   const reliefScale = numeric(foundation.reliefGravityScale, 1);
   const tectonicVigor = clamp01(numeric(foundation.tectonicVigor, 0.5));
-  const erosionDamp = lerp(1.0, 0.72, clamp01((world.parameters?.erosionIntensity ?? 70) / 100));
+  const erosionDamp = lerp(1.0, 0.72, clamp01(numeric(world.parameters?.erosionIntensity, 70) / 100));
 
   for (let i = 0; i < world.cells.length; i++) {
     const cell = world.cells[i];
