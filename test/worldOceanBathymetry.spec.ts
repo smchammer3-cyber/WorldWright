@@ -77,7 +77,7 @@ describe('ocean bathymetry smoothing', () => {
     expect(afterGap).toBeLessThan(beforeGap * 0.98);
   });
 
-  it('does not let submerged continent shelf fields protect mid-ocean circular ghosts', () => {
+  it('sinks unsupported submerged continent shelf fields instead of preserving mid-ocean circular ghosts', () => {
     const world = makeFlatOceanWorld();
     const { left, right } = setOceanGap(world, 2, 5);
     for (const cell of [left, right]) {
@@ -91,13 +91,15 @@ describe('ocean bathymetry smoothing', () => {
       cell.crustAge = 0.66;
       cell.crustProvince = CrustProvince.OLD_SHIELD;
     }
+    const beforeLeft = left.baseHeight;
     const beforeGap = gap(left, right);
 
     applyOceanBathymetrySmoothing(world);
 
     const afterGap = gap(left, right);
     expect(afterGap).toBeLessThan(beforeGap * 0.98);
-    expect(left.baseHeight).toBeLessThan(0);
+    expect(left.baseHeight).toBeLessThan(beforeLeft - 0.020);
+    expect(left.baseHeight).toBeLessThan(-0.07);
     expect(right.baseHeight).toBeLessThan(0);
   });
 
