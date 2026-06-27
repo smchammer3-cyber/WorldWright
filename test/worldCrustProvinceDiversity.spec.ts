@@ -18,7 +18,7 @@ describe('generated crust province diversity', () => {
     const union = new Set<CrustProvince>();
     for (const set of provinceSets) for (const province of set) union.add(province);
 
-    expect(Math.max(...provinceSets.map((set) => set.size))).toBeGreaterThan(1);
+    expect(Math.min(...provinceSets.map((set) => set.size))).toBeGreaterThan(1);
     expect(union.size).toBeGreaterThan(2);
     expect(union.has(CrustProvince.SEDIMENT_BASIN)).toBe(true);
     expect(Array.from(union).some((province) => province !== CrustProvince.SEDIMENT_BASIN)).toBe(true);
