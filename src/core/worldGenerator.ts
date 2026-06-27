@@ -89,10 +89,50 @@ function applyContinentIntentBirthTerrain(world: WorldBrain): void {
     cell.baseHeight = clamp(blended, -1.4, 1.5);
   }
 
-  const nextSeaLevel = chooseSeaLevelForLandFraction(world.cells.map((cell) => totalHeight(cell)), world.gridWidth, world.gridHeight, targetLandFraction);
+  let nextSeaLevel = chooseSeaLevelForLandFraction(world.cells.map((cell) => totalHeight(cell)), world.gridWidth, world.gridHeight, targetLandFraction);
+  applyBirthCoastlineBreakup(world, field, nextSeaLevel, seedUint, reliefScale, erosionDamp);
+  nextSeaLevel = chooseSeaLevelForLandFraction(world.cells.map((cell) => totalHeight(cell)), world.gridWidth, world.gridHeight, targetLandFraction);
   world.seaLevel = nextSeaLevel;
   if (world.metadata) world.metadata.seaLevel = nextSeaLevel;
   recomputeWaterAndSurface(world, field);
+}
+
+function applyBirthCoastlineBreakup(world: WorldBrain, field: ContinentIntentField, seaLevel: number, seed: number, reliefScale: number, erosionDamp: number): void {
+  const before = world.cells.map((cell) => totalHeight(cell));
+
+  for (let i = 0; i < world.cells.length; i++) {
+    const cell = world.cells[i];
+    const intent = field.cells[i];
+    const h = before[i];
+    const aboveSea = h - seaLevel;
+    const nearSurface = 1 - smoothstep(0.020, 0.150, Math.abs(aboveSea));
+    const coastIntent = clamp01(
+      intent.shelfTendency * 0.62
+      + intent.marginTendency * 0.50
+      + smoothstep(0.22, 0.56, intent.continentality) * (1 - smoothstep(0.62, 0.88, intent.continentality)) * 0.34,
+    );
+    const coastGate = nearSurface * smoothstep(0.16, 0.72, coastIntent);
+    const landGate = smoothstep(0.010, 0.130, aboveSea);
+    const interiorGate = smoothstep(0.42, 0.88, intent.continentality) * (1 - smoothstep(0.00, 0.18, Math.abs(aboveSea)));
+    const coastTexture = edgeTexture(seed, world, i);
+    const reliefTexture = terrainTexture(seed ^ 0x5bd1e995, world, i);
+
+    let delta = 0;
+    if (coastGate > 0) {
+      const gulfCut = Math.max(0, -coastTexture) * 0.034;
+      const spitBuild = Math.max(0, coastTexture) * 0.020;
+      delta += (spitBuild - gulfCut) * coastGate * reliefScale * erosionDamp;
+    }
+
+    if (interiorGate > 0 && aboveSea > 0) {
+      const rugged = reliefTexture * (0.012 + Math.max(0, cell.upliftRate) * 0.012 + clamp01(cell.volcanicActivity) * 0.006);
+      delta += rugged * interiorGate * landGate * reliefScale * erosionDamp;
+    }
+
+    if (delta !== 0) {
+      cell.baseHeight = clamp(cell.baseHeight + clamp(delta, -0.045, 0.036), -1.4, 1.5);
+    }
+  }
 }
 
 function recomputeWaterAndSurface(world: WorldBrain, field: ContinentIntentField): void {
@@ -144,6 +184,17 @@ function terrainTexture(seed: number, world: WorldBrain, index: number): number 
   const medium = valueNoise2D(seed, x * 13.0, y * 7.0, 43019) * 2 - 1;
   const fine = valueNoise2D(seed, x * 31.0, y * 17.0, 43037) * 2 - 1;
   return clamp(broad * 0.46 + medium * 0.38 + fine * 0.16, -1, 1);
+}
+
+function edgeTexture(seed: number, world: WorldBrain, index: number): number {
+  const row = Math.floor(index / world.gridWidth);
+  const col = index % world.gridWidth;
+  const x = col / Math.max(1, world.gridWidth);
+  const y = row / Math.max(1, world.gridHeight);
+  const broad = valueNoise2D(seed, x * 8.5 + 4.7, y * 5.5 - 2.2, 51011) * 2 - 1;
+  const medium = valueNoise2D(seed, x * 19.0 - 1.1, y * 11.0 + 5.3, 51023) * 2 - 1;
+  const fine = valueNoise2D(seed, x * 43.0 + 8.0, y * 23.0 - 3.0, 51047) * 2 - 1;
+  return clamp(broad * 0.38 + medium * 0.44 + fine * 0.18, -1, 1);
 }
 
 function classifyOceanDepth(h: number, seaLevel: number, isWater: boolean): OceanDepthClass | null {
