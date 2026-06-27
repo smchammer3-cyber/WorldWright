@@ -147,7 +147,11 @@ export function applySkeletonBaseElevation(world: WorldBrain): void {
     if (wasLand && h + delta < seaLevel && !canSkeletonSinkLand(cell, localLand, tightLand, continentality, shelf, core, invalidFragment)) delta = Math.max(delta, seaLevel + 0.006 - h);
     if (delta > 0 && !wasLand && continentality < 0.26 && shelf < 0.24 && !isCausedIsland(cell)) delta *= 0.35;
     if (!wasLand && h + delta >= seaLevel && !canSkeletonRaiseWater(cell, localLand, tightLand, continentality, shelf, core, shouldCaptureContinentLand)) delta = Math.min(delta, seaLevel - 0.006 - h);
-    delta *= lerp(0.70, 1, skeletonContinuity) * skeletonSeamDamp(world, i);
+    const seamDamp = skeletonSeamDamp(world, i);
+    const geometryDamp = unsupportedSubmergedContinent
+      ? lerp(0.92, 1, skeletonContinuity) * lerp(0.88, 1, seamDamp)
+      : lerp(0.70, 1, skeletonContinuity) * seamDamp;
+    delta *= geometryDamp;
     delta = capSkeletonDelta(delta, cell, skeletonContinuity, invalidFragment, shouldCaptureContinentLand);
     cell.baseHeight = clamp(cell.baseHeight + delta, -1.4, 1.5);
   }
