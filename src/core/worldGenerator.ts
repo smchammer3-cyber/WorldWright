@@ -70,21 +70,21 @@ function applyContinentIntentBirthTerrain(world: WorldBrain): void {
     const shelfGate = smoothstep(0.24, 0.80, intent.shelfTendency);
     const basinGate = smoothstep(0.20, 0.90, intent.oceanBasinTendency);
     const marginGate = smoothstep(0.22, 0.78, intent.marginTendency);
-    const featureLift = Math.max(0, cell.upliftRate) * 0.024 * tectonicVigor;
-    const volcanicLift = clamp01(cell.volcanicActivity) * 0.016 * Math.max(0.35, tectonicVigor);
+    const featureLift = Math.max(0, cell.upliftRate) * 0.026 * tectonicVigor;
+    const volcanicLift = clamp01(cell.volcanicActivity) * 0.017 * Math.max(0.35, tectonicVigor);
 
     const terrainTarget = oldSeaLevel
-      - basinGate * 0.095 * reliefScale
-      + continentGate * 0.094 * reliefScale
-      + coreGate * 0.052 * reliefScale
-      - shelfGate * 0.026 * reliefScale
-      - marginGate * 0.012 * reliefScale
+      - basinGate * 0.085 * reliefScale
+      + continentGate * 0.082 * reliefScale
+      + coreGate * 0.046 * reliefScale
+      - shelfGate * 0.022 * reliefScale
+      - marginGate * 0.010 * reliefScale
       + featureLift
       + volcanicLift
-      + texture * (0.022 + coreGate * 0.018 + tectonicVigor * 0.012) * reliefScale * erosionDamp
-      + fine * 0.006 * reliefScale * erosionDamp;
+      + texture * (0.038 + coreGate * 0.030 + marginGate * 0.020 + tectonicVigor * 0.016) * reliefScale * erosionDamp
+      + fine * 0.011 * reliefScale * erosionDamp;
 
-    const continentAuthority = clamp01(0.08 + continentGate * 0.28 + coreGate * 0.12 + basinGate * 0.10 + marginGate * 0.05);
+    const continentAuthority = clamp01(0.045 + continentGate * 0.20 + coreGate * 0.085 + basinGate * 0.075 + marginGate * 0.070);
     const blended = lerp(h, terrainTarget, continentAuthority);
     cell.baseHeight = clamp(blended, -1.4, 1.5);
   }
@@ -143,7 +143,7 @@ function terrainTexture(seed: number, world: WorldBrain, index: number): number 
   const broad = valueNoise2D(seed, x * 5.5, y * 3.5, 43003) * 2 - 1;
   const medium = valueNoise2D(seed, x * 13.0, y * 7.0, 43019) * 2 - 1;
   const fine = valueNoise2D(seed, x * 31.0, y * 17.0, 43037) * 2 - 1;
-  return clamp(broad * 0.48 + medium * 0.36 + fine * 0.16, -1, 1);
+  return clamp(broad * 0.46 + medium * 0.38 + fine * 0.16, -1, 1);
 }
 
 function classifyOceanDepth(h: number, seaLevel: number, isWater: boolean): OceanDepthClass | null {
