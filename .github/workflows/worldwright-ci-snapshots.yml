@@ -1,18 +1,30 @@
 name: WorldWright CI + Jarvis Snapshots
 
 on:
+  pull_request:
+    branches:
+      - WorldWright-new
   push:
     branches:
       - WorldWright-new
   workflow_dispatch:
+    inputs:
+      export_review_pack:
+        description: Generate the full Jarvis Review Pack instead of smoke snapshots only
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
 
 concurrency:
   group: worldwright-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  ci:
-    name: Build and tests
+  tests:
+    name: Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -24,18 +36,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run tests
-        run: npm run test:run
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npm run test:run 2>&1 | tee artifacts/ci-logs/tests.log
 
-      - name: Build
-        run: npm run build
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-test-logs
+          path: artifacts/ci-logs/tests.log
+          if-no-files-found: warn
+          retention-days: 14
 
-  jarvis-snapshots:
-    name: Jarvis snapshots
+  build:
+    name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -47,22 +69,174 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Build
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npm run build 2>&1 | tee artifacts/ci-logs/build.log
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-build-logs
+          path: artifacts/ci-logs/build.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  jarvis-snapshot-canary:
+    name: Jarvis snapshot canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      EXPORT_REVIEW_PACK: ${{ github.event_name == 'workflow_dispatch' && inputs.export_review_pack == true }}
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Install Playwright
         run: |
           npm install --no-save --no-package-lock playwright
           npx playwright install --with-deps chromium
 
-      - name: Generate Jarvis snapshots
-        run: npm run snapshots:jarvis -- --seeds=1040037 --width=96 --viewport=1280x900 --timeout-ms=20000 --download-timeout-ms=20000
+      - name: Generate Jarvis snapshot canary
+        timeout-minutes: 3
+        run: |
+          mkdir -p artifacts/jarvis-snapshot-canary
+          echo "Jarvis snapshot canary started at $(date -u)" > artifacts/jarvis-snapshot-canary/preflight.txt
 
-      - name: Upload Jarvis snapshots
+          EXTRA_ARGS=""
+          if [ "$EXPORT_REVIEW_PACK" = "true" ]; then
+            EXTRA_ARGS="--export-review-pack=true"
+          fi
+
+          set +e
+          timeout --kill-after=15s 150s npm run snapshots:jarvis -- \
+            --out=artifacts/jarvis-snapshot-canary \
+            --seeds=1040037 \
+            --width=192 \
+            --globe-image-size=192x192 \
+            --viewport=1200x900 \
+            --timeout-ms=25000 \
+            --download-timeout-ms=25000 \
+            --per-seed-timeout-ms=40000 \
+            $EXTRA_ARGS
+          STATUS=$?
+          echo "$STATUS" > artifacts/jarvis-snapshot-canary/snapshot-exit-code.txt
+          if [ "$STATUS" != "0" ]; then
+            echo "Jarvis snapshot canary failed or timed out with exit code $STATUS" > artifacts/jarvis-snapshot-canary/snapshot-failure.txt
+          fi
+
+          {
+            echo "## Jarvis snapshot canary"
+            echo "- Artifact: \`jarvis-snapshot-canary\`"
+            echo "- World grid: \`192x96\`"
+            echo "- Globe images: \`192x192\`"
+            echo "- Exit code: \`$STATUS\`"
+            echo "- Output directory: \`artifacts/jarvis-snapshot-canary\`"
+            echo "- Diagnostic files: \`manifest.json\`, \`preflight.txt\`, \`snapshot-exit-code.txt\`, \`seed-1040037/snapshot-state.json\`, \`seed-1040037/browser-console.json\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit "$STATUS"
+
+      - name: Upload Jarvis snapshot canary
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: jarvis-snapshots
-          path: artifacts/jarvis-snapshots/
+          name: jarvis-snapshot-canary
+          path: artifacts/jarvis-snapshot-canary/
           if-no-files-found: warn
+          retention-days: 14
+
+  jarvis-full-globe-review:
+    name: Jarvis full globe review
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      EXPORT_REVIEW_PACK: ${{ github.event_name == 'workflow_dispatch' && inputs.export_review_pack == true }}
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+
+      - name: Generate full-quality Jarvis globe review
+        timeout-minutes: 9
+        run: |
+          mkdir -p artifacts/jarvis-full-globe-review
+          echo "Full-quality Jarvis globe review started at $(date -u)" > artifacts/jarvis-full-globe-review/preflight.txt
+
+          EXTRA_ARGS=""
+          if [ "$EXPORT_REVIEW_PACK" = "true" ]; then
+            EXTRA_ARGS="--export-review-pack=true"
+          fi
+
+          set +e
+          timeout --kill-after=15s 480s npm run snapshots:jarvis -- \
+            --out=artifacts/jarvis-full-globe-review \
+            --seeds=1040037 \
+            --width=384 \
+            --globe-image-size=384x384 \
+            --viewport=1800x1200 \
+            --timeout-ms=45000 \
+            --download-timeout-ms=45000 \
+            --per-seed-timeout-ms=60000 \
+            $EXTRA_ARGS
+          STATUS=$?
+          echo "$STATUS" > artifacts/jarvis-full-globe-review/snapshot-exit-code.txt
+          if [ "$STATUS" != "0" ]; then
+            echo "Full-quality Jarvis globe review failed or timed out with exit code $STATUS" > artifacts/jarvis-full-globe-review/snapshot-failure.txt
+          fi
+
+          {
+            echo "## Full-quality Jarvis globe review"
+            echo "- Artifact: \`jarvis-full-globe-review\`"
+            echo "- World grid: \`384x192\`"
+            echo "- Globe images: \`384x384\`"
+            echo "- Required phone views: front, +120°, -120°"
+            echo "- Exit code: \`$STATUS\`"
+            echo "- Output directory: \`artifacts/jarvis-full-globe-review\`"
+            echo "- Success images: \`seed-1040037/final-globe-front.png\`, \`seed-1040037/final-globe-triad-120.png\`, \`seed-1040037/final-globe-triad-240.png\`"
+            echo "- Diagnostic files: \`manifest.json\`, \`preflight.txt\`, \`snapshot-exit-code.txt\`, \`seed-1040037/snapshot-state.json\`, \`seed-1040037/browser-console.json\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Full-quality visuals are review artifacts for phone-first inspection.
+          # Do not let this optional review job block the PR forever; upload whatever was produced.
+          exit 0
+
+      - name: Upload full-quality Jarvis globe review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-full-globe-review
+          path: artifacts/jarvis-full-globe-review/
+          if-no-files-found: warn
+          retention-days: 14

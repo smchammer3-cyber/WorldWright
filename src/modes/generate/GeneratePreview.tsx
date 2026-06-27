@@ -21,6 +21,8 @@ type Props = {
   error?: string | null;
 };
 
+type GenerateStageList = NonNullable<ReturnType<typeof computeGeneratedStageDiagnostics>>["stages"];
+
 export default function GeneratePreview({ world, error }: Props) {
   const [previewMode, setPreviewMode] = useState<PlanetPreviewMode>("FINAL");
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -238,7 +240,10 @@ export default function GeneratePreview({ world, error }: Props) {
                     color: "rgba(255,255,255,0.78)",
                   }}
                 >
-                  {diagnosticContext.reason}
+                  <strong>{diagnosticContext.label}</strong>: {diagnosticContext.note}
+                  {diagnosticContext.warnings.length > 0 && (
+                    <div style={{ marginTop: 4 }}>{diagnosticContext.warnings.join(" ")}</div>
+                  )}
                 </div>
               )}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
@@ -265,11 +270,11 @@ export default function GeneratePreview({ world, error }: Props) {
                 </button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
-                {diagnostics.problems.slice(0, 10).map((problem) => (
-                  <DiagnosticCard key={`${problem.id}:${problem.title}`} level={problem.level} title={problem.title} detail={problem.detail} />
+                {diagnostics.metrics.slice(0, 10).map((metric) => (
+                  <DiagnosticCard key={metric.id} level={metric.level} title={metric.label} detail={`${metric.value} — ${metric.detail}`} />
                 ))}
-                {diagnostics.problems.length === 0 && (
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.72)" }}>No blocking diagnostics found.</div>
+                {diagnostics.metrics.length === 0 && (
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.72)" }}>No diagnostics found.</div>
                 )}
               </div>
               {stageDiagnostics && <GenerateStageAuditTable stages={stageDiagnostics.stages} />}
@@ -293,7 +298,7 @@ function DiagnosticCard({ level, title, detail }: { level: DiagnosticLevel; titl
   );
 }
 
-function GenerateStageAuditTable({ stages }: { stages: ReturnType<typeof computeGeneratedStageDiagnostics>["stages"] }) {
+function GenerateStageAuditTable({ stages }: { stages: GenerateStageList }) {
   return (
     <div style={{ marginTop: 10 }}>
       <div style={{ fontWeight: 900, fontSize: 12, marginBottom: 6 }}>Generate stage audit</div>
@@ -309,10 +314,11 @@ function GenerateStageAuditTable({ stages }: { stages: ReturnType<typeof compute
               <th style={thStyle}>Plate</th>
               <th style={thStyle}>Prov</th>
               <th style={thStyle}>Skel</th>
-              <th style={thStyle}>Auth</th>
+              <th style={thStyle}>Feat</th>
               <th style={thStyle}>PLeak</th>
               <th style={thStyle}>CLeak</th>
-              <th style={thStyle}>SLeak</th>
+              <th style={thStyle}>OPlate</th>
+              <th style={thStyle}>OProv</th>
               <th style={thStyle}>Flip</th>
             </tr>
           </thead>
@@ -320,25 +326,26 @@ function GenerateStageAuditTable({ stages }: { stages: ReturnType<typeof compute
             {stages.map((stage) => (
               <tr key={stage.id} style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
                 <td style={tdStyle}>{stage.label}</td>
-                <td style={tdStyle}>{pct(stage.metrics.landFraction)}</td>
-                <td style={tdStyle}>{stage.metrics.landBodyCount}/{stage.metrics.oceanBodyCount}</td>
-                <td style={tdStyle}>{pct(stage.metrics.fragmentLandShare)}</td>
-                <td style={tdStyle}>{stage.metrics.reliefStdDev.toFixed(3)}</td>
-                <td style={tdStyle}>{stage.metrics.plateSeamHeightImprint.toFixed(3)}</td>
-                <td style={tdStyle}>{stage.metrics.provinceSeamHeightImprint.toFixed(3)}</td>
-                <td style={tdStyle}>{stage.metrics.skeletonSeamHeightImprint.toFixed(3)}</td>
-                <td style={tdStyle}>{stage.authority.level}</td>
-                <td style={tdStyle}>{stage.authority.plateLeakCount}</td>
-                <td style={tdStyle}>{stage.authority.provinceLeakCount}</td>
-                <td style={tdStyle}>{stage.authority.skeletonLeakCount}</td>
-                <td style={tdStyle}>{pct(stage.authority.topologyFlipShare)}</td>
+                <td style={tdStyle}>{pct(stage.raw.landFraction)}</td>
+                <td style={tdStyle}>{stage.raw.landComponents}</td>
+                <td style={tdStyle}>{pct(stage.raw.mediumFragmentShare)}</td>
+                <td style={tdStyle}>{stage.raw.landHeightStdDev.toFixed(3)}</td>
+                <td style={tdStyle}>{formatRatio(stage.raw.plateSeamHeightRatio)}</td>
+                <td style={tdStyle}>{formatRatio(stage.raw.provinceSeamHeightRatio)}</td>
+                <td style={tdStyle}>{formatRatio(stage.raw.skeletonSeamHeightRatio)}</td>
+                <td style={tdStyle}>{pct(stage.raw.featureAuthorityCoverage)}</td>
+                <td style={tdStyle}>{pct(stage.raw.plateAuthorityLeakShare)}</td>
+                <td style={tdStyle}>{pct(stage.raw.provinceAuthorityLeakShare)}</td>
+                <td style={tdStyle}>{pct(stage.raw.oceanPlateAuthorityLeakShare)}</td>
+                <td style={tdStyle}>{pct(stage.raw.oceanProvinceAuthorityLeakShare)}</td>
+                <td style={tdStyle}>{pct(stage.transitionFromPrevious?.topologyFlipShare ?? 0)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       <div style={{ marginTop: 6, fontSize: 10, lineHeight: 1.35, color: "rgba(255,255,255,0.58)" }}>
-        Plate/Prov/Skel columns show seam imprint ratios. PLeak/CLeak/SLeak count sharp height jumps where hidden IDs changed without matching terrain authority.
+        Plate/Prov/Skel columns show seam imprint ratios. Leak columns report sharp terrain jumps where hidden authority changed without matching feature explanation.
       </div>
     </div>
   );
@@ -362,4 +369,8 @@ function smallDiagButtonStyle(active: boolean): React.CSSProperties {
 
 function pct(value: number): string {
   return `${Math.round(value * 100)}%`;
+}
+
+function formatRatio(value: number | null): string {
+  return value == null ? "n/a" : value.toFixed(3);
 }

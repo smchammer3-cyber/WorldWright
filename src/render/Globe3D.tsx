@@ -32,6 +32,10 @@ type GlobeRuntime = {
   velY: number;
 };
 
+type SnapshotCanvas = HTMLCanvasElement & {
+  __worldwrightSetSnapshotRotation?: (rotation: { x: number; y: number }) => void;
+};
+
 type FaceBasis = {
   normal: Vec3;
   u: Vec3;
@@ -152,6 +156,22 @@ export default function Globe3D({ world, preview, className, style, initialRotat
     };
 
     runtimeRef.current = runtime;
+
+    (renderer.domElement as SnapshotCanvas).__worldwrightSetSnapshotRotation = (rotation) => {
+      const rt = runtimeRef.current;
+      if (!rt) return;
+      if (rt.animationFrameId != null) {
+        cancelAnimationFrame(rt.animationFrameId);
+        rt.animationFrameId = null;
+      }
+      rt.velX = 0;
+      rt.velY = 0;
+      rt.mesh.rotation.x = rotation.x;
+      rt.mesh.rotation.y = rotation.y;
+      meshRotationRef.current = { x: rotation.x, y: rotation.y };
+      rt.camera.position.z = 2.6;
+      rt.renderer.render(rt.scene, rt.camera);
+    };
 
     function renderOnce() {
       const rt = runtimeRef.current;
@@ -294,6 +314,7 @@ export default function Globe3D({ world, preview, className, style, initialRotat
         renderer.domElement.removeEventListener('pointerup', onPointerUp as any);
         renderer.domElement.removeEventListener('pointercancel', onPointerUp as any);
         renderer.domElement.removeEventListener('wheel', onWheel as any);
+        delete (renderer.domElement as SnapshotCanvas).__worldwrightSetSnapshotRotation;
       } catch {}
 
       if (rt?.animationFrameId != null) cancelAnimationFrame(rt.animationFrameId);

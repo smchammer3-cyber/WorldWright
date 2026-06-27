@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -8,6 +9,14 @@ const DEFAULT_PORT = 4174;
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_DOWNLOAD_TIMEOUT_MS = 30_000;
+const SNAPSHOT_STATE_FILE = 'snapshot-state.json';
+const BROWSER_CONSOLE_FILE = 'browser-console.json';
+
+const FINAL_GLOBE_VIEWS = [
+  { id: 'front', label: 'Triad 0°', rotation: { x: 0, y: 0 } },
+  { id: 'triad-120', label: 'Triad +120°', rotation: { x: 0, y: (Math.PI * 2) / 3 } },
+  { id: 'triad-240', label: 'Triad -120°', rotation: { x: 0, y: -(Math.PI * 2) / 3 } },
+];
 
 const args = parseArgs(process.argv.slice(2));
 const outputDir = path.resolve(args.out ?? 'artifacts/jarvis-snapshots');
@@ -18,11 +27,15 @@ const seeds = String(args.seeds ?? DEFAULT_SEEDS.join(','))
   .split(',')
   .map((seed) => seed.trim())
   .filter(Boolean);
-const width = Number(args.width ?? 256);
+const width = Number(args.width ?? 384);
+const worldResolution = normalizeWorldResolution(width);
+const globeImageSize = parseImageSize(args['globe-image-size'] ?? `${worldResolution.width}x${worldResolution.width}`);
 const viewport = parseViewport(args.viewport ?? '1440x1100');
 const timeoutMs = positiveNumber(args['timeout-ms'], DEFAULT_TIMEOUT_MS);
 const downloadTimeoutMs = positiveNumber(args['download-timeout-ms'], DEFAULT_DOWNLOAD_TIMEOUT_MS);
+const perSeedTimeoutMs = positiveNumber(args['per-seed-timeout-ms'], Math.max(timeoutMs + 15_000, 60_000));
 const shouldStartServer = args['no-server'] !== 'true';
+const shouldExportReviewPack = args['export-review-pack'] === 'true';
 
 const { chromium } = await importPlaywright();
 await mkdir(outputDir, { recursive: true });
@@ -32,9 +45,14 @@ const manifest = {
   baseUrl,
   seeds,
   width,
+  worldResolution,
+  globeImageSize,
   viewport,
   timeoutMs,
   downloadTimeoutMs,
+  perSeedTimeoutMs,
+  exportReviewPack: shouldExportReviewPack,
+  finalGlobeViews: FINAL_GLOBE_VIEWS.map(({ id, label }) => ({ id, label })),
   snapshots: [],
   failures: [],
 };
@@ -44,7 +62,11 @@ let browser = null;
 try {
   log(`Writing Jarvis snapshots to ${outputDir}`);
   log(`Seeds: ${seeds.join(', ') || '(none)'}`);
+  log(`World grid: ${worldResolution.width}x${worldResolution.height}`);
+  log(`Globe images: ${globeImageSize.width}x${globeImageSize.height}`);
   log(`Viewport: ${viewport.width}x${viewport.height}; width=${width}`);
+  log(`Per-seed watchdog: ${perSeedTimeoutMs}ms`);
+  log(`Review pack export: ${shouldExportReviewPack ? 'enabled' : 'disabled'}`);
 
   if (shouldStartServer) {
     log(`Starting Vite dev server on ${host}:${port}`);
@@ -59,25 +81,58 @@ try {
 
   for (const seed of seeds) {
     const page = await browser.newPage({ viewport, acceptDownloads: true });
+    const browserEvents = createBrowserEventRecorder(page);
+    const captureContext = { timings: [] };
+    const paths = seedArtifactPaths(outputDir, seed);
     try {
-      const snapshot = await captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs });
+      const snapshot = await withTimeout(
+        captureSeed(page, {
+          seed,
+          width,
+          outputDir,
+          baseUrl,
+          timeoutMs,
+          downloadTimeoutMs,
+          shouldExportReviewPack,
+          globeImageSize,
+          captureContext,
+        }),
+        perSeedTimeoutMs,
+        `[${seed}] Snapshot watchdog expired after ${perSeedTimeoutMs}ms before the globe could be captured. Partial artifacts will be written.`
+      );
       manifest.snapshots.push(snapshot);
       log(`Completed seed ${seed}`);
     } catch (error) {
       const failure = serializeFailure(seed, error);
+      failure.timings = captureContext.timings;
+      failure.snapshotState = relativeArtifactPath(outputDir, paths.snapshotStatePath);
+      failure.browserConsole = relativeArtifactPath(outputDir, paths.browserConsolePath);
       manifest.failures.push(failure);
       console.error(`[jarvis-snapshots] Seed ${seed} failed: ${failure.message}`);
       try {
-        const slug = safeName(`seed-${seed}`);
-        const seedDir = path.join(outputDir, slug);
-        await mkdir(seedDir, { recursive: true });
-        const failureScreenshotPath = path.join(seedDir, 'failure-page.png');
-        await page.screenshot({ path: failureScreenshotPath, fullPage: true, timeout: 10_000 });
-        failure.failureScreenshot = relativeArtifactPath(outputDir, failureScreenshotPath);
+        await mkdir(paths.seedDir, { recursive: true });
+        await writeSnapshotState(page, paths.snapshotStatePath, {
+          seed,
+          status: 'failure',
+          failureMessage: failure.message,
+          timings: captureContext.timings,
+        });
+      } catch (stateError) {
+        console.error(`[jarvis-snapshots] Could not capture snapshot state for seed ${seed}: ${formatError(stateError)}`);
+      }
+      try {
+        await mkdir(paths.seedDir, { recursive: true });
+        await withTimeout(
+          page.screenshot({ path: paths.failureScreenshotPath, fullPage: true, timeout: 10_000 }),
+          12_000,
+          `[${seed}] Could not capture failure screenshot before the screenshot watchdog expired.`
+        );
+        failure.failureScreenshot = relativeArtifactPath(outputDir, paths.failureScreenshotPath);
       } catch (screenshotError) {
         console.error(`[jarvis-snapshots] Could not capture failure screenshot for seed ${seed}: ${formatError(screenshotError)}`);
       }
     } finally {
+      await writeBrowserEvents(paths.browserConsolePath, browserEvents.events);
       await writeManifest(outputDir, manifest);
       await page.close().catch(() => {});
     }
@@ -95,49 +150,145 @@ if (manifest.failures.length > 0) {
   log(`Completed ${manifest.snapshots.length} snapshot(s).`);
 }
 
-async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs }) {
-  const slug = safeName(`seed-${seed}`);
-  const seedDir = path.join(outputDir, slug);
-  await mkdir(seedDir, { recursive: true });
+process.exit(process.exitCode ?? 0);
+
+async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs, shouldExportReviewPack, globeImageSize, captureContext }) {
+  const stepLog = createStepLogger(`[${seed}]`, captureContext.timings);
+  const paths = seedArtifactPaths(outputDir, seed);
+  await mkdir(paths.seedDir, { recursive: true });
 
   const url = `${baseUrl}/generate`;
-  log(`[${seed}] Opening ${url}`);
+  stepLog(`Opening ${url}`);
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
 
-  log(`[${seed}] Driving Generate controls`);
+  stepLog('Driving Generate controls');
   await driveGenerateControls(page, { seed, width, timeoutMs });
 
-  log(`[${seed}] Waiting for export button`);
-  const exportButton = page.getByTestId('jarvis-review-export-button');
-  await exportButton.waitFor({ state: 'visible', timeout: timeoutMs });
+  let exportButton = null;
+  if (shouldExportReviewPack) {
+    stepLog('Waiting for export button');
+    exportButton = page.getByTestId('jarvis-review-export-button');
+    await exportButton.waitFor({ state: 'visible', timeout: timeoutMs });
+  } else {
+    stepLog('Skipping export button wait for fast smoke mode');
+  }
 
-  log(`[${seed}] Waiting for canvas`);
-  await page.locator('canvas').first().waitFor({ state: 'visible', timeout: timeoutMs });
+  stepLog('Waiting for final globe canvas');
+  const globeCanvas = page.getByTestId('worldwright-globe-canvas');
+  await globeCanvas.waitFor({ state: 'visible', timeout: timeoutMs });
 
-  log(`[${seed}] Waiting for seed confirmation text`);
+  stepLog('Waiting for seed confirmation text');
   await page.getByText(new RegExp(`seed\\s+${escapeRegExp(seed)}`, 'i')).waitFor({ timeout: timeoutMs });
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(250);
 
-  log(`[${seed}] Capturing Generate screenshot`);
-  const appScreenshotPath = path.join(seedDir, 'generate-app-final.png');
+  stepLog('Writing snapshot state');
+  await writeSnapshotState(page, paths.snapshotStatePath, {
+    seed,
+    status: 'ready-before-capture',
+    timings: captureContext.timings,
+  });
+
+  stepLog('Capturing Generate page screenshot');
+  const appScreenshotPath = path.join(paths.seedDir, 'generate-app-final.png');
   await page.screenshot({ path: appScreenshotPath, fullPage: false, timeout: timeoutMs });
 
-  log(`[${seed}] Clicking Export Jarvis Pack`);
+  const finalGlobeViews = {};
+  let legacyFinalGlobePath = null;
+  for (const view of FINAL_GLOBE_VIEWS) {
+    stepLog(`Capturing final globe ${view.label}`);
+    await setGlobeSnapshotRotation(page, globeCanvas, view.rotation);
+    const viewPath = path.join(paths.seedDir, `final-globe-${view.id}.png`);
+    await saveCanvasPngAtSize(globeCanvas, viewPath, globeImageSize);
+    finalGlobeViews[view.id] = {
+      path: relativeArtifactPath(outputDir, viewPath),
+      imageSize: globeImageSize,
+    };
+
+    if (view.id === 'front') {
+      legacyFinalGlobePath = path.join(paths.seedDir, 'final-globe.png');
+      await saveCanvasPngAtSize(globeCanvas, legacyFinalGlobePath, globeImageSize);
+    }
+  }
+
+  stepLog('Writing final snapshot state');
+  await writeSnapshotState(page, paths.snapshotStatePath, {
+    seed,
+    status: 'captured',
+    timings: captureContext.timings,
+  });
+
+  const snapshot = {
+    seed,
+    url,
+    appScreenshot: relativeArtifactPath(outputDir, appScreenshotPath),
+    snapshotState: relativeArtifactPath(outputDir, paths.snapshotStatePath),
+    browserConsole: relativeArtifactPath(outputDir, paths.browserConsolePath),
+    timings: captureContext.timings,
+    finalGlobe: legacyFinalGlobePath ? relativeArtifactPath(outputDir, legacyFinalGlobePath) : finalGlobeViews.front?.path,
+    finalGlobeViews,
+  };
+
+  if (!shouldExportReviewPack) {
+    stepLog('Fast smoke snapshot complete; skipping full Jarvis review pack export');
+    return snapshot;
+  }
+
+  if (!exportButton) {
+    throw new Error('Review pack export was requested, but the export button was not prepared.');
+  }
+
+  stepLog('Clicking Export Jarvis Pack');
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: downloadTimeoutMs }),
     exportButton.click({ timeout: timeoutMs }),
   ]);
 
-  log(`[${seed}] Saving Jarvis review pack`);
-  const packPath = path.join(seedDir, 'jarvis-review-pack.html');
+  stepLog('Saving Jarvis review pack');
+  const packPath = path.join(paths.seedDir, 'jarvis-review-pack.html');
   await download.saveAs(packPath);
 
   return {
-    seed,
-    url,
-    appScreenshot: relativeArtifactPath(outputDir, appScreenshotPath),
+    ...snapshot,
     reviewPack: relativeArtifactPath(outputDir, packPath),
   };
+}
+
+async function setGlobeSnapshotRotation(page, globeCanvas, rotation) {
+  await globeCanvas.evaluate((canvas, nextRotation) => {
+    const setRotation = canvas.__worldwrightSetSnapshotRotation;
+    if (typeof setRotation !== 'function') {
+      throw new Error('Globe snapshot rotation hook is not available on the canvas.');
+    }
+    setRotation(nextRotation);
+  }, rotation);
+  await page.waitForTimeout(120);
+}
+
+async function saveCanvasPngAtSize(globeCanvas, filePath, imageSize) {
+  const pngBase64 = await globeCanvas.evaluate((canvas, nextImageSize) => {
+    const sourceWidth = canvas.width || canvas.clientWidth;
+    const sourceHeight = canvas.height || canvas.clientHeight;
+    if (!sourceWidth || !sourceHeight) {
+      throw new Error('Cannot capture globe snapshot from an empty canvas.');
+    }
+
+    const cropSize = Math.min(sourceWidth, sourceHeight);
+    const cropX = Math.floor((sourceWidth - cropSize) / 2);
+    const cropY = Math.floor((sourceHeight - cropSize) / 2);
+
+    const output = document.createElement('canvas');
+    output.width = nextImageSize.width;
+    output.height = nextImageSize.height;
+    const context = output.getContext('2d');
+    if (!context) {
+      throw new Error('Could not create snapshot output canvas context.');
+    }
+    context.clearRect(0, 0, output.width, output.height);
+    context.drawImage(canvas, cropX, cropY, cropSize, cropSize, 0, 0, output.width, output.height);
+    return output.toDataURL('image/png').split(',')[1];
+  }, imageSize);
+
+  await writeFile(filePath, Buffer.from(pngBase64, 'base64'));
 }
 
 async function driveGenerateControls(page, { seed, width, timeoutMs }) {
@@ -149,7 +300,102 @@ async function driveGenerateControls(page, { seed, width, timeoutMs }) {
     await numericInputs.nth(1).fill(String(width), { timeout: timeoutMs });
   }
 
-  await page.getByRole('button', { name: /^Generate$/ }).last().click({ timeout: timeoutMs });
+  await page.waitForTimeout(900);
+}
+
+function createBrowserEventRecorder(page) {
+  const events = [];
+  const record = (event) => {
+    events.push({
+      capturedAt: new Date().toISOString(),
+      ...event,
+    });
+  };
+
+  page.on('console', (message) => {
+    record({
+      kind: 'console',
+      type: message.type(),
+      text: message.text(),
+      location: message.location(),
+    });
+  });
+
+  page.on('pageerror', (error) => {
+    record({
+      kind: 'pageerror',
+      message: formatError(error),
+      stack: error?.stack ? String(error.stack) : undefined,
+    });
+  });
+
+  page.on('requestfailed', (request) => {
+    record({
+      kind: 'requestfailed',
+      url: request.url(),
+      method: request.method(),
+      failure: request.failure()?.errorText ?? null,
+    });
+  });
+
+  return { events };
+}
+
+async function writeBrowserEvents(filePath, events) {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify({ generatedAt: new Date().toISOString(), events }, null, 2)}\n`, 'utf8');
+}
+
+async function writeSnapshotState(page, filePath, extra) {
+  await mkdir(path.dirname(filePath), { recursive: true });
+  let pageState = null;
+  let pageStateError = null;
+
+  try {
+    pageState = await withTimeout(
+      page.evaluate(() => {
+        const bodyText = document.body?.innerText ?? '';
+        return {
+          url: window.location.href,
+          title: document.title,
+          readyState: document.readyState,
+          snapshotState: window.__WORLDWRIGHT_SNAPSHOT_STATE__ ?? null,
+          bodyTextSample: bodyText.slice(0, 4000),
+        };
+      }),
+      5_000,
+      'Timed out reading browser snapshot state.'
+    );
+  } catch (error) {
+    pageStateError = formatError(error);
+  }
+
+  await writeFile(
+    filePath,
+    `${JSON.stringify(
+      {
+        capturedAt: new Date().toISOString(),
+        ...extra,
+        pageState,
+        pageStateError,
+      },
+      null,
+      2
+    )}\n`,
+    'utf8'
+  );
+}
+
+function seedArtifactPaths(root, seed) {
+  const slug = safeName(`seed-${seed}`);
+  const seedDir = path.join(root, slug);
+  return {
+    slug,
+    seedDir,
+    snapshotStatePath: path.join(seedDir, SNAPSHOT_STATE_FILE),
+    browserConsolePath: path.join(seedDir, BROWSER_CONSOLE_FILE),
+    failureScreenshotPath: path.join(seedDir, 'failure-page.png'),
+  };
 }
 
 function parseArgs(argv) {
@@ -173,9 +419,34 @@ function parseViewport(value) {
   return { width: viewportWidth, height: viewportHeight };
 }
 
+function parseImageSize(value) {
+  const [rawWidth, rawHeight] = String(value).toLowerCase().split('x');
+  const imageWidth = Math.max(1, Math.round(Number(rawWidth) || 384));
+  const imageHeight = Math.max(1, Math.round(Number(rawHeight) || imageWidth));
+  return { width: imageWidth, height: imageHeight };
+}
+
+function normalizeWorldResolution(widthValue) {
+  const safeWidth = Math.max(64, Math.min(1024, Math.round(Number(widthValue) || 384)));
+  return { width: safeWidth, height: Math.floor(safeWidth / 2) };
+}
+
 function positiveNumber(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function withTimeout(promise, timeoutMs, message) {
+  let timer = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 async function importPlaywright() {
@@ -253,6 +524,24 @@ function formatError(error) {
 
 function log(message) {
   console.log(`[jarvis-snapshots] ${message}`);
+}
+
+function createStepLogger(prefix, timings) {
+  const startedAt = Date.now();
+  let previousAt = startedAt;
+  return (message) => {
+    const now = Date.now();
+    const stepMs = now - previousAt;
+    const totalMs = now - startedAt;
+    previousAt = now;
+    timings.push({
+      capturedAt: new Date().toISOString(),
+      message,
+      stepMs,
+      totalMs,
+    });
+    log(`${prefix} ${message} (+${(stepMs / 1000).toFixed(1)}s, total ${(totalMs / 1000).toFixed(1)}s)`);
+  };
 }
 
 function relativeArtifactPath(root, filePath) {
