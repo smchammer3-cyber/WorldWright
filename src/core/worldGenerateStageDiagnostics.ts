@@ -53,6 +53,14 @@ export type GenerateStageRawMetrics = {
   plateTypeTerrainMismatch: number;
   lowContinentalityLandShare: number;
   strongContinentalityWaterShare: number;
+  continentIdCount: number;
+  continentAuthorityShare: number;
+  strongContinentAuthorityShare: number;
+  continentAuthorityLandCaptureShare: number;
+  openOceanContinentGhostShare: number;
+  meanLandContinentality: number;
+  meanOceanContinentality: number;
+  meanOpenOceanContinentality: number;
   featureAuthorityCoverage: number;
   plateAuthorityLeakShare: number;
   provinceAuthorityLeakShare: number;
@@ -208,17 +216,46 @@ function computeStageRawMetrics(world: WorldBrain, trace = captureStageTrace(wor
   const mediumMax = Math.max(24, Math.round(landCellCount * 0.035));
   const mediumFragments = componentSizes.slice(1).filter((size) => size >= 12 && size <= mediumMax);
   const mediumFragmentCells = mediumFragments.reduce((sum, size) => sum + size, 0);
+  const continentIds = new Set<number>();
   let plateTypeTerrainMismatch = 0;
   let lowContinentalityLand = 0;
   let strongContinentalityWater = 0;
+  let continentAuthority = 0;
+  let strongContinentAuthority = 0;
+  let strongContinentLand = 0;
+  let openOceanStrongContinentWater = 0;
+  let landContinentalitySum = 0;
+  let oceanContinentalitySum = 0;
+  let openOceanContinentalitySum = 0;
+  let openOceanCellCount = 0;
+
   for (let i = 0; i < world.cells.length; i++) {
     const cell = world.cells[i];
     const isLand = landFlags[i];
+    const continentality = clamp01(cell.continentality);
+    if (typeof cell.continentId === 'number') continentIds.add(cell.continentId);
     if (isLand && cell.plateType === PlateType.OCEANIC) plateTypeTerrainMismatch++;
     if (!isLand && cell.plateType === PlateType.CONTINENTAL) plateTypeTerrainMismatch++;
-    if (isLand && clamp01(cell.continentality) < 0.24) lowContinentalityLand++;
-    if (!isLand && clamp01(cell.continentality) > 0.62) strongContinentalityWater++;
+    if (isLand && continentality < 0.24) lowContinentalityLand++;
+    if (continentality > 0.24) continentAuthority++;
+    if (continentality > 0.62) strongContinentAuthority++;
+    if (isLand) {
+      landContinentalitySum += continentality;
+      if (continentality > 0.62) strongContinentLand++;
+    } else {
+      oceanContinentalitySum += continentality;
+      const coastAdjacency = oceanCoastAdjacency(world, i, landFlags);
+      if (coastAdjacency < 0.20) {
+        openOceanCellCount++;
+        openOceanContinentalitySum += continentality;
+      }
+      if (continentality > 0.62) {
+        strongContinentalityWater++;
+        if (coastAdjacency < 0.20) openOceanStrongContinentWater++;
+      }
+    }
   }
+
   const plateSeamHeightRatio = edgeHeightRatio(world, trace.heights, (a, b) => a.plateId !== b.plateId);
   const provinceSeamHeightRatio = edgeHeightRatio(world, trace.heights, (a, b) => hasCrustProvince(a) && hasCrustProvince(b) && a.crustProvince !== b.crustProvince);
   const skeletonSeamHeightRatio = edgeHeightRatio(world, trace.heights, (a, b) => a.continentId !== b.continentId || a.oceanBasinId !== b.oceanBasinId || a.marginType !== b.marginType || a.islandCause !== b.islandCause);
@@ -242,6 +279,14 @@ function computeStageRawMetrics(world: WorldBrain, trace = captureStageTrace(wor
     plateTypeTerrainMismatch: plateTypeTerrainMismatch / totalCells,
     lowContinentalityLandShare: lowContinentalityLand / landCellCount,
     strongContinentalityWaterShare: strongContinentalityWater / Math.max(1, oceanCellCount),
+    continentIdCount: continentIds.size,
+    continentAuthorityShare: continentAuthority / totalCells,
+    strongContinentAuthorityShare: strongContinentAuthority / totalCells,
+    continentAuthorityLandCaptureShare: strongContinentLand / Math.max(1, strongContinentAuthority),
+    openOceanContinentGhostShare: openOceanStrongContinentWater / Math.max(1, oceanCellCount),
+    meanLandContinentality: landContinentalitySum / landCellCount,
+    meanOceanContinentality: oceanContinentalitySum / Math.max(1, oceanCellCount),
+    meanOpenOceanContinentality: openOceanContinentalitySum / Math.max(1, openOceanCellCount),
     featureAuthorityCoverage: geologicAuthority.featureExplainedHighContrastEdgeShare,
     plateAuthorityLeakShare: geologicAuthority.plateAuthorityLeakShare,
     provinceAuthorityLeakShare: geologicAuthority.provinceAuthorityLeakShare,
@@ -270,6 +315,14 @@ function diffRaw(raw: GenerateStageRawMetrics, previous: GenerateStageRawMetrics
     plateTypeTerrainMismatch: raw.plateTypeTerrainMismatch - previous.plateTypeTerrainMismatch,
     lowContinentalityLandShare: raw.lowContinentalityLandShare - previous.lowContinentalityLandShare,
     strongContinentalityWaterShare: raw.strongContinentalityWaterShare - previous.strongContinentalityWaterShare,
+    continentIdCount: raw.continentIdCount - previous.continentIdCount,
+    continentAuthorityShare: raw.continentAuthorityShare - previous.continentAuthorityShare,
+    strongContinentAuthorityShare: raw.strongContinentAuthorityShare - previous.strongContinentAuthorityShare,
+    continentAuthorityLandCaptureShare: raw.continentAuthorityLandCaptureShare - previous.continentAuthorityLandCaptureShare,
+    openOceanContinentGhostShare: raw.openOceanContinentGhostShare - previous.openOceanContinentGhostShare,
+    meanLandContinentality: raw.meanLandContinentality - previous.meanLandContinentality,
+    meanOceanContinentality: raw.meanOceanContinentality - previous.meanOceanContinentality,
+    meanOpenOceanContinentality: raw.meanOpenOceanContinentality - previous.meanOpenOceanContinentality,
     featureAuthorityCoverage: raw.featureAuthorityCoverage - previous.featureAuthorityCoverage,
     plateAuthorityLeakShare: raw.plateAuthorityLeakShare - previous.plateAuthorityLeakShare,
     provinceAuthorityLeakShare: raw.provinceAuthorityLeakShare - previous.provinceAuthorityLeakShare,
@@ -314,6 +367,14 @@ function landComponentSizes(world: WorldBrain, landFlags: boolean[]): number[] {
     sizes.push(size);
   }
   return sizes.sort((a, b) => b - a);
+}
+
+function oceanCoastAdjacency(world: WorldBrain, index: number, landFlags: boolean[]): number {
+  const neighbors = neighborIndices4(world, index);
+  if (neighbors.length === 0) return 0;
+  let land = 0;
+  for (const neighbor of neighbors) if (landFlags[neighbor]) land++;
+  return land / neighbors.length;
 }
 
 function neighborIndices4(world: WorldBrain, index: number): number[] {
