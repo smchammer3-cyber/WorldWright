@@ -64,6 +64,70 @@ describe('world geography pipeline', () => {
     expect(basin.baseHeight).toBeLessThan(basinBefore);
   });
 
+  it('captures strong underwater continent cores as intentional land instead of shallow ocean circles', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 16;
+    params.height = 8;
+    params.seed = 'skeleton-core-land-capture';
+    const world = generateWorldFromParams(params);
+    world.seaLevel = 0;
+    world.metadata.seaLevel = 0;
+    seedContinentSkeletonFields(world);
+
+    const row = 3;
+    const col = 7;
+    const center = world.cells[row * world.gridWidth + col];
+    for (const [dr, dc] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const cell = world.cells[(row + dr) * world.gridWidth + col + dc];
+      cell.baseHeight = -0.05;
+      cell.editHeightDelta = 0;
+      cell.simHeightDelta = 0;
+      cell.continentId = 2;
+      cell.oceanBasinId = null;
+      cell.continentality = 0.95;
+      cell.continentCoreStrength = 0.94;
+      cell.shelfStrength = 0.02;
+      cell.marginType = ContinentMarginType.NONE;
+      cell.islandCause = IslandCause.NONE;
+    }
+
+    applySkeletonBaseElevation(world);
+
+    expect(center.baseHeight).toBeGreaterThanOrEqual(0.006);
+  });
+
+  it('sinks unsupported submerged continent shelf authority instead of preserving round ocean ghosts', () => {
+    const params = createDefaultGeneratorParams();
+    params.width = 16;
+    params.height = 8;
+    params.seed = 'skeleton-submerged-shelf-ghost';
+    const world = generateWorldFromParams(params);
+    world.seaLevel = 0;
+    world.metadata.seaLevel = 0;
+    seedContinentSkeletonFields(world);
+
+    const row = 3;
+    const col = 7;
+    const center = world.cells[row * world.gridWidth + col];
+    for (const [dr, dc] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const cell = world.cells[(row + dr) * world.gridWidth + col + dc];
+      cell.baseHeight = -0.04;
+      cell.editHeightDelta = 0;
+      cell.simHeightDelta = 0;
+      cell.continentId = 4;
+      cell.oceanBasinId = null;
+      cell.continentality = 0.72;
+      cell.continentCoreStrength = 0.10;
+      cell.shelfStrength = 0.90;
+      cell.marginType = ContinentMarginType.PASSIVE;
+      cell.islandCause = IslandCause.NONE;
+    }
+
+    applySkeletonBaseElevation(world);
+
+    expect(center.baseHeight).toBeLessThan(-0.065);
+  });
+
   it('does not let hidden plate or skeleton IDs change skeleton terrain response', () => {
     const makeWorld = (scrambleHiddenIds: boolean) => {
       const params = createDefaultGeneratorParams();

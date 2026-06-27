@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/core/worldGenerator';
 import { applyGeneratedGeographyPipeline } from '../src/core/worldGeographyPipeline';
 import {
+  DEFAULT_GENERATE_DIAGNOSTIC_SEEDS,
   assertDiagnosticsDoNotChangeNormalGenerate,
   runMultiSeedGenerateDiagnostics,
   type AblationStageId,
@@ -29,6 +30,14 @@ const EXPECTED_STAGE_DIAGNOSTIC_IDS = [
 ];
 
 describe('multi-seed Generate diagnostics', () => {
+  it('keeps blueprint audit seeds in the default diagnostics set', () => {
+    expect(DEFAULT_GENERATE_DIAGNOSTIC_SEEDS).toContain('1040037');
+    expect(DEFAULT_GENERATE_DIAGNOSTIC_SEEDS).toContain('stage-diagnostics');
+    expect(DEFAULT_GENERATE_DIAGNOSTIC_SEEDS).toContain('skeleton-first-pipeline');
+    expect(DEFAULT_GENERATE_DIAGNOSTIC_SEEDS).toContain('skeleton-land-preservation');
+    expect(DEFAULT_GENERATE_DIAGNOSTIC_SEEDS.length).toBeGreaterThanOrEqual(9);
+  });
+
   it('returns one result per seed and preserves stage order', () => {
     const result = runMultiSeedGenerateDiagnostics({ seeds, width: 64, height: 32 });
     expect(result.runs.map((run) => run.seed)).toEqual(seeds);

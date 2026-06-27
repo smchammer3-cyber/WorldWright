@@ -18,7 +18,7 @@ import { applyIsostaticTerrainResponse } from './worldTerrainResponse';
 import { recomputeWorld } from './worldRecompute';
 import type { WorldBrain } from './worldSchema';
 
-export const DEFAULT_GENERATE_DIAGNOSTIC_SEEDS = ['67', '32319885', 'worldwright-a', 'worldwright-b', 'worldwright-c', 'worldwright-d', 'worldwright-e'] as const;
+export const DEFAULT_GENERATE_DIAGNOSTIC_SEEDS = ['1040037', 'stage-diagnostics', 'skeleton-first-pipeline', 'skeleton-land-preservation', 'worldwright-a', 'worldwright-b', 'worldwright-c', 'worldwright-d', 'worldwright-e'] as const;
 export const DEFAULT_GENERATE_DIAGNOSTIC_WIDTH = 128;
 export const DEFAULT_GENERATE_DIAGNOSTIC_HEIGHT = 64;
 
