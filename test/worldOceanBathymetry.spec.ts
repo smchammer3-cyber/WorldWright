@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/core/worldGenerator';
 import { applyOceanBathymetrySmoothing } from '../src/core/worldOceanBathymetry';
-import { BoundaryType, CrustProvince, IslandCause, OceanDepthClass, PlateType } from '../src/core/worldSchema';
+import { BoundaryType, ContinentMarginType, CrustProvince, IslandCause, OceanDepthClass, PlateType } from '../src/core/worldSchema';
 
 function makeFlatOceanWorld() {
   const params = createDefaultGeneratorParams();
@@ -27,6 +27,10 @@ function makeFlatOceanWorld() {
     cell.crustThickness = 0.44;
     cell.crustAge = 0.36;
     cell.shelfStrength = 0;
+    cell.marginType = ContinentMarginType.NONE;
+    cell.continentality = 0;
+    cell.continentCoreStrength = 0;
+    cell.continentId = null;
     cell.plateId = i % world.gridWidth < world.gridWidth / 2 ? 1 : 2;
   }
   return world;
@@ -71,6 +75,32 @@ describe('ocean bathymetry smoothing', () => {
 
     const afterGap = gap(left, right);
     expect(afterGap).toBeLessThan(beforeGap * 0.98);
+  });
+
+  it('sinks unsupported submerged continent shelf fields instead of preserving mid-ocean circular ghosts', () => {
+    const world = makeFlatOceanWorld();
+    const { left, right } = setOceanGap(world, 2, 5);
+    for (const cell of [left, right]) {
+      cell.plateType = PlateType.CONTINENTAL;
+      cell.continentality = 0.82;
+      cell.continentCoreStrength = 0.72;
+      cell.continentId = 7;
+      cell.shelfStrength = 0.88;
+      cell.marginType = ContinentMarginType.PASSIVE;
+      cell.crustThickness = 0.68;
+      cell.crustAge = 0.66;
+      cell.crustProvince = CrustProvince.OLD_SHIELD;
+    }
+    const beforeLeft = left.baseHeight;
+    const beforeGap = gap(left, right);
+
+    applyOceanBathymetrySmoothing(world);
+
+    const afterGap = gap(left, right);
+    expect(afterGap).toBeLessThan(beforeGap * 0.98);
+    expect(left.baseHeight).toBeLessThan(beforeLeft - 0.020);
+    expect(left.baseHeight).toBeLessThan(-0.07);
+    expect(right.baseHeight).toBeLessThan(0);
   });
 
   it('preserves explicitly caused trench and ridge bathymetry more than uncaused edges', () => {

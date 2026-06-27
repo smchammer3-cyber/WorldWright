@@ -46,7 +46,25 @@ describe('generated stage diagnostics', () => {
       expect(stage.raw.plateAuthorityLeakShare).toBeLessThanOrEqual(1);
       expect(stage.raw.provinceAuthorityLeakShare).toBeGreaterThanOrEqual(0);
       expect(stage.raw.provinceAuthorityLeakShare).toBeLessThanOrEqual(1);
+      expect(stage.raw.continentIdCount).toBeGreaterThanOrEqual(0);
+      expect(stage.raw.continentAuthorityShare).toBeGreaterThanOrEqual(0);
+      expect(stage.raw.continentAuthorityShare).toBeLessThanOrEqual(1);
+      expect(stage.raw.strongContinentAuthorityShare).toBeGreaterThanOrEqual(0);
+      expect(stage.raw.strongContinentAuthorityShare).toBeLessThanOrEqual(1);
+      expect(stage.raw.continentAuthorityLandCaptureShare).toBeGreaterThanOrEqual(0);
+      expect(stage.raw.continentAuthorityLandCaptureShare).toBeLessThanOrEqual(1);
+      expect(stage.raw.openOceanContinentGhostShare).toBeGreaterThanOrEqual(0);
+      expect(stage.raw.openOceanContinentGhostShare).toBeLessThanOrEqual(1);
+      expect(stage.raw.meanLandContinentality).toBeGreaterThanOrEqual(0);
+      expect(stage.raw.meanLandContinentality).toBeLessThanOrEqual(1);
+      expect(stage.raw.meanOceanContinentality).toBeGreaterThanOrEqual(0);
+      expect(stage.raw.meanOceanContinentality).toBeLessThanOrEqual(1);
+      expect(stage.raw.meanOpenOceanContinentality).toBeGreaterThanOrEqual(0);
+      expect(stage.raw.meanOpenOceanContinentality).toBeLessThanOrEqual(1);
     }
+
+    const continentStage = diagnostics?.stages.find((stage) => stage.id === 'CONTINENT_FIELDS');
+    expect(continentStage?.raw.continentAuthorityShare ?? 0).toBeGreaterThan(0);
   });
 
   it('does not mutate the active world while replaying stage diagnostics', () => {

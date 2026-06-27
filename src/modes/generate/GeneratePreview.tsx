@@ -209,7 +209,7 @@ export default function GeneratePreview({ world, error }: Props) {
                 position: "absolute",
                 left: 12,
                 top: 68,
-                width: "min(760px, calc(100% - 24px))",
+                width: "min(900px, calc(100% - 24px))",
                 maxHeight: "min(60%, 520px)",
                 overflow: "auto",
                 padding: 10,
@@ -311,9 +311,11 @@ function GenerateStageAuditTable({ stages }: { stages: GenerateStageList }) {
               <th style={thStyle}>Bodies</th>
               <th style={thStyle}>Frag</th>
               <th style={thStyle}>Relief</th>
-              <th style={thStyle}>Plate</th>
-              <th style={thStyle}>Prov</th>
               <th style={thStyle}>Skel</th>
+              <th style={thStyle}>Cont</th>
+              <th style={thStyle}>Cap</th>
+              <th style={thStyle}>Ghost</th>
+              <th style={thStyle}>OcCont</th>
               <th style={thStyle}>Feat</th>
               <th style={thStyle}>PLeak</th>
               <th style={thStyle}>CLeak</th>
@@ -330,9 +332,11 @@ function GenerateStageAuditTable({ stages }: { stages: GenerateStageList }) {
                 <td style={tdStyle}>{stage.raw.landComponents}</td>
                 <td style={tdStyle}>{pct(stage.raw.mediumFragmentShare)}</td>
                 <td style={tdStyle}>{stage.raw.landHeightStdDev.toFixed(3)}</td>
-                <td style={tdStyle}>{formatRatio(stage.raw.plateSeamHeightRatio)}</td>
-                <td style={tdStyle}>{formatRatio(stage.raw.provinceSeamHeightRatio)}</td>
                 <td style={tdStyle}>{formatRatio(stage.raw.skeletonSeamHeightRatio)}</td>
+                <td style={tdStyle} title={`${stage.raw.continentIdCount} continent ids`}>{pct(stage.raw.continentAuthorityShare)}</td>
+                <td style={tdStyle} title="Share of strong continent authority that is actually land">{pct(stage.raw.continentAuthorityLandCaptureShare)}</td>
+                <td style={tdStyle} title="Open-ocean water cells with strong continent authority">{pct(stage.raw.openOceanContinentGhostShare)}</td>
+                <td style={tdStyle} title="Mean open-ocean continentality">{stage.raw.meanOpenOceanContinentality.toFixed(2)}</td>
                 <td style={tdStyle}>{pct(stage.raw.featureAuthorityCoverage)}</td>
                 <td style={tdStyle}>{pct(stage.raw.plateAuthorityLeakShare)}</td>
                 <td style={tdStyle}>{pct(stage.raw.provinceAuthorityLeakShare)}</td>
@@ -345,7 +349,7 @@ function GenerateStageAuditTable({ stages }: { stages: GenerateStageList }) {
         </table>
       </div>
       <div style={{ marginTop: 6, fontSize: 10, lineHeight: 1.35, color: "rgba(255,255,255,0.58)" }}>
-        Plate/Prov/Skel columns show seam imprint ratios. Leak columns report sharp terrain jumps where hidden authority changed without matching feature explanation.
+        Cont is continent-authority coverage. Cap is how much strong continent authority became land. Ghost is open-ocean strong continent authority. OcCont is mean open-ocean continentality. Leak columns report sharp terrain jumps where hidden authority changed without matching feature explanation.
       </div>
     </div>
   );

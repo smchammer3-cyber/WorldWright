@@ -11,9 +11,11 @@ import { ensureCrustFields } from './worldCrust';
 /**
  * Smooths unexplained underwater height ghosts without letting derived labels or
  * hidden IDs become bathymetry authority. Ridges, trenches, island arcs,
- * shelves, and coastal slopes get protection only through explicit feature or
- * material/morphology authority such as boundary type, uplift, volcanism,
- * caused island fields, shelf strength, and margin type.
+ * and active margins get protection through explicit feature/material authority.
+ * Passive shelves are protected by actual coast adjacency, not by submerged
+ * continent-skeleton circles sitting in open ocean. Unsupported submerged
+ * continental morphology is actively pulled back toward basin depth so it does
+ * not paint round continent ghosts into Final/Ocean views.
  */
 export function applyOceanBathymetrySmoothing(world: WorldBrain): void {
   if (!world?.cells?.length) return;
@@ -29,18 +31,22 @@ export function applyOceanBathymetrySmoothing(world: WorldBrain): void {
     const h = source[i];
     if (h >= seaLevel) continue;
 
-    const cause = explicitOceanBathymetryCause(cell);
     const coastProtection = oceanCoastProtection(world, i, source, seaLevel);
+    const cause = explicitOceanBathymetryCause(cell, coastProtection);
+    const submergedGhost = submergedContinentGhostSignal(cell, coastProtection);
     const edgeGhost = unexplainedOceanEdgeSignal(world, i, source, seaLevel);
     const interiorBlock = oceanInteriorBlockSignal(world, i, source, seaLevel);
-    const target = localOceanAverage(world, i, source, seaLevel);
-    if (target == null) continue;
+    const localTarget = localOceanAverage(world, i, source, seaLevel);
+    if (localTarget == null) continue;
 
+    const basinTarget = seaLevel - lerp(0.10, 0.28, submergedGhost);
+    const target = submergedGhost > 0 ? Math.min(localTarget, basinTarget) : localTarget;
     const morphologyProtection = clamp01(Math.max(cause, coastProtection * 0.75));
-    const strength = clamp01(0.05 + edgeGhost * 0.26 + interiorBlock * 0.08) * lerp(1, 0.16, morphologyProtection);
+    const strength = clamp01(0.05 + edgeGhost * 0.26 + interiorBlock * 0.08 + submergedGhost * 0.42) * lerp(1, 0.16, morphologyProtection);
     if (strength <= 0.002) continue;
 
-    deltas[i] = clamp((target - h) * strength, -0.022, 0.022);
+    const lowerCap = lerp(0.022, 0.060, submergedGhost);
+    deltas[i] = clamp((target - h) * strength, -lowerCap, 0.022);
   }
 
   for (let i = 0; i < world.cells.length; i++) {
@@ -67,7 +73,8 @@ function localOceanAverage(world: WorldBrain, index: number, heights: number[], 
       const h = heights[idx];
       if (h >= seaLevel) continue;
       const neighbor = world.cells[idx];
-      const cause = explicitOceanBathymetryCause(neighbor);
+      const coastProtection = oceanCoastProtection(world, idx, heights, seaLevel);
+      const cause = explicitOceanBathymetryCause(neighbor, coastProtection);
       const weight = lerp(1, 0.34, cause);
       sum += h * weight;
       weightSum += weight;
@@ -87,7 +94,9 @@ function unexplainedOceanEdgeSignal(world: WorldBrain, index: number, heights: n
     const neighbor = world.cells[neighborIndex];
     if (heights[neighborIndex] >= seaLevel) continue;
     count++;
-    const caused = Math.max(explicitOceanBathymetryCause(cell), explicitOceanBathymetryCause(neighbor));
+    const cellCause = explicitOceanBathymetryCause(cell, oceanCoastProtection(world, index, heights, seaLevel));
+    const neighborCause = explicitOceanBathymetryCause(neighbor, oceanCoastProtection(world, neighborIndex, heights, seaLevel));
+    const caused = Math.max(cellCause, neighborCause);
     const heightJump = Math.abs(heights[index] - heights[neighborIndex]);
     signal += smoothstep(0.018, 0.075, heightJump) * (1 - caused);
   }
@@ -96,7 +105,8 @@ function unexplainedOceanEdgeSignal(world: WorldBrain, index: number, heights: n
 
 function oceanInteriorBlockSignal(world: WorldBrain, index: number, heights: number[], seaLevel: number): number {
   const cell = world.cells[index];
-  if (explicitOceanBathymetryCause(cell) > 0.20) return 0;
+  const coastProtection = oceanCoastProtection(world, index, heights, seaLevel);
+  if (explicitOceanBathymetryCause(cell, coastProtection) > 0.20) return 0;
   const neighborHeights = neighborIndices4(world, index)
     .filter((idx) => heights[idx] < seaLevel)
     .map((idx) => heights[idx]);
@@ -114,16 +124,37 @@ function oceanCoastProtection(world: WorldBrain, index: number, heights: number[
   return smoothstep(0.01, 0.60, land / neighbors.length);
 }
 
-function explicitOceanBathymetryCause(cell: Cell): number {
+function explicitOceanBathymetryCause(cell: Cell, coastProtection: number): number {
+  let cause = explicitActiveOceanCause(cell);
+
+  // Shelf strength is valid bathymetry authority only when it is attached to a
+  // real coast. Otherwise submerged continent-skeleton fields can show up as
+  // large circular shallow-water ghosts in Final/Ocean views.
+  if (cell.shelfStrength > 0.42 && coastProtection > 0.20) cause = Math.max(cause, 0.58);
+  if (cell.marginType === ContinentMarginType.PASSIVE && cell.shelfStrength > 0.32 && coastProtection > 0.20) cause = Math.max(cause, 0.42);
+  return clamp01(cause);
+}
+
+function submergedContinentGhostSignal(cell: Cell, coastProtection: number): number {
+  const activeCause = explicitActiveOceanCause(cell);
+  if (activeCause > 0.20 || coastProtection > 0.28) return 0;
+  const continentalSignal =
+    clamp01(cell.continentality) * 0.48
+    + clamp01(cell.continentCoreStrength) * 0.34
+    + clamp01(cell.shelfStrength) * 0.32
+    + (cell.marginType === ContinentMarginType.PASSIVE ? 0.16 : 0);
+  const openOceanGate = 1 - smoothstep(0.08, 0.32, coastProtection);
+  return clamp01(continentalSignal * openOceanGate);
+}
+
+function explicitActiveOceanCause(cell: Cell): number {
   let cause = 0;
   if (cell.boundaryType === BoundaryType.CONVERGENT || cell.boundaryType === BoundaryType.DIVERGENT) cause = Math.max(cause, 0.9);
   if (cell.boundaryType === BoundaryType.TRANSFORM) cause = Math.max(cause, 0.45);
   if (cell.islandCause === IslandCause.ISLAND_ARC || cell.islandCause === IslandCause.VOLCANIC_HOTSPOT) cause = Math.max(cause, 0.9);
   if (cell.volcanicActivity > 0.55) cause = Math.max(cause, 0.72);
   if (Math.abs(cell.upliftRate) > 0.55) cause = Math.max(cause, 0.64);
-  if (cell.shelfStrength > 0.42) cause = Math.max(cause, 0.58);
   if (cell.marginType === ContinentMarginType.ACTIVE || cell.marginType === ContinentMarginType.RIFT) cause = Math.max(cause, 0.50);
-  if (cell.marginType === ContinentMarginType.PASSIVE && cell.shelfStrength > 0.32) cause = Math.max(cause, 0.42);
   return clamp01(cause);
 }
 

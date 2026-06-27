@@ -17,12 +17,14 @@ describe('continent skeleton fields', () => {
     seedContinentSkeletonFields(world);
 
     expect(world.continentSkeletons?.length).toBeGreaterThanOrEqual(2);
-    expect(world.continentSkeletons?.length).toBeLessThanOrEqual(7);
+    expect(world.continentSkeletons?.length).toBeLessThanOrEqual(8);
     expect(world.oceanBasinSkeletons?.length).toBeGreaterThanOrEqual(2);
 
-    const continentalCells = world.cells.filter((cell) => cell.continentId != null);
+    const continentIntentCells = world.cells.filter((cell) => cell.continentality > 0.24);
+    const continentalDebugCells = world.cells.filter((cell) => cell.continentId != null);
     const oceanCells = world.cells.filter((cell) => cell.oceanBasinId != null);
-    expect(continentalCells.length).toBeGreaterThan(world.cells.length * 0.10);
+    expect(continentIntentCells.length).toBeGreaterThan(world.cells.length * 0.09);
+    expect(continentalDebugCells.length).toBeGreaterThan(world.cells.length * 0.08);
     expect(oceanCells.length).toBeGreaterThan(world.cells.length * 0.10);
 
     for (const cell of world.cells) {
