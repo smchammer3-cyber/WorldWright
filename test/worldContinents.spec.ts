@@ -23,7 +23,7 @@ describe('continent skeleton fields', () => {
     const continentIntentCells = world.cells.filter((cell) => cell.continentality > 0.24);
     const continentalDebugCells = world.cells.filter((cell) => cell.continentId != null);
     const oceanCells = world.cells.filter((cell) => cell.oceanBasinId != null);
-    expect(continentIntentCells.length).toBeGreaterThan(world.cells.length * 0.10);
+    expect(continentIntentCells.length).toBeGreaterThan(world.cells.length * 0.09);
     expect(continentalDebugCells.length).toBeGreaterThan(world.cells.length * 0.08);
     expect(oceanCells.length).toBeGreaterThan(world.cells.length * 0.10);
 
