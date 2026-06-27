@@ -55,7 +55,7 @@ export function buildContinentIntentField(args: {
     const marginTendency = smoothstep(0.26, 0.68, continentality) * smoothstep(0.34, 0.94, distance);
 
     cells[index] = {
-      continentId: continentality > 0.285 ? best.continent.id : null,
+      continentId: continentality > 0.265 ? best.continent.id : null,
       oceanBasinId: continentality < 0.42 ? basin.id : null,
       continentality,
       continentCoreStrength: core,
