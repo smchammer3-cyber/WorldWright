@@ -22,7 +22,9 @@ export type { GeneratorParams } from './worldGenerator/index';
 export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const world = generateNoiseWorldFromParams(params);
   applyContinentIntentBirthTerrain(world);
-  seedContinentSkeletonFields(world);
+  if (world.planetFoundation && allowsNormalContinentalMorphology(world.planetFoundation.geologyStack)) {
+    seedContinentSkeletonFields(world);
+  }
   return world;
 }
 
