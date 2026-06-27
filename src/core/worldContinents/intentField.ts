@@ -39,9 +39,9 @@ export function buildContinentIntentField(args: {
   const width = clampInt(args.width, 32, 1024);
   const height = clampInt(args.height, 16, 512);
   const seed = seedToUint32(args.seed);
-  const continentCount = clampInt(Math.round(args.continentCount ?? 4), 2, 7);
+  const continentCount = clampInt(Math.round(args.continentCount ?? 4), 2, 8);
   const continents = createContinentSkeletons(seed, continentCount);
-  const oceanBasins = createOceanBasins(seed, Math.max(2, Math.min(5, continentCount + 1)));
+  const oceanBasins = createOceanBasins(seed, Math.max(2, Math.min(6, continentCount + 1)));
   const cells: ContinentIntentCell[] = new Array(width * height);
 
   for (let index = 0; index < cells.length; index++) {
@@ -52,17 +52,17 @@ export function buildContinentIntentField(args: {
     const core = clamp01(best.coreStrength);
     const distance = clamp01(best.distanceNorm);
     const shelfTendency = computeShelfTendency(continentality, core, distance, best.edgeNoise);
-    const marginTendency = smoothstep(0.18, 0.64, continentality) * smoothstep(0.30, 0.94, distance);
+    const marginTendency = smoothstep(0.26, 0.68, continentality) * smoothstep(0.34, 0.94, distance);
 
     cells[index] = {
-      continentId: continentality > 0.24 ? best.continent.id : null,
-      oceanBasinId: continentality < 0.46 ? basin.id : null,
+      continentId: continentality > 0.30 ? best.continent.id : null,
+      oceanBasinId: continentality < 0.42 ? basin.id : null,
       continentality,
       continentCoreStrength: core,
       distanceToContinentCore: distance,
       shelfTendency,
       marginTendency,
-      oceanBasinTendency: clamp01((1 - continentality) * (0.72 + basin.strength * 0.28)),
+      oceanBasinTendency: clamp01((1 - continentality) * (0.76 + basin.strength * 0.24)),
     };
   }
 
@@ -131,10 +131,11 @@ function createContinentSkeletons(seed: number, count: number): ContinentSkeleto
   const out: ContinentSkeleton[] = [];
 
   for (let i = 0; i < count; i++) {
-    const golden = (i + 0.5) / count;
-    const lonBase = wrapLon(golden * 360 - 180 + centeredJitter(seed, i, 101) * 34);
-    const latBand = Math.asin(2 * golden01(i, count, seed) - 1) * 180 / Math.PI;
-    const lat = clamp(latBand + centeredJitter(seed, i, 211) * 20, -62, 62);
+    const lonStride = (i * 0.618033988749895 + deterministicJitter(seed, i, 101) * 0.16) % 1;
+    const lonBase = wrapLon(lonStride * 360 - 180);
+    const lat01 = (i * 0.381966011250105 + deterministicJitter(seed, i, 211) * 0.22 + 0.19) % 1;
+    const latBand = Math.asin(2 * lat01 - 1) * 180 / Math.PI;
+    const lat = clamp(latBand + centeredJitter(seed, i, 223) * 10, -58, 58);
     const shapeType = shapes[Math.floor(deterministicJitter(seed, i, 307) * shapes.length) % shapes.length];
 
     out.push({
@@ -142,9 +143,9 @@ function createContinentSkeletons(seed: number, count: number): ContinentSkeleto
       shapeType,
       coreLat: lat,
       coreLon: lonBase,
-      size: clamp01(0.52 + centeredJitter(seed, i, 401) * 0.18 + (count <= 3 ? 0.10 : 0)),
+      size: clamp01(0.36 + centeredJitter(seed, i, 401) * 0.12 + (count <= 3 ? 0.06 : 0)),
       axisAngle: deterministicJitter(seed, i, 503) * Math.PI,
-      elongation: 1.0 + deterministicJitter(seed, i, 601) * shapeElongationBonus(shapeType),
+      elongation: 0.88 + deterministicJitter(seed, i, 601) * shapeElongationBonus(shapeType),
       lobeCount: shapeLobeCount(shapeType, seed, i),
     });
   }
@@ -187,17 +188,17 @@ function bestContinentIntent(lat: number, lon: number, continents: ContinentSkel
     const gulf = gulfCutout(local.angle, local.radius, continent, seed);
     const edgeNoise = lobe - gulf;
     const warpedDistance = clamp(shapeDistance - lobe + gulf, 0, 2.4);
-    const base = 1 - smoothstep(0.72, 1.18, warpedDistance);
-    const coreStrength = 1 - smoothstep(0.00, 0.42, warpedDistance);
+    const base = 1 - smoothstep(0.56, 1.00, warpedDistance);
+    const coreStrength = 1 - smoothstep(0.00, 0.34, warpedDistance);
     const shapeBias = shapeContinentalityBias(continent.shapeType, local.x, local.y);
-    const continentality = clamp01(base * 0.88 + coreStrength * 0.16 + shapeBias);
+    const continentality = clamp01(base * 0.82 + coreStrength * 0.18 + shapeBias);
 
     if (continentality > best.continentality) {
       best = {
         continent,
         continentality,
         coreStrength,
-        distanceNorm: clamp01(warpedDistance / 1.28),
+        distanceNorm: clamp01(warpedDistance / 1.08),
         edgeNoise,
       };
     }
@@ -213,35 +214,35 @@ function distortedLocalCoordinates(lat: number, lon: number, continent: Continen
   const sa = Math.sin(continent.axisAngle);
   const alongRaw = dLon * ca + dLat * sa;
   const crossRaw = dLon * -sa + dLat * ca;
-  const radiusBase = 0.18 + continent.size * 0.24;
+  const radiusBase = 0.13 + continent.size * 0.16;
   const alongScale = radiusBase * continent.elongation;
-  const crossScale = radiusBase / Math.sqrt(Math.max(0.55, continent.elongation));
+  const crossScale = radiusBase / Math.sqrt(Math.max(0.62, continent.elongation));
   const broadWarp = valueNoise2D(seed, lon * 0.018 + continent.id * 4.7, lat * 0.018 - continent.id * 2.9, 1811) * 2 - 1;
   const mediumWarp = valueNoise2D(seed, lon * 0.052 - continent.id * 1.3, lat * 0.052 + continent.id * 3.1, 1907) * 2 - 1;
-  const x = alongRaw / Math.max(1e-6, alongScale) + broadWarp * 0.10 + mediumWarp * 0.045;
-  const y = crossRaw / Math.max(1e-6, crossScale) - broadWarp * 0.070 + mediumWarp * 0.060;
+  const x = alongRaw / Math.max(1e-6, alongScale) + broadWarp * 0.08 + mediumWarp * 0.050;
+  const y = crossRaw / Math.max(1e-6, crossScale) - broadWarp * 0.055 + mediumWarp * 0.065;
   return { x, y, radius: Math.sqrt(x * x + y * y), angle: Math.atan2(y, x) };
 }
 
 function normalizedShapeDistance(x: number, y: number, shape: ContinentShapeType): number {
   switch (shape) {
     case ContinentShapeType.RIBBON_CONTINENT:
-      return Math.max(Math.abs(y) * 1.85, Math.abs(x) * 0.76) + Math.abs(y) * 0.10;
+      return Math.max(Math.abs(y) * 1.55, Math.abs(x) * 0.92) + Math.abs(y) * 0.14;
     case ContinentShapeType.PENINSULAR_CONTINENT:
-      return Math.sqrt(x * x * 0.70 + y * y * 1.18) + Math.max(0, -x) * 0.20;
+      return Math.sqrt(x * x * 0.82 + y * y * 1.16) + Math.max(0, -x) * 0.22;
     case ContinentShapeType.TWIN_LOBE_CONTINENT: {
-      const left = Math.sqrt((x + 0.34) * (x + 0.34) * 1.05 + y * y * 1.22);
-      const right = Math.sqrt((x - 0.34) * (x - 0.34) * 1.05 + y * y * 1.22);
-      return Math.min(left, right) + Math.max(0, 0.14 - Math.abs(x)) * 0.65;
+      const left = Math.sqrt((x + 0.30) * (x + 0.30) * 1.12 + y * y * 1.24);
+      const right = Math.sqrt((x - 0.30) * (x - 0.30) * 1.12 + y * y * 1.24);
+      return Math.min(left, right) + Math.max(0, 0.16 - Math.abs(x)) * 0.72;
     }
     case ContinentShapeType.RIFTED_BLOCK:
-      return Math.sqrt(x * x * 0.95 + y * y * 1.08) + Math.max(0, 0.26 - Math.abs(y)) * Math.max(0, x) * 0.20;
+      return Math.sqrt(x * x * 1.02 + y * y * 1.12) + Math.max(0, 0.28 - Math.abs(y)) * Math.max(0, x) * 0.24;
     case ContinentShapeType.COLLISION_WEDGE:
-      return Math.max(Math.abs(y) * (1.15 + Math.max(0, x) * 0.95), Math.abs(x) * 0.82);
+      return Math.max(Math.abs(y) * (1.20 + Math.max(0, x) * 0.70), Math.abs(x) * 0.96);
     case ContinentShapeType.ARC_ACCREDITED:
-      return Math.sqrt(x * x * 0.80 + (Math.abs(y) - 0.18) * (Math.abs(y) - 0.18) * 1.10) + Math.max(0, -x) * 0.08;
+      return Math.sqrt(x * x * 0.90 + (Math.abs(y) - 0.16) * (Math.abs(y) - 0.16) * 1.18) + Math.max(0, -x) * 0.12;
     case ContinentShapeType.BROKEN_MARGIN_CONTINENT:
-      return Math.sqrt(x * x * 0.90 + y * y * 1.00) + Math.max(0, y) * 0.12;
+      return Math.sqrt(x * x * 1.00 + y * y * 1.06) + Math.max(0, y) * 0.16;
     case ContinentShapeType.COMPACT_SHIELD:
     default:
       return Math.sqrt(x * x + y * y);
@@ -252,28 +253,28 @@ function lobeEdgeOffset(angle: number, radius: number, continent: ContinentSkele
   const lobes = Math.max(2, continent.lobeCount);
   const phase = deterministicJitter(seed, continent.id, 2309) * Math.PI * 2;
   const wave = Math.sin(angle * lobes + phase) * 0.5 + Math.sin(angle * (lobes + 2) - phase * 0.7) * 0.32;
-  const edgeGate = smoothstep(0.35, 0.95, radius) * (1 - smoothstep(1.32, 1.85, radius));
-  return Math.max(0, wave) * edgeGate * (0.12 + continent.size * 0.07);
+  const edgeGate = smoothstep(0.34, 0.86, radius) * (1 - smoothstep(1.02, 1.42, radius));
+  return Math.max(0, wave) * edgeGate * (0.080 + continent.size * 0.045);
 }
 
 function gulfCutout(angle: number, radius: number, continent: ContinentSkeleton, seed: number): number {
   const lobes = Math.max(2, continent.lobeCount + 1);
   const phase = deterministicJitter(seed, continent.id, 2707) * Math.PI * 2;
   const wave = Math.sin(angle * lobes + phase) * 0.5 + Math.cos(angle * (lobes + 3) + phase) * 0.28;
-  const edgeGate = smoothstep(0.50, 1.06, radius) * (1 - smoothstep(1.24, 1.75, radius));
-  return Math.max(0, -wave) * edgeGate * 0.15;
+  const edgeGate = smoothstep(0.44, 0.94, radius) * (1 - smoothstep(1.05, 1.44, radius));
+  return Math.max(0, -wave) * edgeGate * 0.18;
 }
 
 function computeShelfTendency(continentality: number, core: number, distanceNorm: number, edgeNoise: number): number {
-  const marginBand = smoothstep(0.20, 0.58, continentality) * (1 - smoothstep(0.62, 0.88, continentality));
-  const edgeBand = smoothstep(0.34, 0.86, distanceNorm) * (1 - smoothstep(0.96, 1.0, distanceNorm));
-  return clamp01(marginBand * 0.70 + edgeBand * 0.36 + Math.max(0, edgeNoise) * 0.18 - core * 0.10);
+  const marginBand = smoothstep(0.26, 0.58, continentality) * (1 - smoothstep(0.62, 0.86, continentality));
+  const edgeBand = smoothstep(0.38, 0.88, distanceNorm) * (1 - smoothstep(0.96, 1.0, distanceNorm));
+  return clamp01(marginBand * 0.64 + edgeBand * 0.30 + Math.max(0, edgeNoise) * 0.14 - core * 0.12);
 }
 
 function classifyMargin(cell: Cell, intent: ContinentIntentCell): ContinentMarginType {
   const continentality = intent.continentality;
-  if (continentality < 0.18) return ContinentMarginType.NONE;
-  const marginBand = intent.marginTendency > 0.18 || (continentality >= 0.18 && continentality < 0.62 && intent.distanceToContinentCore > 0.30);
+  if (continentality < 0.22) return ContinentMarginType.NONE;
+  const marginBand = intent.marginTendency > 0.18 || (continentality >= 0.22 && continentality < 0.62 && intent.distanceToContinentCore > 0.34);
   if (cell.boundaryType === BoundaryType.CONVERGENT) return ContinentMarginType.COLLISION;
   if (cell.boundaryType === BoundaryType.TRANSFORM) return ContinentMarginType.TRANSFORM;
   if (cell.boundaryType === BoundaryType.DIVERGENT) return marginBand ? ContinentMarginType.RIFT : ContinentMarginType.NONE;
@@ -285,8 +286,8 @@ function classifyIslandCause(cell: Cell, intent: ContinentIntentCell): IslandCau
   if (cell.boundaryType === BoundaryType.CONVERGENT && cell.volcanicActivity > 0.25) return IslandCause.ISLAND_ARC;
   if (cell.volcanicActivity > 0.55) return IslandCause.VOLCANIC_HOTSPOT;
   if (intent.marginTendency > 0.45 && cell.boundaryType === BoundaryType.DIVERGENT) return IslandCause.RIFT_FRAGMENT;
-  if (intent.continentality > 0.48 && intent.distanceToContinentCore > 0.44 && intent.shelfTendency > 0.32) return IslandCause.SHELF_ISLAND;
-  if (intent.continentality > 0.32 && intent.distanceToContinentCore > 0.62) return IslandCause.CONTINENTAL_FRAGMENT;
+  if (intent.continentality > 0.48 && intent.distanceToContinentCore > 0.48 && intent.shelfTendency > 0.32) return IslandCause.SHELF_ISLAND;
+  if (intent.continentality > 0.34 && intent.distanceToContinentCore > 0.66) return IslandCause.CONTINENTAL_FRAGMENT;
   if (cell.plateType === PlateType.OCEANIC && cell.volcanicActivity < 0.20 && intent.continentality < 0.18) return IslandCause.INVALID_FRAGMENT;
   return IslandCause.NONE;
 }
@@ -307,35 +308,35 @@ function bestOceanBasin(lat: number, lon: number, basins: OceanBasinSkeleton[]):
 function shapeContinentalityBias(shape: ContinentShapeType, x: number, y: number): number {
   switch (shape) {
     case ContinentShapeType.RIBBON_CONTINENT:
-      return -Math.abs(y) * 0.04 + Math.abs(x) * 0.02;
+      return -Math.abs(y) * 0.055 + Math.abs(x) * 0.010;
     case ContinentShapeType.PENINSULAR_CONTINENT:
-      return x > 0 ? 0.04 : -0.02;
+      return x > 0 ? 0.030 : -0.025;
     case ContinentShapeType.TWIN_LOBE_CONTINENT:
-      return Math.abs(x) > 0.18 && Math.abs(x) < 0.72 ? 0.04 : -0.015;
+      return Math.abs(x) > 0.18 && Math.abs(x) < 0.70 ? 0.030 : -0.020;
     case ContinentShapeType.RIFTED_BLOCK:
-      return Math.abs(y) < 0.18 && x > 0 ? -0.08 : 0.03;
+      return Math.abs(y) < 0.18 && x > 0 ? -0.090 : 0.025;
     case ContinentShapeType.COLLISION_WEDGE:
-      return x > 0 ? 0.04 - Math.max(0, y) * 0.02 : -0.01;
+      return x > 0 ? 0.030 - Math.max(0, y) * 0.025 : -0.015;
     case ContinentShapeType.ARC_ACCREDITED:
     case ContinentShapeType.BROKEN_MARGIN_CONTINENT:
-      return x > 0.30 ? 0.035 : 0;
+      return x > 0.30 ? 0.025 : -0.005;
     case ContinentShapeType.COMPACT_SHIELD:
     default:
-      return 0.015;
+      return 0.010;
   }
 }
 
 function shapeElongationBonus(shape: ContinentShapeType): number {
   switch (shape) {
-    case ContinentShapeType.RIBBON_CONTINENT: return 1.65;
-    case ContinentShapeType.PENINSULAR_CONTINENT: return 1.05;
-    case ContinentShapeType.COLLISION_WEDGE: return 0.85;
-    case ContinentShapeType.RIFTED_BLOCK: return 0.70;
-    case ContinentShapeType.ARC_ACCREDITED: return 1.20;
-    case ContinentShapeType.BROKEN_MARGIN_CONTINENT: return 0.95;
-    case ContinentShapeType.TWIN_LOBE_CONTINENT: return 0.55;
+    case ContinentShapeType.RIBBON_CONTINENT: return 0.85;
+    case ContinentShapeType.PENINSULAR_CONTINENT: return 0.65;
+    case ContinentShapeType.COLLISION_WEDGE: return 0.50;
+    case ContinentShapeType.RIFTED_BLOCK: return 0.45;
+    case ContinentShapeType.ARC_ACCREDITED: return 0.65;
+    case ContinentShapeType.BROKEN_MARGIN_CONTINENT: return 0.55;
+    case ContinentShapeType.TWIN_LOBE_CONTINENT: return 0.35;
     case ContinentShapeType.COMPACT_SHIELD:
-    default: return 0.35;
+    default: return 0.25;
   }
 }
 
@@ -383,11 +384,6 @@ function wrapLon(lon: number): number {
   while (out < -180) out += 360;
   while (out > 180) out -= 360;
   return out;
-}
-
-function golden01(index: number, count: number, seed: number): number {
-  const g = 0.618033988749895;
-  return (index * g + deterministicJitter(seed, index, 907) * 0.18 + 0.5 / Math.max(1, count)) % 1;
 }
 
 function valueNoise2D(seed: number, x: number, y: number, salt: number): number {
