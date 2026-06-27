@@ -85,14 +85,19 @@ export function classifyCrustProvince(cell: Cell, height: number, seaLevel: numb
   const core = clamp01(cell.continentCoreStrength);
   const shelf = clamp01(cell.shelfStrength);
   const volcanic = clamp01(cell.volcanicActivity);
+  const thickness = clamp01(cell.crustThickness);
+  const age = clamp01(cell.crustAge);
+  const activeFeature = (feature.COLLISION_ZONE ?? 0) + (feature.RIFT_ZONE ?? 0) + (feature.OCEAN_RIDGE ?? 0) + (feature.OCEAN_TRENCH ?? 0) + (feature.ISLAND_ARC ?? 0);
 
-  if ((feature.ISLAND_ARC ?? 0) > 0.44 || (feature.SUBDUCTION_ZONE ?? 0) > 0.58 && volcanic > 0.30) return CrustProvince.ISLAND_ARC;
-  if (volcanic > 0.62 && aboveSea > -0.14) return CrustProvince.VOLCANIC_PROVINCE;
-  if ((feature.COLLISION_ZONE ?? 0) > 0.42 || cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.ACTIVE || cell.upliftRate > 0.24) return CrustProvince.MOBILE_BELT;
-  if ((feature.RIFT_ZONE ?? 0) > 0.38 || cell.marginType === ContinentMarginType.RIFT || cell.upliftRate < -0.12 || cell.islandCause === IslandCause.RIFT_FRAGMENT) return CrustProvince.RIFT_MARGIN;
-  if (continentality < 0.24 && shelf < 0.22) return CrustProvince.OCEANIC_BASIN;
-  if (aboveSea >= -0.05 && aboveSea < 0.13 && shelf > 0.36) return CrustProvince.COASTAL_PLAIN;
-  if (core > 0.58 && cell.crustAge > 0.62 && cell.crustThickness > 0.60) return CrustProvince.OLD_SHIELD;
+  if ((feature.ISLAND_ARC ?? 0) > 0.34 || ((feature.SUBDUCTION_ZONE ?? 0) > 0.44 && volcanic > 0.22)) return CrustProvince.ISLAND_ARC;
+  if (volcanic > 0.54 && aboveSea > -0.18) return CrustProvince.VOLCANIC_PROVINCE;
+  if ((feature.COLLISION_ZONE ?? 0) > 0.34 || cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.ACTIVE || cell.upliftRate > 0.16) return CrustProvince.MOBILE_BELT;
+  if ((feature.RIFT_ZONE ?? 0) > 0.30 || cell.marginType === ContinentMarginType.RIFT || cell.upliftRate < -0.08 || cell.islandCause === IslandCause.RIFT_FRAGMENT) return CrustProvince.RIFT_MARGIN;
+  if ((feature.OCEAN_RIDGE ?? 0) > 0.32 || (feature.OCEAN_TRENCH ?? 0) > 0.32) return CrustProvince.OCEANIC_BASIN;
+  if (continentality < 0.34 && shelf < 0.38 && aboveSea < 0.10) return CrustProvince.OCEANIC_BASIN;
+  if (aboveSea >= -0.08 && aboveSea < 0.16 && shelf > 0.24) return CrustProvince.COASTAL_PLAIN;
+  if (core > 0.36 && age > 0.48 && thickness > 0.46 && activeFeature < 0.38) return CrustProvince.OLD_SHIELD;
+  if (thickness < 0.38 && continentality < 0.48 && aboveSea < 0.18) return CrustProvince.OCEANIC_BASIN;
   return CrustProvince.SEDIMENT_BASIN;
 }
 
