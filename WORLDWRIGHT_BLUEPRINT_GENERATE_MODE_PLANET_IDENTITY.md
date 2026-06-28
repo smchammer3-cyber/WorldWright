@@ -2,7 +2,7 @@
 
 Status: draft / generator subsystem blueprint  
 Owner: Iron Man  
-Purpose: define the stable identity of a generated world before terrain, geology, micro tiles, exports, saves, diagnostics, or simulation branches attach to it.
+Purpose: define Planet Identity as the stable birth certificate and source identity layer that connects the generated world to seeds, planet foundation, coordinates, micro tiles, Create layers, Sim branches, Save/Load, Export, diagnostics, and future modular tools.
 
 Governing documents:
 
@@ -10,6 +10,7 @@ Governing documents:
 WORLDWRIGHT_BLUEPRINT_GENERATE_MODE_GENERATOR_CONSTITUTION.md
 WORLDWRIGHT_BLUEPRINT_GENERATE_MODE_SCOPE_AND_DOMAIN_MAP.md
 WORLDWRIGHT_BLUEPRINT_GENERATE_MODE_SEED_ARCHITECTURE.md
+WORLDWRIGHT_BLUEPRINT_GENERATE_MODE_SEED_TO_TERRAIN_CAUSALITY.md
 ```
 
 ---
@@ -17,844 +18,846 @@ WORLDWRIGHT_BLUEPRINT_GENERATE_MODE_SEED_ARCHITECTURE.md
 ## 1. Core Law
 
 ```text
-Planet Identity answers: what world is this?
+Planet Identity is the generated world's birth certificate.
 
-Before WorldWright can generate terrain, save data, export heightmaps, activate micro tiles, run simulations, or hand data to future tools, the world must have a stable identity.
+It answers:
+What world is this?
+What generated birth record does it belong to?
+What seed/foundation/profile created it?
+What coordinate and tile namespace does it own?
+What later authored, simulated, saved, exported, diagnosed, or external data may attach to it?
 ```
 
 Planet Identity is not terrain.
 
-Planet Identity is not the rendered globe.
+Planet Identity is not a visual name.
 
-Planet Identity is not a temporary UI session.
+Planet Identity is not only a seed.
 
-Planet Identity is the stable root object that later generated, authored, simulated, saved, exported, and diagnosed data belongs to.
-
-Core rule:
+Planet Identity is the stable root record that lets every later WorldWright system say:
 
 ```text
-Every generated field, micro tile, save record, sim branch, export artifact, diagnostic artifact, and future tool handoff must be traceable back to a World Identity.
+I belong to this world.
+I was derived from this generated birth.
+I attach to this coordinate/tile namespace.
+I can be traced back to this source identity.
 ```
 
 ---
 
-## 2. Why Planet Identity Comes Before Planet Foundation
+## 2. Interconnection Law
 
-Planet Foundation defines what kind of planet is being born.
+Planet Identity must not be isolated.
 
-Planet Identity defines which world record is receiving that foundation.
-
-The order is:
+It is the first cross-system connector in Generate Mode.
 
 ```text
-Planet Identity
--> Seed Architecture
--> Generation Profile
--> Planet Foundation
--> Generated World Fields
+Planet Identity connects:
+world seed,
+seed manifest,
+generation profile,
+generator version,
+planet foundation,
+coordinate contract,
+micro tile namespace,
+source field hashes,
+Create authored layers,
+Sim branches,
+Save/Load manifests,
+Export packages,
+Diagnostics artifacts,
+Future modular tool handoffs.
 ```
 
-Planet Foundation may later be regenerated, migrated, compared, forked, or audited.
-
-Planet Identity must remain stable enough to answer:
+Every major downstream artifact must carry either:
 
 ```text
-Which world is this?
-Which save owns this data?
-Which micro tiles belong to it?
-Which exports came from it?
-Which sim branches attach to it?
-Which authored layers belong to it?
-Which diagnostics describe it?
-Which future City Maker or Unreal handoff package came from it?
+sourceWorldId
 ```
 
-Without Planet Identity, every later system can produce data that looks valid but cannot prove what world it belongs to.
+or a stronger identity tuple:
+
+```text
+sourceWorldId + generatedBirthId + sourceRevisionId + coordinateNamespaceId
+```
+
+No exported heightmap, micro tile file, authored layer, Sim branch, diagnostic artifact, or City Maker handoff should exist without a source identity reference.
 
 ---
 
-## 3. Planet Identity vs World State
+## 3. Planet Identity vs Related Concepts
 
-Planet Identity and World State must not be confused.
+These must not be confused.
 
-### 3.1 Planet Identity
+### 3.1 World ID
 
-Planet Identity is stable identity metadata.
+The World ID identifies the world project.
 
-It includes:
+It persists across authored edits, sim branches, saves, exports, and compatible recomputes.
+
+Example:
 
 ```text
-world ID,
-project ID if applicable,
-root seed identity,
+worldId: world_01JZ_WORLD_CAELORA
+```
+
+### 3.2 Generated Birth ID
+
+The Generated Birth ID identifies the original Generate Mode birth event.
+
+It changes when the user generates a new world rather than editing the existing one.
+
+Example:
+
+```text
+generatedBirthId: birth_01JZ_GENERATE_0001
+```
+
+### 3.3 Source Revision ID
+
+The Source Revision ID identifies a meaningful revision of canonical world source.
+
+Examples of source revision changes:
+
+```text
+initial generation completed,
+Create Mode committed authored clay sticker layer,
+Sim branch promoted to canon,
+schema migration changed source representation,
+user explicitly regenerated base world.
+```
+
+Example:
+
+```text
+sourceRevisionId: rev_01JZ_WORLD_CAELORA_R0003
+```
+
+### 3.4 Display Name
+
+The Display Name is user-facing and mutable.
+
+Example:
+
+```text
+displayName: Caelora
+```
+
+Changing the display name must not change world identity, seed identity, tile identity, save identity, or export traceability.
+
+### 3.5 World Seed
+
+The World Seed is the root deterministic seed for generated birth.
+
+It is part of identity, but it is not the whole identity.
+
+Two worlds could intentionally use the same seed with different profiles, generator versions, or style settings.
+
+Therefore source identity requires:
+
+```text
+world seed,
+generation profile,
 seed architecture version,
 generator version,
-generation profile ID,
-creation timestamp,
-identity schema version,
-lineage information,
-user-facing name,
-internal source hash references.
+planet identity,
+source revision.
 ```
 
-### 3.2 World State
+### 3.6 Planet Foundation
 
-World State is the current data attached to that identity.
+Planet Foundation defines physical/style premises.
 
-It includes:
+Planet Identity points to Planet Foundation.
 
-```text
-generated fields,
-derived fields,
-Create Mode authored layers,
-Sim Mode branches,
-micro tile records,
-export records,
-diagnostic artifacts,
-cache state,
-UI session state.
+Planet Foundation does not replace identity.
+
+### 3.7 Coordinate Namespace
+
+The Coordinate Namespace defines how positions, tiles, local frames, and exports refer to the world.
+
+Planet Identity owns the namespace root.
+
+### 3.8 Save File Name
+
+A save file name is storage/UI metadata.
+
+It must not be the world identity.
+
+### 3.9 Export Package Name
+
+An export package name is output metadata.
+
+It must not be the world identity.
+
+---
+
+## 4. Planet Identity Data Contract
+
+Planet Identity should be represented by a canonical identity object.
+
+```ts
+interface PlanetIdentity {
+  schemaVersion: string;
+
+  worldId: string;
+  generatedBirthId: string;
+  sourceRevisionId: string;
+
+  displayName?: string;
+  generatedPlaceholderName?: string;
+
+  createdAt: string;
+  lastSourceRevisionAt?: string;
+
+  generationProfileId: string;
+  generatorVersion: string;
+  seedArchitectureVersion: string;
+  worldSeed: string;
+  seedManifestId: string;
+
+  planetFoundationId: string;
+  coordinateNamespaceId: string;
+  microTileNamespaceId: string;
+
+  sourceFieldLedgerId?: string;
+  diagnosticRunSetId?: string;
+
+  lineage: PlanetIdentityLineage;
+  integrity: PlanetIdentityIntegrity;
+}
 ```
 
-Planet Identity says:
+### 4.1 Lineage
 
-```text
-this is the world record.
+Lineage records where this world came from.
+
+```ts
+interface PlanetIdentityLineage {
+  createdBy: 'GENERATE_MODE' | 'IMPORT' | 'TEMPLATE' | 'MIGRATION' | 'DUPLICATE';
+  parentWorldId?: string;
+  parentSourceRevisionId?: string;
+  templateId?: string;
+  importedFrom?: string;
+  migrationFrom?: string;
+  notes?: string;
+}
 ```
 
-World State says:
+### 4.2 Integrity
 
-```text
-this is what currently exists inside or attached to that world record.
+Integrity records source-trace evidence.
+
+```ts
+interface PlanetIdentityIntegrity {
+  identityHash: string;
+  birthCertificateHash: string;
+  seedManifestHash: string;
+  planetFoundationHash?: string;
+  coordinateContractHash?: string;
+  sourceFieldLedgerHash?: string;
+  createdWithRepositoryCommit?: string;
+  compatibilityStatus:
+    | 'CURRENT'
+    | 'COMPATIBLE_LEGACY'
+    | 'MIGRATION_REQUIRED'
+    | 'PARTIAL_COMPATIBILITY'
+    | 'LOCKED_LEGACY'
+    | 'UNKNOWN';
+}
 ```
 
 ---
 
-## 4. Identity Data Contract
+## 5. World Birth Certificate
 
-A generated world should have a first-class identity object.
+Planet Identity should be accompanied by a World Birth Certificate.
+
+The birth certificate is the generated world's traceable origin record.
 
 ```ts
-interface WorldIdentity {
+interface WorldBirthCertificate {
   worldId: string;
-  projectId?: string;
-
-  userFacingName?: string;
-  generatedName?: string;
+  generatedBirthId: string;
+  sourceRevisionId: string;
 
   worldSeed: string;
   seedArchitectureVersion: string;
   generatorVersion: string;
   generationProfileId: string;
 
-  identitySchemaVersion: string;
-  worldSchemaVersion: string;
+  planetFoundationId: string;
+  coordinateNamespaceId: string;
+  microTileNamespaceId: string;
+
+  generatedDomains: GeneratedDomainBirthRecord[];
+  stageArtifactSetId?: string;
+  diagnosticSummaryId?: string;
 
   createdAt: string;
-  createdBy?: 'USER' | 'GENERATE_MODE' | 'IMPORT' | 'FORK' | 'MIGRATION';
-
-  lineage: WorldLineage;
-  sourceHashes: WorldSourceHashes;
-
-  tags?: string[];
-  notes?: string;
+  birthCertificateHash: string;
 }
 ```
 
-### 4.1 World Lineage
-
-World Lineage describes where a world came from.
+### 5.1 Generated Domain Birth Record
 
 ```ts
-interface WorldLineage {
-  origin:
-    | 'NEW_GENERATION'
-    | 'FORKED_FROM_WORLD'
-    | 'IMPORTED_WORLD'
-    | 'MIGRATED_LEGACY_WORLD'
-    | 'GENERATED_FROM_TEMPLATE';
-
-  parentWorldId?: string;
-  parentSaveId?: string;
-  forkReason?: string;
-  importSource?: string;
-  migrationRecordId?: string;
+interface GeneratedDomainBirthRecord {
+  domainName: GenerateDomainName;
+  stageName?: string;
+  sourceClass:
+    | 'CANONICAL_GENERATED_SOURCE'
+    | 'DERIVED_GENERATED_FIELD'
+    | 'DEBUG_FIELD'
+    | 'RECOMPUTABLE_CACHE'
+    | 'STAGE_ARTIFACT'
+    | 'MICRO_TILE_SOURCE'
+    | 'SIM_INITIAL_PROXY';
+  owner: 'Generate';
+  seedStreamsUsed: string[];
+  outputHash?: string;
+  artifactRef?: string;
+  diagnosticVerdict?: 'PASS' | 'WARN' | 'FAIL' | 'NOT_RUN';
 }
 ```
 
-### 4.2 World Source Hashes
+The birth certificate does not need to store every field value directly.
 
-World Source Hashes let the system compare whether important identity-linked sources changed.
-
-```ts
-interface WorldSourceHashes {
-  identityHash: string;
-  seedManifestHash?: string;
-  generationProfileHash?: string;
-  planetFoundationHash?: string;
-  canonicalGeneratedSourceHash?: string;
-}
-```
-
-These hashes are not the world identity by themselves.
-
-They are evidence attached to the identity.
+It must store enough source identity to prove what generated the world and what downstream systems are attached to.
 
 ---
 
-## 5. Required Identity Fields
+## 6. Identity Graph
 
-The minimum Planet Identity fields are:
+Planet Identity connects the generator graph.
 
 ```text
-worldId,
+Planet Identity
+  -> Seed Manifest
+  -> Planet Foundation
+  -> Coordinate Namespace
+  -> Micro Tile Namespace
+  -> Source Field Ledger
+  -> Stage Artifacts
+  -> Diagnostics
+  -> Save Manifest
+  -> Export Packages
+  -> Create Layers
+  -> Sim Branches
+  -> Future Tool Handoffs
+```
+
+No downstream system should invent its own root identity.
+
+Downstream systems should reference Planet Identity.
+
+---
+
+## 7. Interconnection Contracts
+
+### 7.1 Seed Architecture Connection
+
+Planet Identity stores:
+
+```text
 worldSeed,
 seedArchitectureVersion,
 generatorVersion,
 generationProfileId,
-identitySchemaVersion,
-worldSchemaVersion,
-createdAt,
-lineage.origin.
+seedManifestId,
+seedManifestHash.
 ```
 
-Optional but important fields:
+Seed Architecture proves reproducibility.
+
+Planet Identity proves ownership and traceability.
+
+Law:
 
 ```text
-userFacingName,
-generatedName,
-projectId,
-parentWorldId,
-source hashes,
-tags,
-notes.
+Seed says how this world can be replayed.
+Planet Identity says which world the replay belongs to.
 ```
 
-A generated world is not valid for save/load, export, micro tile activation, or simulation if minimum identity fields are missing.
+### 7.2 Planet Foundation Connection
 
----
+Planet Identity points to the Planet Foundation.
 
-## 6. World ID Rules
-
-World ID must be stable and unique enough for local-first use.
-
-Rules:
+Planet Foundation defines the world premise:
 
 ```text
-World ID must be created before generated fields attach to the world.
-World ID must be saved.
-World ID must not be replaced silently.
-World ID must not depend only on user-facing name.
-World ID must not depend on transient UI session state.
-World ID must not be reused for a different world.
-World ID must be included in export and diagnostic sidecars.
-World ID must be referenced by micro tile IDs or tile manifests.
+scale,
+style,
+geology stack,
+climate premise,
+sea-level premise,
+profile allowances.
 ```
 
-World ID may be generated from:
+Planet Identity must know which foundation it was born from.
 
-```text
-UUID/ULID-style identifier,
-stable app-generated ID,
-imported external ID plus namespace,
-or another explicit durable ID scheme.
-```
+### 7.3 Coordinate / Grid / Tile Connection
 
-World ID should not be generated from mutable fields like:
+Planet Identity owns the coordinate namespace and micro tile namespace.
 
-```text
-world name,
-current time alone,
-current visible terrain,
-latest save path,
-UI session ID.
-```
-
----
-
-## 7. Name Rules
-
-Names are user-facing labels, not identity authority.
-
-A world may have:
-
-```text
-userFacingName,
-generatedName,
-internal worldId.
-```
-
-Rules:
-
-```text
-Renaming a world must not change worldId.
-Two worlds may have the same user-facing name.
-Generated names may be replaced by user names.
-Exports should include both user-facing name and worldId when available.
-Diagnostics should use worldId as authority and name as display.
-```
-
-Failure example:
-
-```text
-User renames Caelora to Stormreach.
-All micro tile IDs change.
-```
-
-This is forbidden.
-
----
-
-## 8. Relationship to Seed
-
-World Seed and World ID are different.
-
-### 8.1 World Seed
-
-World Seed answers:
-
-```text
-What deterministic seed helped birth this world?
-```
-
-### 8.2 World ID
-
-World ID answers:
-
-```text
-Which specific world record is this?
-```
-
-Two different world records may share the same seed.
-
-Examples:
-
-```text
-a copied world,
-a forked world,
-a regenerated comparison world,
-a template-derived world,
-two users using the same seed independently.
-```
-
-Therefore:
-
-```text
-worldSeed must not be treated as worldId.
-```
-
-The seed helps reproduce generated source.
-
-The World ID owns the world record, authored layers, sim branches, exports, and tool handoffs.
-
----
-
-## 9. Relationship to Generation Profile
-
-Generation Profile defines the settings/premises under which the seed is interpreted.
-
-Planet Identity must record:
-
-```text
-generationProfileId,
-generationProfileHash if available,
-generatorVersion,
-seedArchitectureVersion.
-```
-
-The same seed with a different generation profile is not the same generated source.
+A micro tile ID is only globally meaningful when qualified by world identity.
 
 Example:
 
 ```text
-Seed 1040037 + Earthlike Default
-Seed 1040037 + Alien Ice Shell
-Seed 1040037 + Stylized Archipelago
+world_01JZ_WORLD_CAELORA / F2-L8-X103-Y044
 ```
 
-These may produce different worlds.
-
-They may share a seed, but they should not be treated as the same generated world unless explicitly forked/linked.
-
----
-
-## 10. Relationship to Micro Tiles
-
-Every micro tile must belong to a World Identity.
-
-A micro tile ID should include or reference:
+Rule:
 
 ```text
-worldId,
-tile grid scheme,
-tile face/level/x/y or equivalent address,
-tile schema version,
-tile source hash if needed.
+Tile IDs may be locally stable, but exported or saved tile references must include sourceWorldId or coordinateNamespaceId.
 ```
 
-Micro tile manifests must be able to answer:
+### 7.4 Generate Field Ledger Connection
 
-```text
-Which world do I belong to?
-Which seed architecture birthed me?
-Which generation profile defined my macro context?
-Which macro context hash did I activate against?
-Am I stale relative to my source world?
-```
-
-Rules:
-
-```text
-Micro tiles must not float unattached to a world.
-Micro tile IDs must not collide across worlds.
-Opening a tile must verify world identity.
-Exporting a tile must include world identity.
-Imported tile data must prove or declare its source world identity.
-```
-
----
-
-## 11. Relationship to Save/Load
-
-Save/Load must preserve Planet Identity before preserving generated fields.
-
-A save file must include:
-
-```text
-WorldIdentity,
-SeedManifest or seed manifest reference,
-world schema version,
-generated source fields or references,
-authored layers,
-sim branches,
-micro tile registry,
-export records,
-diagnostic references.
-```
-
-Load must validate:
-
-```text
-worldId exists,
-worldSeed exists,
-seedArchitectureVersion exists,
-generatorVersion exists,
-generationProfileId exists,
-schema versions exist,
-lineage is valid,
-source hashes match or report mismatch.
-```
-
-If identity is damaged, Save/Load must report it.
-
-It must not silently invent a new identity unless the user explicitly imports/forks/repairs under a documented policy.
-
----
-
-## 12. Relationship to Sim Branches
-
-Every Sim branch must attach to a World Identity.
-
-A Sim branch should record:
-
-```text
-worldId,
-baseWorldStateHash,
-baseGeneratedSourceHash if needed,
-branchId,
-branchCreatedAt,
-branchParentId if any,
-canonPromotionStatus.
-```
-
-Rules:
-
-```text
-Sim branches must not attach to the wrong world.
-Sim branches must not survive identity mismatch without warning.
-Promoting a Sim branch must not replace Planet Identity.
-Forking from a Sim branch may create a new World Identity with lineage.
-```
-
----
-
-## 13. Relationship to Create Mode Authorship
-
-Authored layers belong to a World Identity.
-
-Create Mode authored data should record:
-
-```text
-worldId,
-authoringLayerId,
-clayStickerIds,
-source generated context hash if needed,
-createdAt,
-schema version.
-```
-
-Rules:
-
-```text
-Authored layers must not attach to a different world silently.
-Clay stickers must not become orphaned from world identity.
-Forking a world may copy authored layers with lineage.
-Regenerating base terrain must not silently detach or overwrite authored layers.
-```
-
----
-
-## 14. Relationship to Export
-
-Every export artifact must identify its source world.
-
-Export sidecars should include:
-
-```text
-worldId,
-userFacingName if available,
-worldSeed,
-seedArchitectureVersion,
-generatorVersion,
-generationProfileId,
-source save ID if available,
-source tile ID if tile export,
-source field hashes,
-export profile ID,
-export timestamp,
-loss report reference.
-```
-
-Rules:
-
-```text
-No export should be source-anonymous.
-Export must not mutate Planet Identity.
-Export must not use filename as identity authority.
-Export must include enough identity metadata to trace artifacts back to WorldWright.
-```
-
----
-
-## 15. Relationship to Diagnostics and Artifacts
-
-Diagnostics must attach to World Identity.
-
-Diagnostic artifacts should include:
-
-```text
-worldId,
-worldSeed,
-generatorVersion,
-seedArchitectureVersion,
-generationProfileId,
-stage name,
-stage input hash,
-stage output hash,
-artifact timestamp,
-run ID,
-CI/build context if available.
-```
-
-Rules:
-
-```text
-Diagnostic artifacts must not be compared across worlds without checking identity.
-Snapshots must include or reference world identity metadata.
-Stage artifacts must be traceable to the world and generator version.
-Diagnostics must report missing or inconsistent identity metadata.
-```
-
----
-
-## 16. Relationship to Future Tools
-
-Future external tools need stable identity handoff.
+Generated fields should reference the source identity.
 
 Examples:
 
 ```text
-City Maker handoff,
-Unreal import package,
-external heightmap workflow,
-map renderer,
-world encyclopedia/lore tool,
-simulation replay tool.
+baseHeight belongs to sourceWorldId + sourceRevisionId.
+continentality belongs to sourceWorldId + generatedBirthId + fieldOwner Generate.
+landWater classification is derived from sourceWorldId + sourceRevisionId + seaLevel.
 ```
 
-Handoff packages should include:
+### 7.5 Create Mode Connection
+
+Create Mode authored layers attach to Planet Identity.
+
+A Create layer should store:
+
+```text
+sourceWorldId,
+baseSourceRevisionId,
+coordinateNamespaceId,
+authoredLayerId,
+createdAt,
+requiredGeneratedContextHash if needed.
+```
+
+Create Mode must not attach authored clay stickers to a nameless or unstable generated world.
+
+If the base generated world changes, Create layers may need:
+
+```text
+revalidation,
+conflict review,
+reprojection,
+manual repair,
+or explicit preservation against regenerated source.
+```
+
+### 7.6 Sim Mode Connection
+
+Sim branches attach to Planet Identity and a source revision.
+
+A Sim branch should store:
+
+```text
+sourceWorldId,
+baseSourceRevisionId,
+branchId,
+branchCreatedAt,
+initialSimProxyHash,
+branchStateHash.
+```
+
+Sim Mode must not run against a world without stable identity.
+
+If generated source changes, Sim branches must be marked:
+
+```text
+CURRENT,
+STALE,
+CONFLICT_REVIEW_REQUIRED,
+LEGACY_LOCKED.
+```
+
+### 7.7 Save/Load Connection
+
+Save/Load must preserve Planet Identity.
+
+A save manifest should store:
 
 ```text
 worldId,
-sourceWorldName,
+generatedBirthId,
+sourceRevisionId,
+displayName,
+seedManifestRef,
+planetFoundationRef,
+coordinateNamespaceRef,
+microTileRegistryRef,
+sourceFieldLedgerRef,
+createLayerRefs,
+simBranchRefs,
+exportHistoryRefs,
+diagnosticArtifactRefs.
+```
+
+Save/Load must not replace identity silently.
+
+### 7.8 Export Connection
+
+Every export package must include source identity.
+
+Required export identity fields:
+
+```text
+sourceWorldId,
+sourceGeneratedBirthId,
+sourceRevisionId,
+sourceTileId if tile export,
+coordinateNamespaceId,
 worldSeed,
 generationProfileId,
-source tile ID if relevant,
-source sticker ID if relevant,
-source field hashes,
-coordinate/scale metadata,
+generatorVersion,
+seedArchitectureVersion,
+exportProfileId,
+exportCreatedAt.
+```
+
+Export must not claim source traceability if it lacks source identity.
+
+### 7.9 Diagnostics Connection
+
+Diagnostics must report which world/source revision they evaluated.
+
+Diagnostic artifacts should include:
+
+```text
+sourceWorldId,
+generatedBirthId,
+sourceRevisionId,
+seedManifestHash,
+planetFoundationHash,
+stageArtifactSetId,
+diagnosticRunId,
+verdict,
+createdAt.
+```
+
+Diagnostics from one world must never be treated as proof for another world.
+
+### 7.10 Future Tool Connection
+
+Future modular tools, including City Maker or Unreal importers, must receive source identity.
+
+A handoff package should include:
+
+```text
+sourceWorldId,
+sourceRevisionId,
+sourceTileId if local,
+sourceStickerId if sticker-based,
+coordinateNamespaceId,
+scale metadata,
+worldSeed,
+generatorVersion,
 loss report.
 ```
 
-Rules:
+Future tools must not depend on hidden WorldWright session state.
+
+---
+
+## 8. Identity and Revisions
+
+Planet Identity must separate stable world identity from source revisions.
+
+### 8.1 World ID Persists
+
+The World ID persists when:
 
 ```text
-Future tools must not guess what world a package came from.
-WorldWright must not assume external tools preserve identity unless they report it back.
-Imported external results must validate source identity or enter as explicit imports.
+the user renames the world,
+the user adds clay stickers,
+the user creates Sim branches,
+the user exports files,
+the app rebuilds derived caches,
+the app updates debug overlays,
+the app migrates compatible schema.
+```
+
+### 8.2 Source Revision Changes
+
+The Source Revision ID changes when canonical source changes.
+
+Examples:
+
+```text
+initial generated source is committed,
+Create Mode commits an authored source layer,
+Sim branch is explicitly promoted to canon,
+Save/Load migration changes canonical source representation,
+user chooses to regenerate source fields,
+manual import commits external source data.
+```
+
+### 8.3 Generated Birth ID Changes
+
+The Generated Birth ID changes when a new Generate Mode birth replaces the source world rather than editing the existing one.
+
+Examples:
+
+```text
+user clicks New World,
+user discards current generated world and generates another,
+user imports a different generated world,
+major seed/profile change creates a new world birth.
 ```
 
 ---
 
-## 17. Forking, Copying, Importing, and Regenerating
+## 9. Name and Lore Rules
 
-Planet Identity must handle lineage explicitly.
+World display names and lore names are user-facing.
 
-### 17.1 Copy
+They are not identity authority.
 
-Copying a world may create a new world record with new worldId and parentWorldId.
+Generate may create a placeholder name.
 
-### 17.2 Fork
-
-Forking creates a new world identity derived from a parent.
-
-Reasons may include:
-
-```text
-user fork,
-Sim branch promotion to new world,
-experimental regeneration,
-Create Mode alternate version,
-import cleanup.
-```
-
-### 17.3 Import
-
-Import creates a World Identity from external data.
-
-Import must record source and uncertainty.
-
-### 17.4 Regeneration
-
-Regeneration may create:
-
-```text
-same world, recomputed derived fields,
-same world, repaired/migrated source with report,
-new forked world from same seed/profile,
-new unrelated world from same seed.
-```
-
-Regeneration must not silently replace the world identity unless the operation is explicitly defined.
-
----
-
-## 18. Identity Hashing
-
-Identity hash is a stable summary of identity-critical fields.
-
-It may include:
-
-```text
-worldId,
-worldSeed,
-seedArchitectureVersion,
-generatorVersion,
-generationProfileId,
-identitySchemaVersion,
-worldSchemaVersion,
-lineage origin,
-parentWorldId if applicable.
-```
-
-Identity hash should not include mutable display fields like:
-
-```text
-userFacingName,
-notes,
-tags,
-latest opened time,
-UI state,
-cache state.
-```
+The user may rename the world.
 
 Rules:
 
 ```text
-Changing a world name must not change identity hash.
-Changing generator version may change identity/generation compatibility status.
-Changing lineage should update identity hash.
-Identity hash mismatch must be reported.
+Renaming does not change worldId.
+Renaming does not change seed.
+Renaming does not change tile IDs.
+Renaming does not invalidate exports by itself.
+Generated placeholder names must be marked as generated suggestions, not authored lore.
+User-accepted names become authored metadata, not generated terrain authority.
 ```
 
 ---
 
-## 19. Diagnostics
+## 10. Identity in Micro Tile Architecture
 
-Required Planet Identity diagnostics:
+A micro tile belongs to a world identity and coordinate namespace.
+
+A tile record should include:
+
+```ts
+interface MicroTileIdentityRef {
+  sourceWorldId: string;
+  generatedBirthId: string;
+  sourceRevisionId: string;
+  coordinateNamespaceId: string;
+  microTileNamespaceId: string;
+  tileId: string;
+  tileSeedRef?: string;
+  macroContextHash?: string;
+}
+```
+
+Rules:
 
 ```text
-worldIdentityPresent,
+Tile ID alone is not enough for exported or saved identity.
+Tile activation must know which world/source revision it belongs to.
+Tile cache must be invalidated if source revision or macro context changes.
+Tile export must carry source world and tile identity.
+```
+
+---
+
+## 11. Identity in Export Packages
+
+Every export must be traceable.
+
+Example export sidecar identity block:
+
+```json
+{
+  "sourceWorldId": "world_01JZ_WORLD_CAELORA",
+  "sourceGeneratedBirthId": "birth_01JZ_GENERATE_0001",
+  "sourceRevisionId": "rev_01JZ_WORLD_CAELORA_R0003",
+  "sourceTileId": "F2-L8-X103-Y044",
+  "coordinateNamespaceId": "coords_caelora_cube_sphere_v1",
+  "worldSeed": "1040037",
+  "generationProfileId": "earthlike-default",
+  "generatorVersion": "generate-v0.1",
+  "seedArchitectureVersion": "generate-seed-architecture-v1",
+  "exportProfileId": "unreal-heightmap-2017-r16",
+  "exportCreatedAt": "2026-06-28T00:00:00Z"
+}
+```
+
+Export without identity is a loss of provenance.
+
+---
+
+## 12. Identity Diagnostics
+
+Required diagnostics:
+
+```text
+planetIdentityPresent,
 worldIdPresent,
-worldSeedPresent,
-seedArchitectureVersionPresent,
-generatorVersionPresent,
-generationProfileIdPresent,
-identitySchemaVersionPresent,
-worldSchemaVersionPresent,
-lineagePresent,
-identityHashPresent,
+generatedBirthIdPresent,
+sourceRevisionIdPresent,
+seedManifestLinked,
+planetFoundationLinked,
+coordinateNamespaceLinked,
+microTileNamespaceLinked,
+sourceFieldLedgerLinked,
 identityHashValid,
-sourceHashConsistency,
-microTileWorldIdCoverage,
-exportWorldIdCoverage,
-simBranchWorldIdCoverage,
-authoredLayerWorldIdCoverage,
-diagnosticArtifactWorldIdCoverage,
-externalHandoffWorldIdCoverage,
-nameUsedAsIdentityViolationCount,
-seedUsedAsWorldIdViolationCount.
+birthCertificateHashValid,
+downstreamIdentityCoverage,
+exportIdentityCoverage,
+createLayerIdentityCoverage,
+simBranchIdentityCoverage,
+diagnosticArtifactIdentityCoverage,
+futureToolHandoffIdentityCoverage,
+identityCollisionCount,
+missingSourceReferenceCount,
+legacyIdentityCompatibilityStatus.
 ```
 
-Diagnostics must answer:
+Diagnostics must be able to answer:
 
 ```text
 Can every major artifact trace back to a world?
-Can micro tiles prove which world they belong to?
-Can exports prove source identity?
-Can sim branches prove base identity?
-Can authored data prove attachment to the correct world?
-Was a mutable name or seed misused as world identity?
+Can every micro tile trace back to a coordinate namespace?
+Can every export identify its source?
+Can every Sim branch identify its base source revision?
+Can every Create layer identify the world it authored against?
+Can Save/Load round-trip identity without replacement?
 ```
 
 ---
 
-## 20. Tests
+## 13. Tests
 
 Required tests:
 
 ```text
-new generation creates WorldIdentity before generated fields attach,
-worldId survives save/load,
+new generated world receives stable worldId,
+new generated world receives generatedBirthId,
+initial generation receives sourceRevisionId,
 renaming world does not change worldId,
-renaming world does not change identity hash if name is excluded,
-same seed can create separate worlds with different worldIds,
-forked world records parentWorldId,
-micro tile manifest references worldId,
-export sidecar includes worldId and seed metadata,
-sim branch references worldId,
-authored layer references worldId,
-diagnostic artifact references worldId,
-missing identity blocks export or emits hard failure,
-seed is not used as worldId,
-filename is not used as worldId.
+same seed with different profile produces distinct generated birth identity,
+Create layer stores sourceWorldId and baseSourceRevisionId,
+Sim branch stores sourceWorldId and baseSourceRevisionId,
+Micro tile record stores sourceWorldId and tile namespace,
+Export sidecar includes source identity block,
+Save/Load preserves PlanetIdentity exactly,
+diagnostics artifact includes source identity,
+identity hash changes when identity-critical fields change,
+identity hash does not change when display name changes if display name is not identity-critical,
+legacy/migration status is reported when generator identity versions differ.
 ```
 
 ---
 
-## 21. Failure Modes
+## 14. Failure Modes
 
 Planet Identity fails if:
 
 ```text
-world data has no worldId,
-worldSeed is used as worldId,
-world name is used as worldId,
-renaming a world changes attached data IDs,
-micro tiles lack world identity,
-exports lack source world identity,
-sim branches attach to the wrong world,
-authored layers become orphaned,
-diagnostics cannot trace artifacts to a world,
-external handoffs require guessing,
-load silently invents identity without reporting repair,
-regeneration silently replaces identity,
-identity hash includes mutable UI/display fields.
+worlds are identified only by display name,
+exports cannot identify their source world,
+micro tile IDs collide across worlds,
+Create layers attach to unstable or missing base source,
+Sim branches cannot identify their starting revision,
+Save/Load silently replaces world identity,
+seed is treated as the whole identity,
+generator version/profile are omitted,
+diagnostics from one world are used to prove another world,
+external tools receive terrain without source identity,
+renaming a world breaks references,
+regenerating source fields silently keeps old generatedBirthId when it should create a new birth,
+cache/source/artifact identity are confused.
 ```
 
 Catastrophic failure:
 
 ```text
-WorldWright cannot prove which world generated, authored, simulated, saved, exported, or diagnosed data belongs to.
+WorldWright cannot prove which generated world an authored layer, sim branch, micro tile, diagnostic artifact, or export package belongs to.
 ```
 
 ---
 
-## 22. Forbidden Shortcuts
+## 15. Forbidden Shortcuts
 
 ```text
-Do not use the seed as world identity.
-Do not use the world name as world identity.
-Do not use the save filename as world identity.
-Do not use the current UI session as world identity.
-Do not allow micro tiles without a world identity reference.
-Do not allow exports without source world identity metadata.
-Do not allow sim branches without world identity metadata.
-Do not allow authored clay sticker layers without world identity metadata.
-Do not silently invent or replace identity during load.
-Do not include mutable display fields in identity hash.
-Do not treat exported files as canonical identity owners.
+Do not use display name as world identity.
+Do not use seed alone as world identity.
+Do not let tile IDs be globally meaningful without world/namespace qualification.
+Do not export terrain without sourceWorldId and sourceRevisionId.
+Do not save generated fields without identity references.
+Do not attach Create layers to anonymous generated source.
+Do not attach Sim branches to anonymous generated source.
+Do not let diagnostics run without source identity.
+Do not let external tool handoffs depend on hidden session state.
+Do not silently replace world identity during migration.
+Do not confuse generated birth identity with later source revision identity.
 ```
 
 ---
 
-## 23. Definition of Planet Identity Readiness
+## 16. Definition of Planet Identity Readiness
 
 Planet Identity is blueprint-ready when it defines:
 
 ```text
 worldId,
-worldSeed relationship,
-seed architecture relationship,
-generator version relationship,
-generation profile relationship,
-identity schema version,
-world schema version,
+generatedBirthId,
+sourceRevisionId,
+display name behavior,
 lineage,
-source hashes,
-name rules,
-save/load rules,
-micro tile rules,
-Create Mode rules,
-Sim Mode rules,
-Export rules,
-Diagnostics rules,
-future tool handoff rules,
-fork/import/regeneration behavior,
-diagnostics,
+integrity hashes,
+world birth certificate,
+seed manifest connection,
+planet foundation connection,
+coordinate namespace connection,
+micro tile namespace connection,
+Create layer connection,
+Sim branch connection,
+Save/Load connection,
+Export connection,
+Diagnostics connection,
+Future tool handoff connection,
+identity diagnostics,
 tests,
 failure modes,
 forbidden shortcuts.
 ```
 
-Implementation is ready only when:
+Implementation is ready when:
 
 ```text
-new worlds receive identity before generated fields attach,
-identity survives save/load,
-exports include identity,
-micro tiles include identity,
-sim branches include identity,
-authored layers include identity,
-diagnostics can prove identity coverage,
-and seed/name/filename are not used as world identity.
+every generated world has PlanetIdentity,
+every generated world has a WorldBirthCertificate,
+every save preserves identity,
+every export carries identity,
+every micro tile carries source identity,
+every Create layer references source identity,
+every Sim branch references source identity,
+every diagnostic artifact references source identity,
+and identity cannot be silently replaced or confused with display name.
 ```
 
 ---
 
-## 24. Summary Law
+## 17. Summary Law
 
 ```text
-Planet Identity is the stable root of a WorldWright world record.
+Planet Identity is the generated world's birth certificate.
 
-The seed helps birth the world.
-The generation profile defines how the seed is interpreted.
-The generator creates fields attached to the world.
-Create Mode authors against the world.
-Sim Mode branches from the world.
-Save/Load preserves the world.
-Export transforms data from the world.
-Diagnostics prove facts about the world.
-Future tools receive handoff packages from the world.
+Seed tells how the world can be replayed.
+Planet Foundation tells what kind of world was born.
+Coordinate Namespace tells where things live.
+Micro Tile Namespace tells how local detail attaches.
+Source Revision tells which version of truth a system depends on.
+Planet Identity ties them together.
 
-All of those must point back to one stable World Identity.
+No authored layer, Sim branch, export, micro tile, diagnostic artifact, save file, or future tool handoff should be trusted unless it can trace back to Planet Identity.
 ```
