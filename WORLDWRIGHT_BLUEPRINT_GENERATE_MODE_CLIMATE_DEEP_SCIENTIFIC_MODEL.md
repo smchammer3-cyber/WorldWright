@@ -348,7 +348,7 @@ Inputs:
 Foundation albedoProfile,
 materialAlbedoPotential,
 Sea-Level cover classes,
-dice/snow cover hints,
+ice/snow cover hints,
 desert/dust/regolith context,
 water/solvent/fantasy cover,
 volcanic/dark material context,
@@ -381,7 +381,7 @@ Diagnostics:
 ```text
 albedoFieldBuilt,
 rendererBrightnessAlbedoViolationCount,
-diceAlbedoFeedbackApplied,
+iceAlbedoFeedbackApplied,
 volcanicDarkSurfaceSupportChecked.
 ```
 
