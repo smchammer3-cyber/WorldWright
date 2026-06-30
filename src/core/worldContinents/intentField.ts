@@ -81,17 +81,32 @@ export function seedContinentSkeletonFields(world: WorldBrain): void {
   world.continentSkeletons = field.continents;
   world.oceanBasinSkeletons = field.oceanBasins;
 
+  const seaLevel = typeof world.seaLevel === 'number' ? world.seaLevel : world.metadata?.seaLevel ?? 0;
+
   for (let i = 0; i < world.cells.length; i++) {
     const cell = world.cells[i];
     const intent = field.cells[i];
-    cell.continentCoreStrength = intent.continentCoreStrength;
-    cell.continentality = intent.continentality;
-    cell.distanceToContinentCore = intent.distanceToContinentCore;
-    cell.continentId = intent.continentId;
-    cell.oceanBasinId = intent.oceanBasinId;
-    cell.shelfStrength = intent.shelfTendency;
-    cell.marginType = classifyMargin(cell, intent);
-    cell.islandCause = classifyIslandCause(cell, intent);
+    const aboveSea = totalHeight(cell) - seaLevel;
+    const suppressSubmergedGhost = shouldSuppressSubmergedContinentAuthority(world, i, intent, aboveSea, seaLevel);
+    const assignedIntent: ContinentIntentCell = suppressSubmergedGhost
+      ? {
+          ...intent,
+          continentId: null,
+          continentality: Math.min(intent.continentality, 0.54),
+          continentCoreStrength: Math.min(intent.continentCoreStrength, 0.24),
+          shelfTendency: 0,
+          marginTendency: 0,
+        }
+      : intent;
+
+    cell.continentCoreStrength = assignedIntent.continentCoreStrength;
+    cell.continentality = assignedIntent.continentality;
+    cell.distanceToContinentCore = assignedIntent.distanceToContinentCore;
+    cell.continentId = assignedIntent.continentId;
+    cell.oceanBasinId = assignedIntent.oceanBasinId;
+    cell.shelfStrength = assignedIntent.shelfTendency;
+    cell.marginType = suppressSubmergedGhost ? ContinentMarginType.NONE : classifyMargin(cell, assignedIntent);
+    cell.islandCause = suppressSubmergedGhost ? IslandCause.NONE : classifyIslandCause(cell, assignedIntent);
   }
 }
 
@@ -290,6 +305,35 @@ function classifyIslandCause(cell: Cell, intent: ContinentIntentCell): IslandCau
   if (intent.continentality > 0.34 && intent.distanceToContinentCore > 0.66) return IslandCause.CONTINENTAL_FRAGMENT;
   if (cell.plateType === PlateType.OCEANIC && cell.volcanicActivity < 0.20 && intent.continentality < 0.18) return IslandCause.INVALID_FRAGMENT;
   return IslandCause.NONE;
+}
+
+function shouldSuppressSubmergedContinentAuthority(world: WorldBrain, index: number, intent: ContinentIntentCell, aboveSea: number, seaLevel: number): boolean {
+  if (intent.continentality <= 0.62) return false;
+  if (aboveSea > -0.045) return false;
+  return landNeighborShare(world, index, seaLevel) < 0.20;
+}
+
+function landNeighborShare(world: WorldBrain, index: number, seaLevel: number): number {
+  const width = world.gridWidth;
+  const height = world.gridHeight;
+  const row = Math.floor(index / width);
+  const col = index % width;
+  const offsets = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
+  let land = 0;
+  let count = 0;
+  for (const [dr, dc] of offsets) {
+    const rr = row + dr;
+    if (rr < 0 || rr >= height) continue;
+    const cc = (col + dc + width) % width;
+    const neighbor = world.cells[rr * width + cc];
+    count++;
+    if (totalHeight(neighbor) >= seaLevel) land++;
+  }
+  return land / Math.max(1, count);
+}
+
+function totalHeight(cell: { baseHeight: number; editHeightDelta: number; simHeightDelta: number }): number {
+  return cell.baseHeight + cell.editHeightDelta + cell.simHeightDelta;
 }
 
 function bestOceanBasin(lat: number, lon: number, basins: OceanBasinSkeleton[]): OceanBasinSkeleton {
