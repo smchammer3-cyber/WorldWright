@@ -87,7 +87,7 @@ export function applyProvinceCoherence(world: WorldBrain): void {
     const mat = materialSignals(cell, world.planetFoundation);
     const feature = classifyPlateBoundaryFeatureAuthority(cell).features;
     let delta = 0;
-    if (h < seaLevel && landNeighbors >= 0.55) delta += mat.crustBuoyancy * 0.020 * smoothstep(0.50, 1.0, landNeighbors);
+    if (h < seaLevel && landNeighbors >= 0.55) delta += mat.crustBuoyancy * 0.032 * smoothstep(0.50, 1.0, landNeighbors);
     if (h >= seaLevel && waterNeighbors >= 0.62 && cell.continentality < 0.28 && !(feature.ISLAND_ARC || feature.COLLISION_ZONE)) delta -= mat.sedimentTendency * 0.018 * smoothstep(0.55, 1.0, waterNeighbors);
     if (delta !== 0) {
       const safe = constrainTopology(world, i, h, seaLevel, clamp(delta, -0.030, 0.035), before);
