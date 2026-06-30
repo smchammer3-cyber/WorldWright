@@ -28,15 +28,15 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
     const authoritySeamDamp = unbackedAuthoritySeamDamp(world, i, strongFeature);
     const rough = smoothTexture(seed, world, i, 7019);
     let delta = 0;
-    delta += mat.crustBuoyancy * 0.060 * landGate;
-    delta += mat.crustStrength * 0.026 * landGate;
+    delta += mat.crustBuoyancy * 0.034 * landGate;
+    delta += mat.crustStrength * 0.012 * landGate;
     delta += (feature.COLLISION_ZONE ?? 0) * 0.026 * landGate;
     delta += (feature.ISLAND_ARC ?? 0) * 0.020 * Math.max(landGate, coastGate);
     delta += (feature.OCEAN_RIDGE ?? 0) * 0.026 * Math.max(oceanGate, coastGate * 0.4);
     delta -= (feature.OCEAN_TRENCH ?? 0) * 0.032 * oceanGate;
     delta -= (feature.RIFT_ZONE ?? 0) * 0.026 * Math.max(landGate, coastGate * 0.5);
-    delta += rough * 0.016 * (0.35 + mat.crustStrength * 0.65) * Math.max(landGate, coastGate * 0.5) * passiveOceanDamp * authoritySeamDamp;
-    deltas[i] = constrainTopology(world, i, h, seaLevel, clamp(delta * passiveOceanDamp * authoritySeamDamp, -0.055, 0.060), before);
+    delta += rough * 0.007 * (0.35 + mat.crustStrength * 0.65) * Math.max(landGate, coastGate * 0.5) * passiveOceanDamp * authoritySeamDamp;
+    deltas[i] = constrainTopology(world, i, h, seaLevel, clamp(delta * passiveOceanDamp * authoritySeamDamp, -0.045, 0.050), before);
   }
 
   applyDeltas(world, before, seaLevel, deltas);
