@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/core/worldGenerator';
+import { createSimBranch, resolveEvent, type SimEvent } from '../src/core/simEvents';
 import { worldSession } from '../src/core/worldSession';
 import { validateWorld } from '../src/core/worldValidation';
 import type { TerrainStrokeAction } from '../src/core/worldActions';
@@ -219,16 +220,46 @@ describe('World Spine characterization', () => {
     expect(editHeightSnapshot(undone!)).toEqual(beforeEditHeights);
   });
 
-  it.skip('documents current Sim risk: simulation should run on a branch snapshot, not mutate canon directly', async () => {
+  it('runs worldSession.simulateTick on a branch snapshot without mutating canonical Create state', async () => {
     await worldSession.loadWorld(makeTestWorld('sim-branch-contract'));
     const canonicalBefore = cloneWorld(worldSession.getWorld()!);
 
     worldSession.simulateTick(1);
 
-    // Desired future contract:
-    // - the canonical world remains equal to canonicalBefore
-    // - a separate selected Sim branch receives population/culture/country changes
-    // This is skipped because current worldSession.simulateTick mutates the live world.
     expect(worldSession.getWorld()).toEqual(canonicalBefore);
+    expect(worldSession.getSimBranchWorld()).not.toBeNull();
+  });
+
+  it('resolves Sim events against a branch snapshot without mutating the base world', () => {
+    const baseWorld = makeTestWorld('sim-event-branch-snapshot');
+    const city = makeTestCity(baseWorld, 'sim-event-city');
+    baseWorld.cities.push(city);
+    const canonicalBefore = cloneWorld(baseWorld);
+
+    const branch = createSimBranch(baseWorld, 0, 'Test Branch');
+    const event: SimEvent = {
+      id: 'branch_city_growth',
+      type: 'CITY_GROWTH',
+      year: 1,
+      title: 'Branch city growth',
+      description: 'A test event that grows branch-local population only.',
+      affectedCityIds: [city.id],
+      options: [
+        {
+          label: 'Accept branch growth',
+          description: 'Population increases by 20% in the branch snapshot.',
+          effect: (world) => {
+            const target = world.cities.find((candidate) => candidate.id === city.id);
+            if (target) target.population *= 1.2;
+          },
+        },
+      ],
+      severity: 'MINOR',
+    };
+
+    expect(resolveEvent(event, 0, branch.worldSnapshot)).toBe(true);
+
+    expect(baseWorld).toEqual(canonicalBefore);
+    expect(branch.worldSnapshot.cities.find((candidate) => candidate.id === city.id)?.population).toBe(1200);
   });
 });
