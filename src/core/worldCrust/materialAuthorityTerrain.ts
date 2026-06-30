@@ -2,7 +2,6 @@ import { BoundaryType, ContinentMarginType, IslandCause, type Cell, type WorldBr
 import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
 import { ensureCrustFields } from './materialFields';
 import { classifyPlateBoundaryFeatureAuthority } from '../worldPlateBoundaryFeatures';
-import { edgeHasSharedGeologicFeatureAuthority } from '../worldGeologicFeatureAuthority';
 import { materialSignals } from '../worldTerrainResponse';
 
 export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
@@ -26,7 +25,7 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
     const strongFeature = strongestCrustDeltaFeature(feature);
     const passiveOceanGate = passiveOceanDeltaGate(cell, h, seaLevel, strongFeature);
     const passiveOceanDamp = lerp(1, 0.22, passiveOceanGate);
-    const authoritySeamDamp = unbackedAuthoritySeamDamp(world, i);
+    const authoritySeamDamp = unbackedAuthoritySeamDamp(world, i, strongFeature);
     const rough = smoothTexture(seed, world, i, 7019);
     let delta = 0;
     delta += mat.crustBuoyancy * 0.060 * landGate;
@@ -126,12 +125,13 @@ function strongestCrustDeltaFeature(feature: Partial<Record<string, number>>): n
   );
 }
 
-function unbackedAuthoritySeamDamp(world: WorldBrain, index: number): number {
+function unbackedAuthoritySeamDamp(world: WorldBrain, index: number, strongFeature: number): number {
   const cell = world.cells[index];
+  if (strongFeature > 0.34 || cell.upliftRate > 0.22 || cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.ACTIVE) return 1;
   let risk = 0;
   for (const n of neighborIndices4(world, index)) {
     const other = world.cells[n];
-    if (edgeHasSharedGeologicFeatureAuthority(cell, other)) continue;
+    if (hasSharedCrustDeltaFeatureCause(cell, other)) continue;
     if (cell.plateId !== other.plateId) risk = Math.max(risk, 0.42);
     if (cell.crustProvince !== other.crustProvince) risk = Math.max(risk, 0.55);
     const materialJump = Math.abs(clamp01(cell.crustThickness) - clamp01(other.crustThickness))
@@ -139,11 +139,19 @@ function unbackedAuthoritySeamDamp(world: WorldBrain, index: number): number {
       + Math.abs(clamp01(cell.continentality) - clamp01(other.continentality)) * 0.50;
     risk = Math.max(risk, smoothstep(0.18, 0.70, materialJump) * 0.62);
   }
-  return lerp(1, 0.26, clamp01(risk));
+  return lerp(1, 0.30, clamp01(risk));
+}
+
+function hasSharedCrustDeltaFeatureCause(a: Cell, b: Cell): boolean {
+  if (a.upliftRate > 0.22 && b.upliftRate > 0.22) return true;
+  const fa = classifyPlateBoundaryFeatureAuthority(a).features;
+  const fb = classifyPlateBoundaryFeatureAuthority(b).features;
+  const ids = ['COLLISION_ZONE', 'ISLAND_ARC', 'OCEAN_RIDGE', 'OCEAN_TRENCH', 'RIFT_ZONE', 'SUBDUCTION_ZONE', 'TRANSFORM_ZONE'] as const;
+  return ids.some((id) => Math.min(fa[id] ?? 0, fb[id] ?? 0) > 0.22);
 }
 
 function canBlendAcrossAuthorityEdge(a: Cell, b: Cell): boolean {
-  if (edgeHasSharedGeologicFeatureAuthority(a, b)) return true;
+  if (hasSharedCrustDeltaFeatureCause(a, b)) return true;
   if (a.plateId !== b.plateId) return false;
   if (a.crustProvince !== b.crustProvince) return false;
   const materialJump = Math.abs(clamp01(a.crustThickness) - clamp01(b.crustThickness))
