@@ -79,7 +79,7 @@ function alignRawSurfaceAuthority(world: WorldBrain): void {
     if (height >= seaLevel) {
       const exposure = smoothstep(0.00, 0.16, height - seaLevel);
       if (cell.continentality < 0.24) { cell.continentality = clamp(Math.max(cell.continentality, 0.28 + exposure * 0.14), 0, 1); cell.continentCoreStrength = Math.max(cell.continentCoreStrength, 0.06 + exposure * 0.08); }
-      const oceanicFragment = exposure < 0.28 && cell.continentality < 0.36 && cell.volcanicActivity >= 0.10;
+      const oceanicFragment = exposure < 0.40 && cell.continentality < 0.40;
       cell.plateType = oceanicFragment ? PlateType.OCEANIC : PlateType.CONTINENTAL;
     } else {
       cell.plateType = PlateType.OCEANIC;
