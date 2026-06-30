@@ -41,15 +41,26 @@ export function seedContinentSkeletonFields(world: WorldBrain): void {
     const ocean = bestOceanBasin(lat, lon, oceanBasins);
     const h = totalHeight(cell);
     const aboveSea = h - seaLevel;
+    const unsupportedSubmergedAuthority = isUnsupportedSubmergedContinentAuthority(world, index, aboveSea, best.continentality, seaLevel);
 
-    cell.continentCoreStrength = clamp01(best.coreStrength);
-    cell.continentality = clamp01(best.continentality);
-    cell.distanceToContinentCore = clamp01(best.distanceNorm);
-    cell.continentId = best.continentality > 0.24 ? best.continent.id : null;
-    cell.oceanBasinId = best.continentality < 0.46 ? ocean.id : null;
-    cell.shelfStrength = computeShelfStrength(best.continentality, aboveSea);
-    cell.marginType = classifyMargin(cell.boundaryType, best.continentality, best.distanceNorm, aboveSea, best.continent.shapeType);
-    cell.islandCause = classifyIslandCause(cell.plateType, cell.boundaryType, cell.volcanicActivity, best.continentality, best.distanceNorm, aboveSea, cell.marginType);
+    const continentality = unsupportedSubmergedAuthority ? Math.min(clamp01(best.continentality), 0.54) : clamp01(best.continentality);
+    const coreStrength = unsupportedSubmergedAuthority ? Math.min(clamp01(best.coreStrength), 0.24) : clamp01(best.coreStrength);
+    const distanceNorm = clamp01(best.distanceNorm);
+    const shelfStrength = unsupportedSubmergedAuthority ? 0 : computeShelfStrength(continentality, aboveSea);
+    const marginType = unsupportedSubmergedAuthority
+      ? ContinentMarginType.NONE
+      : classifyMargin(cell.boundaryType, continentality, distanceNorm, aboveSea, best.continent.shapeType);
+
+    cell.continentCoreStrength = coreStrength;
+    cell.continentality = continentality;
+    cell.distanceToContinentCore = distanceNorm;
+    cell.continentId = unsupportedSubmergedAuthority ? null : continentality > 0.24 ? best.continent.id : null;
+    cell.oceanBasinId = unsupportedSubmergedAuthority ? ocean.id : continentality < 0.46 ? ocean.id : null;
+    cell.shelfStrength = shelfStrength;
+    cell.marginType = marginType;
+    cell.islandCause = unsupportedSubmergedAuthority
+      ? IslandCause.NONE
+      : classifyIslandCause(cell.plateType, cell.boundaryType, cell.volcanicActivity, continentality, distanceNorm, aboveSea, marginType);
   }
 }
 
@@ -236,6 +247,31 @@ function computeShelfStrength(continentality: number, aboveSea: number): number 
   const margin = smoothstep(0.18, 0.58, continentality) * (1 - smoothstep(0.60, 0.88, continentality));
   const shallow = 1 - smoothstep(0.02, 0.24, Math.abs(aboveSea));
   return clamp01(margin * 0.72 + shallow * Math.max(0, continentality - 0.24) * 0.55);
+}
+
+function isUnsupportedSubmergedContinentAuthority(world: WorldBrain, index: number, aboveSea: number, continentality: number, seaLevel: number): boolean {
+  if (continentality <= 0.62) return false;
+  if (aboveSea > -0.045) return false;
+  return landNeighborShare(world, index, seaLevel) < 0.20;
+}
+
+function landNeighborShare(world: WorldBrain, index: number, seaLevel: number): number {
+  const width = world.gridWidth;
+  const height = world.gridHeight;
+  const row = Math.floor(index / width);
+  const col = index % width;
+  const offsets = [[-1, 0], [1, 0], [0, -1], [0, 1]] as const;
+  let land = 0;
+  let count = 0;
+  for (const [dr, dc] of offsets) {
+    const rr = row + dr;
+    if (rr < 0 || rr >= height) continue;
+    const cc = (col + dc + width) % width;
+    const neighbor = world.cells[rr * width + cc];
+    count++;
+    if (totalHeight(neighbor) >= seaLevel) land++;
+  }
+  return land / Math.max(1, count);
 }
 
 function axisProjection(lat: number, lon: number, continent: ContinentSkeleton): { along: number; cross: number } {
