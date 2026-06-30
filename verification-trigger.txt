@@ -1,1 +1,0 @@
-Sim branch canonical safety verification trigger.
