@@ -8,15 +8,21 @@
 // - Stamp saved worlds with revision IDs and content hashes.
 // - Verify every save by reading the stored world back before success.
 // - Add world-summary status placeholders without changing current UX flow.
+//
+// Phase 3 transitional Sim branch storage:
+// - Persist Sim branch records separately from canonical worlds.
+// - Preserve base revision/hash metadata on branch records.
+// - Keep Sim branch records out of the world index/source truth.
 // ========================================================
 
 import { WorldBrain } from "../worldSchema";
 
 const DB_NAME = "worldwright-db";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 const STORE_WORLDS = "worlds";
 const STORE_INDEX = "index";
+const STORE_SIM_BRANCHES = "simBranches";
 
 export type WorldSummaryStatus = {
   needsAttention: boolean;
@@ -40,12 +46,43 @@ export type WorldSummary = {
   status: WorldSummaryStatus;
 };
 
+export type SimBranchRecordStatus = "ACTIVE" | "ARCHIVED" | "TRASHED" | "PROMOTED";
+
+export type StoredSimEventDecision = {
+  eventId: string;
+  eventType: string;
+  year: number;
+  title: string;
+  chosenOption: number;
+  resolvedAt: string;
+};
+
+export type SimBranchRecord = {
+  id: string;
+  worldId: string;
+  name: string;
+  baseWorldId: string;
+  baseRevisionId: string;
+  baseContentHash: string;
+  startYear: number;
+  currentYear: number;
+  createdAt: string;
+  updatedAt: string;
+  status: SimBranchRecordStatus;
+  worldSnapshot: WorldBrain;
+  eventHistory: StoredSimEventDecision[];
+};
+
 export interface WorldStorageEngine {
   listWorldSummaries(): Promise<WorldSummary[]>;
   getWorldById(id: string): Promise<WorldBrain | null>;
   putWorld(world: WorldBrain): Promise<void>;
   putWorldSummary(summary: WorldSummary): Promise<void>;
   deleteWorld(id: string): Promise<void>;
+  listSimBranchRecords(worldId: string): Promise<SimBranchRecord[]>;
+  getSimBranchRecord(id: string): Promise<SimBranchRecord | null>;
+  putSimBranchRecord(record: SimBranchRecord): Promise<void>;
+  deleteSimBranchRecord(id: string): Promise<void>;
   reset?(): Promise<void>;
 }
 
@@ -71,6 +108,9 @@ function getDb(): Promise<IDBDatabase> {
         }
         if (!db.objectStoreNames.contains(STORE_INDEX)) {
           db.createObjectStore(STORE_INDEX, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(STORE_SIM_BRANCHES)) {
+          db.createObjectStore(STORE_SIM_BRANCHES, { keyPath: 'id' });
         }
       };
 
@@ -118,7 +158,13 @@ function tx<T>(
 class IndexedDbWorldStorageEngine implements WorldStorageEngine {
   async listWorldSummaries(): Promise<WorldSummary[]> {
     const db = await getDb();
-    return tx(db, STORE_INDEX, "readonly", (s) => s.getAll());
+    const summaries = await tx<WorldSummary[]>(db, STORE_INDEX, "readonly", (s) => s.getAll());
+    return Promise.all(
+      summaries.map(async (summary) => {
+        const branches = await this.listSimBranchRecords(summary.id);
+        return normalizeSummary(summary, branches.length);
+      })
+    );
   }
 
   async getWorldById(id: string): Promise<WorldBrain | null> {
@@ -133,13 +179,39 @@ class IndexedDbWorldStorageEngine implements WorldStorageEngine {
 
   async putWorldSummary(summary: WorldSummary): Promise<void> {
     const db = await getDb();
-    await tx(db, STORE_INDEX, "readwrite", (s) => s.put(summary));
+    await tx(db, STORE_INDEX, "readwrite", (s) => s.put(normalizeSummary(summary)));
   }
 
   async deleteWorld(id: string): Promise<void> {
     const db = await getDb();
+    const branches = await this.listSimBranchRecords(id);
+    await Promise.all(branches.map((branch) => this.deleteSimBranchRecord(branch.id)));
     await tx(db, STORE_WORLDS, "readwrite", (s) => s.delete(id));
     await tx(db, STORE_INDEX, "readwrite", (s) => s.delete(id));
+  }
+
+  async listSimBranchRecords(worldId: string): Promise<SimBranchRecord[]> {
+    const db = await getDb();
+    const records = await tx<SimBranchRecord[]>(db, STORE_SIM_BRANCHES, "readonly", (s) => s.getAll());
+    return records
+      .filter((record) => record.worldId === worldId && record.status !== "TRASHED")
+      .map(normalizeSimBranchRecord);
+  }
+
+  async getSimBranchRecord(id: string): Promise<SimBranchRecord | null> {
+    const db = await getDb();
+    const record = await tx<SimBranchRecord | undefined>(db, STORE_SIM_BRANCHES, "readonly", (s) => s.get(id));
+    return record ? normalizeSimBranchRecord(record) : null;
+  }
+
+  async putSimBranchRecord(record: SimBranchRecord): Promise<void> {
+    const db = await getDb();
+    await tx(db, STORE_SIM_BRANCHES, "readwrite", (s) => s.put(normalizeSimBranchRecord(record)));
+  }
+
+  async deleteSimBranchRecord(id: string): Promise<void> {
+    const db = await getDb();
+    await tx(db, STORE_SIM_BRANCHES, "readwrite", (s) => s.delete(id));
   }
 
   async reset(): Promise<void> {
@@ -165,6 +237,34 @@ function defaultStatus(): WorldSummaryStatus {
     recoveryAvailable: false,
     simBranchCount: 0,
     pluginPendingCount: 0,
+  };
+}
+
+function normalizeSummary(summary: WorldSummary, simBranchCount?: number): WorldSummary {
+  return {
+    ...summary,
+    revisionId: summary.revisionId || "",
+    contentHash: summary.contentHash || "",
+    status: {
+      ...defaultStatus(),
+      ...(summary.status || {}),
+      simBranchCount: simBranchCount ?? summary.status?.simBranchCount ?? 0,
+    },
+  };
+}
+
+function cloneWorld(world: WorldBrain): WorldBrain {
+  return JSON.parse(JSON.stringify(world)) as WorldBrain;
+}
+
+function normalizeSimBranchRecord(record: SimBranchRecord): SimBranchRecord {
+  return {
+    ...record,
+    baseRevisionId: record.baseRevisionId || "",
+    baseContentHash: record.baseContentHash || "",
+    status: record.status || "ACTIVE",
+    eventHistory: Array.isArray(record.eventHistory) ? record.eventHistory : [],
+    worldSnapshot: cloneWorld(record.worldSnapshot),
   };
 }
 
@@ -210,7 +310,7 @@ export function summarizeWorld(w: WorldBrain): WorldSummary {
   const now = new Date().toISOString();
   const createdAt = w.metadata.createdAt || now;
 
-  return {
+  return normalizeSummary({
     id: w.metadata.id,
     name: w.metadata.name || "Untitled World",
     seed: w.metadata.seed || "",
@@ -221,7 +321,7 @@ export function summarizeWorld(w: WorldBrain): WorldSummary {
     revisionId: w.metadata.revisionId || "",
     contentHash: w.metadata.contentHash || "",
     status: defaultStatus(),
-  };
+  });
 }
 
 function verifyReadback(expected: WorldBrain, actual: WorldBrain | null): void {
@@ -243,6 +343,47 @@ function verifyReadback(expected: WorldBrain, actual: WorldBrain | null): void {
   }
 }
 
+function verifySimBranchReadback(expected: SimBranchRecord, actual: SimBranchRecord | null): void {
+  if (!actual) {
+    throw new Error(`Sim branch readback verification failed: branch ${expected.id} was not found after save.`);
+  }
+  if (actual.id !== expected.id || actual.worldId !== expected.worldId) {
+    throw new Error(`Sim branch readback verification failed: branch identity mismatch for ${expected.id}.`);
+  }
+  if (actual.baseRevisionId !== expected.baseRevisionId) {
+    throw new Error(`Sim branch readback verification failed: base revision mismatch for ${expected.id}.`);
+  }
+  if (actual.baseContentHash !== expected.baseContentHash) {
+    throw new Error(`Sim branch readback verification failed: base content hash mismatch for ${expected.id}.`);
+  }
+}
+
+export function createSimBranchRecordFromWorld(
+  baseWorld: WorldBrain,
+  name: string = `Branch ${new Date().toISOString()}`,
+  startYear: number = 0
+): SimBranchRecord {
+  const now = new Date().toISOString();
+  const baseContentHash = baseWorld.metadata.contentHash || computeWorldContentHash(baseWorld);
+  const baseRevisionId = baseWorld.metadata.revisionId || createRevisionId(baseWorld, baseContentHash);
+
+  return {
+    id: `simbranch_${baseWorld.metadata.id}_${Date.now()}`,
+    worldId: baseWorld.metadata.id,
+    name,
+    baseWorldId: baseWorld.metadata.id,
+    baseRevisionId,
+    baseContentHash,
+    startYear,
+    currentYear: startYear,
+    createdAt: now,
+    updatedAt: now,
+    status: "ACTIVE",
+    worldSnapshot: cloneWorld(baseWorld),
+    eventHistory: [],
+  };
+}
+
 export async function saveWorldWithEngine(world: WorldBrain, engine: WorldStorageEngine): Promise<WorldBrain> {
   const now = new Date().toISOString();
   world.metadata.createdAt = world.metadata.createdAt || now;
@@ -260,6 +401,22 @@ export async function saveWorldWithEngine(world: WorldBrain, engine: WorldStorag
   return world;
 }
 
+export async function saveSimBranchRecordWithEngine(
+  record: SimBranchRecord,
+  engine: WorldStorageEngine
+): Promise<SimBranchRecord> {
+  const nextRecord = normalizeSimBranchRecord({
+    ...record,
+    updatedAt: new Date().toISOString(),
+  });
+
+  await engine.putSimBranchRecord(nextRecord);
+  const readback = await engine.getSimBranchRecord(nextRecord.id);
+  verifySimBranchReadback(nextRecord, readback);
+
+  return nextRecord;
+}
+
 export async function listWorldSummaries(): Promise<WorldSummary[]> {
   return indexedDbStorageEngine.listWorldSummaries();
 }
@@ -274,6 +431,22 @@ export async function saveWorld(world: WorldBrain): Promise<WorldBrain> {
 
 export async function deleteWorld(id: string): Promise<void> {
   await indexedDbStorageEngine.deleteWorld(id);
+}
+
+export async function listSimBranchRecords(worldId: string): Promise<SimBranchRecord[]> {
+  return indexedDbStorageEngine.listSimBranchRecords(worldId);
+}
+
+export async function getSimBranchRecord(id: string): Promise<SimBranchRecord | null> {
+  return indexedDbStorageEngine.getSimBranchRecord(id);
+}
+
+export async function saveSimBranchRecord(record: SimBranchRecord): Promise<SimBranchRecord> {
+  return saveSimBranchRecordWithEngine(record, indexedDbStorageEngine);
+}
+
+export async function deleteSimBranchRecord(id: string): Promise<void> {
+  await indexedDbStorageEngine.deleteSimBranchRecord(id);
 }
 
 /**
