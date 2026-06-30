@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { resolveEvent, type SimEvent } from '../simEvents';
 import { createEmptyCell, type WorldBrain } from '../worldSchema';
 import {
   computeWorldContentHash,
@@ -156,5 +157,111 @@ describe('Sim branch record storage', () => {
     };
 
     await expect(saveSimBranchRecordWithEngine(branch, engine)).rejects.toThrow(/base content hash mismatch/);
+  });
+
+  it('creates, saves, loads, selects, updates, and deletes a branch without mutating canonical world', async () => {
+    const engine = new MemoryWorldStorageEngine();
+    const savedWorld = await saveWorldWithEngine(makeWorld('branch-lifecycle-base'), engine);
+    const canonicalBefore = structuredClone(savedWorld);
+
+    const created = createSimBranchRecordFromWorld(savedWorld, 'Lifecycle branch', 5);
+    const saved = await saveSimBranchRecordWithEngine(created, engine);
+    const loadedBranches = await engine.listSimBranchRecords(savedWorld.metadata.id);
+    const selected = loadedBranches.find((branch) => branch.id === saved.id);
+
+    expect(selected?.name).toBe('Lifecycle branch');
+    expect(selected?.currentYear).toBe(5);
+
+    const updated = await saveSimBranchRecordWithEngine({
+      ...selected!,
+      currentYear: 6,
+      worldSnapshot: {
+        ...selected!.worldSnapshot,
+        cells: selected!.worldSnapshot.cells.map((cell, index) =>
+          index === 0 ? { ...cell, simHeightDelta: 0.42 } : cell,
+        ),
+      },
+    }, engine);
+
+    expect(updated.currentYear).toBe(6);
+    expect((await engine.getWorldById(savedWorld.metadata.id))).toEqual(canonicalBefore);
+
+    await engine.deleteSimBranchRecord(updated.id);
+    expect(await engine.getSimBranchRecord(updated.id)).toBeNull();
+    expect(await engine.listSimBranchRecords(savedWorld.metadata.id)).toEqual([]);
+    expect(await engine.getWorldById(savedWorld.metadata.id)).toEqual(canonicalBefore);
+  });
+
+  it('updates branch worldSnapshot and eventHistory for event resolution while canonical world stays unchanged', async () => {
+    const engine = new MemoryWorldStorageEngine();
+    const savedWorld = await saveWorldWithEngine(makeWorld('branch-event-base'), engine);
+    savedWorld.cities.push({
+      id: 'event-city',
+      name: 'Event City',
+      cellIndex: 0,
+      population: 1000,
+      type: 'TOWN',
+      populationTier: 2,
+      isCapital: false,
+      economicRoles: [],
+      tags: [],
+      description: '',
+    });
+    await saveWorldWithEngine(savedWorld, engine);
+    const canonicalBefore = structuredClone(await engine.getWorldById(savedWorld.metadata.id));
+    const branch = createSimBranchRecordFromWorld(savedWorld, 'Event branch', 2);
+    const branchWorld = structuredClone(branch.worldSnapshot);
+    const event: SimEvent = {
+      id: 'city-growth-event',
+      type: 'CITY_GROWTH',
+      year: 2,
+      title: 'City growth',
+      description: 'Branch-local city growth',
+      affectedCityIds: ['event-city'],
+      options: [{
+        label: 'Accept growth',
+        description: 'Grow the branch-local city population only.',
+        effect: (world) => {
+          const city = world.cities.find((candidate) => candidate.id === 'event-city');
+          if (city) city.population = 1200;
+        },
+      }],
+      severity: 'MINOR',
+    };
+
+    expect(resolveEvent(event, 0, branchWorld)).toBe(true);
+
+    const savedBranch = await saveSimBranchRecordWithEngine({
+      ...branch,
+      worldSnapshot: branchWorld,
+      eventHistory: [{
+        eventId: event.id,
+        eventType: event.type,
+        year: event.year,
+        title: event.title,
+        chosenOption: 0,
+        resolvedAt: '2026-01-02T00:00:00.000Z',
+      }],
+    }, engine);
+
+    expect(savedBranch.worldSnapshot.cities[0].population).toBe(1200);
+    expect(savedBranch.eventHistory).toHaveLength(1);
+    expect(await engine.getWorldById(savedWorld.metadata.id)).toEqual(canonicalBefore);
+  });
+
+  it('persists tick-style currentYear updates through storage roundtrip', async () => {
+    const engine = new MemoryWorldStorageEngine();
+    const savedWorld = await saveWorldWithEngine(makeWorld('branch-tick-base'), engine);
+    const branch = await saveSimBranchRecordWithEngine(
+      createSimBranchRecordFromWorld(savedWorld, 'Tick branch', 0),
+      engine,
+    );
+
+    await saveSimBranchRecordWithEngine({ ...branch, currentYear: branch.currentYear + 1 }, engine);
+    const roundtripped = await engine.getSimBranchRecord(branch.id);
+
+    expect(roundtripped?.currentYear).toBe(1);
+    expect(roundtripped?.worldSnapshot).toEqual(branch.worldSnapshot);
+    expect(await engine.getWorldById(savedWorld.metadata.id)).toEqual(savedWorld);
   });
 });

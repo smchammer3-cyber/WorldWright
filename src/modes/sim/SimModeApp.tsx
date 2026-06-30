@@ -4,12 +4,31 @@ import { useNavigate, useParams } from "react-router-dom";
 import AppShell from "../../ui/AppShell";
 import { worldSession } from "../../core/worldSession";
 import Globe3D from "../../render/Globe3D";
-import { generateSimEvents, resolveEvent, createSimBranch, type SimEvent, type SimBranch } from "../../core/simEvents";
+import { generateSimEvents, resolveEvent, type SimEvent } from "../../core/simEvents";
+import {
+  createSimBranchRecordFromWorld,
+  listSimBranchRecords,
+  saveSimBranchRecord,
+  type SimBranchRecord,
+  type StoredSimEventDecision,
+} from "../../core/worldStorage";
+import type { WorldBrain } from "../../core/worldSchema";
 import { DecisionInbox } from "./DecisionInbox";
 import { EventHistoryPanel } from "./EventHistoryPanel";
 
-function cloneBranchWorld(world: SimBranch["worldSnapshot"]): SimBranch["worldSnapshot"] {
-  return JSON.parse(JSON.stringify(world)) as SimBranch["worldSnapshot"];
+function cloneBranchWorld(world: WorldBrain): WorldBrain {
+  return JSON.parse(JSON.stringify(world)) as WorldBrain;
+}
+
+function serializeDecision(event: SimEvent, chosenOption: number): StoredSimEventDecision {
+  return {
+    eventId: event.id,
+    eventType: event.type,
+    year: event.year,
+    title: event.title,
+    chosenOption,
+    resolvedAt: new Date().toISOString(),
+  };
 }
 
 export default function SimModeApp() {
@@ -27,13 +46,12 @@ export default function SimModeApp() {
     return unsub;
   }, []);
 
-  // Simulation state. Branch persistence is still transitional here, but all
-  // event effects are now applied to branch snapshots rather than the loaded
-  // canonical Create world.
+  // Simulation state. Sim branches are persisted separately from the
+  // canonical Create world; event effects only touch branch snapshots.
   const [currentYear, setCurrentYear] = useState(0);
   const [pendingEvents, setPendingEvents] = useState<SimEvent[]>([]);
-  const [branches, setBranches] = useState<SimBranch[]>([]);
-  const [activeBranch, setActiveBranch] = useState<SimBranch | null>(null);
+  const [branches, setBranches] = useState<SimBranchRecord[]>([]);
+  const [activeBranch, setActiveBranch] = useState<SimBranchRecord | null>(null);
   const [showBranchMenu, setShowBranchMenu] = useState(false);
   const [eventHistory, setEventHistory] = useState<Array<{
     event: SimEvent;
@@ -42,7 +60,7 @@ export default function SimModeApp() {
   }>>([]);
   const [showHistory, setShowHistory] = useState(false);
 
-  function upsertBranch(nextBranch: SimBranch): void {
+  function upsertBranch(nextBranch: SimBranchRecord): void {
     setActiveBranch(nextBranch);
     setBranches((prev) => {
       const exists = prev.some((branch) => branch.id === nextBranch.id);
@@ -53,13 +71,14 @@ export default function SimModeApp() {
     });
   }
 
-  function getOrCreateActiveBranch(): SimBranch | null {
+  async function getOrCreateActiveBranch(): Promise<SimBranchRecord | null> {
     if (activeBranch) return activeBranch;
     if (!world) return null;
 
-    const branch = createSimBranch(world, currentYear, "Active Sim Branch");
-    upsertBranch(branch);
-    return branch;
+    const branch = createSimBranchRecordFromWorld(world, "Active Sim Branch", currentYear);
+    const savedBranch = await saveSimBranchRecord(branch);
+    upsertBranch(savedBranch);
+    return savedBranch;
   }
 
   // Load world with await + error handling
@@ -79,9 +98,10 @@ export default function SimModeApp() {
       setError(null);
       try {
         await worldSession.loadWorld(worldId);
+        const storedBranches = await listSimBranchRecords(worldId);
         if (alive) {
           setActiveBranch(null);
-          setBranches([]);
+          setBranches(storedBranches);
           setPendingEvents([]);
           setEventHistory([]);
           setCurrentYear(0);
@@ -100,12 +120,12 @@ export default function SimModeApp() {
   }, [worldId]);
 
   // Sim tick handler
-  const handleSimTick = () => {
-    const branch = getOrCreateActiveBranch();
+  const handleSimTick = async () => {
+    const branch = await getOrCreateActiveBranch();
     if (!branch) return;
 
-    const newYear = currentYear + 1;
-    const nextBranch = { ...branch, currentYear: newYear };
+    const newYear = branch.currentYear + 1;
+    const nextBranch = await saveSimBranchRecord({ ...branch, currentYear: newYear });
     upsertBranch(nextBranch);
     setCurrentYear(newYear);
 
@@ -115,21 +135,21 @@ export default function SimModeApp() {
   };
 
   // Handle event resolution
-  const handleResolveEvent = (eventId: string, optionIndex: number) => {
+  const handleResolveEvent = async (eventId: string, optionIndex: number) => {
     const event = pendingEvents.find((e) => e.id === eventId);
-    const branch = getOrCreateActiveBranch();
+    const branch = await getOrCreateActiveBranch();
     if (!event || !branch) return;
 
     const branchWorld = cloneBranchWorld(branch.worldSnapshot);
     const resolved = resolveEvent(event, optionIndex, branchWorld);
     if (!resolved) return;
 
-    const nextBranch: SimBranch = {
+    const nextBranch = await saveSimBranchRecord({
       ...branch,
       worldSnapshot: branchWorld,
       currentYear,
-      eventHistory: [...branch.eventHistory, { event, chosenOption: optionIndex }],
-    };
+      eventHistory: [...branch.eventHistory, serializeDecision(event, optionIndex)],
+    });
 
     upsertBranch(nextBranch);
     setPendingEvents((prev) => prev.filter((e) => e.id !== eventId));
@@ -140,8 +160,8 @@ export default function SimModeApp() {
   };
 
   // Auto-resolve all events
-  const handleAutoResolveAll = () => {
-    const branch = getOrCreateActiveBranch();
+  const handleAutoResolveAll = async () => {
+    const branch = await getOrCreateActiveBranch();
     if (!branch) return;
 
     const branchWorld = cloneBranchWorld(branch.worldSnapshot);
@@ -157,15 +177,15 @@ export default function SimModeApp() {
     }
 
     if (resolvedHistory.length > 0) {
-      const nextBranch: SimBranch = {
+      const nextBranch = await saveSimBranchRecord({
         ...branch,
         worldSnapshot: branchWorld,
         currentYear,
         eventHistory: [
           ...branch.eventHistory,
-          ...resolvedHistory.map(({ event, chosenOption }) => ({ event, chosenOption })),
+          ...resolvedHistory.map(({ event, chosenOption }) => serializeDecision(event, chosenOption)),
         ],
-      };
+      });
       upsertBranch(nextBranch);
       setEventHistory((prev) => [...prev, ...resolvedHistory]);
     }
@@ -176,10 +196,20 @@ export default function SimModeApp() {
   };
 
   // Create branch
-  const handleCreateBranch = (branchName: string) => {
+  const handleCreateBranch = async (branchName: string) => {
     if (!world) return;
-    const branch = createSimBranch(world, currentYear, branchName);
-    upsertBranch(branch);
+    const branch = createSimBranchRecordFromWorld(world, branchName, currentYear);
+    const savedBranch = await saveSimBranchRecord(branch);
+    upsertBranch(savedBranch);
+    setCurrentYear(savedBranch.currentYear);
+    setShowBranchMenu(false);
+  };
+
+  const handleSelectBranch = (branch: SimBranchRecord) => {
+    setActiveBranch(branch);
+    setCurrentYear(branch.currentYear);
+    setPendingEvents([]);
+    setEventHistory([]);
     setShowBranchMenu(false);
   };
 
@@ -267,11 +297,13 @@ export default function SimModeApp() {
                   marginBottom: 4,
                   backgroundColor: activeBranch?.id === b.id ? "rgba(120,170,255,0.15)" : "rgba(255,255,255,0.05)",
                   borderRadius: 4,
-                  borderLeft: b.isPromoted ? "2px solid #88ff88" : "2px solid #888",
+                  borderLeft: b.status === "PROMOTED" ? "2px solid #88ff88" : "2px solid #888",
+                  cursor: "pointer",
                 }}
+                onClick={() => handleSelectBranch(b)}
               >
                 <div style={{ fontWeight: "bold" }}>{b.name}</div>
-                <div style={{ fontSize: 10, opacity: 0.7 }}>Y{b.currentYear}</div>
+                <div style={{ fontSize: 10, opacity: 0.7 }}>Y{b.currentYear} · {b.eventHistory.length} decisions</div>
               </div>
             ))}
             <input
