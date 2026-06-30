@@ -13,31 +13,50 @@ import { applyGeneratedGeographyPipeline } from '../worldGeographyPipeline';
 
 /**
  * WorldSession encapsulates all live state and editing operations on a single
- * WorldBrain instance. It enforces the blueprint contract that there is only
- * one authoritative world in memory at a time. All modes interact with the
- * world exclusively via this session. Edits are applied via WorldActions,
- * recomputed, validated, and captured in an undo/redo history. Simulation
- * ticks are also applied here to keep history deterministic.
+ * WorldBrain instance. It enforces the blueprint contract that the canonical
+ * Create world is protected from Sim mutation. Create edits are applied via
+ * WorldActions, recomputed, validated, and captured in undo/redo history.
+ * Simulation ticks run against a branch snapshot until an explicit promotion
+ * workflow exists.
  */
 class WorldSession {
   private world: WorldBrain | null = null;
+  private simBranchWorld: WorldBrain | null = null;
   private history: WorldBrain[] = [];
   private historyIndex = -1;
   private listeners: Array<(w: WorldBrain | null) => void> = [];
   private dirty = false;
 
   /**
-   * Get the current world. Returns null if no world is loaded.
+   * Get the current canonical world. Returns null if no world is loaded.
    */
   getWorld(): WorldBrain | null {
     return this.world;
   }
 
   /**
+   * Get the current transitional Sim branch snapshot.
+   *
+   * This is intentionally separate from getWorld(): Sim state is not canonical
+   * Create state until a future explicit promotion flow accepts it.
+   */
+  getSimBranchWorld(): WorldBrain | null {
+    return this.simBranchWorld ? cloneWorld(this.simBranchWorld) : null;
+  }
+
+  /**
+   * Discard the current transitional Sim branch snapshot without touching the
+   * canonical world.
+   */
+  clearSimBranch(): void {
+    this.simBranchWorld = null;
+  }
+
+  /**
    * Subscribe to world changes. Returns an unsubscribe function. All
-   * subscribers are called whenever the world reference changes (e.g., on
-   * creation, load, undo/redo, simulation tick, or edit). When the world is
-   * null subscribers are still called with null.
+   * subscribers are called whenever the canonical world reference changes (e.g.,
+   * on creation, load, undo/redo, or Create edit). When the world is null
+   * subscribers are still called with null.
    */
   subscribe(listener: (w: WorldBrain | null) => void): () => void {
     this.listeners.push(listener);
@@ -49,8 +68,8 @@ class WorldSession {
   }
 
   /**
-   * Notify all subscribers of the current world. Always invoked after
-   * modifications.
+   * Notify all subscribers of the current canonical world. Always invoked after
+   * canonical modifications.
    */
   private notify(): void {
     for (const fn of this.listeners) {
@@ -64,8 +83,9 @@ class WorldSession {
   }
 
   /**
-   * Returns true if there are unsaved changes. Creating or loading a world
-   * resets the dirty flag. Any edit or simulation tick marks the world dirty.
+   * Returns true if there are unsaved canonical Create changes. Creating or
+   * loading a world resets the dirty flag. Create edits mark the world dirty.
+   * Sim branch exploration must not make canonical Save look dirty.
    */
   isDirty(): boolean {
     return this.dirty;
@@ -185,6 +205,7 @@ class WorldSession {
     }
 
     this.replaceWorld(w);
+    this.simBranchWorld = null;
     this.history = this.world ? [cloneWorld(this.world)] : [];
     this.historyIndex = this.world ? 0 : -1;
     this.dirty = false;
@@ -214,6 +235,7 @@ class WorldSession {
     }
 
     this.replaceWorld(w);
+    this.simBranchWorld = null;
     this.history = this.world ? [cloneWorld(this.world)] : [];
     this.historyIndex = this.world ? 0 : -1;
     this.dirty = false;
@@ -233,7 +255,7 @@ class WorldSession {
   }
 
   /**
-   * Apply a committed, undoable edit.
+   * Apply a committed, undoable Create edit.
    */
   apply(action: WorldAction): void {
     if (!this.world) return;
@@ -311,21 +333,29 @@ class WorldSession {
     }
   }
 
+  /**
+   * Advance a transitional Sim branch snapshot without mutating canonical
+   * Create state.
+   *
+   * This is intentionally not a promotion workflow. It gives current code a
+   * safe branch boundary first; durable branch persistence follows in the next
+   * implementation phase.
+   */
   simulateTick(dt: number = 1): void {
     if (!this.world) return;
 
-    simulateTick(this.world, dt);
-    recomputeWorld(this.world, ['SIM_STEP']);
-
-    const errors = validateWorld(this.world);
-    if (errors.length > 0) {
-      // eslint-disable-next-line no-console
-      console.warn('Validation warnings after sim tick:', errors);
+    if (!this.simBranchWorld) {
+      this.simBranchWorld = cloneWorld(this.world);
     }
 
-    this.pushHistorySnapshot();
-    this.dirty = true;
-    this.notify();
+    simulateTick(this.simBranchWorld, dt);
+    recomputeWorld(this.simBranchWorld, ['SIM_STEP']);
+
+    const errors = validateWorld(this.simBranchWorld);
+    if (errors.length > 0) {
+      // eslint-disable-next-line no-console
+      console.warn('Validation warnings after sim branch tick:', errors);
+    }
   }
 }
 
