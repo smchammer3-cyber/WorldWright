@@ -16,6 +16,7 @@ import { applyPlateBoundaryFeatureTerrain } from './worldPlateBoundaryFeatures';
 import { applyGeneratedWorldQualityPass } from './worldQualityPass';
 import { applyIsostaticTerrainResponse } from './worldTerrainResponse';
 import { recomputeWorld } from './worldRecompute';
+import { computeGeologicAuthorityDiagnosticSummary, type GeologicAuthorityDiagnosticSummary } from './worldGeologicAuthorityDiagnostics';
 import type { WorldBrain } from './worldSchema';
 
 export const DEFAULT_GENERATE_DIAGNOSTIC_SEEDS = ['67', '32319885', 'worldwright-a', 'worldwright-b', 'worldwright-c', 'worldwright-d', 'worldwright-e'] as const;
@@ -92,7 +93,8 @@ export type StageSummary = Pick<GenerateStageSnapshot['raw'], 'landFraction' | '
 export type MultiSeedGenerateDiagnostics = {
   seeds: string[];
   grid: string;
-  runs: Array<{ seed: string; stages: GenerateStageSnapshot[]; finalMorphology: MorphologyMetrics; finalHydrology: HydrologyMetrics; finalCauseLeak: CauseLeakMetrics; ablations: AblationResult[] }>;
+  runs: Array<{ seed: string; stages: GenerateStageSnapshot[]; geologicAuthority: GeologicAuthorityDiagnosticSummary; finalMorphology: MorphologyMetrics; finalHydrology: HydrologyMetrics; finalCauseLeak: CauseLeakMetrics; ablations: AblationResult[] }>;
+  geologicAuthorityGate: { pass: boolean; firstFailedAuthorityLayer: GenerateStageId | null; thresholds: GeologicAuthorityDiagnosticSummary['thresholds'] };
   rankings: Record<'plateImprintIncreases' | 'provinceImprintIncreases' | 'skeletonImprintIncreases' | 'reliefDecreases' | 'fragmentIncreases' | 'fragmentRepairs' | 'worstRepairBenefitVsImprintCost', StageDeltaRanking[]>;
   topSuspectStages: GenerateStageId[];
 };
@@ -104,11 +106,14 @@ export function runMultiSeedGenerateDiagnostics(options: GenerateDiagnosticOptio
   const runs = seeds.map((seed) => {
     const source = generateWorldFromParams({ ...paramsBase, seed });
     const diagnostics = computeGeneratedStageDiagnostics(source) as GenerateStageDiagnostics;
+    const geologicAuthority = computeGeologicAuthorityDiagnosticSummary(source);
+    if (!geologicAuthority) throw new Error('Expected geologic authority diagnostics for generated world.');
     const finalWorld = generateWorldFromParams({ ...paramsBase, seed });
     applyGeneratedGeographyPipeline(finalWorld);
     return {
       seed,
       stages: diagnostics.stages,
+      geologicAuthority,
       finalMorphology: computeMorphologyMetrics(finalWorld),
       finalHydrology: computeHydrologyMetrics(finalWorld),
       finalCauseLeak: computeCauseLeakMetrics(finalWorld),
@@ -122,7 +127,8 @@ export function runMultiSeedGenerateDiagnostics(options: GenerateDiagnosticOptio
     ...rankings.skeletonImprintIncreases.slice(0, 2).map((r) => r.stage),
     ...rankings.reliefDecreases.slice(0, 1).map((r) => r.stage),
   ]));
-  return { seeds, grid: `${paramsBase.width}×${paramsBase.height}`, runs, rankings, topSuspectStages };
+  const geologicAuthorityGate = { pass: runs.every((run) => run.geologicAuthority.pass), firstFailedAuthorityLayer: runs.find((run) => !run.geologicAuthority.pass)?.geologicAuthority.firstFailedAuthorityLayer ?? null, thresholds: runs[0]?.geologicAuthority.thresholds ?? computeGeologicAuthorityDiagnosticSummary(generateWorldFromParams({ ...paramsBase, seed: seeds[0] }))!.thresholds };
+  return { seeds, grid: `${paramsBase.width}×${paramsBase.height}`, runs, rankings, topSuspectStages, geologicAuthorityGate };
 }
 
 function aggregateRankings(stageRuns: GenerateStageSnapshot[][]): MultiSeedGenerateDiagnostics['rankings'] {

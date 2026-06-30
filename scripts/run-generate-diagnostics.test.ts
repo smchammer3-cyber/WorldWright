@@ -43,6 +43,9 @@ function printConsoleSummary(result: MultiSeedGenerateDiagnostics): void {
   console.log(`- ${JSON_PATH}`);
   console.log('\nTop suspects:');
   for (const stage of result.topSuspectStages) console.log(`- ${stage}`);
+  console.log('\nGeologic authority gate:');
+  console.log(`- pass: ${result.geologicAuthorityGate.pass}`);
+  console.log(`- first failed authority layer: ${result.geologicAuthorityGate.firstFailedAuthorityLayer ?? 'none'}`);
   console.log('\nTop plate imprint increases:');
   for (const row of top(result.rankings.plateImprintIncreases)) console.log(formatRankingLine(row));
   console.log('\nTop province imprint increases:');
@@ -73,6 +76,14 @@ function renderMarkdownReport(result: MultiSeedGenerateDiagnostics): string {
     '## Final ranked suspects',
     '',
     result.topSuspectStages.length ? result.topSuspectStages.map((stage, index) => `${index + 1}. \`${stage}\``).join('\n') : '_No suspects returned._',
+    '',
+    '## Geologic authority diagnostic gates',
+    '',
+    `- Pass: ${result.geologicAuthorityGate.pass ? 'yes' : 'no'}`,
+    `- First failed authority layer: ${result.geologicAuthorityGate.firstFailedAuthorityLayer ?? 'none'}`,
+    `- Thresholds: \`${JSON.stringify(result.geologicAuthorityGate.thresholds)}\``,
+    '',
+    authorityGateTable(result),
     '',
     '## Stage ranking summary',
     '',
@@ -160,6 +171,14 @@ function renderMarkdownReport(result: MultiSeedGenerateDiagnostics): string {
     '- If an ablation causes topology collapse, that stage may be necessary but should be made narrower or repair-only.',
     '',
   ].join('\n');
+}
+
+function authorityGateTable(result: MultiSeedGenerateDiagnostics): string {
+  const rows = result.runs.map((run) => {
+    const failed = run.geologicAuthority.gates.filter((gate) => !gate.passed).map((gate) => gate.id).join(', ') || 'none';
+    return `| \`${run.seed}\` | ${run.geologicAuthority.pass ? 'pass' : 'fail'} | \`${run.geologicAuthority.firstFailedAuthorityLayer ?? 'none'}\` | ${failed} | ${run.geologicAuthority.firstFailedExplanation} |`;
+  });
+  return ['| Seed | Result | First failed layer | Failed gates | Explanation |', '| --- | --- | --- | --- | --- |', ...rows].join('\n');
 }
 
 function top(rows: StageDeltaRanking[], count = 5): StageDeltaRanking[] {
