@@ -174,8 +174,9 @@ function continentSupportedLandFraction(field: ContinentIntentField, fallback: n
     if (cell.continentality >= 0.34) strong++;
     else if (cell.continentality >= 0.24) margin++;
   }
-  const supported = (strong + margin * 0.35) / field.cells.length;
-  return clamp(Math.min(fallback, supported * 0.95), 0.18, 0.58);
+  const supported = (strong + margin * 0.50) / field.cells.length;
+  const capped = Math.min(fallback, supported * 1.08);
+  return clamp(capped * 0.86 + fallback * 0.14, 0.205, 0.58);
 }
 
 function chooseSeaLevelForLandFraction(heights: number[], width: number, height: number, targetLandFraction: number): number {
