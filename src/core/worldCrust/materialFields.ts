@@ -30,9 +30,11 @@ export function seedCrustFields(world: WorldBrain): void {
     const collision = feature.COLLISION_ZONE ?? 0;
     const volcanic = clamp01(cell.volcanicActivity + foundation.volcanismBias * 0.18 + arc * 0.18);
     const materialNoise = centeredJitter(seed, i, 1001) * 0.055;
+    // Keep broad crust contrast continuous; post-birth land/water plate labels must not become a hard crust mask.
+    const crustBaseThickness = lerp(0.245, 0.715, continentality);
 
     cell.crustThickness = clamp01(
-      lerp(0.24, 0.72, continentality)
+      crustBaseThickness
       + collision * 0.18
       + arc * 0.06
       - ridge * 0.08
