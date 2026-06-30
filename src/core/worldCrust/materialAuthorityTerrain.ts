@@ -26,17 +26,18 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
     const passiveOceanGate = passiveOceanDeltaGate(cell, h, seaLevel, strongFeature);
     const passiveOceanDamp = lerp(1, 0.22, passiveOceanGate);
     const authoritySeamDamp = unbackedAuthoritySeamDamp(world, i, strongFeature);
+    const broadCauseGate = broadMaterialDeltaCauseGate(cell, strongFeature);
     const rough = smoothTexture(seed, world, i, 7019);
     let delta = 0;
-    delta += mat.crustBuoyancy * 0.034 * landGate;
-    delta += mat.crustStrength * 0.012 * landGate;
+    delta += mat.crustBuoyancy * 0.026 * landGate * broadCauseGate;
+    delta += mat.crustStrength * 0.008 * landGate * broadCauseGate;
     delta += (feature.COLLISION_ZONE ?? 0) * 0.026 * landGate;
     delta += (feature.ISLAND_ARC ?? 0) * 0.020 * Math.max(landGate, coastGate);
     delta += (feature.OCEAN_RIDGE ?? 0) * 0.026 * Math.max(oceanGate, coastGate * 0.4);
     delta -= (feature.OCEAN_TRENCH ?? 0) * 0.032 * oceanGate;
     delta -= (feature.RIFT_ZONE ?? 0) * 0.026 * Math.max(landGate, coastGate * 0.5);
-    delta += rough * 0.007 * (0.35 + mat.crustStrength * 0.65) * Math.max(landGate, coastGate * 0.5) * passiveOceanDamp * authoritySeamDamp;
-    deltas[i] = constrainTopology(world, i, h, seaLevel, clamp(delta * passiveOceanDamp * authoritySeamDamp, -0.045, 0.050), before);
+    delta += rough * 0.004 * (0.35 + mat.crustStrength * 0.65) * Math.max(landGate, coastGate * 0.5) * passiveOceanDamp * authoritySeamDamp * broadCauseGate;
+    deltas[i] = constrainTopology(world, i, h, seaLevel, clamp(delta * passiveOceanDamp * authoritySeamDamp, -0.038, 0.044), before);
   }
 
   applyDeltas(world, before, seaLevel, deltas);
@@ -101,6 +102,18 @@ function applyDeltas(world: WorldBrain, before: number[], seaLevel: number, delt
     const safe = constrainTopology(world, i, before[i], seaLevel, blended, before);
     if (safe !== 0) world.cells[i].baseHeight = clamp(world.cells[i].baseHeight + safe, -1.4, 1.5);
   }
+}
+
+function broadMaterialDeltaCauseGate(cell: Cell, strongFeature: number): number {
+  return clamp01(Math.max(
+    strongFeature,
+    Math.max(0, cell.upliftRate) * 0.90,
+    cell.volcanicActivity * 0.72,
+    cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.ACTIVE ? 0.62 : 0,
+    cell.marginType === ContinentMarginType.RIFT ? 0.50 : 0,
+    isCausedIslandCell(cell) ? 0.56 : 0,
+    cell.continentCoreStrength > 0.64 && cell.continentality > 0.62 ? 0.44 : 0,
+  ));
 }
 
 function passiveOceanDeltaGate(cell: Cell, h: number, seaLevel: number, strongFeature: number): number {
