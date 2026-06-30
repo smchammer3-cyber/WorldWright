@@ -4,6 +4,7 @@ import {
   computeWorldContentHash,
   saveWorldWithEngine,
   summarizeWorld,
+  type SimBranchRecord,
   type WorldStorageEngine,
   type WorldSummary,
 } from './index';
@@ -38,6 +39,7 @@ function makeWorld(id = 'world-1'): WorldBrain {
 class MemoryWorldStorageEngine implements WorldStorageEngine {
   worlds = new Map<string, WorldBrain>();
   summaries = new Map<string, WorldSummary>();
+  simBranches = new Map<string, SimBranchRecord>();
 
   async listWorldSummaries(): Promise<WorldSummary[]> {
     return [...this.summaries.values()];
@@ -58,6 +60,25 @@ class MemoryWorldStorageEngine implements WorldStorageEngine {
   async deleteWorld(id: string): Promise<void> {
     this.worlds.delete(id);
     this.summaries.delete(id);
+    for (const branch of this.simBranches.values()) {
+      if (branch.worldId === id) this.simBranches.delete(branch.id);
+    }
+  }
+
+  async listSimBranchRecords(worldId: string): Promise<SimBranchRecord[]> {
+    return [...this.simBranches.values()].filter((branch) => branch.worldId === worldId);
+  }
+
+  async getSimBranchRecord(id: string): Promise<SimBranchRecord | null> {
+    return this.simBranches.get(id) ?? null;
+  }
+
+  async putSimBranchRecord(record: SimBranchRecord): Promise<void> {
+    this.simBranches.set(record.id, structuredClone(record));
+  }
+
+  async deleteSimBranchRecord(id: string): Promise<void> {
+    this.simBranches.delete(id);
   }
 }
 
