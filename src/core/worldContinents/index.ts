@@ -41,10 +41,18 @@ export function seedContinentSkeletonFields(world: WorldBrain): void {
     const ocean = bestOceanBasin(lat, lon, oceanBasins);
     const h = totalHeight(cell);
     const aboveSea = h - seaLevel;
-    const unsupportedSubmergedAuthority = isUnsupportedSubmergedContinentAuthority(world, index, aboveSea, best.continentality, seaLevel);
+    const exposedLandSupport = aboveSea >= 0
+      ? Math.max(clamp01(cell.continentality), 0.28 + smoothstep(0.00, 0.16, aboveSea) * 0.14)
+      : 0;
+    const terrainSupportedContinentality = aboveSea >= 0
+      ? Math.max(best.continentality, exposedLandSupport)
+      : best.continentality;
+    const unsupportedSubmergedAuthority = isUnsupportedSubmergedContinentAuthority(world, index, aboveSea, terrainSupportedContinentality, seaLevel);
 
-    const continentality = unsupportedSubmergedAuthority ? Math.min(clamp01(best.continentality), 0.54) : clamp01(best.continentality);
-    const coreStrength = unsupportedSubmergedAuthority ? Math.min(clamp01(best.coreStrength), 0.24) : clamp01(best.coreStrength);
+    // CONTINENT_FIELDS is a cause sync, not a terrain writer. It must not erase
+    // continental support that the raw terrain-birth pass already proved by exposing land.
+    const continentality = unsupportedSubmergedAuthority ? Math.min(clamp01(terrainSupportedContinentality), 0.54) : clamp01(terrainSupportedContinentality);
+    const coreStrength = unsupportedSubmergedAuthority ? Math.min(clamp01(best.coreStrength), 0.24) : clamp01(Math.max(best.coreStrength, exposedLandSupport > 0 ? (exposedLandSupport - 0.26) * 0.42 : 0));
     const distanceNorm = clamp01(best.distanceNorm);
     const shelfStrength = unsupportedSubmergedAuthority ? 0 : computeShelfStrength(continentality, aboveSea);
     const marginType = unsupportedSubmergedAuthority
