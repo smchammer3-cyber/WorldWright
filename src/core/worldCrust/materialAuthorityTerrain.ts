@@ -22,6 +22,9 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
     const coastGate = 1 - smoothstep(0.02, 0.22, Math.abs(aboveSea));
     const mat = materialSignals(cell, world.planetFoundation);
     const feature = classifyPlateBoundaryFeatureAuthority(cell).features;
+    const strongFeature = strongestCrustDeltaFeature(feature);
+    const passiveOceanGate = passiveOceanDeltaGate(cell, h, seaLevel, strongFeature);
+    const passiveOceanDamp = lerp(1, 0.22, passiveOceanGate);
     const rough = smoothTexture(seed, world, i, 7019);
     let delta = 0;
     delta += mat.crustBuoyancy * 0.060 * landGate;
@@ -31,8 +34,8 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
     delta += (feature.OCEAN_RIDGE ?? 0) * 0.026 * Math.max(oceanGate, coastGate * 0.4);
     delta -= (feature.OCEAN_TRENCH ?? 0) * 0.032 * oceanGate;
     delta -= (feature.RIFT_ZONE ?? 0) * 0.026 * Math.max(landGate, coastGate * 0.5);
-    delta += rough * 0.016 * (0.35 + mat.crustStrength * 0.65) * Math.max(landGate, coastGate * 0.5);
-    deltas[i] = constrainTopology(world, i, h, seaLevel, clamp(delta, -0.055, 0.060), before);
+    delta += rough * 0.016 * (0.35 + mat.crustStrength * 0.65) * Math.max(landGate, coastGate * 0.5) * passiveOceanDamp;
+    deltas[i] = constrainTopology(world, i, h, seaLevel, clamp(delta * passiveOceanDamp, -0.055, 0.060), before);
   }
 
   applyDeltas(world, before, seaLevel, deltas);
@@ -97,6 +100,28 @@ function applyDeltas(world: WorldBrain, before: number[], seaLevel: number, delt
     const safe = constrainTopology(world, i, before[i], seaLevel, blended, before);
     if (safe !== 0) world.cells[i].baseHeight = clamp(world.cells[i].baseHeight + safe, -1.4, 1.5);
   }
+}
+
+function passiveOceanDeltaGate(cell: Cell, h: number, seaLevel: number, strongFeature: number): number {
+  if (h >= seaLevel) return 0;
+  const depth = seaLevel - h;
+  const depthGate = smoothstep(0.030, 0.170, depth);
+  const shelfGate = 1 - smoothstep(0.18, 0.48, clamp01(cell.shelfStrength));
+  const featureGate = 1 - smoothstep(0.20, 0.46, strongFeature);
+  const continentGate = 1 - smoothstep(0.52, 0.76, clamp01(cell.continentality));
+  return clamp01(depthGate * shelfGate * featureGate * continentGate);
+}
+
+function strongestCrustDeltaFeature(feature: Partial<Record<string, number>>): number {
+  return Math.max(
+    feature.COLLISION_ZONE ?? 0,
+    feature.ISLAND_ARC ?? 0,
+    feature.OCEAN_RIDGE ?? 0,
+    feature.OCEAN_TRENCH ?? 0,
+    feature.RIFT_ZONE ?? 0,
+    feature.SUBDUCTION_ZONE ?? 0,
+    feature.TRANSFORM_ZONE ?? 0,
+  );
 }
 
 function constrainTopology(world: WorldBrain, index: number, h: number, seaLevel: number, delta: number, heights: number[]): number {
@@ -184,6 +209,10 @@ function seedToUint32(s: string | number): number {
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = clamp01((x - edge0) / Math.max(1e-9, edge1 - edge0));
   return t * t * (3 - 2 * t);
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
 }
 
 function clamp(value: number, lo: number, hi: number): number {
