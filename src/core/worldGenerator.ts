@@ -81,8 +81,9 @@ function alignRawSurfaceAuthority(world: WorldBrain): void {
       if (cell.continentality < 0.24) { cell.continentality = clamp(Math.max(cell.continentality, 0.28 + exposure * 0.14), 0, 1); cell.continentCoreStrength = Math.max(cell.continentCoreStrength, 0.06 + exposure * 0.08); }
       cell.plateType = PlateType.CONTINENTAL;
     } else {
-      cell.plateType = PlateType.OCEANIC;
-      if (cell.oceanDepthClass !== OceanDepthClass.SHELF && cell.continentality > 0.54) { cell.continentality = 0.54; cell.continentCoreStrength = Math.min(cell.continentCoreStrength, 0.22); }
+      const shelfWater = cell.oceanDepthClass === OceanDepthClass.SHELF && cell.continentality >= 0.34;
+      cell.plateType = shelfWater ? PlateType.CONTINENTAL : PlateType.OCEANIC;
+      if (!shelfWater && cell.continentality > 0.54) { cell.continentality = 0.54; cell.continentCoreStrength = Math.min(cell.continentCoreStrength, 0.22); }
     }
   }
 }
