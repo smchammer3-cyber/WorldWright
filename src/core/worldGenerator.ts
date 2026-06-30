@@ -52,7 +52,7 @@ function applyContinentIntentBirthTerrain(world: WorldBrain): void {
   });
 
   const oldSeaLevel = numeric(world.seaLevel, world.metadata?.seaLevel ?? 0);
-  const targetLandFraction = currentLandFraction(world, oldSeaLevel);
+  const targetLandFraction = continentSupportedLandFraction(field, currentLandFraction(world, oldSeaLevel));
   const before = world.cells.map((cell) => totalHeight(cell));
   const seedUint = seedToUint32(seed);
   const reliefScale = numeric(foundation.reliefGravityScale, 1);
@@ -164,6 +164,18 @@ function currentLandFraction(world: WorldBrain, seaLevel: number): number {
   let land = 0;
   for (const cell of world.cells) if (totalHeight(cell) >= seaLevel) land++;
   return clamp(land / world.cells.length, 0.04, 0.86);
+}
+
+function continentSupportedLandFraction(field: ContinentIntentField, fallback: number): number {
+  if (!field.cells.length) return fallback;
+  let strong = 0;
+  let margin = 0;
+  for (const cell of field.cells) {
+    if (cell.continentality >= 0.34) strong++;
+    else if (cell.continentality >= 0.24) margin++;
+  }
+  const supported = (strong + margin * 0.35) / field.cells.length;
+  return clamp(Math.min(fallback, supported * 0.95), 0.18, 0.58);
 }
 
 function chooseSeaLevelForLandFraction(heights: number[], width: number, height: number, targetLandFraction: number): number {
