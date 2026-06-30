@@ -74,17 +74,17 @@ function applyContinentIntentBirthTerrain(world: WorldBrain): void {
     const volcanicLift = clamp01(cell.volcanicActivity) * 0.017 * Math.max(0.35, tectonicVigor);
 
     const terrainTarget = oldSeaLevel
-      - basinGate * 0.085 * reliefScale
-      + continentGate * 0.082 * reliefScale
-      + coreGate * 0.046 * reliefScale
-      - shelfGate * 0.022 * reliefScale
-      - marginGate * 0.010 * reliefScale
+      - basinGate * 0.135 * reliefScale
+      + continentGate * 0.122 * reliefScale
+      + coreGate * 0.072 * reliefScale
+      - shelfGate * 0.030 * reliefScale
+      - marginGate * 0.012 * reliefScale
       + featureLift
       + volcanicLift
-      + texture * (0.038 + coreGate * 0.030 + marginGate * 0.020 + tectonicVigor * 0.016) * reliefScale * erosionDamp
+      + texture * (0.040 + coreGate * 0.035 + marginGate * 0.022 + tectonicVigor * 0.016) * reliefScale * erosionDamp
       + fine * 0.011 * reliefScale * erosionDamp;
 
-    const continentAuthority = clamp01(0.045 + continentGate * 0.20 + coreGate * 0.085 + basinGate * 0.075 + marginGate * 0.070);
+    const continentAuthority = clamp01(0.055 + continentGate * 0.255 + coreGate * 0.120 + basinGate * 0.105 + marginGate * 0.080);
     const blended = lerp(h, terrainTarget, continentAuthority);
     cell.baseHeight = clamp(blended, -1.4, 1.5);
   }
