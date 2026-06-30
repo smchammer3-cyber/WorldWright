@@ -87,17 +87,40 @@ export function seedContinentSkeletonFields(world: WorldBrain): void {
     const cell = world.cells[i];
     const intent = field.cells[i];
     const aboveSea = totalHeight(cell) - seaLevel;
-    const suppressSubmergedGhost = shouldSuppressSubmergedContinentAuthority(world, i, intent, aboveSea, seaLevel);
+    const exposedLandSupport = aboveSea >= 0
+      ? Math.max(clamp01(cell.continentality), 0.28 + smoothstep(0.00, 0.16, aboveSea) * 0.14)
+      : 0;
+    const supportedContinentality = exposedLandSupport > 0
+      ? Math.max(intent.continentality, exposedLandSupport)
+      : intent.continentality;
+    const supportedCore = exposedLandSupport > 0
+      ? Math.max(intent.continentCoreStrength, (exposedLandSupport - 0.26) * 0.42)
+      : intent.continentCoreStrength;
+    const supportedShelf = exposedLandSupport > 0
+      ? Math.max(intent.shelfTendency, smoothstep(0.24, 0.56, supportedContinentality) * 0.18)
+      : intent.shelfTendency;
+    const supportedMargin = exposedLandSupport > 0
+      ? Math.max(intent.marginTendency, smoothstep(0.28, 0.58, supportedContinentality) * 0.16)
+      : intent.marginTendency;
+    const terrainSyncedIntent: ContinentIntentCell = {
+      ...intent,
+      continentality: clamp01(supportedContinentality),
+      continentCoreStrength: clamp01(supportedCore),
+      shelfTendency: clamp01(supportedShelf),
+      marginTendency: clamp01(supportedMargin),
+      oceanBasinTendency: clamp01((1 - supportedContinentality) * intent.oceanBasinTendency),
+    };
+    const suppressSubmergedGhost = shouldSuppressSubmergedContinentAuthority(world, i, terrainSyncedIntent, aboveSea, seaLevel);
     const assignedIntent: ContinentIntentCell = suppressSubmergedGhost
       ? {
-          ...intent,
+          ...terrainSyncedIntent,
           continentId: null,
-          continentality: Math.min(intent.continentality, 0.54),
-          continentCoreStrength: Math.min(intent.continentCoreStrength, 0.24),
+          continentality: Math.min(terrainSyncedIntent.continentality, 0.54),
+          continentCoreStrength: Math.min(terrainSyncedIntent.continentCoreStrength, 0.24),
           shelfTendency: 0,
           marginTendency: 0,
         }
-      : intent;
+      : terrainSyncedIntent;
 
     cell.continentCoreStrength = assignedIntent.continentCoreStrength;
     cell.continentality = assignedIntent.continentality;
