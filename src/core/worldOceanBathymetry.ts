@@ -36,20 +36,17 @@ export function applyOceanBathymetrySmoothing(world: WorldBrain): void {
     const submergedGhost = submergedContinentGhostSignal(cell, coastProtection);
     const edgeGhost = unexplainedOceanEdgeSignal(world, i, source, seaLevel);
     const interiorBlock = oceanInteriorBlockSignal(world, i, source, seaLevel);
-    const authoritySeamDamp = unbackedOceanAuthoritySeamDamp(world, i, source, seaLevel, cause);
     const localTarget = localOceanAverage(world, i, source, seaLevel);
     if (localTarget == null) continue;
 
     const basinTarget = seaLevel - lerp(0.10, 0.28, submergedGhost);
     const target = submergedGhost > 0 ? Math.min(localTarget, basinTarget) : localTarget;
     const morphologyProtection = clamp01(Math.max(cause, coastProtection * 0.75));
-    const strength = clamp01(0.05 + edgeGhost * 0.26 + interiorBlock * 0.08 + submergedGhost * 0.42)
-      * lerp(1, 0.16, morphologyProtection)
-      * authoritySeamDamp;
+    const strength = clamp01(0.05 + edgeGhost * 0.26 + interiorBlock * 0.08 + submergedGhost * 0.42) * lerp(1, 0.16, morphologyProtection);
     if (strength <= 0.002) continue;
 
-    const lowerCap = lerp(0.022, 0.060, submergedGhost) * authoritySeamDamp;
-    deltas[i] = clamp((target - h) * strength, -lowerCap, 0.022 * authoritySeamDamp);
+    const lowerCap = lerp(0.022, 0.060, submergedGhost);
+    deltas[i] = clamp((target - h) * strength, -lowerCap, 0.022);
   }
 
   for (let i = 0; i < world.cells.length; i++) {
@@ -65,7 +62,6 @@ function localOceanAverage(world: WorldBrain, index: number, heights: number[], 
   const col = index % world.gridWidth;
   let sum = 0;
   let weightSum = 0;
-  const cell = world.cells[index];
 
   for (let dr = -1; dr <= 1; dr++) {
     const r = row + dr;
@@ -79,8 +75,7 @@ function localOceanAverage(world: WorldBrain, index: number, heights: number[], 
       const neighbor = world.cells[idx];
       const coastProtection = oceanCoastProtection(world, idx, heights, seaLevel);
       const cause = explicitOceanBathymetryCause(neighbor, coastProtection);
-      const edgeDamp = oceanAuthorityEdgeDamp(cell, neighbor);
-      const weight = lerp(1, 0.34, cause) * edgeDamp;
+      const weight = lerp(1, 0.34, cause);
       sum += h * weight;
       weightSum += weight;
     }
@@ -102,9 +97,8 @@ function unexplainedOceanEdgeSignal(world: WorldBrain, index: number, heights: n
     const cellCause = explicitOceanBathymetryCause(cell, oceanCoastProtection(world, index, heights, seaLevel));
     const neighborCause = explicitOceanBathymetryCause(neighbor, oceanCoastProtection(world, neighborIndex, heights, seaLevel));
     const caused = Math.max(cellCause, neighborCause);
-    const authorityDamp = oceanAuthorityEdgeDamp(cell, neighbor);
     const heightJump = Math.abs(heights[index] - heights[neighborIndex]);
-    signal += smoothstep(0.018, 0.075, heightJump) * (1 - caused) * authorityDamp;
+    signal += smoothstep(0.018, 0.075, heightJump) * (1 - caused);
   }
   return count > 0 ? clamp01(signal / count) : 0;
 }
@@ -151,38 +145,6 @@ function submergedContinentGhostSignal(cell: Cell, coastProtection: number): num
     + (cell.marginType === ContinentMarginType.PASSIVE ? 0.16 : 0);
   const openOceanGate = 1 - smoothstep(0.08, 0.32, coastProtection);
   return clamp01(continentalSignal * openOceanGate);
-}
-
-function unbackedOceanAuthoritySeamDamp(world: WorldBrain, index: number, heights: number[], seaLevel: number, cause: number): number {
-  const cell = world.cells[index];
-  if (cause > 0.34) return 1;
-  let risk = 0;
-  for (const neighborIndex of neighborIndices4(world, index)) {
-    if (heights[neighborIndex] >= seaLevel) continue;
-    const neighbor = world.cells[neighborIndex];
-    risk = Math.max(risk, 1 - oceanAuthorityEdgeDamp(cell, neighbor));
-  }
-  return lerp(1, 0.38, clamp01(risk));
-}
-
-function oceanAuthorityEdgeDamp(a: Cell, b: Cell): number {
-  if (hasSharedActiveOceanCause(a, b)) return 1;
-  let risk = 0;
-  if (a.plateId !== b.plateId) risk = Math.max(risk, 0.56);
-  if (a.crustProvince !== b.crustProvince) risk = Math.max(risk, 0.46);
-  const materialJump = Math.abs(clamp01(a.crustThickness) - clamp01(b.crustThickness))
-    + Math.abs(clamp01(a.crustAge) - clamp01(b.crustAge)) * 0.62
-    + Math.abs(clamp01(a.continentality) - clamp01(b.continentality)) * 0.55
-    + Math.abs(clamp01(a.shelfStrength) - clamp01(b.shelfStrength)) * 0.40;
-  risk = Math.max(risk, smoothstep(0.16, 0.66, materialJump) * 0.70);
-  return lerp(1, 0.36, clamp01(risk));
-}
-
-function hasSharedActiveOceanCause(a: Cell, b: Cell): boolean {
-  if (Math.min(explicitActiveOceanCause(a), explicitActiveOceanCause(b)) > 0.22) return true;
-  if (a.marginType === b.marginType && (a.marginType === ContinentMarginType.ACTIVE || a.marginType === ContinentMarginType.RIFT)) return true;
-  if (a.islandCause === b.islandCause && (a.islandCause === IslandCause.ISLAND_ARC || a.islandCause === IslandCause.VOLCANIC_HOTSPOT || a.islandCause === IslandCause.RIFT_FRAGMENT)) return true;
-  return false;
 }
 
 function explicitActiveOceanCause(cell: Cell): number {
