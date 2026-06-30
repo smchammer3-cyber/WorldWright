@@ -1,7 +1,7 @@
 import { classifyPlateBoundaryFeatureAuthority } from './worldPlateBoundaryFeatures';
 import { assertNoAuthoredTerrainDeltas } from './worldLayerAuthority';
 import { resolveGeneratePlanetFoundation } from './generatePlanetFoundation';
-import type { Cell, WorldBrain } from './worldSchema';
+import { ContinentMarginType, IslandCause, type Cell, type WorldBrain } from './worldSchema';
 
 export function applyIsostaticTerrainResponse(world: WorldBrain): void {
   if (!world?.cells?.length) return;
@@ -21,13 +21,14 @@ export function applyIsostaticTerrainResponse(world: WorldBrain): void {
     const feature = classifyPlateBoundaryFeatureAuthority(cell).features;
     const strongFeature = strongestIsostaticFeature(feature);
     const passiveOceanGate = passiveOceanMaterialGate(cell, h, seaLevel, strongFeature);
+    const authoritySeamDamp = unbackedIsostaticSeamDamp(world, i, strongFeature);
     const effectiveContinentality = lerp(cell.continentality, Math.min(cell.continentality, 0.32), passiveOceanGate);
     const effectiveCore = lerp(cell.continentCoreStrength, Math.min(cell.continentCoreStrength, 0.16), passiveOceanGate);
     const effectiveBuoyancy = lerp(material.crustBuoyancy, Math.min(material.crustBuoyancy, 0.42), passiveOceanGate);
     const oceanBasinStrength = clamp01((1 - effectiveContinentality) * (1 - cell.shelfStrength));
     const texture = smoothTexture(seed, world, i, 80341);
     const shearTexture = smoothTexture(seed, world, i, 80357);
-    const lowFrequencyPlanetShape = smoothTexture(seed, world, i, 80369) * 0.018 * foundation.reliefGravityScale;
+    const lowFrequencyPlanetShape = smoothTexture(seed, world, i, 80369) * 0.018 * foundation.reliefGravityScale * authoritySeamDamp;
 
     let isostaticTarget = seaLevel
       + effectiveContinentality * 0.16
@@ -53,15 +54,17 @@ export function applyIsostaticTerrainResponse(world: WorldBrain): void {
     const flowProxy = localFlowProxy(world, i, before, seaLevel);
     const rainfall = clamp01(cell.rainfall);
     const lowlandGate = 1 - smoothstep(0.03, 0.22, Math.abs(h - seaLevel));
-    const erosionWear = clamp01(flowProxy * slope * rainfall * foundation.erosionSedimentScale) * 0.055 + slope * foundation.thermalAge * 0.020;
-    const sedimentFill = material.sedimentTendency * lowlandGate * flowProxy * foundation.thermalAge * 0.060;
+    const erosionWear = (clamp01(flowProxy * slope * rainfall * foundation.erosionSedimentScale) * 0.055 + slope * foundation.thermalAge * 0.020) * authoritySeamDamp;
+    const sedimentFill = material.sedimentTendency * lowlandGate * flowProxy * foundation.thermalAge * 0.060 * authoritySeamDamp;
     const passiveOceanTextureDamp = lerp(1, 0.28, passiveOceanGate);
-    const smallTexture = texture * 0.018 * foundation.reliefGravityScale * (0.35 + material.crustStrength * 0.65) * passiveOceanTextureDamp;
+    const smallTexture = texture * 0.018 * foundation.reliefGravityScale * (0.35 + material.crustStrength * 0.65) * passiveOceanTextureDamp * authoritySeamDamp;
 
-    const target = lowFrequencyPlanetShape + isostaticTarget + featureRelief - erosionWear + sedimentFill + smallTexture;
+    const materialTarget = lowFrequencyPlanetShape + isostaticTarget - erosionWear + sedimentFill + smallTexture;
+    const target = materialTarget + featureRelief;
     const terrainResponseStrength = clamp01(0.42 + foundation.tectonicVigor * 0.24 + effectiveBuoyancy * 0.10);
     let delta = (target - h) * terrainResponseStrength;
     delta *= lerp(1, 0.62, passiveOceanGate);
+    delta *= authoritySeamDamp;
     delta = constrainTopologyDelta(world, i, h, seaLevel, delta, before, feature);
     deltas[i] = clamp(delta, -0.095, 0.105);
   }
@@ -111,6 +114,34 @@ function strongestIsostaticFeature(feature: Partial<Record<string, number>>): nu
     feature.SUBDUCTION_ZONE ?? 0,
     feature.TRANSFORM_ZONE ?? 0,
   );
+}
+
+function unbackedIsostaticSeamDamp(world: WorldBrain, index: number, strongFeature: number): number {
+  const cell = world.cells[index];
+  if (strongFeature > 0.34 || cell.upliftRate > 0.20 || cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.ACTIVE) return 1;
+  let risk = 0;
+  for (const n of neighborIndices4(world, index)) {
+    const other = world.cells[n];
+    if (hasSharedIsostaticFeatureCause(cell, other)) continue;
+    if (cell.plateId !== other.plateId) risk = Math.max(risk, 0.28);
+    if (cell.crustProvince !== other.crustProvince) risk = Math.max(risk, 0.52);
+    const materialJump = Math.abs(clamp01(cell.crustThickness) - clamp01(other.crustThickness))
+      + Math.abs(clamp01(cell.crustAge) - clamp01(other.crustAge)) * 0.62
+      + Math.abs(clamp01(cell.continentality) - clamp01(other.continentality)) * 0.52
+      + Math.abs(clamp01(cell.continentCoreStrength) - clamp01(other.continentCoreStrength)) * 0.30;
+    risk = Math.max(risk, smoothstep(0.16, 0.68, materialJump) * 0.64);
+  }
+  return lerp(1, 0.42, clamp01(risk));
+}
+
+function hasSharedIsostaticFeatureCause(a: Cell, b: Cell): boolean {
+  if (a.upliftRate > 0.20 && b.upliftRate > 0.20) return true;
+  if (a.marginType === b.marginType && (a.marginType === ContinentMarginType.ACTIVE || a.marginType === ContinentMarginType.COLLISION || a.marginType === ContinentMarginType.RIFT)) return true;
+  if (a.islandCause === b.islandCause && (a.islandCause === IslandCause.ISLAND_ARC || a.islandCause === IslandCause.VOLCANIC_HOTSPOT || a.islandCause === IslandCause.RIFT_FRAGMENT)) return true;
+  const fa = classifyPlateBoundaryFeatureAuthority(a).features;
+  const fb = classifyPlateBoundaryFeatureAuthority(b).features;
+  const ids = ['COLLISION_ZONE', 'ISLAND_ARC', 'OCEAN_RIDGE', 'OCEAN_TRENCH', 'RIFT_ZONE', 'SUBDUCTION_ZONE', 'TRANSFORM_ZONE'] as const;
+  return ids.some((id) => Math.min(fa[id] ?? 0, fb[id] ?? 0) > 0.22);
 }
 
 function constrainTopologyDelta(world: WorldBrain, index: number, h: number, seaLevel: number, delta: number, heights: number[], feature: Partial<Record<string, number>>): number {
