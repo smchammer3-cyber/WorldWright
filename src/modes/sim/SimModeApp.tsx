@@ -8,6 +8,10 @@ import { generateSimEvents, resolveEvent, createSimBranch, type SimEvent, type S
 import { DecisionInbox } from "./DecisionInbox";
 import { EventHistoryPanel } from "./EventHistoryPanel";
 
+function cloneBranchWorld(world: SimBranch["worldSnapshot"]): SimBranch["worldSnapshot"] {
+  return JSON.parse(JSON.stringify(world)) as SimBranch["worldSnapshot"];
+}
+
 export default function SimModeApp() {
   const navigate = useNavigate();
   const { worldId } = useParams<{ worldId: string }>();
@@ -15,17 +19,21 @@ export default function SimModeApp() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Subscribe to world updates
+  // Subscribe to canonical world updates. Sim branch exploration must not
+  // mutate this canonical world until an explicit promotion workflow exists.
   const [world, setWorld] = useState(worldSession.getWorld());
   useEffect(() => {
     const unsub = worldSession.subscribe((w) => setWorld(w));
     return unsub;
   }, []);
 
-  // Simulation state
+  // Simulation state. Branch persistence is still transitional here, but all
+  // event effects are now applied to branch snapshots rather than the loaded
+  // canonical Create world.
   const [currentYear, setCurrentYear] = useState(0);
   const [pendingEvents, setPendingEvents] = useState<SimEvent[]>([]);
   const [branches, setBranches] = useState<SimBranch[]>([]);
+  const [activeBranch, setActiveBranch] = useState<SimBranch | null>(null);
   const [showBranchMenu, setShowBranchMenu] = useState(false);
   const [eventHistory, setEventHistory] = useState<Array<{
     event: SimEvent;
@@ -33,6 +41,26 @@ export default function SimModeApp() {
     resolvedYear: number;
   }>>([]);
   const [showHistory, setShowHistory] = useState(false);
+
+  function upsertBranch(nextBranch: SimBranch): void {
+    setActiveBranch(nextBranch);
+    setBranches((prev) => {
+      const exists = prev.some((branch) => branch.id === nextBranch.id);
+      if (exists) {
+        return prev.map((branch) => (branch.id === nextBranch.id ? nextBranch : branch));
+      }
+      return [...prev, nextBranch];
+    });
+  }
+
+  function getOrCreateActiveBranch(): SimBranch | null {
+    if (activeBranch) return activeBranch;
+    if (!world) return null;
+
+    const branch = createSimBranch(world, currentYear, "Active Sim Branch");
+    upsertBranch(branch);
+    return branch;
+  }
 
   // Load world with await + error handling
   useEffect(() => {
@@ -51,6 +79,13 @@ export default function SimModeApp() {
       setError(null);
       try {
         await worldSession.loadWorld(worldId);
+        if (alive) {
+          setActiveBranch(null);
+          setBranches([]);
+          setPendingEvents([]);
+          setEventHistory([]);
+          setCurrentYear(0);
+        }
       } catch (e: any) {
         console.error(e);
         if (alive) setError(e?.message || "Failed to load world.");
@@ -66,25 +101,38 @@ export default function SimModeApp() {
 
   // Sim tick handler
   const handleSimTick = () => {
-    if (!world) return;
+    const branch = getOrCreateActiveBranch();
+    if (!branch) return;
+
     const newYear = currentYear + 1;
+    const nextBranch = { ...branch, currentYear: newYear };
+    upsertBranch(nextBranch);
     setCurrentYear(newYear);
 
-    // Generate new events
-    const events = generateSimEvents(world, newYear);
+    // Generate new events from branch-local state, not canonical Create state.
+    const events = generateSimEvents(nextBranch.worldSnapshot, newYear);
     setPendingEvents((prev) => [...prev, ...events]);
   };
 
   // Handle event resolution
   const handleResolveEvent = (eventId: string, optionIndex: number) => {
     const event = pendingEvents.find((e) => e.id === eventId);
-    if (!event || !world) return;
+    const branch = getOrCreateActiveBranch();
+    if (!event || !branch) return;
 
-    resolveEvent(event, optionIndex, world);
-    worldSession.applyLocalEdit(world);
+    const branchWorld = cloneBranchWorld(branch.worldSnapshot);
+    const resolved = resolveEvent(event, optionIndex, branchWorld);
+    if (!resolved) return;
+
+    const nextBranch: SimBranch = {
+      ...branch,
+      worldSnapshot: branchWorld,
+      currentYear,
+      eventHistory: [...branch.eventHistory, { event, chosenOption: optionIndex }],
+    };
+
+    upsertBranch(nextBranch);
     setPendingEvents((prev) => prev.filter((e) => e.id !== eventId));
-    
-    // Add to history
     setEventHistory((prev) => [
       ...prev,
       { event, chosenOption: optionIndex, resolvedYear: currentYear },
@@ -93,13 +141,35 @@ export default function SimModeApp() {
 
   // Auto-resolve all events
   const handleAutoResolveAll = () => {
-    if (!world) return;
+    const branch = getOrCreateActiveBranch();
+    if (!branch) return;
+
+    const branchWorld = cloneBranchWorld(branch.worldSnapshot);
+    const resolvedHistory: Array<{ event: SimEvent; chosenOption: number; resolvedYear: number }> = [];
+
     for (const event of pendingEvents) {
       if (event.automaticallyResolve && event.options.length > 0) {
-        resolveEvent(event, 0, world);
+        const resolved = resolveEvent(event, 0, branchWorld);
+        if (resolved) {
+          resolvedHistory.push({ event, chosenOption: 0, resolvedYear: currentYear });
+        }
       }
     }
-    worldSession.applyLocalEdit(world);
+
+    if (resolvedHistory.length > 0) {
+      const nextBranch: SimBranch = {
+        ...branch,
+        worldSnapshot: branchWorld,
+        currentYear,
+        eventHistory: [
+          ...branch.eventHistory,
+          ...resolvedHistory.map(({ event, chosenOption }) => ({ event, chosenOption })),
+        ],
+      };
+      upsertBranch(nextBranch);
+      setEventHistory((prev) => [...prev, ...resolvedHistory]);
+    }
+
     setPendingEvents((prev) =>
       prev.filter((e) => !e.automaticallyResolve || e.options.length === 0)
     );
@@ -109,7 +179,7 @@ export default function SimModeApp() {
   const handleCreateBranch = (branchName: string) => {
     if (!world) return;
     const branch = createSimBranch(world, currentYear, branchName);
-    setBranches((prev) => [...prev, branch]);
+    upsertBranch(branch);
     setShowBranchMenu(false);
   };
 
@@ -195,7 +265,7 @@ export default function SimModeApp() {
                 style={{
                   padding: 4,
                   marginBottom: 4,
-                  backgroundColor: "rgba(255,255,255,0.05)",
+                  backgroundColor: activeBranch?.id === b.id ? "rgba(120,170,255,0.15)" : "rgba(255,255,255,0.05)",
                   borderRadius: 4,
                   borderLeft: b.isPromoted ? "2px solid #88ff88" : "2px solid #888",
                 }}
@@ -336,7 +406,7 @@ export default function SimModeApp() {
       ]}
     >
       <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-        {/* Main viewport: render the real 3D globe when a world is loaded */}
+        {/* Main viewport: render the canonical 3D globe until branch-view rendering exists. */}
         {world ? (
           <>
             <Globe3D world={world} className="" />
