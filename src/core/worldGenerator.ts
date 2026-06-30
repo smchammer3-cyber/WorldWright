@@ -52,7 +52,10 @@ function applyContinentIntentBirthTerrain(world: WorldBrain): void {
   });
 
   const oldSeaLevel = numeric(world.seaLevel, world.metadata?.seaLevel ?? 0);
-  const targetLandFraction = continentSupportedLandFraction(field, currentLandFraction(world, oldSeaLevel));
+  const targetLandFraction = applySeaLevelExposureToTarget(
+    continentSupportedLandFraction(field, currentLandFraction(world, oldSeaLevel)),
+    numeric(world.parameters?.seaLevelOffset, numeric(world.parameters?.seaLevel, 50)),
+  );
   const before = world.cells.map((cell) => totalHeight(cell));
   const seedUint = seedToUint32(seed);
   const reliefScale = numeric(foundation.reliefGravityScale, 1);
@@ -179,6 +182,12 @@ function continentSupportedLandFraction(field: ContinentIntentField, fallback: n
   return clamp(capped * 0.86 + fallback * 0.14, 0.205, 0.58);
 }
 
+function applySeaLevelExposureToTarget(target: number, seaLevelOffset: number): number {
+  const normalizedOffset = clamp(seaLevelOffset, 0, 100);
+  const exposureDelta = ((50 - normalizedOffset) / 100) * 0.10;
+  return clamp(target + exposureDelta, 0.205, 0.58);
+}
+
 function chooseSeaLevelForLandFraction(heights: number[], width: number, height: number, targetLandFraction: number): number {
   const samples: number[] = [];
   for (let r = 1; r < height - 1; r++) {
@@ -279,7 +288,7 @@ function clamp(value: number, lo: number, hi: number): number {
   return value < lo ? lo : value > hi ? hi : value;
 }
 
-function clamp01(value: number): number {
+function clamp01(value: number) {
   return value < 0 ? 0 : value > 1 ? 1 : value;
 }
 
