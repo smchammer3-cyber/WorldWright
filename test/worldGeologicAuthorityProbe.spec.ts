@@ -9,6 +9,9 @@ describe('temporary raw geologic authority probe', () => {
     const summary = computeGeologicAuthorityDiagnosticSummary(world);
     const diagnostics = computeGeneratedStageDiagnostics(world);
     const rawStage = diagnostics?.stages.find((stage) => stage.id === 'RAW_GENERATOR');
+    const firstFailedStage = summary?.firstFailedAuthorityLayer
+      ? diagnostics?.stages.find((stage) => stage.id === summary.firstFailedAuthorityLayer)
+      : null;
     console.log('[raw-authority-probe]', JSON.stringify({
       pass: summary?.pass,
       firstFailedAuthorityLayer: summary?.firstFailedAuthorityLayer,
@@ -16,6 +19,12 @@ describe('temporary raw geologic authority probe', () => {
       thresholds: summary?.thresholds,
       rawStageMetrics: summary?.stageMetrics.find((stage) => stage.stageId === 'RAW_GENERATOR'),
       rawUnderlying: rawStage?.raw,
+      firstFailedStageMetrics: summary?.firstFailedAuthorityLayer
+        ? summary?.stageMetrics.find((stage) => stage.stageId === summary.firstFailedAuthorityLayer)
+        : null,
+      firstFailedUnderlying: firstFailedStage?.raw,
+      firstFailedDeltaFromPrevious: firstFailedStage?.deltaFromPrevious,
+      firstFailedTransitionFromPrevious: firstFailedStage?.transitionFromPrevious,
       failedGates: summary?.gates.filter((gate) => !gate.passed).map((gate) => ({
         id: gate.id,
         stageId: gate.stageId,
