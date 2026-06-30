@@ -1,6 +1,7 @@
 import { allowsNormalContinentalMorphology } from './generatePhysicalConsequenceResolver';
 import {
   OceanDepthClass,
+  PlateType,
   SurfaceType,
   type Cell,
   type WorldBrain,
@@ -24,6 +25,7 @@ export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   applyContinentIntentBirthTerrain(world);
   if (world.planetFoundation && allowsNormalContinentalMorphology(world.planetFoundation.geologyStack)) {
     seedContinentSkeletonFields(world);
+    alignRawSurfaceAuthority(world);
   }
   return world;
 }
@@ -162,6 +164,25 @@ function recomputeWaterAndSurface(world: WorldBrain, field: ContinentIntentField
   }
 }
 
+function alignRawSurfaceAuthority(world: WorldBrain): void {
+  const seaLevel = numeric(world.seaLevel, world.metadata?.seaLevel ?? 0);
+  for (const cell of world.cells) {
+    const height = totalHeight(cell);
+    if (height >= seaLevel) {
+      const exposure = smoothstep(0.00, 0.16, height - seaLevel);
+      if (cell.continentality < 0.24) {
+        cell.continentality = clamp(Math.max(cell.continentality, 0.28 + exposure * 0.14), 0, 1);
+        cell.continentCoreStrength = Math.max(cell.continentCoreStrength, 0.06 + exposure * 0.08);
+      }
+      if (cell.plateType === PlateType.OCEANIC && cell.volcanicActivity < 0.35) {
+        cell.plateType = PlateType.CONTINENTAL;
+      }
+    } else if (cell.oceanDepthClass !== OceanDepthClass.SHELF && cell.plateType === PlateType.CONTINENTAL && cell.continentality < 0.34) {
+      cell.plateType = PlateType.OCEANIC;
+    }
+  }
+}
+
 function currentLandFraction(world: WorldBrain, seaLevel: number): number {
   if (!world.cells.length) return 0.35;
   let land = 0;
@@ -288,7 +309,7 @@ function clamp(value: number, lo: number, hi: number): number {
   return value < lo ? lo : value > hi ? hi : value;
 }
 
-function clamp01(value: number) {
+function clamp01(value: number): number {
   return value < 0 ? 0 : value > 1 ? 1 : value;
 }
 
