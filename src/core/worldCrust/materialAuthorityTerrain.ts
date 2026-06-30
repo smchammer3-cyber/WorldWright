@@ -2,6 +2,7 @@ import { BoundaryType, ContinentMarginType, IslandCause, type Cell, type WorldBr
 import { assertNoAuthoredTerrainDeltas } from '../worldLayerAuthority';
 import { ensureCrustFields } from './materialFields';
 import { classifyPlateBoundaryFeatureAuthority } from '../worldPlateBoundaryFeatures';
+import { edgeHasSharedGeologicFeatureAuthority } from '../worldGeologicFeatureAuthority';
 import { materialSignals } from '../worldTerrainResponse';
 
 export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
@@ -25,6 +26,7 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
     const strongFeature = strongestCrustDeltaFeature(feature);
     const passiveOceanGate = passiveOceanDeltaGate(cell, h, seaLevel, strongFeature);
     const passiveOceanDamp = lerp(1, 0.22, passiveOceanGate);
+    const authoritySeamDamp = unbackedAuthoritySeamDamp(world, i);
     const rough = smoothTexture(seed, world, i, 7019);
     let delta = 0;
     delta += mat.crustBuoyancy * 0.060 * landGate;
@@ -34,8 +36,8 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
     delta += (feature.OCEAN_RIDGE ?? 0) * 0.026 * Math.max(oceanGate, coastGate * 0.4);
     delta -= (feature.OCEAN_TRENCH ?? 0) * 0.032 * oceanGate;
     delta -= (feature.RIFT_ZONE ?? 0) * 0.026 * Math.max(landGate, coastGate * 0.5);
-    delta += rough * 0.016 * (0.35 + mat.crustStrength * 0.65) * Math.max(landGate, coastGate * 0.5) * passiveOceanDamp;
-    deltas[i] = constrainTopology(world, i, h, seaLevel, clamp(delta * passiveOceanDamp, -0.055, 0.060), before);
+    delta += rough * 0.016 * (0.35 + mat.crustStrength * 0.65) * Math.max(landGate, coastGate * 0.5) * passiveOceanDamp * authoritySeamDamp;
+    deltas[i] = constrainTopology(world, i, h, seaLevel, clamp(delta * passiveOceanDamp * authoritySeamDamp, -0.055, 0.060), before);
   }
 
   applyDeltas(world, before, seaLevel, deltas);
@@ -124,6 +126,32 @@ function strongestCrustDeltaFeature(feature: Partial<Record<string, number>>): n
   );
 }
 
+function unbackedAuthoritySeamDamp(world: WorldBrain, index: number): number {
+  const cell = world.cells[index];
+  let risk = 0;
+  for (const n of neighborIndices4(world, index)) {
+    const other = world.cells[n];
+    if (edgeHasSharedGeologicFeatureAuthority(cell, other)) continue;
+    if (cell.plateId !== other.plateId) risk = Math.max(risk, 0.42);
+    if (cell.crustProvince !== other.crustProvince) risk = Math.max(risk, 0.55);
+    const materialJump = Math.abs(clamp01(cell.crustThickness) - clamp01(other.crustThickness))
+      + Math.abs(clamp01(cell.crustAge) - clamp01(other.crustAge)) * 0.65
+      + Math.abs(clamp01(cell.continentality) - clamp01(other.continentality)) * 0.50;
+    risk = Math.max(risk, smoothstep(0.18, 0.70, materialJump) * 0.62);
+  }
+  return lerp(1, 0.26, clamp01(risk));
+}
+
+function canBlendAcrossAuthorityEdge(a: Cell, b: Cell): boolean {
+  if (edgeHasSharedGeologicFeatureAuthority(a, b)) return true;
+  if (a.plateId !== b.plateId) return false;
+  if (a.crustProvince !== b.crustProvince) return false;
+  const materialJump = Math.abs(clamp01(a.crustThickness) - clamp01(b.crustThickness))
+    + Math.abs(clamp01(a.crustAge) - clamp01(b.crustAge)) * 0.65
+    + Math.abs(clamp01(a.continentality) - clamp01(b.continentality)) * 0.50;
+  return materialJump < 0.32;
+}
+
 function constrainTopology(world: WorldBrain, index: number, h: number, seaLevel: number, delta: number, heights: number[]): number {
   const next = h + delta;
   const wasLand = h >= seaLevel;
@@ -141,9 +169,16 @@ function constrainTopology(world: WorldBrain, index: number, h: number, seaLevel
 function blendDelta(world: WorldBrain, index: number, deltas: Float32Array): number {
   const neighbors = neighborIndices4(world, index);
   if (!neighbors.length) return deltas[index];
+  const cell = world.cells[index];
   let sum = 0;
-  for (const n of neighbors) sum += deltas[n];
-  return deltas[index] * 0.70 + (sum / neighbors.length) * 0.30;
+  let count = 0;
+  for (const n of neighbors) {
+    if (!canBlendAcrossAuthorityEdge(cell, world.cells[n])) continue;
+    sum += deltas[n];
+    count++;
+  }
+  if (count === 0) return deltas[index];
+  return deltas[index] * 0.78 + (sum / count) * 0.22;
 }
 
 function smoothTexture(seed: number, world: WorldBrain, index: number, salt: number): number {
