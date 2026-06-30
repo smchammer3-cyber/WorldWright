@@ -204,6 +204,8 @@ export interface WorldMetadata {
   updatedAt: string;
   exportProfiles?: string[];
   description?: string;
+  revisionId?: string;
+  contentHash?: string;
 }
 
 export interface Cell {
