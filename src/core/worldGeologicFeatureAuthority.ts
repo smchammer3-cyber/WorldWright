@@ -182,7 +182,7 @@ export function getSharedGeologicFeatureAuthority(a: Cell, b: Cell, minStrength 
   const features: GeologicFeatureAuthorityId[] = [];
   let strength = 0;
 
-  for (const [id, aStrength] of Object.entries(fa) as [GeologicFeatureAuthorityId, number>[]) {
+  for (const [id, aStrength] of Object.entries(fa) as [GeologicFeatureAuthorityId, number][]) {
     const bStrength = fb[id];
     if (typeof bStrength !== 'number') continue;
     const shared = Math.min(aStrength, bStrength);
