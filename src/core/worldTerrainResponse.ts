@@ -179,27 +179,9 @@ function localFlowProxy(world: WorldBrain, index: number, heights: number[], sea
 function blendDelta(world: WorldBrain, index: number, deltas: Float32Array): number {
   const neighbors = neighborIndices4(world, index);
   if (!neighbors.length) return deltas[index];
-  const cell = world.cells[index];
   let sum = 0;
-  let count = 0;
-  for (const n of neighbors) {
-    if (!canBlendAcrossIsostaticEdge(cell, world.cells[n])) continue;
-    sum += deltas[n];
-    count++;
-  }
-  if (count === 0) return deltas[index];
-  return deltas[index] * 0.78 + (sum / count) * 0.22;
-}
-
-function canBlendAcrossIsostaticEdge(a: Cell, b: Cell): boolean {
-  if (hasSharedIsostaticFeatureCause(a, b)) return true;
-  if (a.plateId !== b.plateId) return false;
-  if (a.crustProvince !== b.crustProvince) return false;
-  const materialJump = Math.abs(clamp01(a.crustThickness) - clamp01(b.crustThickness))
-    + Math.abs(clamp01(a.crustAge) - clamp01(b.crustAge)) * 0.62
-    + Math.abs(clamp01(a.continentality) - clamp01(b.continentality)) * 0.52
-    + Math.abs(clamp01(a.continentCoreStrength) - clamp01(b.continentCoreStrength)) * 0.30;
-  return materialJump < 0.34;
+  for (const n of neighbors) sum += deltas[n];
+  return deltas[index] * 0.72 + (sum / neighbors.length) * 0.28;
 }
 
 function landNeighborFraction(world: WorldBrain, index: number, heights: number[], seaLevel: number): number {
