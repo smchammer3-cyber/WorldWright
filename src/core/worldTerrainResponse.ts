@@ -65,6 +65,7 @@ export function applyIsostaticTerrainResponse(world: WorldBrain): void {
     let delta = (target - h) * terrainResponseStrength;
     delta *= lerp(1, 0.62, passiveOceanGate);
     delta *= authoritySeamDamp;
+    delta = capUnbackedIsostaticProvinceJump(world, i, before, seaLevel, delta, strongFeature);
     delta = constrainTopologyDelta(world, i, h, seaLevel, delta, before, feature);
     deltas[i] = clamp(delta, -0.095, 0.105);
   }
@@ -142,6 +143,32 @@ function hasSharedIsostaticFeatureCause(a: Cell, b: Cell): boolean {
   const fb = classifyPlateBoundaryFeatureAuthority(b).features;
   const ids = ['COLLISION_ZONE', 'ISLAND_ARC', 'OCEAN_RIDGE', 'OCEAN_TRENCH', 'RIFT_ZONE', 'SUBDUCTION_ZONE', 'TRANSFORM_ZONE'] as const;
   return ids.some((id) => Math.min(fa[id] ?? 0, fb[id] ?? 0) > 0.22);
+}
+
+function capUnbackedIsostaticProvinceJump(world: WorldBrain, index: number, heights: number[], seaLevel: number, delta: number, strongFeature: number): number {
+  if (delta === 0 || strongFeature > 0.34) return delta;
+  const cell = world.cells[index];
+  if (cell.upliftRate > 0.20 || cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.ACTIVE) return delta;
+  let cappedDelta = delta;
+  const h = heights[index];
+  const cellLand = h >= seaLevel;
+  for (const n of neighborIndices4(world, index)) {
+    const other = world.cells[n];
+    if (other.crustProvince === cell.crustProvince) continue;
+    if (hasSharedIsostaticFeatureCause(cell, other)) continue;
+    const otherHeight = heights[n];
+    if ((otherHeight >= seaLevel) !== cellLand) continue;
+    const beforeJump = Math.abs(h - otherHeight);
+    const afterHeight = h + cappedDelta;
+    const afterJump = Math.abs(afterHeight - otherHeight);
+    if (afterJump <= beforeJump || afterJump <= 0.034) continue;
+    const allowedJump = Math.max(beforeJump, 0.034);
+    const sign = afterHeight >= otherHeight ? 1 : -1;
+    const cappedHeight = otherHeight + sign * allowedJump;
+    const candidateDelta = cappedHeight - h;
+    if (Math.abs(candidateDelta) < Math.abs(cappedDelta)) cappedDelta = candidateDelta;
+  }
+  return cappedDelta;
 }
 
 function constrainTopologyDelta(world: WorldBrain, index: number, h: number, seaLevel: number, delta: number, heights: number[], feature: Partial<Record<string, number>>): number {
