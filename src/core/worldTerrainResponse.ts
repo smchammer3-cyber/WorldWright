@@ -1,7 +1,7 @@
 import { classifyPlateBoundaryFeatureAuthority } from './worldPlateBoundaryFeatures';
 import { assertNoAuthoredTerrainDeltas } from './worldLayerAuthority';
 import { resolveGeneratePlanetFoundation } from './generatePlanetFoundation';
-import { ContinentMarginType, IslandCause, type Cell, type WorldBrain } from './worldSchema';
+import { BoundaryType, ContinentMarginType, IslandCause, type Cell, type WorldBrain } from './worldSchema';
 
 export function applyIsostaticTerrainResponse(world: WorldBrain): void {
   if (!world?.cells?.length) return;
@@ -145,6 +145,13 @@ function hasSharedIsostaticFeatureCause(a: Cell, b: Cell): boolean {
   return ids.some((id) => Math.min(fa[id] ?? 0, fb[id] ?? 0) > 0.22);
 }
 
+function hasCheapSharedIsostaticFeatureCause(a: Cell, b: Cell): boolean {
+  if (a.upliftRate > 0.20 && b.upliftRate > 0.20) return true;
+  if (a.marginType === b.marginType && (a.marginType === ContinentMarginType.ACTIVE || a.marginType === ContinentMarginType.COLLISION || a.marginType === ContinentMarginType.RIFT)) return true;
+  if (a.islandCause === b.islandCause && (a.islandCause === IslandCause.ISLAND_ARC || a.islandCause === IslandCause.VOLCANIC_HOTSPOT || a.islandCause === IslandCause.RIFT_FRAGMENT)) return true;
+  return a.boundaryType === b.boundaryType && (a.boundaryType === BoundaryType.CONVERGENT || a.boundaryType === BoundaryType.DIVERGENT || a.boundaryType === BoundaryType.TRANSFORM);
+}
+
 function capUnbackedIsostaticProvinceJump(world: WorldBrain, index: number, heights: number[], seaLevel: number, delta: number, strongFeature: number): number {
   if (delta === 0 || strongFeature > 0.34) return delta;
   const cell = world.cells[index];
@@ -155,7 +162,7 @@ function capUnbackedIsostaticProvinceJump(world: WorldBrain, index: number, heig
   for (const n of neighborIndices4(world, index)) {
     const other = world.cells[n];
     if (other.crustProvince === cell.crustProvince) continue;
-    if (hasSharedIsostaticFeatureCause(cell, other)) continue;
+    if (hasCheapSharedIsostaticFeatureCause(cell, other)) continue;
     const otherHeight = heights[n];
     if ((otherHeight >= seaLevel) !== cellLand) continue;
     const beforeJump = Math.abs(h - otherHeight);
