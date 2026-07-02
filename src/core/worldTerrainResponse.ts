@@ -65,7 +65,7 @@ export function applyIsostaticTerrainResponse(world: WorldBrain): void {
     let delta = (target - h) * terrainResponseStrength;
     delta *= lerp(1, 0.62, passiveOceanGate);
     delta *= authoritySeamDamp;
-    delta = capUnbackedIsostaticProvinceJump(world, i, before, seaLevel, delta, strongFeature);
+    if (authoritySeamDamp < 0.995) delta = capUnbackedIsostaticProvinceJump(world, i, before, seaLevel, delta, strongFeature);
     delta = constrainTopologyDelta(world, i, h, seaLevel, delta, before, feature);
     deltas[i] = clamp(delta, -0.095, 0.105);
   }
