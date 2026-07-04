@@ -71,7 +71,7 @@ export function applyIsostaticTerrainResponse(world: WorldBrain): void {
   }
 
   for (let i = 0; i < world.cells.length; i++) {
-    const blended = blendDelta(world, i, deltas);
+    const blended = blendDelta(world, i, deltas, before, seaLevel);
     if (blended !== 0) world.cells[i].baseHeight = clamp(world.cells[i].baseHeight + blended, -1.4, 1.5);
   }
 }
@@ -177,7 +177,7 @@ function capUnbackedIsostaticProvinceJump(world: WorldBrain, index: number, heig
     if (hasCheapSharedIsostaticFeatureCause(cell, other)) continue;
     const otherHeight = heights[n];
     const crossesCoastline = (otherHeight >= seaLevel) !== cellLand;
-    if (crossesCoastline && !isWeakUnsharedCoastlineMaterialEdge(cell, other)) continue;
+    if (crossesCoastline && !isWeakUnsharedMaterialEdge(cell, other)) continue;
     const beforeJump = Math.abs(h - otherHeight);
     const afterHeight = h + cappedDelta;
     const afterJump = Math.abs(afterHeight - otherHeight);
@@ -192,7 +192,17 @@ function capUnbackedIsostaticProvinceJump(world: WorldBrain, index: number, heig
   return cappedDelta;
 }
 
-function isWeakUnsharedCoastlineMaterialEdge(a: Cell, b: Cell): boolean {
+function shouldSkipIsostaticBlendEdge(a: Cell, b: Cell, aHeight: number, bHeight: number, seaLevel: number): boolean {
+  const provinceEdge = a.crustProvince !== b.crustProvince;
+  const plateEdge = a.plateId !== b.plateId;
+  if (!provinceEdge && !plateEdge) return false;
+  if (hasCheapSharedIsostaticFeatureCause(a, b)) return false;
+  const crossesCoastline = (aHeight >= seaLevel) !== (bHeight >= seaLevel);
+  if (crossesCoastline) return isWeakUnsharedMaterialEdge(a, b);
+  return isOceanicBasinProvince(a) && isCoastalProvince(b) || isOceanicBasinProvince(b) && isCoastalProvince(a);
+}
+
+function isWeakUnsharedMaterialEdge(a: Cell, b: Cell): boolean {
   if (Math.max(localCheapIsostaticFeatureCause(a), localCheapIsostaticFeatureCause(b)) > 0.34) return false;
   const materialJump = Math.abs(clamp01(a.crustThickness) - clamp01(b.crustThickness))
     + Math.abs(clamp01(a.crustAge) - clamp01(b.crustAge)) * 0.62
@@ -250,12 +260,19 @@ function localFlowProxy(world: WorldBrain, index: number, heights: number[], sea
   return clamp01((higher / Math.max(1, total)) * 0.65 + lowland * 0.35);
 }
 
-function blendDelta(world: WorldBrain, index: number, deltas: Float32Array): number {
+function blendDelta(world: WorldBrain, index: number, deltas: Float32Array, heights: number[], seaLevel: number): number {
   const neighbors = neighborIndices4(world, index);
   if (!neighbors.length) return deltas[index];
+  const cell = world.cells[index];
   let sum = 0;
-  for (const n of neighbors) sum += deltas[n];
-  return deltas[index] * 0.72 + (sum / neighbors.length) * 0.28;
+  let count = 0;
+  for (const n of neighbors) {
+    if (shouldSkipIsostaticBlendEdge(cell, world.cells[n], heights[index], heights[n], seaLevel)) continue;
+    sum += deltas[n];
+    count++;
+  }
+  if (count === 0) return deltas[index];
+  return deltas[index] * 0.72 + (sum / count) * 0.28;
 }
 
 function landNeighborFraction(world: WorldBrain, index: number, heights: number[], seaLevel: number): number {
