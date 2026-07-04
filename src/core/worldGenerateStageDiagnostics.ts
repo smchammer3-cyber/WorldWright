@@ -7,7 +7,9 @@ import {
   seedCrustFields,
 } from './worldCrust';
 import {
+  classifyGeologicFeatureAuthority,
   computeGeologicFeatureAuthorityDiagnostics,
+  edgeHasSharedGeologicFeatureAuthority,
   type GeologicFeatureAuthorityDiagnostics,
 } from './worldGeologicFeatureAuthority';
 import { applyOceanBathymetrySmoothing } from './worldOceanBathymetry';
@@ -79,6 +81,43 @@ export type GenerateStageTransitionMetrics = {
   maxAbsHeightDelta: number;
 };
 
+export type GenerateStageAuthorityEdgeSample = {
+  stageId: GenerateStageId;
+  edgeKind: 'plate' | 'province' | 'plate+province';
+  terrainSide: 'land' | 'ocean' | 'coastline';
+  currentJump: number;
+  previousJump: number | null;
+  jumpDelta: number | null;
+  sharedFeatureAuthority: boolean;
+  score: number;
+  a: GenerateStageAuthorityEdgeCell;
+  b: GenerateStageAuthorityEdgeCell;
+};
+
+export type GenerateStageAuthorityEdgeCell = {
+  index: number;
+  x: number;
+  y: number;
+  height: number;
+  previousHeight: number | null;
+  plateId: string | number | null;
+  crustProvince: string | null;
+  continentId: string | number | null;
+  oceanBasinId: string | number | null;
+  feature: string;
+  featureStrength: number;
+  continentality: number;
+  continentCoreStrength: number;
+  shelfStrength: number;
+  crustThickness: number;
+  crustAge: number;
+  upliftRate: number;
+  volcanicActivity: number;
+  marginType: string;
+  islandCause: string;
+  plateType: string;
+};
+
 export type GenerateStageSnapshot = {
   id: GenerateStageId;
   label: string;
@@ -86,6 +125,7 @@ export type GenerateStageSnapshot = {
   raw: GenerateStageRawMetrics;
   deltaFromPrevious?: Partial<GenerateStageRawMetrics>;
   transitionFromPrevious?: GenerateStageTransitionMetrics;
+  authorityEdgeSamples?: GenerateStageAuthorityEdgeSample[];
 };
 
 export type GenerateStageDiagnostics = {
@@ -100,6 +140,19 @@ type StageTrace = {
   seaLevel: number;
 };
 
+type EdgeCandidate = {
+  a: number;
+  b: number;
+  edgeKind: GenerateStageAuthorityEdgeSample['edgeKind'];
+  terrainSide: GenerateStageAuthorityEdgeSample['terrainSide'];
+  currentJump: number;
+  previousJump: number | null;
+  jumpDelta: number | null;
+  score: number;
+};
+
+const VISIBLE_AUTHORITY_JUMP = 0.035;
+
 export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null | undefined): GenerateStageDiagnostics | null {
   if (!sourceWorld?.cells?.length) return null;
   const params = generatorParamsFromWorld(sourceWorld);
@@ -111,6 +164,9 @@ export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null 
     const trace = captureStageTrace(world);
     const raw = computeStageRawMetrics(world, trace);
     const previous = stages[stages.length - 1]?.raw;
+    const authorityEdgeSamples = id === 'ISOSTATIC_TERRAIN_RESPONSE'
+      ? worstAuthorityEdgeSamples(world, id, trace, previousTrace)
+      : undefined;
     stages.push({
       id,
       label,
@@ -118,6 +174,7 @@ export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null 
       raw,
       deltaFromPrevious: previous ? diffRaw(raw, previous) : undefined,
       transitionFromPrevious: previousTrace ? diffTrace(trace, previousTrace) : undefined,
+      ...(authorityEdgeSamples?.length ? { authorityEdgeSamples } : {}),
     });
     previousTrace = trace;
   }
@@ -298,6 +355,90 @@ function computeStageRawMetrics(world: WorldBrain, trace = captureStageTrace(wor
   };
 }
 
+function worstAuthorityEdgeSamples(world: WorldBrain, stageId: GenerateStageId, trace: StageTrace, previousTrace: StageTrace | null, limit = 12): GenerateStageAuthorityEdgeSample[] {
+  const candidates: EdgeCandidate[] = [];
+  for (let row = 0; row < world.gridHeight; row++) {
+    for (let col = 0; col < world.gridWidth; col++) {
+      const idx = row * world.gridWidth + col;
+      considerAuthorityEdgeCandidate(world, trace, previousTrace, candidates, idx, row * world.gridWidth + ((col + 1) % world.gridWidth));
+      if (row < world.gridHeight - 1) considerAuthorityEdgeCandidate(world, trace, previousTrace, candidates, idx, (row + 1) * world.gridWidth + col);
+    }
+  }
+
+  return candidates
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((candidate) => enrichAuthorityEdgeSample(world, stageId, trace, previousTrace, candidate));
+}
+
+function considerAuthorityEdgeCandidate(world: WorldBrain, trace: StageTrace, previousTrace: StageTrace | null, candidates: EdgeCandidate[], a: number, b: number): void {
+  const ca = world.cells[a];
+  const cb = world.cells[b];
+  const plateEdge = ca.plateId !== cb.plateId;
+  const provinceEdge = ca.crustProvince !== cb.crustProvince;
+  if (!plateEdge && !provinceEdge) return;
+
+  const ha = trace.heights[a];
+  const hb = trace.heights[b];
+  const currentJump = Math.abs(ha - hb);
+  const previousJump = previousTrace ? Math.abs(previousTrace.heights[a] - previousTrace.heights[b]) : null;
+  const jumpDelta = previousJump == null ? null : currentJump - previousJump;
+  if (currentJump <= VISIBLE_AUTHORITY_JUMP && (jumpDelta ?? 0) <= 0.010) return;
+
+  const aLand = ha >= trace.seaLevel;
+  const bLand = hb >= trace.seaLevel;
+  const terrainSide: GenerateStageAuthorityEdgeSample['terrainSide'] = aLand === bLand ? (aLand ? 'land' : 'ocean') : 'coastline';
+  const edgeKind: GenerateStageAuthorityEdgeSample['edgeKind'] = plateEdge && provinceEdge ? 'plate+province' : provinceEdge ? 'province' : 'plate';
+  const score = currentJump + Math.max(0, jumpDelta ?? 0) * 2 + (provinceEdge ? 0.020 : 0) + (terrainSide !== 'coastline' ? 0.010 : 0);
+
+  candidates.push({ a, b, edgeKind, terrainSide, currentJump: round4(currentJump), previousJump: previousJump == null ? null : round4(previousJump), jumpDelta: jumpDelta == null ? null : round4(jumpDelta), score: round4(score) });
+}
+
+function enrichAuthorityEdgeSample(world: WorldBrain, stageId: GenerateStageId, trace: StageTrace, previousTrace: StageTrace | null, candidate: EdgeCandidate): GenerateStageAuthorityEdgeSample {
+  const ca = world.cells[candidate.a];
+  const cb = world.cells[candidate.b];
+  return {
+    stageId,
+    edgeKind: candidate.edgeKind,
+    terrainSide: candidate.terrainSide,
+    currentJump: candidate.currentJump,
+    previousJump: candidate.previousJump,
+    jumpDelta: candidate.jumpDelta,
+    sharedFeatureAuthority: edgeHasSharedGeologicFeatureAuthority(ca, cb),
+    score: candidate.score,
+    a: authorityEdgeCell(world, candidate.a, trace, previousTrace),
+    b: authorityEdgeCell(world, candidate.b, trace, previousTrace),
+  };
+}
+
+function authorityEdgeCell(world: WorldBrain, index: number, trace: StageTrace, previousTrace: StageTrace | null): GenerateStageAuthorityEdgeCell {
+  const cell = world.cells[index];
+  const feature = classifyGeologicFeatureAuthority(cell);
+  return {
+    index,
+    x: index % world.gridWidth,
+    y: Math.floor(index / world.gridWidth),
+    height: round4(trace.heights[index]),
+    previousHeight: previousTrace ? round4(previousTrace.heights[index]) : null,
+    plateId: cell.plateId ?? null,
+    crustProvince: typeof cell.crustProvince === 'string' ? cell.crustProvince : null,
+    continentId: cell.continentId ?? null,
+    oceanBasinId: cell.oceanBasinId ?? null,
+    feature: feature.primary,
+    featureStrength: round4(feature.strength),
+    continentality: round4(cell.continentality),
+    continentCoreStrength: round4(cell.continentCoreStrength),
+    shelfStrength: round4(cell.shelfStrength),
+    crustThickness: round4(cell.crustThickness),
+    crustAge: round4(cell.crustAge),
+    upliftRate: round4(cell.upliftRate),
+    volcanicActivity: round4(cell.volcanicActivity),
+    marginType: String(cell.marginType),
+    islandCause: String(cell.islandCause),
+    plateType: String(cell.plateType),
+  };
+}
+
 function diffRaw(raw: GenerateStageRawMetrics, previous: GenerateStageRawMetrics): Partial<GenerateStageRawMetrics> {
   return {
     landFraction: raw.landFraction - previous.landFraction,
@@ -443,6 +584,10 @@ function isPlanetProfile(value: unknown): value is NonNullable<GeneratorParams['
     || value === 'DWARF_ROCKY_OR_ICY'
     || value === 'SUPER_EARTH_ROCKY'
     || value === 'ARTIFICIAL_OR_FANTASY_SHELL';
+}
+
+function round4(value: number): number {
+  return Number.isFinite(value) ? Math.round(value * 10_000) / 10_000 : 0;
 }
 
 function clamp01(value: number): number {
