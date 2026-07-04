@@ -23,6 +23,8 @@ const ABLATIONS: AblationStageId[] = [
   'OCEAN_BATHYMETRY_SMOOTHING',
 ];
 
+type IsostaticEdgeSample = NonNullable<MultiSeedGenerateDiagnostics['runs'][number]['stages'][number]['authorityEdgeSamples']>[number];
+
 describe('Generate diagnostics report runner', () => {
   it('writes a human-readable Generate diagnostics report', () => {
     const result = runMultiSeedGenerateDiagnostics({ ablations: ABLATIONS });
@@ -46,6 +48,8 @@ function printConsoleSummary(result: MultiSeedGenerateDiagnostics): void {
   console.log('\nGeologic authority gate:');
   console.log(`- pass: ${result.geologicAuthorityGate.pass}`);
   console.log(`- first failed authority layer: ${result.geologicAuthorityGate.firstFailedAuthorityLayer ?? 'none'}`);
+  console.log('\nWorst ISOSTATIC authority edges:');
+  for (const line of isostaticEdgeSummaryLines(result)) console.log(line);
   console.log('\nTop plate imprint increases:');
   for (const row of top(result.rankings.plateImprintIncreases)) console.log(formatRankingLine(row));
   console.log('\nTop province imprint increases:');
@@ -111,6 +115,10 @@ function renderMarkdownReport(result: MultiSeedGenerateDiagnostics): string {
     '## Per-seed suspect table',
     '',
     perSeedTable(result),
+    '',
+    '## Worst isostatic authority edge samples',
+    '',
+    isostaticEdgeTable(result),
     '',
     '## Ablation summary',
     '',
@@ -194,6 +202,34 @@ function rankingTable(rows: StageDeltaRanking[]): string {
 
 function formatRankingLine(row: StageDeltaRanking): string {
   return `- ${row.stage}: score ${formatNumber(row.score)}, count ${row.count}`;
+}
+
+function isostaticEdgeRows(result: MultiSeedGenerateDiagnostics, countPerSeed = 3): Array<{ seed: string; sample: IsostaticEdgeSample }> {
+  const rows: Array<{ seed: string; sample: IsostaticEdgeSample }> = [];
+  for (const run of result.runs) {
+    const stage = run.stages.find((s) => s.id === 'ISOSTATIC_TERRAIN_RESPONSE');
+    for (const sample of (stage?.authorityEdgeSamples ?? []).slice(0, countPerSeed)) rows.push({ seed: run.seed, sample });
+  }
+  return rows.sort((a, b) => b.sample.score - a.sample.score);
+}
+
+function isostaticEdgeSummaryLines(result: MultiSeedGenerateDiagnostics): string[] {
+  const rows = isostaticEdgeRows(result, 2).slice(0, 12);
+  if (!rows.length) return ['- none recorded'];
+  return rows.map(({ seed, sample }) => {
+    return `- seed ${seed} ${sample.edgeKind}/${sample.terrainSide} jump ${formatNumber(sample.currentJump)} Δ ${formatSigned(sample.jumpDelta ?? 0)} shared=${sample.sharedFeatureAuthority} A${cellLabel(sample.a)} ↔ B${cellLabel(sample.b)}`;
+  });
+}
+
+function isostaticEdgeTable(result: MultiSeedGenerateDiagnostics): string {
+  const rows = isostaticEdgeRows(result, 3).slice(0, 18).map(({ seed, sample }) => {
+    return `| \`${seed}\` | ${sample.edgeKind} | ${sample.terrainSide} | ${formatNumber(sample.currentJump)} | ${formatSigned(sample.jumpDelta ?? 0)} | ${sample.sharedFeatureAuthority ? 'yes' : 'no'} | ${cellLabel(sample.a)} | ${cellLabel(sample.b)} |`;
+  });
+  return ['| Seed | Edge | Side | Jump | Δ from prior | Shared feature? | A | B |', '| --- | --- | --- | ---: | ---: | --- | --- | --- |', ...rows.length ? rows : ['| _none_ | - | - | 0 | 0 | - | - | - |']].join('\n');
+}
+
+function cellLabel(cell: IsostaticEdgeSample['a']): string {
+  return `(${cell.x},${cell.y}) ${cell.crustProvince ?? 'none'} ${cell.feature}:${formatNumber(cell.featureStrength)} h=${formatNumber(cell.height)} c=${formatNumber(cell.continentality)} shelf=${formatNumber(cell.shelfStrength)} th=${formatNumber(cell.crustThickness)} age=${formatNumber(cell.crustAge)} u=${formatSigned(cell.upliftRate)}`;
 }
 
 function perSeedTable(result: MultiSeedGenerateDiagnostics): string {
