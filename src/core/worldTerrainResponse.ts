@@ -13,6 +13,8 @@ export function applyIsostaticTerrainResponse(world: WorldBrain): void {
   const seaLevel = numeric(world.seaLevel, world.metadata?.seaLevel ?? 0);
   const before = world.cells.map((cell) => totalHeight(cell));
   const deltas = new Float32Array(world.cells.length);
+  const strongFeatures = new Float32Array(world.cells.length);
+  const seamDamps = new Float32Array(world.cells.length);
 
   for (let i = 0; i < world.cells.length; i++) {
     const cell = world.cells[i];
@@ -22,6 +24,8 @@ export function applyIsostaticTerrainResponse(world: WorldBrain): void {
     const strongFeature = strongestIsostaticFeature(feature);
     const passiveOceanGate = passiveOceanMaterialGate(cell, h, seaLevel, strongFeature);
     const authoritySeamDamp = unbackedIsostaticSeamDamp(world, i, strongFeature);
+    strongFeatures[i] = strongFeature;
+    seamDamps[i] = authoritySeamDamp;
     const effectiveContinentality = lerp(cell.continentality, Math.min(cell.continentality, 0.32), passiveOceanGate);
     const effectiveCore = lerp(cell.continentCoreStrength, Math.min(cell.continentCoreStrength, 0.16), passiveOceanGate);
     const effectiveBuoyancy = lerp(material.crustBuoyancy, Math.min(material.crustBuoyancy, 0.42), passiveOceanGate);
@@ -71,7 +75,8 @@ export function applyIsostaticTerrainResponse(world: WorldBrain): void {
   }
 
   for (let i = 0; i < world.cells.length; i++) {
-    const blended = blendDelta(world, i, deltas, before, seaLevel);
+    let blended = blendDelta(world, i, deltas);
+    if (seamDamps[i] < 0.995) blended = capUnbackedIsostaticProvinceJump(world, i, before, seaLevel, blended, strongFeatures[i]);
     if (blended !== 0) world.cells[i].baseHeight = clamp(world.cells[i].baseHeight + blended, -1.4, 1.5);
   }
 }
@@ -192,16 +197,6 @@ function capUnbackedIsostaticProvinceJump(world: WorldBrain, index: number, heig
   return cappedDelta;
 }
 
-function shouldSkipIsostaticBlendEdge(a: Cell, b: Cell, aHeight: number, bHeight: number, seaLevel: number): boolean {
-  const provinceEdge = a.crustProvince !== b.crustProvince;
-  const plateEdge = a.plateId !== b.plateId;
-  if (!provinceEdge && !plateEdge) return false;
-  if (hasCheapSharedIsostaticFeatureCause(a, b)) return false;
-  const crossesCoastline = (aHeight >= seaLevel) !== (bHeight >= seaLevel);
-  if (crossesCoastline) return isWeakUnsharedMaterialEdge(a, b);
-  return isOceanicBasinProvince(a) && isCoastalProvince(b) || isOceanicBasinProvince(b) && isCoastalProvince(a);
-}
-
 function isWeakUnsharedMaterialEdge(a: Cell, b: Cell): boolean {
   if (Math.max(localCheapIsostaticFeatureCause(a), localCheapIsostaticFeatureCause(b)) > 0.34) return false;
   const materialJump = Math.abs(clamp01(a.crustThickness) - clamp01(b.crustThickness))
@@ -260,19 +255,12 @@ function localFlowProxy(world: WorldBrain, index: number, heights: number[], sea
   return clamp01((higher / Math.max(1, total)) * 0.65 + lowland * 0.35);
 }
 
-function blendDelta(world: WorldBrain, index: number, deltas: Float32Array, heights: number[], seaLevel: number): number {
+function blendDelta(world: WorldBrain, index: number, deltas: Float32Array): number {
   const neighbors = neighborIndices4(world, index);
   if (!neighbors.length) return deltas[index];
-  const cell = world.cells[index];
   let sum = 0;
-  let count = 0;
-  for (const n of neighbors) {
-    if (shouldSkipIsostaticBlendEdge(cell, world.cells[n], heights[index], heights[n], seaLevel)) continue;
-    sum += deltas[n];
-    count++;
-  }
-  if (count === 0) return deltas[index];
-  return deltas[index] * 0.72 + (sum / count) * 0.28;
+  for (const n of neighbors) sum += deltas[n];
+  return deltas[index] * 0.72 + (sum / neighbors.length) * 0.28;
 }
 
 function landNeighborFraction(world: WorldBrain, index: number, heights: number[], seaLevel: number): number {
