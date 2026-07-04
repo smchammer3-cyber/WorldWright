@@ -152,6 +152,16 @@ function hasCheapSharedIsostaticFeatureCause(a: Cell, b: Cell): boolean {
   return a.boundaryType === b.boundaryType && (a.boundaryType === BoundaryType.CONVERGENT || a.boundaryType === BoundaryType.DIVERGENT || a.boundaryType === BoundaryType.TRANSFORM);
 }
 
+function localCheapIsostaticFeatureCause(cell: Cell): number {
+  let cause = 0;
+  if (cell.upliftRate > 0.20) cause = Math.max(cause, 0.50);
+  if (cell.marginType === ContinentMarginType.ACTIVE || cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.RIFT) cause = Math.max(cause, 0.50);
+  if (cell.islandCause === IslandCause.ISLAND_ARC || cell.islandCause === IslandCause.VOLCANIC_HOTSPOT || cell.islandCause === IslandCause.RIFT_FRAGMENT) cause = Math.max(cause, 0.50);
+  if (cell.boundaryType === BoundaryType.CONVERGENT || cell.boundaryType === BoundaryType.DIVERGENT) cause = Math.max(cause, 0.42);
+  if (cell.boundaryType === BoundaryType.TRANSFORM) cause = Math.max(cause, 0.28);
+  return cause;
+}
+
 function capUnbackedIsostaticProvinceJump(world: WorldBrain, index: number, heights: number[], seaLevel: number, delta: number, strongFeature: number): number {
   if (delta === 0 || strongFeature > 0.34) return delta;
   const cell = world.cells[index];
@@ -161,21 +171,51 @@ function capUnbackedIsostaticProvinceJump(world: WorldBrain, index: number, heig
   const cellLand = h >= seaLevel;
   for (const n of neighborIndices4(world, index)) {
     const other = world.cells[n];
-    if (other.crustProvince === cell.crustProvince) continue;
+    const provinceEdge = other.crustProvince !== cell.crustProvince;
+    const plateEdge = other.plateId !== cell.plateId;
+    if (!provinceEdge && !plateEdge) continue;
     if (hasCheapSharedIsostaticFeatureCause(cell, other)) continue;
     const otherHeight = heights[n];
-    if ((otherHeight >= seaLevel) !== cellLand) continue;
+    const crossesCoastline = (otherHeight >= seaLevel) !== cellLand;
+    if (crossesCoastline && !isWeakUnsharedCoastlineMaterialEdge(cell, other)) continue;
     const beforeJump = Math.abs(h - otherHeight);
     const afterHeight = h + cappedDelta;
     const afterJump = Math.abs(afterHeight - otherHeight);
-    if (afterJump <= beforeJump || afterJump <= 0.034) continue;
-    const allowedJump = Math.max(beforeJump, 0.034);
+    const allowedFloor = crossesCoastline ? unsharedCoastlineJumpFloor(cell, other) : 0.034;
+    if (afterJump <= beforeJump || afterJump <= allowedFloor) continue;
+    const allowedJump = Math.max(beforeJump, allowedFloor);
     const sign = afterHeight >= otherHeight ? 1 : -1;
     const cappedHeight = otherHeight + sign * allowedJump;
     const candidateDelta = cappedHeight - h;
     if (Math.abs(candidateDelta) < Math.abs(cappedDelta)) cappedDelta = candidateDelta;
   }
   return cappedDelta;
+}
+
+function isWeakUnsharedCoastlineMaterialEdge(a: Cell, b: Cell): boolean {
+  if (Math.max(localCheapIsostaticFeatureCause(a), localCheapIsostaticFeatureCause(b)) > 0.34) return false;
+  const materialJump = Math.abs(clamp01(a.crustThickness) - clamp01(b.crustThickness))
+    + Math.abs(clamp01(a.crustAge) - clamp01(b.crustAge)) * 0.62
+    + Math.abs(clamp01(a.continentality) - clamp01(b.continentality)) * 0.52
+    + Math.abs(clamp01(a.continentCoreStrength) - clamp01(b.continentCoreStrength)) * 0.30
+    + Math.abs(clamp01(a.shelfStrength) - clamp01(b.shelfStrength)) * 0.26;
+  const namedBasinCoastEdge = isOceanicBasinProvince(a) && isCoastalProvince(b) || isOceanicBasinProvince(b) && isCoastalProvince(a);
+  return namedBasinCoastEdge || materialJump > 0.34;
+}
+
+function isOceanicBasinProvince(cell: Cell): boolean {
+  const province = typeof cell.crustProvince === 'string' ? cell.crustProvince : '';
+  return province.includes('OCEANIC') || province.includes('BASIN');
+}
+
+function isCoastalProvince(cell: Cell): boolean {
+  const province = typeof cell.crustProvince === 'string' ? cell.crustProvince : '';
+  return province.includes('COAST') || province.includes('SHELF') || cell.shelfStrength > 0.26;
+}
+
+function unsharedCoastlineJumpFloor(a: Cell, b: Cell): number {
+  const shelfBridge = Math.max(clamp01(a.shelfStrength), clamp01(b.shelfStrength));
+  return 0.050 + smoothstep(0.24, 0.68, shelfBridge) * 0.018;
 }
 
 function constrainTopologyDelta(world: WorldBrain, index: number, h: number, seaLevel: number, delta: number, heights: number[], feature: Partial<Record<string, number>>): number {
