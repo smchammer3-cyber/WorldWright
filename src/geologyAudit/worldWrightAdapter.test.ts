@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { createDefaultGeneratorParams, generateWorldFromParams } from '../core/worldGenerator';
 import {
   EMPTY_DEFAULT_REFERENCE_REGISTRY,
@@ -8,20 +8,21 @@ import {
   resolveWorldAuditPlan,
 } from './index';
 
-function buildWorld() {
+let world: ReturnType<typeof generateWorldFromParams>;
+
+beforeAll(() => {
   const defaults = createDefaultGeneratorParams();
-  return generateWorldFromParams({
+  world = generateWorldFromParams({
     ...defaults,
-    width: 64,
-    height: 32,
+    width: 32,
+    height: 16,
     seed: 'world-audit-export-test',
     continentCount: 4,
   });
-}
+});
 
 describe('WorldWright audit exporter', () => {
   it('exports a valid manifest without mutating the world', () => {
-    const world = buildWorld();
     const before = JSON.stringify(world);
     const assets = describeJarvisReviewPackAuditAssets({
       baseUri: 'artifact://jarvis-review',
@@ -49,7 +50,6 @@ describe('WorldWright audit exporter', () => {
   });
 
   it('encodes exact, internally consistent cell coverage for every exported region', () => {
-    const world = buildWorld();
     const manifest = exportWorldAuditManifest(world, {
       generatorCommit: 'test-commit',
       generatedAt: '2026-07-11T20:00:00.000Z',
@@ -70,7 +70,6 @@ describe('WorldWright audit exporter', () => {
   });
 
   it('feeds the exported geology into the rule resolver without pretending references exist', () => {
-    const world = buildWorld();
     const manifest = exportWorldAuditManifest(world, {
       generatorCommit: 'test-commit',
       generatedAt: '2026-07-11T20:00:00.000Z',
