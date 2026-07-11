@@ -128,8 +128,13 @@ export function validateWorldAuditManifest(manifest: WorldAuditManifest): Valida
 
     if (region.gridBounds) {
       const bounds = region.gridBounds;
-      for (const [key, value] of Object.entries(bounds)) {
-        if (key === 'wrapsLongitude') continue;
+      const numericBounds = [
+        ['minRow', bounds.minRow],
+        ['maxRow', bounds.maxRow],
+        ['minCol', bounds.minCol],
+        ['maxCol', bounds.maxCol],
+      ] as const;
+      for (const [key, value] of numericBounds) {
         if (!Number.isInteger(value) || value < 0) issues.push({ path: `${path}.gridBounds.${key}`, message: 'must be a non-negative integer' });
       }
       if (bounds.minRow > bounds.maxRow || bounds.minCol > bounds.maxCol) issues.push({ path: `${path}.gridBounds`, message: 'minimum bounds must not exceed maximum bounds' });
