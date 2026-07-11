@@ -32,28 +32,28 @@
 | C03 | Transitional crust and rifted margins | IN RESEARCH | extension, magmatism, thinning | passive margins, shelves, breakup | magma-rich vs magma-poor branches documented |
 | C04 | Cratons, shields, and stable interiors | IN RESEARCH | age, thickness, rigidity, erosion | drainage, sediment supply, intraplate basins | old stable terrain visual families defined |
 | C05 | Terranes, sutures, and crustal provinces | IN RESEARCH | accretion history, inherited structure | collision, transforms, volcanism | raw province masks distinguished from surface expression |
-| T01 | Oceanic divergence / mid-ocean ridges | SCOPED | spreading rate, magma supply, transform spacing | bathymetry, crust age, hydrothermal systems | slow/fast/ultraslow variants researched |
-| T02 | Continental rifting | SCOPED | extension rate, lithosphere thickness, plume input | rift basins, volcanism, breakup | successful vs failed rifts distinguished |
-| T03 | Ocean–continent subduction | SCOPED | slab age, dip, convergence, coupling, sediment | trenches, arcs, forearc/backarc, mountains | paired-feature obligations established |
-| T04 | Ocean–ocean subduction | SCOPED | slab age/density, rollback, convergence | trenches, island arcs, backarc basins | arc/trench geometry and variation researched |
-| T05 | Continent–continent collision | SCOPED | convergence, obliquity, crust thickness, erosion | orogens, plateaus, foreland basins | full-source synthesis completed after foundations |
-| T06 | Transform boundaries | SCOPED | slip rate, stepovers, crust type | fracture zones, pull-aparts, transpression | onshore/offshore visual families researched |
-| T07 | Transpression and transtension | NOT STARTED | obliquity, step geometry, inherited faults | uplift, pull-apart basins, strike-slip ranges | mixed-boundary outcomes specified |
-| T08 | Triple junctions, microplates, diffuse boundaries | NOT STARTED | plate geometry, strain partitioning | complex regional fabric | complexity not misclassified as noise |
+| T01 | Oceanic divergence / mid-ocean ridges | IN RESEARCH | spreading rate, magma supply, transform spacing | bathymetry, crust age, hydrothermal systems | slow/fast/ultraslow variants researched |
+| T02 | Continental rifting | IN RESEARCH | extension rate, lithosphere thickness, plume input | rift basins, volcanism, breakup | successful vs failed rifts distinguished |
+| T03 | Ocean–continent subduction | IN RESEARCH | slab age, dip, convergence, coupling, sediment | trenches, arcs, forearc/backarc, mountains | paired-feature obligations established |
+| T04 | Ocean–ocean subduction | IN RESEARCH | slab age/density, rollback, convergence | trenches, island arcs, backarc basins | arc/trench geometry and variation researched |
+| T05 | Continent–continent collision | SCOPED | convergence, obliquity, crust thickness, erosion | orogens, plateaus, foreland basins | full-source synthesis completed after boundary systems |
+| T06 | Transform boundaries | IN RESEARCH | slip rate, stepovers, crust type | fracture zones, pull-aparts, transpression | onshore/offshore visual families researched |
+| T07 | Transpression and transtension | IN RESEARCH | obliquity, step geometry, inherited faults | uplift, pull-apart basins, strike-slip ranges | mixed-boundary outcomes specified |
+| T08 | Triple junctions, microplates, diffuse boundaries | IN RESEARCH | plate geometry, strain partitioning | complex regional fabric | complexity not misclassified as noise |
 | V01 | Isostasy and crustal roots | IN RESEARCH | density, thickness, compensation depth | mountains, plateaus, erosion | equilibrium limitations documented |
 | V02 | Lithospheric flexure | IN RESEARCH | elastic thickness, load, density | foreland basins, trenches, islands | basin/high paired response specified |
 | V03 | Dynamic topography | IN RESEARCH | mantle flow, plume/slab buoyancy | swells, basins, long-wavelength relief | dynamic vs crustal support separated |
 | V04 | Delamination, foundering, and epeirogeny | NOT STARTED | density instability, mantle removal | plateaus, volcanism, uplift/subsidence | broad uplift exceptions researched |
-| M01 | Volcanic arcs | NOT STARTED | slab flux, crust type, convergence | subduction, relief, calderas | arc continuity and spacing researched |
+| M01 | Volcanic arcs | IN RESEARCH | slab flux, crust type, convergence | subduction, relief, calderas | arc continuity and spacing researched |
 | M02 | Hotspots and plume swells | NOT STARTED | plume flux, plate speed, lithosphere | island chains, swells, LIPs | local radiality exceptions researched |
 | M03 | Large igneous provinces / flood basalts | NOT STARTED | melt volume, eruption tempo, topography | climate, plateaus, rifting | plains vs tectonic plateaus distinguished |
 | M04 | Shield volcanoes and volcanic rises | NOT STARTED | eruption rate, viscosity, gravity | radial drainage, flexure, collapse | valid radial forms specified |
 | M05 | Stratovolcanoes, calderas, domes, and cones | NOT STARTED | magma chemistry, eruption style | arcs, local topography | scale-dependent radial exceptions specified |
-| O01 | Passive margins and continental shelves | SCOPED | rift history, subsidence, sediment, sea level | coasts, slopes, basins | shelf vs submerged-ghost rules researched |
-| O02 | Active margins | NOT STARTED | subduction/transform style, sediment supply | trenches, narrow shelves, coastal mountains | active/passive contrasts defined |
+| O01 | Passive margins and continental shelves | IN RESEARCH | rift history, subsidence, sediment, sea level | coasts, slopes, basins | shelf vs submerged-ghost rules researched |
+| O02 | Active margins | IN RESEARCH | subduction/transform style, sediment supply | trenches, narrow shelves, coastal mountains | active/passive contrasts defined |
 | O03 | Continental slopes, rises, and submarine canyons | NOT STARTED | sediment, currents, slope stability | rivers, margins, abyssal plains | cross-scale continuity documented |
-| O04 | Abyssal basins and plains | NOT STARTED | crust age, sediment cover, dynamic topography | ridges, trenches, seamounts | broad ocean-floor texture families defined |
-| O05 | Trenches, forearcs, backarcs | NOT STARTED | slab geometry, rollback, coupling | subduction, volcanism | paired spatial relationships established |
+| O04 | Abyssal basins and plains | IN RESEARCH | crust age, sediment cover, dynamic topography | ridges, trenches, seamounts | broad ocean-floor texture families defined |
+| O05 | Trenches, forearcs, backarcs | IN RESEARCH | slab geometry, rollback, coupling | subduction, volcanism | paired spatial relationships established |
 | S01 | Fluvial incision and drainage integration | NOT STARTED | uplift, precipitation, substrate, time | mountains, basins, deltas | drainage topology and thresholds researched |
 | S02 | Hillslope erosion and mass wasting | NOT STARTED | relief, climate, rock strength, vegetation | mountains, valleys, sediment | smoothing vs structural preservation specified |
 | S03 | Weathering and regolith production | NOT STARTED | climate, mineralogy, exposure time | erosion, soil, color | morphology vs cosmetic surface effects separated |
@@ -67,7 +67,7 @@
 | I02 | Impact-modified crust and mascons | SCOPED | basin size, melt, crust/mantle density | gravity, volcanism, later tectonics | impact radiality separated from generator blobs |
 | X01 | Climate–orography interaction | NOT STARTED | wind, precipitation, elevation | erosion, glaciers, deserts | feedback directions documented |
 | X02 | Sea-level and ocean-volume thresholds | NOT STARTED | water volume, basin hypsometry, ice | shelves, islands, drainage | connectivity and inundation relations researched |
-| X03 | Temporal evolution / inheritance | NOT STARTED | process duration, cessation, erosion | every domain | active, waning, fossil states specified |
+| X03 | Temporal evolution / inheritance | IN RESEARCH | process duration, cessation, erosion | every domain | active, waning, fossil states specified |
 | X04 | Multiscale visual coherence | NOT STARTED | feature size, resolution, projection | every domain | globe-to-local consistency obligations defined |
 | P01 | Procedural mask leakage | SCOPED | categorical fields, smoothing, kernels | every generator stage | signatures and diagnostic tests cataloged |
 | P02 | Radial blob and isotropic kernel failures | SCOPED | distance fields, blur, center weighting | collision, volcanoes, impacts | valid radial exceptions fully separated |
@@ -94,4 +94,12 @@ Stage 1 is **not complete** when every row has notes. It is complete only when e
 - C01–C05;
 - V01–V03.
 
-Collision systems, shelves, and reference-image planning remain blocked until these earlier tranches establish their permitted planetary contexts and support mechanisms.
+### Tranche 3 — tectonic boundary systems
+
+- T01–T04;
+- T06–T08;
+- M01;
+- O01–O02 and O04–O05;
+- X03 process-state framework.
+
+Continent–continent collision remains `SCOPED` until divergence, rifting, subduction, transforms, crustal support, and temporal-state rules are sufficiently established. Reference-image planning remains blocked for the entire Stage 1 program.
