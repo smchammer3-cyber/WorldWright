@@ -239,6 +239,7 @@ geology-audit/research/
 ├── STAGE_ONE_COVERAGE_MATRIX.md
 ├── sources/
 │   ├── source-register.md
+│   ├── orogeny-source-register.md
 │   └── licensing-register.md
 ├── foundations/
 ├── tectonics/
@@ -260,14 +261,12 @@ The Stage 1 order is deliberately causal:
 1. planetary foundations and geodynamic regimes;
 2. crustal architecture;
 3. tectonic boundary families;
-4. vertical terrain response;
+4. collision, orogeny, plateaus, collapse, and inherited belts;
 5. volcanism and basin/margin architecture;
 6. surface modification processes;
 7. temporal and climate interactions;
 8. procedural failures and multiscale coherence;
 9. complete Stage 2 generation matrix.
-
-Collision-belt research remains preliminary until the earlier foundation and regime research establishes which worlds should possess Earth-like mobile-lid collision systems at all.
 
 ## Current Stage 1 progress
 
@@ -292,4 +291,28 @@ Committed research:
 
 Status: IN RESEARCH.
 
-No domain is yet `SPEC COMPLETE` or `APPROVED`. No reference-image curation or generation work is present on the branch.
+### Tranche 3 — tectonic boundary systems
+
+Committed research:
+
+- `tectonics/oceanic-spreading-and-mid-ocean-ridges.md`
+- `tectonics/continental-rifting-and-breakup.md`
+- `tectonics/subduction-trench-arc-and-backarc-systems.md`
+- `tectonics/transform-transpression-transtension-and-diffuse-boundaries.md`
+- expanded boundary-system source register and coverage states.
+
+Status: IN RESEARCH.
+
+### Tranche 4 — collision, plateaus, collapse, and inherited orogens
+
+Committed research:
+
+- `tectonics/continental-collision-and-orogenic-wedges.md`
+- `vertical-motion/orogenic-plateaus-collapse-delamination-and-breakoff.md`
+- `temporal-evolution/ancient-eroded-and-reactivated-orogens.md`
+- `sources/orogeny-source-register.md`
+- updated coverage states for T05, V04, and X03.
+
+Status: IN RESEARCH.
+
+No domain is yet `SPEC COMPLETE` or `APPROVED`. Surface-process dependencies remain blocked pending their dedicated research tranches. No reference-image curation or generation work is present on the branch.
