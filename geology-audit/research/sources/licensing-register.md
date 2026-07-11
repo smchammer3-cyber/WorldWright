@@ -39,6 +39,9 @@ A source's scientific usefulness and its reuse permission are separate questions
 | SRC-C-001–016 | books, journal articles, preprints, mission data, and methods papers | CITATION ONLY | crustal-support research and source tracing | figures/data blocked | review each exact figure or dataset separately |
 | SRC-T-001–021 | ridge, rift, subduction, transform, and plate-kinematic sources | CITATION ONLY | boundary-system research and source tracing | figures/data blocked | review each exact figure, map, and dataset separately |
 | SRC-O-001–029 | collision, orogeny, plateau, collapse, delamination, and ancient-belt sources | CITATION ONLY | orogeny research and source tracing | figures/data blocked | review each exact map, photograph, figure, and dataset separately |
+| SRC-V-001–041 | volcanism, caldera, hotspot, LIP, planetary, mission, and process sources | CITATION ONLY | volcanism research and source tracing | figures/data blocked | review each exact photograph, map, radar product, mission dataset, and journal figure separately |
+| SRC-OCE-001–035 | bathymetry, margin, canyon, sediment, sea-level, reconstruction, and marine-geophysical sources | CITATION ONLY | ocean/margin research and source tracing | figures/data blocked | review each exact bathymetric grid, seismic line, reconstruction, map, and journal figure separately |
+| GEBCO, ETOPO, GlobSed, plate-age grids, and mission bathymetry products | external datasets | CITATION ONLY | scientific comparison and product tracing | blocked | record version, rights holder, license, attribution, transformation, and redistribution terms per product |
 | WorldWright diagnostic outputs | project-generated files | REUSE WITH ATTRIBUTION | failure analysis | permitted after provenance capture | record seed, commit, stage, and review status |
 
 ## Required fields for every future asset decision
@@ -58,4 +61,4 @@ A source's scientific usefulness and its reuse permission are separate questions
 
 ## Current conclusion
 
-No external image, map, figure, or dataset is approved for insertion into the Stage 2 library. All collision and orogeny sources are citation-only until asset-specific rights review is complete.
+No external image, map, figure, radar product, seismic line, reconstruction, or dataset is approved for insertion into the Stage 2 library. All sources remain citation-only until asset-specific rights review is complete.
