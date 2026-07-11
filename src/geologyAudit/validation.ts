@@ -72,17 +72,9 @@ export function validateReferenceCase(reference: ReferenceCase, knownRuleIds?: R
     if (reference.review.structural !== 'approved') issues.push({ path: 'review.structural', message: 'approved references require structural approval' });
     if (reference.review.visual !== 'approved') issues.push({ path: 'review.visual', message: 'approved references require visual approval' });
   }
-  for (const [key, value] of Object.entries(reference.parameters)) {
-    if (!Number.isFinite(value)) issues.push({ path: `parameters.${key}`, message: 'must be finite' });
-  }
-  for (const [key, value] of Object.entries(reference.metrics)) {
-    if (!Number.isFinite(value)) issues.push({ path: `metrics.${key}`, message: 'must be finite' });
-  }
-  reference.assets.forEach((asset, index) => {
-    requireNonEmpty(asset.assetId, `assets[${index}].assetId`, issues);
-    requireNonEmpty(asset.uri, `assets[${index}].uri`, issues);
-    requireNonEmpty(asset.mediaType, `assets[${index}].mediaType`, issues);
-  });
+  validateFiniteRecord(reference.parameters, 'parameters', issues);
+  validateFiniteRecord(reference.metrics, 'metrics', issues);
+  reference.assets.forEach((asset, index) => validateAsset(asset, `assets[${index}]`, issues));
   return issues;
 }
 
@@ -94,11 +86,56 @@ export function validateWorldAuditManifest(manifest: WorldAuditManifest): Valida
   if (manifest.schemaVersion !== GEOLOGY_AUDIT_SCHEMA_VERSION) {
     issues.push({ path: 'schemaVersion', message: `must equal ${GEOLOGY_AUDIT_SCHEMA_VERSION}` });
   }
+  if (!Number.isFinite(Date.parse(manifest.generatedAt))) issues.push({ path: 'generatedAt', message: 'must be an ISO-compatible date-time' });
+  if (manifest.gridWidth !== undefined && (!Number.isInteger(manifest.gridWidth) || manifest.gridWidth <= 0)) issues.push({ path: 'gridWidth', message: 'must be a positive integer' });
+  if (manifest.gridHeight !== undefined && (!Number.isInteger(manifest.gridHeight) || manifest.gridHeight <= 0)) issues.push({ path: 'gridHeight', message: 'must be a positive integer' });
+  validateFiniteRecord(manifest.parameters, 'parameters', issues);
+
+  const assetIds = new Set<string>();
+  manifest.assets.forEach((asset, index) => {
+    validateAsset(asset, `assets[${index}]`, issues);
+    if (assetIds.has(asset.assetId)) issues.push({ path: `assets[${index}].assetId`, message: 'must be unique' });
+    assetIds.add(asset.assetId);
+  });
+
   const regionIds = new Set<string>();
   manifest.regions.forEach((region, index) => {
-    requireNonEmpty(region.regionId, `regions[${index}].regionId`, issues);
-    if (regionIds.has(region.regionId)) issues.push({ path: `regions[${index}].regionId`, message: 'must be unique' });
+    const path = `regions[${index}]`;
+    requireNonEmpty(region.regionId, `${path}.regionId`, issues);
+    if (regionIds.has(region.regionId)) issues.push({ path: `${path}.regionId`, message: 'must be unique' });
     regionIds.add(region.regionId);
+    if (!region.featureTypes.length) issues.push({ path: `${path}.featureTypes`, message: 'must contain at least one feature type' });
+    validateFiniteRecord(region.parameters ?? {}, `${path}.parameters`, issues);
+
+    for (const assetId of region.assetIds ?? []) {
+      if (!assetIds.has(assetId)) issues.push({ path: `${path}.assetIds`, message: `unknown asset id: ${assetId}` });
+    }
+
+    let runCellCount = 0;
+    let previousEnd = -1;
+    for (let runIndex = 0; runIndex < (region.cellIndexRuns ?? []).length; runIndex++) {
+      const [start, length] = region.cellIndexRuns![runIndex];
+      const runPath = `${path}.cellIndexRuns[${runIndex}]`;
+      if (!Number.isInteger(start) || start < 0) issues.push({ path: `${runPath}[0]`, message: 'start must be a non-negative integer' });
+      if (!Number.isInteger(length) || length <= 0) issues.push({ path: `${runPath}[1]`, message: 'length must be a positive integer' });
+      if (start <= previousEnd) issues.push({ path: runPath, message: 'runs must be sorted, non-overlapping, and non-adjacent' });
+      previousEnd = start + length - 1;
+      runCellCount += length;
+    }
+    if (region.cellCount !== undefined && (!Number.isInteger(region.cellCount) || region.cellCount <= 0)) issues.push({ path: `${path}.cellCount`, message: 'must be a positive integer' });
+    if (region.cellCount !== undefined && region.cellIndexRuns && runCellCount !== region.cellCount) issues.push({ path: `${path}.cellIndexRuns`, message: 'encoded run length must equal cellCount' });
+    if (manifest.gridWidth && manifest.gridHeight && previousEnd >= manifest.gridWidth * manifest.gridHeight) issues.push({ path: `${path}.cellIndexRuns`, message: 'cell index exceeds manifest grid' });
+
+    if (region.gridBounds) {
+      const bounds = region.gridBounds;
+      for (const [key, value] of Object.entries(bounds)) {
+        if (key === 'wrapsLongitude') continue;
+        if (!Number.isInteger(value) || value < 0) issues.push({ path: `${path}.gridBounds.${key}`, message: 'must be a non-negative integer' });
+      }
+      if (bounds.minRow > bounds.maxRow || bounds.minCol > bounds.maxCol) issues.push({ path: `${path}.gridBounds`, message: 'minimum bounds must not exceed maximum bounds' });
+      if (manifest.gridHeight && bounds.maxRow >= manifest.gridHeight) issues.push({ path: `${path}.gridBounds.maxRow`, message: 'must be within gridHeight' });
+      if (manifest.gridWidth && bounds.maxCol >= manifest.gridWidth) issues.push({ path: `${path}.gridBounds.maxCol`, message: 'must be within gridWidth' });
+    }
   });
   return issues;
 }
@@ -129,6 +166,20 @@ export function validateRegistrySnapshot(snapshot: RegistrySnapshot): Validation
 export function assertValidRegistrySnapshot(snapshot: RegistrySnapshot): void {
   const issues = validateRegistrySnapshot(snapshot);
   if (issues.length) throw new GeologyAuditValidationError('Invalid geology reference registry', issues);
+}
+
+function validateAsset(asset: { assetId: string; uri: string; mediaType: string; width?: number; height?: number }, path: string, issues: ValidationIssue[]): void {
+  requireNonEmpty(asset.assetId, `${path}.assetId`, issues);
+  requireNonEmpty(asset.uri, `${path}.uri`, issues);
+  requireNonEmpty(asset.mediaType, `${path}.mediaType`, issues);
+  if (asset.width !== undefined && (!Number.isInteger(asset.width) || asset.width <= 0)) issues.push({ path: `${path}.width`, message: 'must be a positive integer' });
+  if (asset.height !== undefined && (!Number.isInteger(asset.height) || asset.height <= 0)) issues.push({ path: `${path}.height`, message: 'must be a positive integer' });
+}
+
+function validateFiniteRecord(record: Record<string, unknown>, path: string, issues: ValidationIssue[]): void {
+  for (const [key, value] of Object.entries(record)) {
+    if (!Number.isFinite(value)) issues.push({ path: `${path}.${key}`, message: 'must be finite' });
+  }
 }
 
 function requireNonEmpty(value: string, path: string, issues: ValidationIssue[]): void {
