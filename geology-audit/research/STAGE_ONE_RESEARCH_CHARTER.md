@@ -268,3 +268,14 @@ The Stage 1 order is deliberately causal:
 9. complete Stage 2 generation matrix.
 
 Collision-belt research remains preliminary until the earlier foundation and regime research establishes which worlds should possess Earth-like mobile-lid collision systems at all.
+
+## Current Stage 1 progress
+
+The first committed tranche now contains:
+
+- this research charter;
+- the full domain coverage matrix;
+- the authoritative source register;
+- the initial planetary-foundations and geodynamic-regime synthesis.
+
+No reference-image curation or generation work is present on the branch.
