@@ -4,153 +4,152 @@
 
 - `NOT STARTED` — no authoritative pass yet
 - `SCOPED` — questions and source targets identified
-- `IN RESEARCH` — evidence collection and synthesis underway
-- `EVIDENCE COMPLETE` — source and causal pass complete; Stage 2 cases not yet specified
+- `IN RESEARCH` — evidence collection/synthesis exists but final approval or reconciliation remains
+- `EVIDENCE COMPLETE` — source and causal pass complete; Stage 2 cases not yet approved
 - `SPEC COMPLETE` — full completion checklist satisfied
-- `APPROVED` — explicitly approved for Stage 2 use
+- `APPROVED` — explicitly approved for implementation/Stage 2 use
 
 ## Core matrix
 
 | ID | Domain | Current status | Primary controlling variables | Required cross-domain links | Stage 2 blocked until |
 |---|---|---|---|---|---|
-| F01 | Planet mass, radius, density, and surface gravity | IN RESEARCH | mass, radius, bulk density, composition | rheology, isostasy, erosion, atmosphere | gravity effects separated from lithosphere/erosion effects |
-| F02 | Differentiation: core, mantle, crust | IN RESEARCH | composition, melt history, oxidation, core fraction | heat flow, magnetism, crust production | observable and model-dependent consequences separated |
-| F03 | Internal heat and thermal age | IN RESEARCH | radiogenic heat, primordial heat, tidal heat, cooling rate | tectonic regime, volcanism, lithosphere thickness | threshold branches and uncertainties defined |
-| F04 | Lithosphere thickness, strength, and rheology | IN RESEARCH | temperature, composition, hydration, strain rate | gravity, tectonics, flexure, volcanism | strength cannot be inferred from age alone |
-| F05 | Crust thickness, density, and buoyancy | IN RESEARCH | crust type, thickness, density contrast | isostasy, elevation, roots, basin depth | active vs equilibrium topography distinguished |
-| F06 | Surface water and hydration as geodynamic controls | IN RESEARCH | water inventory, pressure, mantle/surface partition, hydration | rheology, subduction, volcanism, erosion, climate | freeboard, pressure, hydration, and competing water-cycle branches cross-checked |
-| F07 | Atmosphere and surface temperature as geological controls | IN RESEARCH | pressure, composition, temperature, condensables | weathering, rheology, erosion, volcanism, ice | dense/thin/airless branches and process permissions cross-checked |
-| F08 | Rotation and tidal forcing | IN RESEARCH | rotation, obliquity, locking, eccentricity, resonance, tidal heat | heat-pipe regimes, fracture patterns, climate, oceans | spatial forcing, orbital history, and uncertain tectonic branches defined |
-| G01 | Mobile-lid / plate tectonic regime | IN RESEARCH | convective stress, yield strength, hydration, buoyancy | all plate-boundary domains | global fabric and expected boundary network specified |
-| G02 | Stagnant-lid regime | IN RESEARCH | lid strength, mantle heat, plume activity | volcanism, contraction, resurfacing | hot active and cold ancient branches cross-checked |
-| G03 | Episodic-lid / overturn regime | IN RESEARCH | heating, yield threshold, crustal rheology, history | resurfacing, volcanic plains, age distribution | event-state, survivor, and mixed-age rules documented |
-| G04 | Heat-pipe regime | IN RESEARCH | extreme volcanic heat transport, burial, foundering | Io analogues, early planets, resurfacing, crater age | vertical burial, age reset, heat source, and transition branches cross-checked |
-| G05 | Plutonic/squishy/deformable-lid regimes | IN RESEARCH | intrusive magmatism, weak crust, distributed strain | Venus, early Earth, volcanic provinces | weak-zone, diffuse-strain, intrusion, and preservation branches documented |
-| G06 | Cooling/contraction-dominated tectonics | IN RESEARCH | secular cooling, volume change, lithosphere strength | Mercury, Moon, Mars scarps, impacts | global strain budget, fault population, and late volcanic decline cross-checked |
-| C01 | Continental crust | IN RESEARCH | thickness, density, composition, age | cratons, orogens, margins, isostasy | Earth-specific and general rocky-world properties separated |
-| C02 | Oceanic crust | IN RESEARCH | spreading rate, age, density, hydration | ridges, subduction, abyssal basins | age-depth, thermal subsidence, sediment, and recycling behavior cross-checked |
-| C03 | Transitional crust and rifted margins | IN RESEARCH | extension, magmatism, thinning | passive margins, shelves, breakup | magma-rich, magma-poor, hyperextended, subsidence, and sediment branches documented |
-| C04 | Cratons, shields, and stable interiors | IN RESEARCH | age, thickness, rigidity, erosion | drainage, sediment supply, intraplate basins | old stable terrain visual families defined |
-| C05 | Terranes, sutures, and crustal provinces | IN RESEARCH | accretion history, inherited structure | collision, transforms, volcanism | raw province masks distinguished from surface expression |
-| T01 | Oceanic divergence / mid-ocean ridges | IN RESEARCH | spreading rate, magma supply, transform spacing | bathymetry, crust age, hydrothermal systems | slow/fast/ultraslow variants and off-axis structural fabric researched |
-| T02 | Continental rifting | IN RESEARCH | extension rate, lithosphere thickness, plume input | rift basins, volcanism, breakup | successful/failed rifts and descendant margin architecture distinguished |
-| T03 | Ocean–continent subduction | IN RESEARCH | slab age, dip, convergence, coupling, sediment | trenches, arcs, forearc/backarc, mountains | paired-feature and sediment/trench obligations established |
-| T04 | Ocean–ocean subduction | IN RESEARCH | slab age/density, rollback, convergence | trenches, island arcs, backarc basins | arc/trench geometry, incoming-plate, and sediment variation researched |
-| T05 | Continent–continent collision | IN RESEARCH | convergence, obliquity, crust thickness, erosion | orogens, plateaus, foreland basins | full-source synthesis, support-history, and temporal-state rules completed |
-| T06 | Transform boundaries | IN RESEARCH | slip rate, stepovers, crust type | fracture zones, pull-aparts, transpression | onshore/offshore visual families and active/fossil distinction researched |
-| T07 | Transpression and transtension | IN RESEARCH | obliquity, step geometry, inherited faults | uplift, pull-apart basins, strike-slip ranges | mixed-boundary outcomes specified |
-| T08 | Triple junctions, microplates, diffuse boundaries | IN RESEARCH | plate geometry, strain partitioning | complex regional fabric | complexity not misclassified as noise |
-| V01 | Isostasy and crustal roots | IN RESEARCH | density, thickness, compensation depth | mountains, plateaus, erosion | equilibrium limitations documented |
-| V02 | Lithospheric flexure | IN RESEARCH | elastic thickness, load, density | foreland basins, trenches, islands | basin/high, margin, volcanic, sediment, and water-load responses specified |
-| V03 | Dynamic topography | IN RESEARCH | mantle flow, plume/slab buoyancy | swells, basins, long-wavelength relief | dynamic vs crustal support separated and ocean-basin implications cross-checked |
-| V04 | Delamination, foundering, and epeirogeny | IN RESEARCH | density instability, mantle removal | plateaus, volcanism, uplift/subsidence | transient uplift, collapse, and rejuvenation branches researched |
-| M01 | Volcanic arcs | IN RESEARCH | slab flux, crust type, convergence | subduction, relief, calderas | arc continuity and spacing researched |
-| M02 | Hotspots and plume swells | IN RESEARCH | source flux, plate/source motion, lithosphere, support | island chains, swells, LIPs, ridges | source-motion, support, preservation, and valid-radiality branches cross-checked |
-| M03 | Large igneous provinces / flood basalts | IN RESEARCH | magma volume, intrusive fraction, pulse tempo, setting | climate, plateaus, rifting, sediment | distributed province, intrusive, fragmentation, ocean-plateau, and environmental branches cross-checked |
-| M04 | Shield volcanoes and volcanic rises | IN RESEARCH | supply duration, rheology, gravity, rift zones, loading | radial drainage, flexure, collapse, oceans | construction, asymmetry, load, erosion, drowning, and cross-planet scaling researched |
-| M05 | Stratovolcanoes, calderas, domes, and cones | IN RESEARCH | magma/volatile state, vent geometry, recurrence, environment | arcs, collapse, deposits, local topography | edifice histories, caldera mechanics, collapse mass, and preservation researched |
-| O01 | Passive margins and continental shelves | IN RESEARCH | rift history, subsidence, sediment, sea level | coasts, slopes, basins | structural margin, shelf diversity, exposure, and ghost-prevention rules cross-checked with sediment/coastal research |
-| O02 | Active margins | IN RESEARCH | subduction/transform style, sediment supply | trenches, narrow shelves, coastal mountains | tectonic, sediment, canyon, borderland, and margin-overprint branches cross-checked |
-| O03 | Continental slopes, rises, and submarine canyons | IN RESEARCH | sediment, currents, slope stability, tectonics | rivers, margins, abyssal plains | canyon/source/sink, slope-failure, rise, current, and margin-type rules cross-checked |
-| O04 | Abyssal basins and plains | IN RESEARCH | crust age, sediment cover, dynamic topography | ridges, trenches, seamounts | basement, sediment, current, thermal, dynamic, volcanic, and water-depth states separated |
-| O05 | Trenches, forearcs, backarcs | IN RESEARCH | slab geometry, rollback, coupling, sediment | subduction, volcanism | paired spatial relationships, trench fill, outer rise, and sediment interception established |
-| S01 | Fluvial incision and drainage integration | IN RESEARCH | uplift, runoff/discharge, substrate, sediment cover, time | mountains, basins, deltas, lakes, sea level | thresholds, mutable divides, base level, capture, transients, and planetary branches cross-checked |
-| S02 | Hillslope erosion and mass wasting | IN RESEARCH | relief, climate, rock/regolith strength, triggers, gravity | mountains, valleys, channels, fans, sediment | nonlinear transport, landslide mass balance, hillslope–channel coupling, and planetary branches cross-checked |
-| S03 | Weathering and regolith production | IN RESEARCH | climate, fluids, mineralogy, atmosphere, exposure time | erosion, soil/regolith, material strength, sediment | physical/chemical branches, thickness/state, stripping, burial, and non-Earth branches cross-checked |
-| S04 | Sediment transport and depositional basins | IN RESEARCH | supply, capacity, accommodation, grain/material class, water/wind/ice | forelands, rifts, shelves, rivers, lakes, deep sea | source-to-sink mass balance, storage, sorting, compaction, stratigraphy, and planetary branches cross-checked |
-| S05 | Deltas, fans, and alluvial plains | IN RESEARCH | discharge, sediment, accommodation, base level, waves/tides, slope | rivers, coasts, basins, shelves | avulsion, active/abandoned lobes, valid radiality, compaction, and marine/lacustrine handoff cross-checked |
-| S06 | Glacial and periglacial processes | NOT STARTED | temperature, snowfall, relief, latitude | fjords, valleys, shelves | inherited vs active glacial forms distinguished |
-| S07 | Aeolian and arid-land processes | NOT STARTED | wind, sediment, aridity, vegetation | dunes, deflation, yardangs | directional fabrics researched |
-| S08 | Coastal erosion and deposition | NOT STARTED | waves, tides, sea level, sediment | shelves, deltas, cliffs | coastline response thresholds documented |
-| S09 | Karst and dissolution terrain | NOT STARTED | soluble rock, water, climate | drainage, collapse | non-tectonic ruggedness exceptions researched |
-| I01 | Impact craters and basins | NOT STARTED | impact energy, gravity, crust, age | volcanism, tectonics, erosion | crater scaling and degradation researched |
-| I02 | Impact-modified crust and mascons | SCOPED | basin size, melt, crust/mantle density | gravity, volcanism, later tectonics | impact radiality separated from generator blobs |
-| X01 | Climate–orography interaction | NOT STARTED | wind, precipitation, elevation | erosion, glaciers, deserts | feedback directions documented |
-| X02 | Sea-level and ocean-volume thresholds | IN RESEARCH | water volume, basin hypsometry/connectivity, ice, basin capacity | shelves, islands, drainage, climate | volume/topology solve, isolated basins, regional vertical motion, and exposure histories cross-checked |
-| X03 | Temporal evolution / inheritance | IN RESEARCH | process duration, regime transitions, burial, erosion | every domain | active, waning, fossil, collapsed, buried, resurfaced, drowned, exposed, and reactivated states specified |
-| X04 | Multiscale visual coherence | NOT STARTED | feature size, resolution, projection | every domain | globe-to-local consistency obligations defined |
-| H01 | Base regime and overlay architecture | IN RESEARCH | bulk state, thermal state, rheology, water, atmosphere, orbit, history | every physical domain | base regimes separated from overlays and preset authority prohibited |
-| H02 | Confidence and uncertainty classification | IN RESEARCH | evidence type, model support, extrapolation, contradiction | source provenance, generator branching, audit | observed/inferred/model/extrapolated/speculative/forbidden labels finalized |
-| H03 | Hypothetical combination logic | IN RESEARCH | reinforcing, opposing, thresholded, conditional, path-dependent interactions | foundations, regimes, surface systems | interaction matrix reconciled with all later domain research |
-| H04 | Waterworld, drowned-continent, and dry-world overlays | IN RESEARCH | water inventory, freeboard, seafloor pressure, erosion, atmosphere | oceans, volcanism, sediment, climate | pressure/freeboard and exposed-land consequences fully cross-checked |
-| H05 | Cryosphere, tidal, atmosphere, rotation, and gravity overlays | IN RESEARCH | ice shell, orbital heating, pressure, locking, mass/gravity | volcanism, climate, impacts, surface processes | body/material-specific branches and thresholds completed |
-| H06 | Planetary contradiction and provenance audit | IN RESEARCH | regime state, overlay state, formation history, age, confidence | diagnostics, Stage 2 matrix | incompatible combinations and required provenance fields finalized |
-| P01 | Procedural mask leakage | SCOPED | categorical fields, smoothing, kernels | every generator stage | signatures and diagnostic tests cataloged |
-| P02 | Radial blob and isotropic kernel failures | IN RESEARCH | distance fields, blur, center weighting, physical source scale | collision, volcanoes, impacts, basins, fans/deltas | valid volcanic/fan radiality separated; basin-center bowls and shelf halos prohibited; impact exceptions remain |
-| P03 | Repetition, tiling, seams, and projection artifacts | NOT STARTED | sampling, wrapping, noise, resolution | multiscale review | failure atlas specified |
-| P04 | Causal-stage provenance and earliest-failure localization | SCOPED | stage outputs, transformations | diagnostics | report requirements defined |
-| R01 | Source provenance and licensing | IN RESEARCH | source type, rights, attribution | all research/assets | reusable licensing rules complete |
-| R02 | Reference metadata and indexing | IN RESEARCH | scenario, rules, parameters, scale, review | registry/search | full Stage 2 manifest fields approved |
-| R03 | Stage 2 generation coverage matrix | NOT STARTED | all completed Stage 1 domains | every domain | no Stage 1 gaps remain |
+| F01 | Planet mass, radius, density, and surface gravity | IN RESEARCH | mass, radius, bulk density, composition | rheology, isostasy, erosion, atmosphere | final approval and calibrated/ordinal cross-planet scaling |
+| F02 | Differentiation: core, mantle, crust | IN RESEARCH | composition, melt history, oxidation, core fraction | heat flow, magnetism, crust production | final source/branch reconciliation |
+| F03 | Internal heat and thermal age | IN RESEARCH | radiogenic, primordial, tidal, impact heat, cooling | regime, volcanism, lithosphere | final threshold/branch reconciliation |
+| F04 | Lithosphere thickness, strength, and rheology | IN RESEARCH | temperature, composition, hydration, strain rate | gravity, tectonics, flexure, volcanism | field/record implementation contract approved |
+| F05 | Crust thickness, density, and buoyancy | IN RESEARCH | crust type, thickness, density contrast | isostasy, elevation, roots, basins | contribution/support rules approved |
+| F06 | Surface water and hydration as geodynamic controls | IN RESEARCH | inventory, pressure, partition, hydration | rheology, subduction, volcanism, erosion, climate | freeboard/pressure/water-ledger implementation approved |
+| F07 | Atmosphere and surface temperature as geological controls | IN RESEARCH | pressure, composition, temperature, condensables | weathering, erosion, volcanism, ice | climate/process-permission contract approved |
+| F08 | Rotation and tidal forcing | IN RESEARCH | rotation, obliquity, locking, eccentricity, resonance | climate, ice, heat-pipe, oceans | orbital/forcing approximations approved |
+| G01 | Mobile-lid / plate tectonic regime | IN RESEARCH | convective stress, yield strength, hydration, buoyancy | all plate-boundary domains | stable graph/kinematic contract approved |
+| G02 | Stagnant-lid regime | IN RESEARCH | lid strength, mantle heat, plume activity | volcanism, contraction, resurfacing | active/cold/history branches approved |
+| G03 | Episodic-lid / overturn regime | IN RESEARCH | heating, thresholds, rheology, history | resurfacing, plains, age distribution | event-state approximation approved |
+| G04 | Heat-pipe regime | IN RESEARCH | volcanic heat transport, burial, foundering | Io analogues, resurfacing, crater age | vertical burial/resurfacing ledger approved |
+| G05 | Plutonic/squishy/deformable-lid regimes | IN RESEARCH | intrusion, weak crust, distributed strain | Venus, volcanic provinces | diffuse-strain/weak-zone approximation approved |
+| G06 | Cooling/contraction-dominated tectonics | IN RESEARCH | secular cooling, volume change, strength | Mercury, Moon, Mars, impacts | global strain-budget approximation approved |
+| C01 | Continental crust | IN RESEARCH | thickness, density, composition, age | cratons, orogens, margins | crust ontology and history approved |
+| C02 | Oceanic crust | IN RESEARCH | spreading, age, density, hydration | ridges, subduction, abyssal basins | crust-age/thermal/subduction contract approved |
+| C03 | Transitional crust and rifted margins | IN RESEARCH | extension, magmatism, thinning | passive margins, shelves, breakup | margin-state contract approved |
+| C04 | Cratons, shields, and stable interiors | IN RESEARCH | age, thickness, rigidity, erosion | drainage, sediment, intraplate basins | inheritance/reactivation contract approved |
+| C05 | Terranes, sutures, and crustal provinces | IN RESEARCH | accretion history, inherited structure | collision, transforms, volcanism | province graph and visibility rules approved |
+| T01 | Oceanic divergence / mid-ocean ridges | IN RESEARCH | spreading, magma, transforms | bathymetry, crust age, hydrothermal | segment/age/fabric contract approved |
+| T02 | Continental rifting | IN RESEARCH | extension, lithosphere, magma | basins, volcanism, breakup | rift-history/margin handoff approved |
+| T03 | Ocean–continent subduction | IN RESEARCH | slab, convergence, coupling, sediment | trench, arc, forearc/backarc | stable subduction-system contract approved |
+| T04 | Ocean–ocean subduction | IN RESEARCH | slab age/density, rollback, convergence | trench, island arc, backarc | stable subduction-system contract approved |
+| T05 | Continent–continent collision | IN RESEARCH | convergence, obliquity, crust, erosion | orogens, plateaus, forelands | wedge/orogen/history contract approved |
+| T06 | Transform boundaries | IN RESEARCH | slip, stepovers, crust type | fracture zones, pull-aparts | segment/active-fossil contract approved |
+| T07 | Transpression and transtension | IN RESEARCH | obliquity, steps, inheritance | uplift, pull-aparts, strike-slip ranges | mixed-strain contract approved |
+| T08 | Triple junctions, microplates, diffuse boundaries | IN RESEARCH | plate geometry, strain partition | regional fabric | topology/diffuse-strain contract approved |
+| V01 | Isostasy and crustal roots | IN RESEARCH | density, thickness, compensation | mountains, plateaus, erosion | support approximation approved |
+| V02 | Lithospheric flexure | IN RESEARCH | rigidity, load, density, age | forelands, trenches, islands, ice | load ledger/kernel constraints approved |
+| V03 | Dynamic topography | IN RESEARCH | mantle flow, buoyancy | swells, basins, sea level | optional field/uncertainty contract approved |
+| V04 | Delamination, foundering, and epeirogeny | IN RESEARCH | density instability, mantle removal | plateaus, volcanism, uplift | event/support branches approved |
+| M01 | Volcanic arcs | IN RESEARCH | slab flux, crust, convergence | subduction, relief, calderas | arc/plumbing/construction contract approved |
+| M02 | Hotspots and plume swells | IN RESEARCH | source flux, relative motion, lithosphere | chains, swells, LIPs, ridges | source/support/motion branches approved |
+| M03 | Large igneous provinces / flood basalts | IN RESEARCH | magma volume, intrusion, tempo, setting | climate, plateaus, rifting, sediment | province/event/material ledger approved |
+| M04 | Shield volcanoes and volcanic rises | IN RESEARCH | supply, rheology, gravity, rifts, load | drainage, flexure, collapse, oceans | edifice/province scale contract approved |
+| M05 | Stratovolcanoes, calderas, domes, and cones | IN RESEARCH | magma/volatile, vents, recurrence, environment | arcs, collapse, deposits | local/regional construction/collapse contract approved |
+| O01 | Passive margins and continental shelves | IN RESEARCH | rift, subsidence, sediment, sea level | coasts, slopes, basins | margin/shelf/water separation approved |
+| O02 | Active margins | IN RESEARCH | subduction/transform, sediment | trenches, shelves, coastal mountains | margin-system contract approved |
+| O03 | Continental slopes, rises, and submarine canyons | IN RESEARCH | sediment, currents, stability, tectonics | rivers, margins, abyssal plains | source-to-sink/current/failure contract approved |
+| O04 | Abyssal basins and plains | IN RESEARCH | crust age, sediment, dynamic support | ridges, trenches, seamounts | basement/deposit/current contract approved |
+| O05 | Trenches, forearcs, backarcs | IN RESEARCH | slab, rollback, coupling, sediment | subduction, volcanism | paired-system/sediment contract approved |
+| S01 | Fluvial incision and drainage integration | IN RESEARCH | uplift, runoff, substrate, sediment, time | mountains, basins, deltas, lakes | mutable graph/incision/base-level contract approved |
+| S02 | Hillslope erosion and mass wasting | IN RESEARCH | relief, climate, strength, triggers, gravity | valleys, channels, fans, sediment | material/runout/mass contract approved |
+| S03 | Weathering and regolith production | IN RESEARCH | climate, fluids, mineralogy, age | erosion, materials, sediment | layer/material/process contract approved |
+| S04 | Sediment transport and depositional basins | IN RESEARCH | supply, capacity, accommodation, material | forelands, rifts, shelves, rivers, deep sea | sediment ledger/storage/compaction contract approved |
+| S05 | Deltas, fans, and alluvial plains | IN RESEARCH | discharge, sediment, accommodation, waves/tides | rivers, coasts, basins | avulsion/lobe/sediment-cell contract approved |
+| S06 | Glacial and periglacial processes | IN RESEARCH | mass balance, flow, basal state, substrate, gravity | fjords, valleys, shelves, isostasy | ice-flow/load/sediment/permafrost contract approved |
+| S07 | Aeolian and arid-land processes | IN RESEARCH | atmosphere, wind, threshold, sediment, cohesion | dunes, dust, deflation, yardangs | wind-history/threshold/material contract approved |
+| S08 | Coastal erosion and deposition | IN RESEARCH | waves, tides, storms, sea level, sediment | shelves, deltas, cliffs, reefs | coastal-cell/wave/tide/refinement contract approved |
+| S09 | Karst and dissolution terrain | IN RESEARCH | soluble material, fluid chemistry, recharge, structure | drainage, groundwater, collapse | groundwater/conduit/dissolution contract approved |
+| I01 | Impact craters and basins | IN RESEARCH | impactor, target, gravity, atmosphere, age | volcanism, tectonics, erosion | event/scaling/ejecta/degradation contract approved |
+| I02 | Impact-modified crust and mascons | IN RESEARCH | basin size, melt, crust/mantle density | gravity, volcanism, later tectonics | crust/gravity/support handoff approved |
+| X01 | Climate–orography interaction | IN RESEARCH | atmosphere, wind, moisture, topography, events | erosion, glaciers, deserts, coasts | reduced climate/event/feedback contract approved |
+| X02 | Sea-level and ocean-volume thresholds | IN RESEARCH | water, hypsometry, connectivity, ice, capacity | shelves, islands, drainage, climate | water-volume/topology/rebound contract approved |
+| X03 | Temporal evolution / inheritance | IN RESEARCH | events, burial, exposure, transitions | every domain | event graph and age schema approved |
+| X04 | Multiscale visual coherence | IN RESEARCH | scale, resolution, projection, refinement | every domain | scale ownership/subgrid/refinement contract approved |
+| H01 | Base regime and overlay architecture | IN RESEARCH | bulk, thermal, rheology, water, atmosphere, orbit, history | every domain | master specification approved |
+| H02 | Confidence and uncertainty classification | IN RESEARCH | evidence/model/extrapolation | provenance, branching, audit | confidence behavior approved |
+| H03 | Hypothetical combination logic | IN RESEARCH | reinforcing/opposing/conditional/path dependence | foundations, regimes, surfaces | branch and contradiction rules approved |
+| H04 | Waterworld, drowned-continent, and dry-world overlays | IN RESEARCH | water, freeboard, pressure, erosion, atmosphere | oceans, volcanism, sediment, climate | water/freeboard implementation approved |
+| H05 | Cryosphere, tidal, atmosphere, rotation, and gravity overlays | IN RESEARCH | ice, orbit, pressure, locking, gravity | volcanism, climate, impacts, surfaces | overlay process contracts approved |
+| H06 | Planetary contradiction and provenance audit | IN RESEARCH | regime, overlay, history, age, confidence | diagnostics, Stage 2 | contradiction/provenance audit approved |
+| P01 | Procedural mask leakage | IN RESEARCH | categories, smoothing, kernels | every stage | diagnostic definitions/calibration approved |
+| P02 | Radial blob and isotropic kernel failures | IN RESEARCH | distance fields, source scale, physical cause | collision, volcanoes, impacts, basins, fans | Stage 2 valid-exception/negative calibration approved |
+| P03 | Repetition, tiling, seams, and projection artifacts | IN RESEARCH | seeds, sampling, wrapping, grid, resolution | multiscale review | grid/refinement diagnostics approved |
+| P04 | Causal-stage provenance and earliest-failure localization | IN RESEARCH | stage outputs, events, ledgers | diagnostics | staged audit implementation approved |
+| R01 | Source provenance and licensing | IN RESEARCH | source type, rights, attribution | all research/assets | exact Stage 2 asset rights approved |
+| R02 | Reference metadata and indexing | IN RESEARCH | cases, parameters, scale, review | registry/search | metadata schema approved |
+| R03 | Stage 2 generation coverage matrix | IN RESEARCH | all domains and case classes | every domain | user approval and implementation readiness |
 
 ## Stage 1 completion rule
 
-Stage 1 is **not complete** when every row has notes. It is complete only when every required row is `SPEC COMPLETE` or `APPROVED`, and every intentionally excluded row has a written reason for exclusion.
+The scientific corpus and architecture reconciliation are now present, but Stage 1 is not `APPROVED` until the user accepts the master direction. Domains remain `IN RESEARCH` because implementation-level parameters, exact asset rights, and final case review will continue during roadmap/Stage 2 preparation.
 
-## Current active tranches
+## Completed research program
 
-### Tranche 1 — planetary foundations and regimes
+### Tranches 1–4 — foundations, crust, boundaries, collision, and inheritance
 
-- F01–F05;
-- G01–G05;
-- R01–R02.
+- planetary/interior/regime foundations;
+- crust, provinces, isostasy, flexure, dynamic support;
+- ridges, rifts, subduction, transforms, diffuse boundaries;
+- collision, plateaus, collapse, and ancient/reactivated orogens.
 
-### Tranche 2 — crust and topographic support
+### Tranche 5 — volcanism
 
-- C01–C05;
-- V01–V03.
+- source, transport, intrusion/eruption, construction/collapse;
+- hotspots and swells;
+- LIPs and plateaus;
+- planetary volcanism and valid radiality.
 
-### Tranche 3 — tectonic boundary systems
+### Tranche 6 — oceans and margins
 
-- T01–T04;
-- T06–T08;
-- M01;
-- O01–O02 and O04–O05;
-- X03 process-state framework.
+- structural bathymetry;
+- shelves, slopes, rises, canyons;
+- abyssal sediment/currents;
+- water volume, connectivity, and sea level.
 
-### Tranche 4 — collision, plateaus, collapse, and inherited orogens
+### Tranche 7 — hypothetical planetary regimes
 
-- T05;
-- V04;
-- X03 active/waning/collapsed/fossil/reactivated states;
-- dependencies identified for S01–S04 and X01.
-
-### Tranche 5 — volcanism and magmatic provinces
-
-- M02–M05;
-- volcanic source, transport, storage, construction, collapse, erosion, and resurfacing framework;
-- hotspot/source-motion and swell framework;
-- large igneous province and volcanic-plateau framework;
-- comparative planetary volcanism and valid-radiality framework;
-- generator-obligation requirements added, but implementation remains deferred.
-
-### Tranche 6 — ocean margins and structural bathymetry
-
-- O01–O05;
-- X02 water-volume, basin-connectivity, hypsometry, and inundation framework;
-- structural bathymetry separated from water depth;
-- basement separated from sediment/deposit surface;
-- margins, shelves, slopes, rises, canyons, abyssal plains, currents, fans, and trench interception framework;
-- generator-obligation requirements added, but implementation remains deferred.
-
-### Tranche 7 — hypothetical planetary regimes and combinations
-
-- F06–F08 and G04–G06 advanced;
-- H01–H06 added as cross-cutting research domains;
-- base regimes separated from water, atmosphere, tidal, gravity, rotation, cryosphere, impact, and age overlays;
-- observed, inferred, model-supported, constrained-extrapolation, speculative, and forbidden confidence classes established;
-- persistent causal state, regime-transition history, terrain provenance, and contradiction audit requirements documented;
-- all later tranches must state how their processes change across planetary regimes and overlays.
+- base regimes plus overlays;
+- confidence classes;
+- waterworld, cryosphere, tidal, atmosphere, rotation, gravity, and impact combinations;
+- contradiction/provenance framework.
 
 ### Tranche 8 — surface material loop
 
-- S01–S05 advanced;
-- drainage networks, base levels, mutable divides, capture, lake spill/breach, and transient river profiles documented;
-- weathering, regolith, nonlinear hillslope transport, landslide/debris-flow source and deposit state documented;
-- source-to-sink sediment supply, capacity, storage, sorting, accommodation, compaction, and mass balance documented;
-- floodplain, avulsion, alluvial fan, delta, active/abandoned lobe, and valid-radiality rules documented;
-- humid, arid, airless, ice-shell, waterworld, low/high-gravity, and fossil-Mars branches added;
-- generator implementation remains deferred;
-- climate, glacial, aeolian, coastal, karst, and impact dependencies remain open.
+- rivers/drainage/incision;
+- weathering/regolith/hillslopes;
+- sediment/source-to-sink/basins;
+- floodplains, fans, deltas, and avulsion.
 
-Reference-image planning remains blocked for the entire Stage 1 program. No domain is yet `SPEC COMPLETE` or `APPROVED`.
+### Deep Pass A — all remaining science
+
+- glacial/periglacial/glacioisostatic;
+- aeolian/arid/dust;
+- coasts/tides/reefs;
+- karst/groundwater/collapse;
+- impacts/crustal modification;
+- climate–geology feedback;
+- multievent overprinting and landscape memory;
+- multiscale coherence and complete procedural-failure taxonomy.
+
+### Deep Pass B — corpus reconciliation
+
+- `STAGE_ONE_MASTER_CAUSAL_SPECIFICATION.md`;
+- `DEEP_PASS_B_RECONCILIATION_REPORT.md`;
+- `STAGE_TWO_COMPLETE_COVERAGE_MATRIX.md`;
+- `STAGE_ONE_EXECUTIVE_GUIDE.md`.
+
+## Current gate
+
+```text
+Scientific domain coverage: COMPLETE AS FIRST-PASS CORPUS
+Cross-domain reconciliation: COMPLETE AS REVIEW PACKAGE
+Master causal architecture: READY FOR USER APPROVAL
+Implementation roadmap: NOT YET AUTHORIZED
+Generator implementation: NOT STARTED
+Stage 2 reference generation: BLOCKED
+PR merge: NOT AUTHORIZED
+```
