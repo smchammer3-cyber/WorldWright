@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "diagnostics:generate": "vitest run scripts/run-generate-diagnostics.test.ts",
+    "diagnostics:geology-audit": "vitest run src/geologyAudit/geologyAudit.test.ts",
+    "diagnostics:world-audit-export": "vitest run src/geologyAudit/worldWrightAdapter.test.ts",
     "snapshots:jarvis": "node scripts/fetch-jarvis-snapshots.mjs",
     "test:run": "vitest run"
   },
