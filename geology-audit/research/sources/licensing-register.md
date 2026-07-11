@@ -36,6 +36,9 @@ A source's scientific usefulness and its reuse permission are separate questions
 | SRC-F-004 | NASA GRAIL mission page/data descriptions | CITATION ONLY | gravity/crust research | blocked | identify reusable mission datasets and their archival terms |
 | SRC-F-005 | NASA Venus facts page | CITATION ONLY | observational synthesis | blocked | verify each linked image/data product separately |
 | SRC-F-006–021 | journal articles, preprints, and methods papers | CITATION ONLY | scientific research and source tracing | figures blocked | record publisher or repository license per item |
+| SRC-C-001–016 | books, journal articles, preprints, mission data, and methods papers | CITATION ONLY | crustal-support research and source tracing | figures/data blocked | review each exact figure or dataset separately |
+| SRC-T-001–021 | ridge, rift, subduction, transform, and plate-kinematic sources | CITATION ONLY | boundary-system research and source tracing | figures/data blocked | review each exact figure, map, and dataset separately |
+| SRC-O-001–029 | collision, orogeny, plateau, collapse, delamination, and ancient-belt sources | CITATION ONLY | orogeny research and source tracing | figures/data blocked | review each exact map, photograph, figure, and dataset separately |
 | WorldWright diagnostic outputs | project-generated files | REUSE WITH ATTRIBUTION | failure analysis | permitted after provenance capture | record seed, commit, stage, and review status |
 
 ## Required fields for every future asset decision
@@ -55,4 +58,4 @@ A source's scientific usefulness and its reuse permission are separate questions
 
 ## Current conclusion
 
-No external image or dataset is yet approved for insertion into the Stage 2 library. This is intentional: Stage 1 has begun the scientific source pass, while asset-rights verification remains in research.
+No external image, map, figure, or dataset is approved for insertion into the Stage 2 library. All collision and orogeny sources are citation-only until asset-specific rights review is complete.
