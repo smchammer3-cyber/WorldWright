@@ -27,11 +27,11 @@
 | G04 | Heat-pipe regime | SCOPED | extreme volcanic heat transport, burial, foundering | Io analogues, early planets, mountains | observational vs hypothetical early-Earth claims separated |
 | G05 | Plutonic/squishy/deformable-lid regimes | SCOPED | intrusive magmatism, weak crust, distributed strain | Venus, early Earth, volcanic provinces | regime definitions and visual distinctions stabilized |
 | G06 | Cooling/contraction-dominated tectonics | NOT STARTED | secular cooling, volume change, lithosphere strength | Mercury, Moon, Mars scarps | global contraction signatures researched |
-| C01 | Continental crust | SCOPED | thickness, density, composition, age | cratons, orogens, margins, isostasy | Earth-specific and general rocky-world properties separated |
-| C02 | Oceanic crust | SCOPED | spreading rate, age, density, hydration | ridges, subduction, abyssal basins | age-depth and recycling behavior researched |
-| C03 | Transitional crust and rifted margins | NOT STARTED | extension, magmatism, thinning | passive margins, shelves, breakup | magma-rich vs magma-poor branches documented |
-| C04 | Cratons, shields, and stable interiors | NOT STARTED | age, thickness, rigidity, erosion | drainage, sediment supply, intraplate basins | old stable terrain visual families defined |
-| C05 | Terranes, sutures, and crustal provinces | NOT STARTED | accretion history, inherited structure | collision, transforms, volcanism | raw province masks distinguished from surface expression |
+| C01 | Continental crust | IN RESEARCH | thickness, density, composition, age | cratons, orogens, margins, isostasy | Earth-specific and general rocky-world properties separated |
+| C02 | Oceanic crust | IN RESEARCH | spreading rate, age, density, hydration | ridges, subduction, abyssal basins | age-depth and recycling behavior researched |
+| C03 | Transitional crust and rifted margins | IN RESEARCH | extension, magmatism, thinning | passive margins, shelves, breakup | magma-rich vs magma-poor branches documented |
+| C04 | Cratons, shields, and stable interiors | IN RESEARCH | age, thickness, rigidity, erosion | drainage, sediment supply, intraplate basins | old stable terrain visual families defined |
+| C05 | Terranes, sutures, and crustal provinces | IN RESEARCH | accretion history, inherited structure | collision, transforms, volcanism | raw province masks distinguished from surface expression |
 | T01 | Oceanic divergence / mid-ocean ridges | SCOPED | spreading rate, magma supply, transform spacing | bathymetry, crust age, hydrothermal systems | slow/fast/ultraslow variants researched |
 | T02 | Continental rifting | SCOPED | extension rate, lithosphere thickness, plume input | rift basins, volcanism, breakup | successful vs failed rifts distinguished |
 | T03 | Ocean–continent subduction | SCOPED | slab age, dip, convergence, coupling, sediment | trenches, arcs, forearc/backarc, mountains | paired-feature obligations established |
@@ -40,9 +40,9 @@
 | T06 | Transform boundaries | SCOPED | slip rate, stepovers, crust type | fracture zones, pull-aparts, transpression | onshore/offshore visual families researched |
 | T07 | Transpression and transtension | NOT STARTED | obliquity, step geometry, inherited faults | uplift, pull-apart basins, strike-slip ranges | mixed-boundary outcomes specified |
 | T08 | Triple junctions, microplates, diffuse boundaries | NOT STARTED | plate geometry, strain partitioning | complex regional fabric | complexity not misclassified as noise |
-| V01 | Isostasy and crustal roots | SCOPED | density, thickness, compensation depth | mountains, plateaus, erosion | equilibrium limitations documented |
-| V02 | Lithospheric flexure | SCOPED | elastic thickness, load, density | foreland basins, trenches, islands | basin/high paired response specified |
-| V03 | Dynamic topography | SCOPED | mantle flow, plume/slab buoyancy | swells, basins, long-wavelength relief | dynamic vs crustal support separated |
+| V01 | Isostasy and crustal roots | IN RESEARCH | density, thickness, compensation depth | mountains, plateaus, erosion | equilibrium limitations documented |
+| V02 | Lithospheric flexure | IN RESEARCH | elastic thickness, load, density | foreland basins, trenches, islands | basin/high paired response specified |
+| V03 | Dynamic topography | IN RESEARCH | mantle flow, plume/slab buoyancy | swells, basins, long-wavelength relief | dynamic vs crustal support separated |
 | V04 | Delamination, foundering, and epeirogeny | NOT STARTED | density instability, mantle removal | plateaus, volcanism, uplift/subsidence | broad uplift exceptions researched |
 | M01 | Volcanic arcs | NOT STARTED | slab flux, crust type, convergence | subduction, relief, calderas | arc continuity and spacing researched |
 | M02 | Hotspots and plume swells | NOT STARTED | plume flux, plate speed, lithosphere | island chains, swells, LIPs | local radiality exceptions researched |
@@ -81,12 +81,17 @@
 
 Stage 1 is **not complete** when every row has notes. It is complete only when every required row is `SPEC COMPLETE` or `APPROVED`, and every intentionally excluded row has a written reason for exclusion.
 
-## Current first tranche
+## Current active tranches
 
-The first active tranche is:
+### Tranche 1 — planetary foundations and regimes
 
-- F01–F05: physical foundations;
-- G01–G05: global geodynamic regimes;
-- R01–R02: source and metadata discipline.
+- F01–F05;
+- G01–G05;
+- R01–R02.
 
-Collision systems, shelves, and reference-image planning remain blocked until this earlier tranche establishes their permitted planetary contexts.
+### Tranche 2 — crust and topographic support
+
+- C01–C05;
+- V01–V03.
+
+Collision systems, shelves, and reference-image planning remain blocked until these earlier tranches establish their permitted planetary contexts and support mechanisms.
