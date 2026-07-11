@@ -19,12 +19,12 @@ A source's scientific usefulness and its reuse permission are separate questions
 ## Rules
 
 1. Stage 1 may cite a scientific source without assuming its figures can be copied.
-2. Stage 2 may not ingest an image, map, figure, or dataset until this register records its reuse basis.
+2. Stage 2 may not ingest an image, map, figure, simulation frame, mission product, or dataset until this register records its reuse basis.
 3. A general statement such as “government work” is not enough; the specific asset and source terms must be checked.
 4. A paper's open-access status does not automatically grant unrestricted figure reuse.
 5. Derived visualizations must preserve dataset attribution and license conditions.
 6. When rights are unclear, the source remains `CITATION ONLY`.
-7. WorldWright-generated failures may be stored as project-owned negative evidence with seed and commit provenance.
+7. WorldWright-generated failures and references may be stored as project-owned assets only with seed, commit, schema, case, and review provenance.
 
 ## Initial register
 
@@ -43,8 +43,9 @@ A source's scientific usefulness and its reuse permission are separate questions
 | SRC-OCE-001–035 | bathymetry, margin, canyon, sediment, sea-level, reconstruction, and marine-geophysical sources | CITATION ONLY | ocean/margin research and source tracing | figures/data blocked | review each exact bathymetric grid, seismic line, reconstruction, map, and journal figure separately |
 | SRC-HYP-001–041 | planetary-regime, waterworld, cryosphere, tidal, atmosphere, super-Earth, impact, mission, and model sources | CITATION ONLY | hypothetical-planet research and source tracing | figures/data blocked | review every exact mission image, simulation frame, model figure, and dataset separately |
 | SRC-SURF-001–035 | drainage, incision, weathering, hillslope, sediment, avulsion, fan, delta, Mars/Titan, experiment, and process sources | CITATION ONLY | surface-process research and source tracing | figures/data blocked | review every exact DEM, satellite product, field photograph, experiment image, and journal figure separately |
-| GEBCO, ETOPO, GlobSed, plate-age grids, mission terrain products, and future river/sediment datasets | external datasets | CITATION ONLY | scientific comparison and product tracing | blocked | record version, rights holder, license, attribution, transformation, and redistribution terms per product |
-| WorldWright diagnostic outputs | project-generated files | REUSE WITH ATTRIBUTION | failure analysis | permitted after provenance capture | record seed, commit, stage, and review status |
+| SRC-REM-001–066 | glacial, aeolian, coastal, karst, impact, climate, temporal, multiscale, mission, experiment, and model sources | CITATION ONLY | coordinated remaining-science research and source tracing | figures/data blocked | review every exact glacier/coast/cave/crater image, terrain grid, model frame, mission product, and journal figure separately |
+| GEBCO, ETOPO, GlobSed, plate-age grids, mission terrain products, future ice/wind/coast/karst/impact datasets | external datasets | CITATION ONLY | scientific comparison and product tracing | blocked | record version, rights holder, license, attribution, transformation, and redistribution terms per product |
+| WorldWright diagnostic/reference outputs | project-generated files | REUSE WITH ATTRIBUTION | failure analysis and future Stage 2 references | permitted after provenance capture and review | record seed, commit, schema, case ID, stage, and review status |
 
 ## Required fields for every future asset decision
 
@@ -57,10 +58,10 @@ A source's scientific usefulness and its reuse permission are separate questions
 - attribution text;
 - permitted transformations;
 - redistribution conditions;
-- access date;
+- version and access date;
 - reviewer;
 - decision notes.
 
 ## Current conclusion
 
-No external image, map, figure, radar product, seismic line, reconstruction, experiment frame, DEM, or dataset is approved for insertion into the Stage 2 library. All sources remain citation-only until asset-specific rights review is complete.
+No external image, map, figure, radar product, seismic line, reconstruction, experiment frame, DEM, simulation frame, mission product, or dataset is approved for insertion into the Stage 2 library. All sources remain citation-only until asset-specific rights review is complete.
