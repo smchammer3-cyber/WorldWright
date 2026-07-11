@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldwright.local/schemas/reference-case.schema.json",
+  "title": "WorldWright Geological Reference Case",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "caseId",
+    "familyId",
+    "title",
+    "kind",
+    "status",
+    "authority",
+    "rulesDemonstrated",
+    "parameters",
+    "metrics",
+    "assets",
+    "sourceNotes",
+    "review",
+    "version"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "caseId": { "type": "string", "minLength": 1 },
+    "familyId": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "kind": { "enum": ["positive", "negative", "exception", "threshold"] },
+    "status": { "enum": ["candidate", "approved", "rejected", "retired"] },
+    "authority": { "enum": ["observational", "controlled-archetype", "worldwright-approved", "worldwright-failure"] },
+    "rulesDemonstrated": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "parameters": { "type": "object", "additionalProperties": { "type": "number" } },
+    "region": { "type": "object" },
+    "metrics": { "type": "object", "additionalProperties": { "type": "number" } },
+    "assets": { "type": "array", "items": { "type": "object" } },
+    "sourceNotes": { "type": "array", "items": { "type": "string" } },
+    "license": { "type": "string" },
+    "review": { "type": "object" },
+    "version": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}
