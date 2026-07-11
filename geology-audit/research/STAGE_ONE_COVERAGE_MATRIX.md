@@ -36,7 +36,7 @@
 | T02 | Continental rifting | SCOPED | extension rate, lithosphere thickness, plume input | rift basins, volcanism, breakup | successful vs failed rifts distinguished |
 | T03 | Ocean–continent subduction | SCOPED | slab age, dip, convergence, coupling, sediment | trenches, arcs, forearc/backarc, mountains | paired-feature obligations established |
 | T04 | Ocean–ocean subduction | SCOPED | slab age/density, rollback, convergence | trenches, island arcs, backarc basins | arc/trench geometry and variation researched |
-| T05 | Continent–continent collision | PRELIMINARY | convergence, obliquity, crust thickness, erosion | orogens, plateaus, foreland basins | current brief replaced by full-source synthesis |
+| T05 | Continent–continent collision | SCOPED | convergence, obliquity, crust thickness, erosion | orogens, plateaus, foreland basins | full-source synthesis completed after foundations |
 | T06 | Transform boundaries | SCOPED | slip rate, stepovers, crust type | fracture zones, pull-aparts, transpression | onshore/offshore visual families researched |
 | T07 | Transpression and transtension | NOT STARTED | obliquity, step geometry, inherited faults | uplift, pull-apart basins, strike-slip ranges | mixed-boundary outcomes specified |
 | T08 | Triple junctions, microplates, diffuse boundaries | NOT STARTED | plate geometry, strain partitioning | complex regional fabric | complexity not misclassified as noise |
@@ -49,7 +49,7 @@
 | M03 | Large igneous provinces / flood basalts | NOT STARTED | melt volume, eruption tempo, topography | climate, plateaus, rifting | plains vs tectonic plateaus distinguished |
 | M04 | Shield volcanoes and volcanic rises | NOT STARTED | eruption rate, viscosity, gravity | radial drainage, flexure, collapse | valid radial forms specified |
 | M05 | Stratovolcanoes, calderas, domes, and cones | NOT STARTED | magma chemistry, eruption style | arcs, local topography | scale-dependent radial exceptions specified |
-| O01 | Passive margins and continental shelves | PRELIMINARY | rift history, subsidence, sediment, sea level | coasts, slopes, basins | shelf vs submerged-ghost rules researched |
+| O01 | Passive margins and continental shelves | SCOPED | rift history, subsidence, sediment, sea level | coasts, slopes, basins | shelf vs submerged-ghost rules researched |
 | O02 | Active margins | NOT STARTED | subduction/transform style, sediment supply | trenches, narrow shelves, coastal mountains | active/passive contrasts defined |
 | O03 | Continental slopes, rises, and submarine canyons | NOT STARTED | sediment, currents, slope stability | rivers, margins, abyssal plains | cross-scale continuity documented |
 | O04 | Abyssal basins and plains | NOT STARTED | crust age, sediment cover, dynamic topography | ridges, trenches, seamounts | broad ocean-floor texture families defined |
@@ -69,8 +69,8 @@
 | X02 | Sea-level and ocean-volume thresholds | NOT STARTED | water volume, basin hypsometry, ice | shelves, islands, drainage | connectivity and inundation relations researched |
 | X03 | Temporal evolution / inheritance | NOT STARTED | process duration, cessation, erosion | every domain | active, waning, fossil states specified |
 | X04 | Multiscale visual coherence | NOT STARTED | feature size, resolution, projection | every domain | globe-to-local consistency obligations defined |
-| P01 | Procedural mask leakage | PRELIMINARY | categorical fields, smoothing, kernels | every generator stage | signatures and diagnostic tests cataloged |
-| P02 | Radial blob and isotropic kernel failures | PRELIMINARY | distance fields, blur, center weighting | collision, volcanoes, impacts | valid radial exceptions fully separated |
+| P01 | Procedural mask leakage | SCOPED | categorical fields, smoothing, kernels | every generator stage | signatures and diagnostic tests cataloged |
+| P02 | Radial blob and isotropic kernel failures | SCOPED | distance fields, blur, center weighting | collision, volcanoes, impacts | valid radial exceptions fully separated |
 | P03 | Repetition, tiling, seams, and projection artifacts | NOT STARTED | sampling, wrapping, noise, resolution | multiscale review | failure atlas specified |
 | P04 | Causal-stage provenance and earliest-failure localization | SCOPED | stage outputs, transformations | diagnostics | report requirements defined |
 | R01 | Source provenance and licensing | IN RESEARCH | source type, rights, attribution | all research/assets | reusable licensing rules complete |
@@ -89,4 +89,4 @@ The first active tranche is:
 - G01–G05: global geodynamic regimes;
 - R01–R02: source and metadata discipline.
 
-The collision-belt notes under T05 remain preliminary and cannot advance to Stage 2 while this earlier tranche is incomplete.
+Collision systems, shelves, and reference-image planning remain blocked until this earlier tranche establishes their permitted planetary contexts.
