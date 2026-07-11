@@ -41,7 +41,9 @@ A source's scientific usefulness and its reuse permission are separate questions
 | SRC-O-001–029 | collision, orogeny, plateau, collapse, delamination, and ancient-belt sources | CITATION ONLY | orogeny research and source tracing | figures/data blocked | review each exact map, photograph, figure, and dataset separately |
 | SRC-V-001–041 | volcanism, caldera, hotspot, LIP, planetary, mission, and process sources | CITATION ONLY | volcanism research and source tracing | figures/data blocked | review each exact photograph, map, radar product, mission dataset, and journal figure separately |
 | SRC-OCE-001–035 | bathymetry, margin, canyon, sediment, sea-level, reconstruction, and marine-geophysical sources | CITATION ONLY | ocean/margin research and source tracing | figures/data blocked | review each exact bathymetric grid, seismic line, reconstruction, map, and journal figure separately |
-| GEBCO, ETOPO, GlobSed, plate-age grids, and mission bathymetry products | external datasets | CITATION ONLY | scientific comparison and product tracing | blocked | record version, rights holder, license, attribution, transformation, and redistribution terms per product |
+| SRC-HYP-001–041 | planetary-regime, waterworld, cryosphere, tidal, atmosphere, super-Earth, impact, mission, and model sources | CITATION ONLY | hypothetical-planet research and source tracing | figures/data blocked | review every exact mission image, simulation frame, model figure, and dataset separately |
+| SRC-SURF-001–035 | drainage, incision, weathering, hillslope, sediment, avulsion, fan, delta, Mars/Titan, experiment, and process sources | CITATION ONLY | surface-process research and source tracing | figures/data blocked | review every exact DEM, satellite product, field photograph, experiment image, and journal figure separately |
+| GEBCO, ETOPO, GlobSed, plate-age grids, mission terrain products, and future river/sediment datasets | external datasets | CITATION ONLY | scientific comparison and product tracing | blocked | record version, rights holder, license, attribution, transformation, and redistribution terms per product |
 | WorldWright diagnostic outputs | project-generated files | REUSE WITH ATTRIBUTION | failure analysis | permitted after provenance capture | record seed, commit, stage, and review status |
 
 ## Required fields for every future asset decision
@@ -61,4 +63,4 @@ A source's scientific usefulness and its reuse permission are separate questions
 
 ## Current conclusion
 
-No external image, map, figure, radar product, seismic line, reconstruction, or dataset is approved for insertion into the Stage 2 library. All sources remain citation-only until asset-specific rights review is complete.
+No external image, map, figure, radar product, seismic line, reconstruction, experiment frame, DEM, or dataset is approved for insertion into the Stage 2 library. All sources remain citation-only until asset-specific rights review is complete.
