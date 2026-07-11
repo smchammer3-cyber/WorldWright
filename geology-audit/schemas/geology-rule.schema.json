@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldwright.local/schemas/geology-rule.schema.json",
+  "title": "WorldWright Geology Rule",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "ruleId",
+    "title",
+    "domain",
+    "summary",
+    "appliesWhen",
+    "expectedMorphology",
+    "metricExpectations",
+    "thresholdExpectations",
+    "warningPatterns",
+    "validExceptions",
+    "evidenceStatus",
+    "evidenceNotes",
+    "version"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "ruleId": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "domain": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "appliesWhen": { "type": "object" },
+    "expectedMorphology": { "type": "array", "items": { "type": "string" } },
+    "metricExpectations": { "type": "array", "items": { "type": "object" } },
+    "thresholdExpectations": { "type": "array", "items": { "type": "object" } },
+    "warningPatterns": { "type": "array", "items": { "type": "string" } },
+    "validExceptions": { "type": "array", "items": { "type": "string" } },
+    "evidenceStatus": { "enum": ["research-required", "provisional", "reviewed"] },
+    "evidenceNotes": { "type": "array", "items": { "type": "string" } },
+    "version": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}
