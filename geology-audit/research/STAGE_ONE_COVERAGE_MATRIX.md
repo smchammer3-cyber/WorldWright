@@ -54,11 +54,11 @@
 | O03 | Continental slopes, rises, and submarine canyons | IN RESEARCH | sediment, currents, slope stability, tectonics | rivers, margins, abyssal plains | canyon/source/sink, slope-failure, rise, current, and margin-type rules cross-checked |
 | O04 | Abyssal basins and plains | IN RESEARCH | crust age, sediment cover, dynamic topography | ridges, trenches, seamounts | basement, sediment, current, thermal, dynamic, volcanic, and water-depth states separated |
 | O05 | Trenches, forearcs, backarcs | IN RESEARCH | slab geometry, rollback, coupling, sediment | subduction, volcanism | paired spatial relationships, trench fill, outer rise, and sediment interception established |
-| S01 | Fluvial incision and drainage integration | NOT STARTED | uplift, precipitation, substrate, time | mountains, basins, deltas | drainage topology and thresholds researched |
-| S02 | Hillslope erosion and mass wasting | NOT STARTED | relief, climate, rock strength, vegetation | mountains, valleys, sediment | smoothing vs structural preservation specified |
-| S03 | Weathering and regolith production | NOT STARTED | climate, mineralogy, exposure time | erosion, soil, color | morphology vs cosmetic surface effects separated |
-| S04 | Sediment transport and depositional basins | NOT STARTED | supply, accommodation, water/wind/ice | forelands, rifts, shelves | source-to-sink continuity and mass balance specified |
-| S05 | Deltas, fans, and alluvial plains | NOT STARTED | discharge, sediment, sea level, slope | rivers, coasts, basins | lobe/fan radiality exceptions and marine handoff researched |
+| S01 | Fluvial incision and drainage integration | IN RESEARCH | uplift, runoff/discharge, substrate, sediment cover, time | mountains, basins, deltas, lakes, sea level | thresholds, mutable divides, base level, capture, transients, and planetary branches cross-checked |
+| S02 | Hillslope erosion and mass wasting | IN RESEARCH | relief, climate, rock/regolith strength, triggers, gravity | mountains, valleys, channels, fans, sediment | nonlinear transport, landslide mass balance, hillslope–channel coupling, and planetary branches cross-checked |
+| S03 | Weathering and regolith production | IN RESEARCH | climate, fluids, mineralogy, atmosphere, exposure time | erosion, soil/regolith, material strength, sediment | physical/chemical branches, thickness/state, stripping, burial, and non-Earth branches cross-checked |
+| S04 | Sediment transport and depositional basins | IN RESEARCH | supply, capacity, accommodation, grain/material class, water/wind/ice | forelands, rifts, shelves, rivers, lakes, deep sea | source-to-sink mass balance, storage, sorting, compaction, stratigraphy, and planetary branches cross-checked |
+| S05 | Deltas, fans, and alluvial plains | IN RESEARCH | discharge, sediment, accommodation, base level, waves/tides, slope | rivers, coasts, basins, shelves | avulsion, active/abandoned lobes, valid radiality, compaction, and marine/lacustrine handoff cross-checked |
 | S06 | Glacial and periglacial processes | NOT STARTED | temperature, snowfall, relief, latitude | fjords, valleys, shelves | inherited vs active glacial forms distinguished |
 | S07 | Aeolian and arid-land processes | NOT STARTED | wind, sediment, aridity, vegetation | dunes, deflation, yardangs | directional fabrics researched |
 | S08 | Coastal erosion and deposition | NOT STARTED | waves, tides, sea level, sediment | shelves, deltas, cliffs | coastline response thresholds documented |
@@ -76,7 +76,7 @@
 | H05 | Cryosphere, tidal, atmosphere, rotation, and gravity overlays | IN RESEARCH | ice shell, orbital heating, pressure, locking, mass/gravity | volcanism, climate, impacts, surface processes | body/material-specific branches and thresholds completed |
 | H06 | Planetary contradiction and provenance audit | IN RESEARCH | regime state, overlay state, formation history, age, confidence | diagnostics, Stage 2 matrix | incompatible combinations and required provenance fields finalized |
 | P01 | Procedural mask leakage | SCOPED | categorical fields, smoothing, kernels | every generator stage | signatures and diagnostic tests cataloged |
-| P02 | Radial blob and isotropic kernel failures | IN RESEARCH | distance fields, blur, center weighting, physical source scale | collision, volcanoes, impacts, basins | valid volcanic radiality separated; basin-center bowls and shelf halos prohibited; impact exceptions remain |
+| P02 | Radial blob and isotropic kernel failures | IN RESEARCH | distance fields, blur, center weighting, physical source scale | collision, volcanoes, impacts, basins, fans/deltas | valid volcanic/fan radiality separated; basin-center bowls and shelf halos prohibited; impact exceptions remain |
 | P03 | Repetition, tiling, seams, and projection artifacts | NOT STARTED | sampling, wrapping, noise, resolution | multiscale review | failure atlas specified |
 | P04 | Causal-stage provenance and earliest-failure localization | SCOPED | stage outputs, transformations | diagnostics | report requirements defined |
 | R01 | Source provenance and licensing | IN RESEARCH | source type, rights, attribution | all research/assets | reusable licensing rules complete |
@@ -113,7 +113,7 @@ Stage 1 is **not complete** when every row has notes. It is complete only when e
 - T05;
 - V04;
 - X03 active/waning/collapsed/fossil/reactivated states;
-- dependencies identified for S01–S04 and X01, which remain blocked pending dedicated surface-process research.
+- dependencies identified for S01–S04 and X01.
 
 ### Tranche 5 — volcanism and magmatic provinces
 
@@ -131,8 +131,7 @@ Stage 1 is **not complete** when every row has notes. It is complete only when e
 - structural bathymetry separated from water depth;
 - basement separated from sediment/deposit surface;
 - margins, shelves, slopes, rises, canyons, abyssal plains, currents, fans, and trench interception framework;
-- generator-obligation requirements added, but implementation remains deferred;
-- dependencies identified for S01–S08, glacial-isostatic response, reefs/carbonates, and climate/ocean circulation.
+- generator-obligation requirements added, but implementation remains deferred.
 
 ### Tranche 7 — hypothetical planetary regimes and combinations
 
@@ -141,7 +140,17 @@ Stage 1 is **not complete** when every row has notes. It is complete only when e
 - base regimes separated from water, atmosphere, tidal, gravity, rotation, cryosphere, impact, and age overlays;
 - observed, inferred, model-supported, constrained-extrapolation, speculative, and forbidden confidence classes established;
 - persistent causal state, regime-transition history, terrain provenance, and contradiction audit requirements documented;
+- all later tranches must state how their processes change across planetary regimes and overlays.
+
+### Tranche 8 — surface material loop
+
+- S01–S05 advanced;
+- drainage networks, base levels, mutable divides, capture, lake spill/breach, and transient river profiles documented;
+- weathering, regolith, nonlinear hillslope transport, landslide/debris-flow source and deposit state documented;
+- source-to-sink sediment supply, capacity, storage, sorting, accommodation, compaction, and mass balance documented;
+- floodplain, avulsion, alluvial fan, delta, active/abandoned lobe, and valid-radiality rules documented;
+- humid, arid, airless, ice-shell, waterworld, low/high-gravity, and fossil-Mars branches added;
 - generator implementation remains deferred;
-- all later tranches must now state how their processes change across planetary regimes and overlays.
+- climate, glacial, aeolian, coastal, karst, and impact dependencies remain open.
 
 Reference-image planning remains blocked for the entire Stage 1 program. No domain is yet `SPEC COMPLETE` or `APPROVED`.
