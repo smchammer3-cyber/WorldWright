@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://worldwright.local/schemas/world-audit-manifest.schema.json",
+  "title": "WorldWright Audit Manifest",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "worldId",
+    "seed",
+    "generatorCommit",
+    "generatedAt",
+    "parameters",
+    "regions",
+    "assets"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "worldId": { "type": "string", "minLength": 1 },
+    "seed": { "type": "string", "minLength": 1 },
+    "generatorCommit": { "type": "string", "minLength": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "parameters": { "type": "object", "additionalProperties": { "type": "number" } },
+    "regions": { "type": "array", "items": { "type": "object" } },
+    "assets": { "type": "array", "items": { "type": "object" } }
+  },
+  "additionalProperties": false
+}
