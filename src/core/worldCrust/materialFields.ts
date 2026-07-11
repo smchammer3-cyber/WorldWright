@@ -30,9 +30,11 @@ export function seedCrustFields(world: WorldBrain): void {
     const collision = feature.COLLISION_ZONE ?? 0;
     const volcanic = clamp01(cell.volcanicActivity + foundation.volcanismBias * 0.18 + arc * 0.18);
     const materialNoise = centeredJitter(seed, i, 1001) * 0.055;
+    // Keep broad crust contrast continuous; post-birth land/water plate labels must not become a hard crust mask.
+    const crustBaseThickness = lerp(0.245, 0.715, continentality);
 
     cell.crustThickness = clamp01(
-      lerp(0.24, 0.72, continentality)
+      crustBaseThickness
       + collision * 0.18
       + arc * 0.06
       - ridge * 0.08
@@ -55,6 +57,8 @@ export function seedCrustFields(world: WorldBrain): void {
 
     cell.crustProvince = classifyCrustProvince(cell, height, seaLevel);
   }
+
+  harmonizeWeakCrustProvinceEdges(world, seaLevel);
 }
 
 export function ensureCrustFields(world: WorldBrain): void {
@@ -101,6 +105,60 @@ export function classifyCrustProvince(cell: Cell, height: number, seaLevel: numb
   if (core > 0.22 && age > 0.40 && thickness > 0.40 && activeFeature < 0.50) return CrustProvince.OLD_SHIELD;
   if (continentality < 0.42 && aboveSea < 0.12) return CrustProvince.OCEANIC_BASIN;
   return CrustProvince.SEDIMENT_BASIN;
+}
+
+function harmonizeWeakCrustProvinceEdges(world: WorldBrain, seaLevel: number): void {
+  const next = world.cells.map((cell) => cell.crustProvince);
+  forEachEastSouthEdge(world, (a, b) => {
+    const ca = world.cells[a];
+    const cb = world.cells[b];
+    if (ca.crustProvince === cb.crustProvince) return;
+    if (hasStrongCrustProvinceCause(ca) || hasStrongCrustProvinceCause(cb)) return;
+    const ha = totalHeight(ca);
+    const hb = totalHeight(cb);
+    if (Math.abs(ha - hb) <= 0.035) return;
+    const shared = sharedPassiveProvince(ca, cb, ha, hb, seaLevel);
+    next[a] = shared;
+    next[b] = shared;
+  });
+  for (let i = 0; i < world.cells.length; i++) world.cells[i].crustProvince = next[i];
+}
+
+function hasStrongCrustProvinceCause(cell: Cell): boolean {
+  const feature = classifyPlateBoundaryFeatureAuthority(cell).features;
+  const activeFeature = (feature.COLLISION_ZONE ?? 0) + (feature.RIFT_ZONE ?? 0) + (feature.OCEAN_RIDGE ?? 0) + (feature.OCEAN_TRENCH ?? 0) + (feature.ISLAND_ARC ?? 0);
+  return activeFeature > 0.35
+    || cell.marginType === ContinentMarginType.ACTIVE
+    || cell.marginType === ContinentMarginType.COLLISION
+    || cell.marginType === ContinentMarginType.RIFT
+    || cell.islandCause === IslandCause.ISLAND_ARC
+    || cell.islandCause === IslandCause.RIFT_FRAGMENT
+    || cell.islandCause === IslandCause.VOLCANIC_HOTSPOT
+    || Math.abs(cell.upliftRate) > 0.13
+    || cell.volcanicActivity > 0.55
+    || (cell.continentCoreStrength > 0.56 && cell.crustAge > 0.48 && cell.crustThickness > 0.48);
+}
+
+function sharedPassiveProvince(a: Cell, b: Cell, ha: number, hb: number, seaLevel: number): CrustProvince {
+  const aWater = ha < seaLevel;
+  const bWater = hb < seaLevel;
+  const maxShelf = Math.max(clamp01(a.shelfStrength), clamp01(b.shelfStrength));
+  const maxContinentality = Math.max(clamp01(a.continentality), clamp01(b.continentality));
+  const nearSurface = Math.min(Math.abs(ha - seaLevel), Math.abs(hb - seaLevel)) < 0.16;
+  if (maxShelf > 0.24 || (nearSurface && maxContinentality > 0.28)) return CrustProvince.COASTAL_PLAIN;
+  if (aWater && bWater) return CrustProvince.OCEANIC_BASIN;
+  if (maxContinentality < 0.34 && (aWater || bWater)) return CrustProvince.OCEANIC_BASIN;
+  return CrustProvince.SEDIMENT_BASIN;
+}
+
+function forEachEastSouthEdge(world: WorldBrain, visit: (a: number, b: number) => void): void {
+  for (let row = 0; row < world.gridHeight; row++) {
+    for (let col = 0; col < world.gridWidth; col++) {
+      const idx = row * world.gridWidth + col;
+      visit(idx, row * world.gridWidth + ((col + 1) % world.gridWidth));
+      if (row < world.gridHeight - 1) visit(idx, (row + 1) * world.gridWidth + col);
+    }
+  }
 }
 
 function isCrustProvince(value: unknown): value is CrustProvince {

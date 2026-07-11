@@ -95,6 +95,9 @@ export function classifyGeologicFeatureAuthority(cell: Cell): GeologicFeatureAut
   const uplift = typeof cell.upliftRate === 'number' ? cell.upliftRate : 0;
   const stableMaterial = Math.max(0, thickness - 0.56) * Math.max(0, age - 0.46);
   const thinYoungMaterial = Math.max(0, 0.58 - thickness) * Math.max(0, 0.62 - age);
+  const oceanicMaterialAuthority = thinYoungMaterial
+    * (1 - smoothstep(0.20, 0.48, continentality))
+    * (1 - smoothstep(0.18, 0.46, shelf));
 
   const hasSubductionCause =
     cell.boundaryType === BoundaryType.CONVERGENT ||
@@ -112,9 +115,11 @@ export function classifyGeologicFeatureAuthority(cell: Cell): GeologicFeatureAut
 
   if (cell.oceanDepthClass === OceanDepthClass.TRENCH) add('OCEAN_TRENCH', hasSubductionCause ? 0.94 : 0.32);
   if (cell.oceanDepthClass === OceanDepthClass.RIDGE) add('OCEAN_RIDGE', hasRiftCause ? 0.92 : 0.32);
-  if (cell.oceanDepthClass === OceanDepthClass.SHELF) add('CONTINENT_SHELF', shelf > 0.50 ? 0.52 : 0.34);
-  if (cell.oceanDepthClass === OceanDepthClass.SLOPE) add('CONTINENT_MARGIN', shelf > 0.42 ? 0.50 : 0.30);
+  if (cell.oceanDepthClass === OceanDepthClass.SHELF) add('CONTINENT_SHELF', shelf > 0.18 ? 0.46 + shelf * 0.14 : 0.34);
+  if (cell.oceanDepthClass === OceanDepthClass.SLOPE) add('CONTINENT_MARGIN', shelf > 0.18 || continentality > 0.24 ? 0.46 + Math.max(shelf, continentality) * 0.10 : 0.30);
   if (cell.oceanDepthClass === OceanDepthClass.ABYSSAL) add('OCEAN_BASIN', 0.16);
+
+  if (oceanicMaterialAuthority > 0.012) add('OCEAN_BASIN', 0.46 + oceanicMaterialAuthority * 1.35);
 
   if (cell.boundaryType === BoundaryType.CONVERGENT) {
     add('SUBDUCTION_ZONE', 0.82);
@@ -127,7 +132,7 @@ export function classifyGeologicFeatureAuthority(cell: Cell): GeologicFeatureAut
   if (cell.marginType === ContinentMarginType.ACTIVE) add('SUBDUCTION_ZONE', 0.70);
   if (cell.marginType === ContinentMarginType.RIFT) add('RIFT_ZONE', 0.78);
   if (cell.marginType === ContinentMarginType.TRANSFORM) add('TRANSFORM_ZONE', 0.50);
-  if (cell.marginType === ContinentMarginType.PASSIVE) add('CONTINENT_MARGIN', 0.44);
+  if (cell.marginType === ContinentMarginType.PASSIVE) add('CONTINENT_MARGIN', shelf > 0.16 || continentality > 0.28 ? 0.49 : 0.44);
   if (cell.marginType === ContinentMarginType.ACCRETED) add('CONTINENT_MARGIN', 0.54);
 
   if (cell.islandCause === IslandCause.CONTINENTAL_FRAGMENT) add('CONTINENT_MARGIN', 0.58);
@@ -147,8 +152,10 @@ export function classifyGeologicFeatureAuthority(cell: Cell): GeologicFeatureAut
   if (stableMaterial > 0.035 && core > 0.42) add('CONTINENT_CORE', 0.58 + core * 0.18 + stableMaterial * 0.30);
   if (stableMaterial > 0.020 && uplift > 0.10) add('MOBILE_BELT', 0.48 + clamp01(uplift) * 0.24);
   if (thinYoungMaterial > 0.035 && shelf > 0.20) add('SEDIMENT_BASIN', 0.40 + thinYoungMaterial * 0.40);
+  if (thinYoungMaterial > 0.018 && shelf > 0.10 && continentality > 0.18) add('SEDIMENT_BASIN', 0.46 + thinYoungMaterial * 0.42);
   if (shelf > 0.62) add('CONTINENT_SHELF', 0.54 + shelf * 0.18);
   if (shelf > 0.50 && continentality > 0.32 && Math.abs(uplift) < 0.12) add('COASTAL_PLAIN', 0.36 + shelf * 0.18);
+  if (shelf > 0.28 && continentality > 0.22 && Math.abs(uplift) < 0.10) add('COASTAL_PLAIN', 0.43 + shelf * 0.14);
   if (volcanic > 0.55) add('VOLCANIC_CENTER', 0.58 + volcanic * 0.28);
   if (uplift > 0.28) add('COLLISION_ZONE', 0.48 + clamp01(uplift) * 0.24);
 
@@ -302,6 +309,11 @@ function forEachEastSouthEdge(world: WorldBrain, visit: (a: number, b: number) =
       if (row < world.gridHeight - 1) visit(idx, (row + 1) * world.gridWidth + col);
     }
   }
+}
+
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = clamp01((x - edge0) / Math.max(1e-9, edge1 - edge0));
+  return t * t * (3 - 2 * t);
 }
 
 function clamp01(value: number): number {

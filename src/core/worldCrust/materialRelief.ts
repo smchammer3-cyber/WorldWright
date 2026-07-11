@@ -61,8 +61,9 @@ export function applyMaterialReliefReinforcement(world: WorldBrain): void {
     const materialEnergy = clamp01(stableCrust + mountainSignal + volcanicSignal * 0.7);
 
     const relief = (broad * 0.032 + fine * 0.010) * (0.60 + materialEnergy * 0.50) * landGate * interiorGate * shelfDamp;
-    const lift = (stableCrust * 0.010 + mountainSignal * 0.012 + volcanicSignal * 0.006) * landGate * interiorGate * shelfDamp;
-    const delta = clamp((relief + lift) * seamDamp, -0.030, 0.036);
+    const lift = (stableCrust * 0.010 + mountainSignal * 0.018 + volcanicSignal * 0.006) * landGate * interiorGate * shelfDamp;
+    const upliftOrderingLift = uplift > 0.20 ? uplift * 0.012 * landGate * interiorGate * shelfDamp : 0;
+    const delta = clamp((relief + lift + upliftOrderingLift) * seamDamp, -0.030, 0.042);
 
     rawDeltas[i] = keepLandDelta(h, seaLevel, delta);
   }

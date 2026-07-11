@@ -22,17 +22,22 @@ export function applyCrustProvinceTerrainDelta(world: WorldBrain): void {
     const coastGate = 1 - smoothstep(0.02, 0.22, Math.abs(aboveSea));
     const mat = materialSignals(cell, world.planetFoundation);
     const feature = classifyPlateBoundaryFeatureAuthority(cell).features;
+    const strongFeature = strongestCrustDeltaFeature(feature);
+    const passiveOceanGate = passiveOceanDeltaGate(cell, h, seaLevel, strongFeature);
+    const passiveOceanDamp = lerp(1, 0.22, passiveOceanGate);
+    const authoritySeamDamp = unbackedAuthoritySeamDamp(world, i, strongFeature);
+    const broadCauseGate = broadMaterialDeltaCauseGate(cell, strongFeature);
     const rough = smoothTexture(seed, world, i, 7019);
     let delta = 0;
-    delta += mat.crustBuoyancy * 0.060 * landGate;
-    delta += mat.crustStrength * 0.026 * landGate;
+    delta += mat.crustBuoyancy * 0.026 * landGate * broadCauseGate;
+    delta += mat.crustStrength * 0.008 * landGate * broadCauseGate;
     delta += (feature.COLLISION_ZONE ?? 0) * 0.026 * landGate;
     delta += (feature.ISLAND_ARC ?? 0) * 0.020 * Math.max(landGate, coastGate);
     delta += (feature.OCEAN_RIDGE ?? 0) * 0.026 * Math.max(oceanGate, coastGate * 0.4);
     delta -= (feature.OCEAN_TRENCH ?? 0) * 0.032 * oceanGate;
     delta -= (feature.RIFT_ZONE ?? 0) * 0.026 * Math.max(landGate, coastGate * 0.5);
-    delta += rough * 0.016 * (0.35 + mat.crustStrength * 0.65) * Math.max(landGate, coastGate * 0.5);
-    deltas[i] = constrainTopology(world, i, h, seaLevel, clamp(delta, -0.055, 0.060), before);
+    delta += rough * 0.004 * (0.35 + mat.crustStrength * 0.65) * Math.max(landGate, coastGate * 0.5) * passiveOceanDamp * authoritySeamDamp * broadCauseGate;
+    deltas[i] = constrainTopology(world, i, h, seaLevel, clamp(delta * passiveOceanDamp * authoritySeamDamp, -0.038, 0.044), before);
   }
 
   applyDeltas(world, before, seaLevel, deltas);
@@ -82,7 +87,7 @@ export function applyProvinceCoherence(world: WorldBrain): void {
     const mat = materialSignals(cell, world.planetFoundation);
     const feature = classifyPlateBoundaryFeatureAuthority(cell).features;
     let delta = 0;
-    if (h < seaLevel && landNeighbors >= 0.55) delta += mat.crustBuoyancy * 0.020 * smoothstep(0.50, 1.0, landNeighbors);
+    if (h < seaLevel && landNeighbors >= 0.55) delta += mat.crustBuoyancy * 0.032 * smoothstep(0.50, 1.0, landNeighbors);
     if (h >= seaLevel && waterNeighbors >= 0.62 && cell.continentality < 0.28 && !(feature.ISLAND_ARC || feature.COLLISION_ZONE)) delta -= mat.sedimentTendency * 0.018 * smoothstep(0.55, 1.0, waterNeighbors);
     if (delta !== 0) {
       const safe = constrainTopology(world, i, h, seaLevel, clamp(delta, -0.030, 0.035), before);
@@ -97,6 +102,75 @@ function applyDeltas(world: WorldBrain, before: number[], seaLevel: number, delt
     const safe = constrainTopology(world, i, before[i], seaLevel, blended, before);
     if (safe !== 0) world.cells[i].baseHeight = clamp(world.cells[i].baseHeight + safe, -1.4, 1.5);
   }
+}
+
+function broadMaterialDeltaCauseGate(cell: Cell, strongFeature: number): number {
+  return clamp01(Math.max(
+    strongFeature,
+    Math.max(0, cell.upliftRate) * 0.90,
+    cell.volcanicActivity * 0.72,
+    cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.ACTIVE ? 0.62 : 0,
+    cell.marginType === ContinentMarginType.RIFT ? 0.50 : 0,
+    isCausedIslandCell(cell) ? 0.56 : 0,
+    cell.continentCoreStrength > 0.64 && cell.continentality > 0.62 ? 0.44 : 0,
+  ));
+}
+
+function passiveOceanDeltaGate(cell: Cell, h: number, seaLevel: number, strongFeature: number): number {
+  if (h >= seaLevel) return 0;
+  const depth = seaLevel - h;
+  const depthGate = smoothstep(0.030, 0.170, depth);
+  const shelfGate = 1 - smoothstep(0.18, 0.48, clamp01(cell.shelfStrength));
+  const featureGate = 1 - smoothstep(0.20, 0.46, strongFeature);
+  const continentGate = 1 - smoothstep(0.52, 0.76, clamp01(cell.continentality));
+  return clamp01(depthGate * shelfGate * featureGate * continentGate);
+}
+
+function strongestCrustDeltaFeature(feature: Partial<Record<string, number>>): number {
+  return Math.max(
+    feature.COLLISION_ZONE ?? 0,
+    feature.ISLAND_ARC ?? 0,
+    feature.OCEAN_RIDGE ?? 0,
+    feature.OCEAN_TRENCH ?? 0,
+    feature.RIFT_ZONE ?? 0,
+    feature.SUBDUCTION_ZONE ?? 0,
+    feature.TRANSFORM_ZONE ?? 0,
+  );
+}
+
+function unbackedAuthoritySeamDamp(world: WorldBrain, index: number, strongFeature: number): number {
+  const cell = world.cells[index];
+  if (strongFeature > 0.34 || cell.upliftRate > 0.22 || cell.marginType === ContinentMarginType.COLLISION || cell.marginType === ContinentMarginType.ACTIVE) return 1;
+  let risk = 0;
+  for (const n of neighborIndices4(world, index)) {
+    const other = world.cells[n];
+    if (hasSharedCrustDeltaFeatureCause(cell, other)) continue;
+    if (cell.plateId !== other.plateId) risk = Math.max(risk, 0.42);
+    if (cell.crustProvince !== other.crustProvince) risk = Math.max(risk, 0.55);
+    const materialJump = Math.abs(clamp01(cell.crustThickness) - clamp01(other.crustThickness))
+      + Math.abs(clamp01(cell.crustAge) - clamp01(other.crustAge)) * 0.65
+      + Math.abs(clamp01(cell.continentality) - clamp01(other.continentality)) * 0.50;
+    risk = Math.max(risk, smoothstep(0.18, 0.70, materialJump) * 0.62);
+  }
+  return lerp(1, 0.30, clamp01(risk));
+}
+
+function hasSharedCrustDeltaFeatureCause(a: Cell, b: Cell): boolean {
+  if (a.upliftRate > 0.22 && b.upliftRate > 0.22) return true;
+  const fa = classifyPlateBoundaryFeatureAuthority(a).features;
+  const fb = classifyPlateBoundaryFeatureAuthority(b).features;
+  const ids = ['COLLISION_ZONE', 'ISLAND_ARC', 'OCEAN_RIDGE', 'OCEAN_TRENCH', 'RIFT_ZONE', 'SUBDUCTION_ZONE', 'TRANSFORM_ZONE'] as const;
+  return ids.some((id) => Math.min(fa[id] ?? 0, fb[id] ?? 0) > 0.22);
+}
+
+function canBlendAcrossAuthorityEdge(a: Cell, b: Cell): boolean {
+  if (hasSharedCrustDeltaFeatureCause(a, b)) return true;
+  if (a.plateId !== b.plateId) return false;
+  if (a.crustProvince !== b.crustProvince) return false;
+  const materialJump = Math.abs(clamp01(a.crustThickness) - clamp01(b.crustThickness))
+    + Math.abs(clamp01(a.crustAge) - clamp01(b.crustAge)) * 0.65
+    + Math.abs(clamp01(a.continentality) - clamp01(b.continentality)) * 0.50;
+  return materialJump < 0.32;
 }
 
 function constrainTopology(world: WorldBrain, index: number, h: number, seaLevel: number, delta: number, heights: number[]): number {
@@ -116,9 +190,16 @@ function constrainTopology(world: WorldBrain, index: number, h: number, seaLevel
 function blendDelta(world: WorldBrain, index: number, deltas: Float32Array): number {
   const neighbors = neighborIndices4(world, index);
   if (!neighbors.length) return deltas[index];
+  const cell = world.cells[index];
   let sum = 0;
-  for (const n of neighbors) sum += deltas[n];
-  return deltas[index] * 0.70 + (sum / neighbors.length) * 0.30;
+  let count = 0;
+  for (const n of neighbors) {
+    if (!canBlendAcrossAuthorityEdge(cell, world.cells[n])) continue;
+    sum += deltas[n];
+    count++;
+  }
+  if (count === 0) return deltas[index];
+  return deltas[index] * 0.78 + (sum / count) * 0.22;
 }
 
 function smoothTexture(seed: number, world: WorldBrain, index: number, salt: number): number {
@@ -184,6 +265,10 @@ function seedToUint32(s: string | number): number {
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = clamp01((x - edge0) / Math.max(1e-9, edge1 - edge0));
   return t * t * (3 - 2 * t);
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
 }
 
 function clamp(value: number, lo: number, hi: number): number {

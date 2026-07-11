@@ -46,7 +46,8 @@ export function applyOceanBathymetrySmoothing(world: WorldBrain): void {
     if (strength <= 0.002) continue;
 
     const lowerCap = lerp(0.022, 0.060, submergedGhost);
-    deltas[i] = clamp((target - h) * strength, -lowerCap, 0.022);
+    const rawDelta = clamp((target - h) * strength, -lowerCap, 0.022);
+    deltas[i] = capUnbackedOceanProvinceJump(world, i, source, seaLevel, rawDelta, cause);
   }
 
   for (let i = 0; i < world.cells.length; i++) {
@@ -145,6 +146,37 @@ function submergedContinentGhostSignal(cell: Cell, coastProtection: number): num
     + (cell.marginType === ContinentMarginType.PASSIVE ? 0.16 : 0);
   const openOceanGate = 1 - smoothstep(0.08, 0.32, coastProtection);
   return clamp01(continentalSignal * openOceanGate);
+}
+
+function capUnbackedOceanProvinceJump(world: WorldBrain, index: number, heights: number[], seaLevel: number, delta: number, cause: number): number {
+  if (delta === 0 || cause > 0.34) return delta;
+  const cell = world.cells[index];
+  let cappedDelta = delta;
+  for (const neighborIndex of neighborIndices4(world, index)) {
+    const neighborHeight = heights[neighborIndex];
+    if (neighborHeight >= seaLevel) continue;
+    const neighbor = world.cells[neighborIndex];
+    if (neighbor.crustProvince === cell.crustProvince) continue;
+    const neighborCause = explicitOceanBathymetryCause(neighbor, oceanCoastProtection(world, neighborIndex, heights, seaLevel));
+    if (neighborCause > 0.34 || hasSharedActiveOceanCause(cell, neighbor)) continue;
+    const beforeJump = Math.abs(heights[index] - neighborHeight);
+    const afterHeight = heights[index] + cappedDelta;
+    const afterJump = Math.abs(afterHeight - neighborHeight);
+    if (afterJump <= beforeJump || afterJump <= 0.034) continue;
+    const allowedJump = Math.max(beforeJump, 0.034);
+    const sign = afterHeight >= neighborHeight ? 1 : -1;
+    const cappedHeight = neighborHeight + sign * allowedJump;
+    const candidateDelta = cappedHeight - heights[index];
+    if (Math.abs(candidateDelta) < Math.abs(cappedDelta)) cappedDelta = candidateDelta;
+  }
+  return cappedDelta;
+}
+
+function hasSharedActiveOceanCause(a: Cell, b: Cell): boolean {
+  if (Math.min(explicitActiveOceanCause(a), explicitActiveOceanCause(b)) > 0.22) return true;
+  if (a.marginType === b.marginType && (a.marginType === ContinentMarginType.ACTIVE || a.marginType === ContinentMarginType.RIFT)) return true;
+  if (a.islandCause === b.islandCause && (a.islandCause === IslandCause.ISLAND_ARC || a.islandCause === IslandCause.VOLCANIC_HOTSPOT || a.islandCause === IslandCause.RIFT_FRAGMENT)) return true;
+  return false;
 }
 
 function explicitActiveOceanCause(cell: Cell): number {
