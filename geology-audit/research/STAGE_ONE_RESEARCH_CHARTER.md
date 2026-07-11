@@ -15,6 +15,7 @@ Stage 1 asks:
 5. Which unusual outcomes are valid exceptions?
 6. Which procedural artifacts can imitate geology while violating the causal rules?
 7. Exactly which reference cases must Stage 2 eventually generate?
+8. What must WorldWright know, preserve, route, and transmit to produce those outcomes causally?
 
 ## Two-stage gate
 
@@ -26,6 +27,7 @@ Outputs:
 - causal process briefs;
 - threshold and interaction matrices;
 - multiscale visual-obligation records;
+- generator-obligation records;
 - exception and ambiguity catalog;
 - procedural-failure catalog;
 - Stage 2 coverage matrix;
@@ -37,6 +39,7 @@ Stage 2 may begin only after:
 - every required Stage 1 domain has passed its completion checklist;
 - the coverage matrix contains no unexplained gaps;
 - unresolved scientific uncertainties are explicitly marked;
+- generator obligations have been reconciled across domains;
 - the user explicitly approves moving to generation.
 
 ## Research principles
@@ -80,6 +83,15 @@ When sources or models disagree, Stage 1 must record:
 ### 5. Generated imagery cannot become its own authority
 
 Stage 2 imagery will be produced from the Stage 1 specification. Stage 1 rules cannot later be justified solely by Stage 2 outputs.
+
+### 6. Visual rules require generator obligations
+
+Every remaining domain must document both:
+
+- what the real system does and how it appears; and
+- what WorldWright must know, preserve, route, and transmit to produce it.
+
+A domain cannot become `SPEC COMPLETE` by documenting appearance alone.
 
 ## Source hierarchy
 
@@ -129,6 +141,7 @@ Each completed process topic should have, where available:
 4. **Threshold evidence** — how morphology changes with a controlling parameter.
 5. **Counterexample or exception** — a similar-looking form with a different cause.
 6. **Failure analogue** — how procedural generation could reproduce the shape incorrectly.
+7. **Generator obligation** — what canonical state and downstream consequences are required.
 
 ## Required scales
 
@@ -199,6 +212,7 @@ A domain is complete only when all applicable boxes are satisfied:
 - [ ] valid morphological diversity documented;
 - [ ] exceptions and ambiguous analogues documented;
 - [ ] procedural failure signatures documented;
+- [ ] generator obligations documented;
 - [ ] Stage 2 case requirements specified;
 - [ ] remaining uncertainty explicitly recorded;
 - [ ] user approval recorded.
@@ -240,6 +254,8 @@ geology-audit/research/
 ├── sources/
 │   ├── source-register.md
 │   ├── orogeny-source-register.md
+│   ├── volcanism-source-register.md
+│   ├── ocean-margins-source-register.md
 │   └── licensing-register.md
 ├── foundations/
 ├── tectonics/
@@ -262,11 +278,15 @@ The Stage 1 order is deliberately causal:
 2. crustal architecture;
 3. tectonic boundary families;
 4. collision, orogeny, plateaus, collapse, and inherited belts;
-5. volcanism and basin/margin architecture;
-6. surface modification processes;
-7. temporal and climate interactions;
-8. procedural failures and multiscale coherence;
-9. complete Stage 2 generation matrix.
+5. volcanism and magmatic provinces;
+6. ocean margins and structural bathymetry;
+7. fluvial, erosion, weathering, and sediment systems;
+8. glacial, aeolian, coastal, and karst processes;
+9. impacts and resurfacing;
+10. temporal, climate, and non-Earth interactions;
+11. procedural failures and multiscale coherence;
+12. complete Stage 2 generation matrix;
+13. post-research causal-architecture reconciliation and implementation roadmap.
 
 ## Current Stage 1 progress
 
@@ -315,4 +335,32 @@ Committed research:
 
 Status: IN RESEARCH.
 
-No domain is yet `SPEC COMPLETE` or `APPROVED`. Surface-process dependencies remain blocked pending their dedicated research tranches. No reference-image curation or generation work is present on the branch.
+### Tranche 5 — volcanism and magmatic provinces
+
+Committed research:
+
+- `volcanism/magma-generation-transport-and-eruption-regimes.md`
+- `volcanism/edifice-growth-calderas-collapse-and-erosion.md`
+- `volcanism/hotspots-plume-swells-and-age-progressive-chains.md`
+- `volcanism/large-igneous-provinces-flood-basalts-and-volcanic-plateaus.md`
+- `volcanism/planetary-volcanism-gravity-atmosphere-and-valid-radial-forms.md`
+- `volcanism/VOLCANISM_TRANCHE_SUMMARY.md`
+- `sources/volcanism-source-register.md`.
+
+Status: IN RESEARCH.
+
+### Tranche 6 — ocean margins and structural bathymetry
+
+Committed research:
+
+- `oceans-margins/structural-bathymetry-and-ocean-basin-architecture.md`
+- `oceans-margins/continental-margins-shelves-slopes-rises-and-submarine-canyons.md`
+- `oceans-margins/abyssal-plains-deep-sea-sediment-and-bottom-current-systems.md`
+- `oceans-margins/water-volume-sea-level-hypsometry-and-inundation.md`
+- `oceans-margins/OCEAN_MARGINS_TRANCHE_SUMMARY.md`
+- `sources/ocean-margins-source-register.md`
+- updated licensing and coverage states for O01–O05 and X02.
+
+Status: IN RESEARCH.
+
+No domain is yet `SPEC COMPLETE` or `APPROVED`. Surface-process, glacial, coastal, climate, impact, and multiscale dependencies remain blocked pending their dedicated research tranches. No reference-image curation or generation work is present on the branch.
