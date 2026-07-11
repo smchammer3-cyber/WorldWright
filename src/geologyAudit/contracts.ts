@@ -20,9 +20,22 @@ export type PlanetParameters = Partial<Record<PlanetParameterKey, number>>;
 export type CrustType = 'continental' | 'oceanic' | 'transitional' | 'unknown';
 export type BoundaryType = 'convergent' | 'divergent' | 'transform' | 'intraplate' | 'none' | 'unknown';
 export type ClimateBand = 'arid' | 'temperate' | 'humid' | 'polar' | 'mixed' | 'unknown';
+export type GeologicalRegionKind = 'feature' | 'continent' | 'ocean-basin' | 'custom';
+
+export type GridBounds = {
+  minRow: number;
+  maxRow: number;
+  minCol: number;
+  maxCol: number;
+  wrapsLongitude: boolean;
+};
+
+export type CellIndexRun = [start: number, length: number];
 
 export type GeologicalRegionManifest = {
   regionId: string;
+  regionKind?: GeologicalRegionKind;
+  primaryFeature?: string;
   crustA?: CrustType;
   crustB?: CrustType;
   boundaryType?: BoundaryType;
@@ -30,6 +43,9 @@ export type GeologicalRegionManifest = {
   climate?: ClimateBand;
   parameters?: PlanetParameters;
   assetIds?: string[];
+  cellCount?: number;
+  cellIndexRuns?: CellIndexRun[];
+  gridBounds?: GridBounds;
 };
 
 export type WorldAuditAsset = {
@@ -60,6 +76,8 @@ export type WorldAuditManifest = {
   seed: string;
   generatorCommit: string;
   generatedAt: string;
+  gridWidth?: number;
+  gridHeight?: number;
   parameters: PlanetParameters;
   regions: GeologicalRegionManifest[];
   assets: WorldAuditAsset[];
