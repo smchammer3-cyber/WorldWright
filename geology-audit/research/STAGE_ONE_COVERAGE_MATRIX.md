@@ -45,10 +45,10 @@
 | V03 | Dynamic topography | IN RESEARCH | mantle flow, plume/slab buoyancy | swells, basins, long-wavelength relief | dynamic vs crustal support separated |
 | V04 | Delamination, foundering, and epeirogeny | IN RESEARCH | density instability, mantle removal | plateaus, volcanism, uplift/subsidence | transient uplift, collapse, and rejuvenation branches researched |
 | M01 | Volcanic arcs | IN RESEARCH | slab flux, crust type, convergence | subduction, relief, calderas | arc continuity and spacing researched |
-| M02 | Hotspots and plume swells | NOT STARTED | plume flux, plate speed, lithosphere | island chains, swells, LIPs | local radiality exceptions researched |
-| M03 | Large igneous provinces / flood basalts | NOT STARTED | melt volume, eruption tempo, topography | climate, plateaus, rifting | plains vs tectonic plateaus distinguished |
-| M04 | Shield volcanoes and volcanic rises | NOT STARTED | eruption rate, viscosity, gravity | radial drainage, flexure, collapse | valid radial forms specified |
-| M05 | Stratovolcanoes, calderas, domes, and cones | NOT STARTED | magma chemistry, eruption style | arcs, local topography | scale-dependent radial exceptions specified |
+| M02 | Hotspots and plume swells | IN RESEARCH | source flux, plate/source motion, lithosphere, support | island chains, swells, LIPs, ridges | source-motion, support, preservation, and valid-radiality branches cross-checked |
+| M03 | Large igneous provinces / flood basalts | IN RESEARCH | magma volume, intrusive fraction, pulse tempo, setting | climate, plateaus, rifting, sediment | distributed province, intrusive, fragmentation, and environmental branches cross-checked |
+| M04 | Shield volcanoes and volcanic rises | IN RESEARCH | supply duration, rheology, gravity, rift zones, loading | radial drainage, flexure, collapse, oceans | construction, asymmetry, load, erosion, and cross-planet scaling researched |
+| M05 | Stratovolcanoes, calderas, domes, and cones | IN RESEARCH | magma/volatile state, vent geometry, recurrence, environment | arcs, collapse, deposits, local topography | edifice histories, caldera mechanics, collapse mass, and preservation researched |
 | O01 | Passive margins and continental shelves | IN RESEARCH | rift history, subsidence, sediment, sea level | coasts, slopes, basins | shelf vs submerged-ghost rules researched |
 | O02 | Active margins | IN RESEARCH | subduction/transform style, sediment supply | trenches, narrow shelves, coastal mountains | active/passive contrasts defined |
 | O03 | Continental slopes, rises, and submarine canyons | NOT STARTED | sediment, currents, slope stability | rivers, margins, abyssal plains | cross-scale continuity documented |
@@ -67,10 +67,10 @@
 | I02 | Impact-modified crust and mascons | SCOPED | basin size, melt, crust/mantle density | gravity, volcanism, later tectonics | impact radiality separated from generator blobs |
 | X01 | Climate–orography interaction | NOT STARTED | wind, precipitation, elevation | erosion, glaciers, deserts | feedback directions documented |
 | X02 | Sea-level and ocean-volume thresholds | NOT STARTED | water volume, basin hypsometry, ice | shelves, islands, drainage | connectivity and inundation relations researched |
-| X03 | Temporal evolution / inheritance | IN RESEARCH | process duration, cessation, erosion | every domain | active, waning, fossil, collapsed, and reactivated states specified |
+| X03 | Temporal evolution / inheritance | IN RESEARCH | process duration, cessation, erosion | every domain | active, waning, fossil, collapsed, buried, resurfaced, and reactivated states specified |
 | X04 | Multiscale visual coherence | NOT STARTED | feature size, resolution, projection | every domain | globe-to-local consistency obligations defined |
 | P01 | Procedural mask leakage | SCOPED | categorical fields, smoothing, kernels | every generator stage | signatures and diagnostic tests cataloged |
-| P02 | Radial blob and isotropic kernel failures | SCOPED | distance fields, blur, center weighting | collision, volcanoes, impacts | valid radial exceptions fully separated |
+| P02 | Radial blob and isotropic kernel failures | IN RESEARCH | distance fields, blur, center weighting, physical source scale | collision, volcanoes, impacts | valid volcanic radiality separated from leakage and impact exceptions completed later |
 | P03 | Repetition, tiling, seams, and projection artifacts | NOT STARTED | sampling, wrapping, noise, resolution | multiscale review | failure atlas specified |
 | P04 | Causal-stage provenance and earliest-failure localization | SCOPED | stage outputs, transformations | diagnostics | report requirements defined |
 | R01 | Source provenance and licensing | IN RESEARCH | source type, rights, attribution | all research/assets | reusable licensing rules complete |
@@ -108,5 +108,14 @@ Stage 1 is **not complete** when every row has notes. It is complete only when e
 - V04;
 - X03 active/waning/collapsed/fossil/reactivated states;
 - dependencies identified for S01–S04 and X01, which remain blocked pending dedicated surface-process research.
+
+### Tranche 5 — volcanism and magmatic provinces
+
+- M02–M05;
+- volcanic source, transport, storage, construction, collapse, erosion, and resurfacing framework;
+- hotspot/source-motion and swell framework;
+- large igneous province and volcanic-plateau framework;
+- comparative planetary volcanism and valid-radiality framework;
+- generator-obligation requirements added, but implementation remains deferred.
 
 Reference-image planning remains blocked for the entire Stage 1 program. No domain is yet `SPEC COMPLETE` or `APPROVED`.
