@@ -271,11 +271,25 @@ Collision-belt research remains preliminary until the earlier foundation and reg
 
 ## Current Stage 1 progress
 
-The first committed tranche now contains:
+### Tranche 1 — planetary foundations and geodynamic regimes
 
-- this research charter;
-- the full domain coverage matrix;
-- the authoritative source register;
-- the initial planetary-foundations and geodynamic-regime synthesis.
+Committed research:
 
-No reference-image curation or generation work is present on the branch.
+- `foundations/planetary-foundations-and-geodynamic-regimes.md`
+- initial source and licensing registers;
+- full master coverage matrix.
+
+Status: IN RESEARCH.
+
+### Tranche 2 — crustal architecture and topographic support
+
+Committed research:
+
+- `foundations/crustal-architecture-and-provinces.md`
+- `vertical-motion/isostasy-flexure-and-load-response.md`
+- `vertical-motion/dynamic-topography-and-long-wavelength-support.md`
+- expanded source register covering crustal thickness, gravity/topography inversion, flexural rigidity, foreland systems, impact loading, and mantle-flow support.
+
+Status: IN RESEARCH.
+
+No domain is yet `SPEC COMPLETE` or `APPROVED`. No reference-image curation or generation work is present on the branch.
