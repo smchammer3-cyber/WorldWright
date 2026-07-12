@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { createEmptyLegacyCausalScaffold } from '../causalWorld/schema';
 import { createEmptyCell, type WorldBrain } from '../worldSchema';
+import { CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION } from '../worldSchema/version';
 import {
   computeWorldContentHash,
   saveWorldWithEngine,
@@ -21,11 +23,12 @@ function makeWorld(id = 'world-1'): WorldBrain {
     cultures: [],
     cultureRegions: [],
     cities: [],
+    causal: createEmptyLegacyCausalScaffold(),
     metadata: {
       id,
       name: 'Test World',
       seed: 'seed-1',
-      schemaVersion: '1.0',
+      schemaVersion: CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION,
       version: 'test',
       styleMode: 'EARTHLIKE',
       gridWidth: 1,
@@ -45,7 +48,7 @@ class MemoryWorldStorageEngine implements WorldStorageEngine {
     return [...this.summaries.values()];
   }
 
-  async getWorldById(id: string): Promise<WorldBrain | null> {
+  async getWorldById(id: string): Promise<unknown | null> {
     return this.worlds.get(id) ?? null;
   }
 
@@ -83,11 +86,15 @@ class MemoryWorldStorageEngine implements WorldStorageEngine {
 }
 
 describe('world storage transitional hardening', () => {
-  it('stamps saved worlds and summaries with revision/hash/status placeholders', async () => {
+  it('stamps saved worlds and summaries with revision/hash/schema/authority metadata', async () => {
     const engine = new MemoryWorldStorageEngine();
-    const saved = await saveWorldWithEngine(makeWorld(), engine);
+    const original = makeWorld();
+    const originalBeforeSave = structuredClone(original);
+    const saved = await saveWorldWithEngine(original, engine);
     const [summary] = await engine.listWorldSummaries();
 
+    expect(original).toEqual(originalBeforeSave);
+    expect(saved).not.toBe(original);
     expect(saved.metadata.contentHash).toMatch(/^fnv1a32-[0-9a-f]{8}$/);
     expect(saved.metadata.revisionId).toBe(`${saved.metadata.id}:${saved.metadata.updatedAt}:${saved.metadata.contentHash}`);
     expect(computeWorldContentHash(saved)).toBe(saved.metadata.contentHash);
@@ -95,6 +102,8 @@ describe('world storage transitional hardening', () => {
       id: saved.metadata.id,
       revisionId: saved.metadata.revisionId,
       contentHash: saved.metadata.contentHash,
+      schemaVersion: CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION,
+      generatorAuthorityMode: 'LEGACY',
       status: {
         needsAttention: false,
         missingAssets: false,
@@ -126,11 +135,14 @@ describe('world storage transitional hardening', () => {
     expect(await engine.listWorldSummaries()).toEqual([]);
   });
 
-  it('summarizeWorld exposes default status placeholders for unsaved transitional callers', () => {
+  it('summarizeWorld exposes current schema and LEGACY authority for unsaved callers', () => {
     const summary = summarizeWorld(makeWorld('summary-world'));
 
     expect(summary.status.needsAttention).toBe(false);
+    expect(summary.status.migrationRequired).toBe(false);
     expect(summary.status.simBranchCount).toBe(0);
+    expect(summary.schemaVersion).toBe(CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION);
+    expect(summary.generatorAuthorityMode).toBe('LEGACY');
     expect(summary.revisionId).toBe('');
     expect(summary.contentHash).toBe('');
   });
