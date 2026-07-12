@@ -81,6 +81,20 @@ describe('world document migration', () => {
     expect(result.report.assumptions.some((entry) => entry.code === 'CLASSIFIED_UNVERSIONED_V3_WORLD')).toBe(true);
   });
 
+  it('reclassifies a transitional current-shaped string 1.0 document as v3', () => {
+    const raw = createV3World() as unknown as Record<string, unknown>;
+    raw.metadata = { ...(raw.metadata as Record<string, unknown>), schemaVersion: '1.0' };
+
+    const result = migrateWorldDocument(raw);
+    expect(result.status).toBe('MIGRATED_IN_MEMORY');
+    if (result.status !== 'MIGRATED_IN_MEMORY') return;
+    expect(result.report.decodedSourceVersion).toBe(3);
+    expect(
+      result.report.assumptions.some((entry) => entry.code === 'RECLASSIFIED_STRING_1_0_AS_V3_COMPAT')
+    ).toBe(true);
+    expect(result.world.metadata.schemaVersion).toBe(CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION);
+  });
+
   it('protects unsupported newer documents from downgrade', () => {
     const raw = createV3World() as unknown as Record<string, unknown>;
     raw.metadata = { ...(raw.metadata as Record<string, unknown>), schemaVersion: 999 };
