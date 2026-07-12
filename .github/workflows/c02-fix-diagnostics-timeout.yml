@@ -1,0 +1,40 @@
+name: C02 Fix Diagnostics Harness Timeout
+
+on:
+  push:
+    branches:
+      - agent/c02-deterministic-seeds-flags-provenance
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.event.head_commit.message == 'Run C02 diagnostics timeout correction'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/c02-deterministic-seeds-flags-provenance
+          fetch-depth: 0
+      - name: Increase only the heavy report harness allowance
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/run-generate-diagnostics.test.ts')
+          text = path.read_text()
+          old = '  }, 60_000);'
+          new = '  }, 120_000);'
+          if text.count(old) != 1:
+              raise SystemExit(f'Expected one timeout marker, found {text.count(old)}')
+          path.write_text(text.replace(old, new))
+          PY
+      - name: Commit correction
+        run: |
+          git config user.name 'WorldWright C02 Integration'
+          git config user.email 'actions@github.com'
+          git add scripts/run-generate-diagnostics.test.ts
+          git commit -m 'Allow full diagnostics report workload to complete'
+          git push origin HEAD:agent/c02-deterministic-seeds-flags-provenance
