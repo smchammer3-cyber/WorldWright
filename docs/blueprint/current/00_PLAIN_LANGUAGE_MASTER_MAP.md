@@ -2,7 +2,7 @@
 
 ## Why this document exists
 
-This is the non-technical explanation of what WorldWright is building. When the project feels muddy, this document should answer four questions:
+This is the non-technical explanation of what WorldWright is building. When the project feels muddy, this document should answer:
 
 1. What are we trying to create?
 2. What step are we currently working on?
@@ -14,42 +14,58 @@ This is the non-technical explanation of what WorldWright is building. When the 
 WorldWright should create a biography for a planet before it draws the planet.
 
 ```text
-facts about the planet
-  → what kind of planet is possible
-  → what is happening inside it
-  → what happened during its history
-  → what major structures survived
-  → how those structures affect each place
-  → what terrain should exist today
+choose the starting facts
+  → decide what kind of planet those facts allow
+  → decide how the inside behaves
+  → create broad chapters of geological history
+  → create the major structures left by that history
+  → spread their influence over the globe
+  → create the first terrain
+  → let water, climate, ice, wind, and sediment reshape it
+  → derive the final surface world
 ```
 
-The visible globe is the final consequence, not the first guess.
+The visible globe is the consequence, not the first guess.
 
-## Stage 1 — approved planetary facts
+## Stage 0 — the request and identity
 
-WorldWright begins with facts such as size, density, age, water inventory, heat sources, orbit, star, and deliberate fictional exceptions.
+The user, template, or Generate profile supplies constraints and a root seed. Planet Identity gives the world a stable lineage and coordinate namespace.
 
-It must not begin with conclusions such as continent count, mountain location, tectonic vigour, ocean shapes, or a land mask.
+A display name or timestamp never decides the planet's geology.
 
-The input firewall is like giving a doctor symptoms and measurements without secretly giving the diagnosis.
+## Stage 1 — create the starting conditions
 
-## Stage 2 — planetary premise
+Some users will specify planet size, water, age, orbit, or unusual rules. Others will simply press Generate.
 
-The premise answers: what broad kind of world can these facts support?
+When facts are missing, an **initial-condition resolver** uses the root seed and generation profile to choose them from approved ranges. It may choose size, density, age, star/orbit context, volatile inventory, atmosphere boundary, rotation, and declared fictional exceptions.
 
-It may conclude that the world is rocky, icy, ocean-covered, volcanically resurfaced, impact-dominated, or something explicitly fictional. It records what is certain, what remains uncertain, and what cannot yet be decided.
+It may not choose continent shapes, mountains, plates, tectonic history, or terrain.
 
-There are still no continents or mountains.
+Every starting fact records whether it came from the user, a template, an import, or a deterministic generated default.
 
-## Stage 3 — interior and rheology
+## Stage 2 — clean and verify those facts
 
-This stage answers: how does the inside behave, and how easily can the outer shell move or break?
+The sanitizer checks units, ranges, source identity, contradictions, and approved physical formulas. It rejects old generator conclusions disguised as facts.
 
-It resolves ranges and tendencies such as remaining heat, crust production, shell mobility, rifting, plume activity, recycling, and surface preservation.
+This is like giving a doctor measurements and symptoms without secretly inserting the diagnosis.
 
-It does not simulate every atom. It produces a compact, scientifically constrained description that later stages can use.
+## Stage 3 — planetary premise
 
-## Stage 4 — geological history
+The premise answers: what broad kind of body and surface-layer arrangement can these facts support?
+
+It may conclude that the world supports rocky layers, an ice shell, a deep ocean, exposed regolith, or another explicitly approved physical arrangement. It records what is certain, uncertain, or blocked.
+
+It does **not** decide that the world already experienced volcanism, impacts, rifting, or plate tectonics. Those are later conclusions.
+
+## Stage 4 — interior and rheology
+
+This stage asks: what is happening inside, and how easily can the outer shell bend, break, move, melt, or preserve old surfaces?
+
+It resolves ranges and capabilities such as remaining heat, shell mobility, melt potential, rift potential, plume potential, and crust-production capacity.
+
+It does not simulate every atom and it does not place continents or events.
+
+## Stage 5 — geological history
 
 WorldWright creates a small number of meaningful eras rather than billions of tiny time steps.
 
@@ -61,50 +77,68 @@ early hot resurfacing
   → a major rift opens
   → an ocean basin grows
   → convergence closes part of the basin
-  → a mountain belt forms and later erodes
+  → a mountain belt forms
 ```
 
 History explains why features have age, ancestry, direction, and relationships.
 
-## Stage 5 — geologic spine
+## Stage 6 — geologic spine
 
 The geologic spine is the planet's structural skeleton.
 
-It stores major continental kernels, ocean basins, rifts, convergence belts, transforms, plume systems, accreted fragments, and inherited scars. These are spherical objects and relationships, not painted pixels.
+It stores major continental kernels, ocean basins, rifts, convergence belts, transforms, plume systems, accreted fragments, impacts, and inherited scars as spherical objects and relationships—not painted pixels.
 
-A mountain belt later exists because the spine records a supported event and structure—not because noise happened to be high.
-
-## Stage 6 — process fields
+## Stage 7 — process fields
 
 The spine is made spatially useful by spreading its influence over the globe.
 
 At every location, process fields answer questions such as:
 
 - how continental or basin-like is this place?
-- how strongly is it being uplifted or pulled apart?
+- how strongly is it being uplifted, pulled apart, or sheared?
 - how volcanic is it?
-- how old and resistant is its material?
-- which direction should ridges and valleys tend to follow?
+- how resistant is its material?
+- which direction should major structures follow?
 
-These fields are causes and permissions, not final height.
+These fields are geological causes and permissions, not final height and not climate-driven erosion.
 
-## Stage 7 — structure and terrain birth
+## Stage 8 — structural roles and materials
 
-Terrain Birth converts approved causes into height and material structure.
+Continuous fields are grouped into understandable regional roles: continental interiors, margins, shelves, slopes, deep basins, arcs, ridges, drowned fragments, and material provinces.
 
-Randomness may make a valid mountain belt irregular, choose between equally valid branches, or add local texture. Randomness may not create an unsupported continent, mountain, trench, rift, or ocean basin.
+This preserves the useful ideas in the older Continent/Ocean Structure and crust blueprints without allowing them to become hidden land masks.
 
-## Stage 8 — surface consequences
+## Stage 9 — landform potential and suppression
 
-After terrain exists, later systems derive:
+Landmass Genesis answers where continent-like, island-like, plateau-like, basin-like, ice-shell, impact, or other approved forms may be born—and where they must be suppressed.
 
-- sea level, land, and water;
-- ocean shelves, slopes, ridges, and trenches;
-- downhill drainage and river basins;
-- climate influenced by latitude, elevation, oceans, and circulation;
-- biomes and materials;
-- resources and future worldbuilding;
-- final visual presentation.
+It still does not decide final land or water.
+
+## Stage 10 — base Terrain Birth
+
+Base Terrain Birth creates the solid-body starting height from approved geological causes.
+
+Randomness may make a valid mountain belt irregular or add local texture. It may not create an unsupported continent, mountain, trench, rift, or basin.
+
+Climate-driven river erosion, glaciers, dunes, and marine sediment do not belong in this first pass.
+
+## Stage 11 — provisional surface state
+
+WorldWright temporarily fills water, finds drainage, and estimates a climate boundary from the base terrain and planetary conditions.
+
+This provisional state exists only to drive surface processes. It is not yet the final coastline, river network, or climate record.
+
+## Stage 12 — bounded surface-process evolution
+
+Water, ice, wind, weathering, mass movement, marine processes, and sediment may reshape the base terrain through a fixed, budgeted number of passes.
+
+These processes may wear down a mountain or fill a basin. They may not erase the recorded fact that the mountain was caused by convergence or that the basin belongs to an older rift.
+
+The loop cannot run forever and cannot rewrite the interior, history, or geologic spine.
+
+## Stage 13 — final surface consequences
+
+After surface evolution, WorldWright recomputes final terrain, sea level, land/water, bathymetry, drainage, climate, biomes, materials, resources, and presentation.
 
 Later systems may respond to geology. They may not rewrite its history to make their outputs easier.
 
@@ -112,21 +146,15 @@ Later systems may respond to geology. They may not rewrite its history to make t
 
 WorldWright decides the house before placing every nail.
 
-It resolves a small premise, a compact interior, several eras, and a limited global graph. Only then does it spread causes over the world grid. Fine local detail can be generated later or on demand.
+It resolves a compact set of starting facts, one premise, one interior, several eras, and a limited global graph. It spreads those causes once, then performs bounded grid work. Fine local detail can be generated later or on demand.
 
-It avoids the impossible approach of simulating every point for every year of planetary history.
+It does not simulate every point for every year of planetary history.
 
 ## What shadow mode is for
 
 Shadow mode lets the new causal system produce independent records and maps while the legacy generator still draws the visible planet.
 
-Shadow mode proves that the new system can:
-
-- operate without reading the legacy answer;
-- replay deterministically;
-- produce coherent relationships;
-- remain within performance limits;
-- explain its uncertainty and failures.
+It proves the system can operate without reading the old answer, replay deterministically, produce coherent relationships, stay within performance limits, and explain uncertainty and failures.
 
 Shadow mode is not the final destination.
 
@@ -136,31 +164,30 @@ Shadow mode is not the final destination.
 1. causal records only
 2. diagnostic causal maps
 3. causal ownership of major geological identities
-4. causal ownership of process fields
-5. causal Terrain Birth experiment
-6. active causal geology
-7. retirement or isolation of legacy geological authority
+4. causal ownership of process fields and structural roles
+5. a separate full causal terrain candidate
+6. one complete physical route selected per generated world
+7. active causal geology
+8. legacy isolation or retirement
 ```
 
-Each step is narrow, reversible, measured, and separately approved.
+Legacy and causal terrain candidates may be compared side by side, but they never both write the same world's final height.
 
 ## The current step
 
-The current project task is blueprint reconciliation. We are making one authoritative map that joins the existing subsystem blueprints with the newer input firewall, geological history, evidence, performance, and authority-promotion architecture.
-
-W1-01 remains a draft implementation. W1-02 must not begin until the governing blueprint and W1-01 are separately reviewed and approved.
+The current task is blueprint reconciliation and audit. W1-01 remains a draft implementation. Premise implementation must not begin until the governing blueprint and W1-01 are separately reviewed and approved, and the initial-condition adapter is defined.
 
 ## What success ultimately looks like
 
-When a planet looks wrong, WorldWright should be able to say where the mistake began:
+When a planet looks wrong, WorldWright should be able to identify the earliest wrong cause:
 
 ```text
-planetary premise: plausible
+initial conditions: plausible
+premise: plausible
 interior: plausible
 history: plausible
 geologic spine: one basin was oversized
-process fields: faithfully reflected that basin
-terrain: correctly followed the bad spine
+process fields and terrain: faithfully reflected that bad basin
 ```
 
-Then the earliest wrong cause can be corrected without patching every downstream system.
+Then the basin rule can be corrected instead of patching every downstream system.

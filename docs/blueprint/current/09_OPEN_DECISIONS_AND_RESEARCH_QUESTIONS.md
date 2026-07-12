@@ -2,218 +2,179 @@
 
 ## Purpose
 
-A truthful technical blueprint distinguishes fixed architecture from decisions that require evidence, prototypes, or user approval. These items are deliberately open; they are not permission for implementations to choose silently.
+Fixed architecture is separated from choices requiring evidence, prototypes, or user approval. Open items are not permission for implementations to choose silently.
 
-## D1 — declared input source and legacy migration
+## D0 — initial-condition generation
 
-### Fixed
+**Fixed:** Generate Mode must work when the user does not supply every physical fact; seed-generated defaults cannot contain solved geology.
 
-Causal resolvers receive `CausalGeologyInputV1`, never `PlanetFoundationSnapshot` or `WorldBrain`.
+**Open:** initial condition vocabulary, natural ranges, generation-profile constraints, source precedence, and which values are user-visible.
 
-### Open
+**Gate:** before premise work, approve `GenerationRequestV1`, `PlanetInitialConditionBundleV1`, deterministic stream, ranges, and override tests.
 
-Which current UI/generator values qualify as literal declarations, and which require recomputation or rejection?
+## D1 — current control migration
 
-### Resolution gate
+**Fixed:** causal resolvers receive a clean initial-condition bundle and `CausalGeologyInputV1`, never `PlanetFoundationSnapshot` or `WorldBrain`.
 
-Before premise implementation, commit a field-by-field migration table and tests proving forbidden legacy conclusions cannot enter the causal input.
+**Open:** which current UI/template fields are literal constraints, which become reality/exception permissions, and which are rejected conclusions.
 
-## D2 — approved physical derivation formulas
+**Gate:** field-by-field migration table and firewall tests before W1-02.
 
-### Fixed
+## D2 — identity and causal hashing
 
-Mass, gravity, escape velocity, stellar flux, and total heat require versioned formulas and dependencies.
+**Fixed:** display names, timestamps, storage IDs, birth IDs, and revision IDs do not affect physical generation.
 
-### Open
+**Open:** stable seed-derived identity fingerprint and envelope linkage contract.
 
-Exact units, reference constants, precision, clamping, and evidence bundle.
+**Gate:** identity/hash metamorphic tests before initial-condition integration.
 
-### Resolution gate
+## D3 — approved physical derivations
 
-Each formula activates in a narrow reviewed PR with threshold tests and provenance. Reserved derivations remain unusable until then.
+**Fixed:** mass, gravity, escape velocity, stellar flux, total heat, and similar quantities require versioned formulas and dependencies.
 
-## D3 — planetary premise categories
+**Open:** constants, units, precision, clamping, and evidence.
 
-### Fixed
+**Gate:** narrow formula PRs; reserved derivations remain unusable until approved.
 
-Premise resolves broad world/layer/surface alternatives without spatial geology.
+## D4 — premise categories
 
-### Open
+**Fixed:** premise resolves body/layer/surface-medium alternatives without tectonic or spatial geology.
 
-The initial category vocabulary and the boundaries between natural, unsupported, and declared fictional states.
+**Open:** vocabulary and natural/unsupported/fictional boundaries.
 
-### Resolution gate
+**Gate:** premise research bundle, calibration/holdout archetypes, and review.
 
-W1-02 research bundle and controlled archetype review.
+## D5 — interior relations
 
-## D4 — interior scientific relations
+**Fixed:** interior produces bounded capability ranges, not events.
 
-### Fixed
+**Open:** equations/rule tables, applicability, correlated evidence, and calibration.
 
-Interior outputs bounded ranges for heat, rheology, lid behavior, convection, melting, rift, and plume tendencies.
+**Gate:** reviewed claims, sensitivity directions, and holdout tests before implementation.
 
-### Open
+## D6 — history time and granularity
 
-The first reviewed equations or rule tables and how correlated evidence affects weights.
+**Fixed:** bounded contiguous eras with inheritance and total resolved duration.
 
-### Resolution gate
+**Open:** typical counts, trigger vocabulary, persistence, absolute-age conversion, and time represented by surface evolution.
 
-Interior implementation cannot begin until the affected claim rules and expected sensitivity directions are written and reviewed.
+**Gate:** controlled prototypes across heat/mobility families before freezing.
 
-## D5 — geological history granularity
+## D7 — spine population model
 
-### Fixed
+**Fixed:** bounded spherical graph with stable identities and ancestry.
 
-History uses a bounded number of meaningful eras and contiguous normalized time.
+**Open:** candidate counts, spatial competition, coverage, impacts, and mandatory edge compatibility.
 
-### Open
+**Gate:** implementation brief plus positive, negative, threshold, and exception graphs.
 
-Typical epoch count, transition trigger vocabulary, persistence rules, and any later mapping to absolute ages.
+## D8 — process-field representation
 
-### Resolution gate
+**Fixed:** geological fields spatialize spine causes and exclude climate-driven surface outcomes.
 
-History prototypes must demonstrate stable behavior across controlled heat/mobility families before counts are frozen.
+**Open:** analytic kernels, coarse icosphere/grid, spherical basis functions, hybrid representation, directional tensors, and projection versioning.
 
-## D6 — geologic-spine population model
+**Gate:** prototype comparison for determinism, seams, resolution stability, memory, speed, and interpretability.
 
-### Fixed
+## D9 — structural-stage decomposition
 
-The spine is a bounded spherical graph with stable identities, relationships, events, and ancestry.
+**Fixed:** explicit structural roles, material state, and landform potential exist before height.
 
-### Open
+**Open:** whether continent/ocean roles and material provinces share a sampling graph or remain separate processes; exact record boundaries.
 
-How candidate counts and spatial competition are derived from history, how global coverage is enforced without template copying, and which edge compatibilities are scientifically mandatory.
+**Gate:** reconcile the old Continent/Ocean, crust, and Landmass documents before code.
 
-### Resolution gate
+## D10 — numeric calibration policy in practice
 
-Spine implementation brief plus controlled positive, negative, threshold, and exception graphs.
+**Fixed:** old draft weights are illustrative; promoted natural-world numbers require source-backed relations or calibration plus holdout validation.
 
-## D7 — canonical process-field representation
+**Open:** fitting method, corpus size, acceptable error metrics, and who may approve provisional versus reviewed rules.
 
-### Fixed
+**Gate:** approved calibration protocol before any old coefficient is implemented.
 
-Process fields spatialize spine causes and remain separate from final height.
+## D11 — base Terrain Birth strategy
 
-### Open
+**Fixed:** base terrain has one composer and excludes climate-driven surface evolution.
 
-Whether canonical fields use spherical basis functions, a coarse icosphere/grid, analytic source kernels, or a hybrid; how projection to Generate resolution is versioned; and how directional tensors are represented.
+**Open:** adapt current code or build clean; exact geological terrain terms and first prototype resolution.
 
-### Resolution gate
+**Gate:** current-code audit and isolated prototype decision.
 
-A dedicated prototype comparison must measure determinism, resolution stability, memory, speed, seam behavior, and field interpretability before authority promotion.
+## D12 — provisional environment
 
-## D8 — structure/material state contract
+**Fixed:** surface processes need temporary water/drainage/climate/ice/wind boundaries that cannot feed upstream geology.
 
-### Fixed
+**Open:** minimum atmosphere/rotation/stellar inputs, climate fidelity, water-fill method, and provisional/final recomputation differences.
 
-A causal material/permission layer must exist between process fields and Terrain Birth.
+**Gate:** boundary-state contract before surface-process implementation.
 
-### Open
+## D13 — surface-process schedule
 
-Exact province records, material vocabulary, crustal thickness/buoyancy representation, and the boundary between geological material and later surface material.
+**Fixed:** fixed versioned schedule, hard pass/time ceilings, immutable pass snapshots, one final terrain composer.
 
-### Resolution gate
+**Open:** component order/operator splitting, time scales, step sizes, conservation/stability metrics, and local refinement.
 
-Reconcile the existing crust/material blueprints before a process-field owner can feed terrain.
+**Gate:** Landlab-informed prototypes and stability/performance benchmarks before terrain promotion.
 
-## D9 — Terrain Birth implementation strategy
+## D14 — performance budgets
 
-### Fixed
+**Fixed:** each stage reports time, memory, output size, counts, retries, passes, and cache behavior.
 
-Terrain terms require causal gates; seeded detail cannot invent causes.
+**Open:** target numbers on supported hardware.
 
-### Open
+**Gate:** first benchmark harness before W1-02 merge; frozen stage budgets before each algorithmic merge.
 
-Whether to adapt the current Terrain Birth code behind a new input contract or build a clean causal implementation, and which terrain terms transfer first.
+## D15 — full-page screenshot policy
 
-### Resolution gate
+**Fixed:** screenshots are not causal identity; physical data and controlled globe captures remain strict evidence.
 
-Code audit of current Terrain Birth against the reconciled input/ownership contract, followed by an isolated prototype decision.
+**Open:** stabilize capture or use a narrow structural/pixel tolerance for the full UI page.
 
-## D10 — performance budgets
+**Gate:** separate CI planning/implementation PR.
 
-### Fixed
+## D16 — fictional and artificial exceptions
 
-Every stage has hard ceilings and reports runtime, memory, output size, counts, retries, and cache behavior.
+**Fixed:** exceptions are explicit, provenance-linked, and cannot silently weaken natural rules.
 
-### Open
+**Open:** taxonomy, compatibility, and evidence expectations.
 
-Actual target and regression numbers on supported hardware.
+**Gate:** exception-specific claim bundles and negative tests.
 
-### Resolution gate
+## D17 — promotion scope
 
-W1-02 establishes the first benchmark harness and baseline before any algorithm is promoted. Later stages add frozen budgets before merge.
+**Fixed:** one complete physical route owns a generated world's physical fields. No cross-pipeline height blending.
 
-## D11 — full-page screenshot policy
+**Open:** first promoted profile/cohort and whether identity authority precedes a complete candidate route.
 
-### Fixed
+**Gate:** use diagnostic evidence to choose the smallest complete route promotion with rollback.
 
-Screenshots are not causal world identity. Physical data and authoritative globe captures remain strict evidence.
+## D18 — blueprint/downstream inventory
 
-### Open
+**Fixed:** unlisted old documents are subordinate and cannot authorize implementation.
 
-Whether to stabilize browser capture fully or adopt a narrowly bounded tolerance/structural comparison for the full application-page screenshot.
+**Open:** full classification of downstream ocean, hydrology, climate, biome, material, resource, micro-tile, and handoff blueprints.
 
-### Resolution gate
+**Gate:** classify each affected downstream document before causal physical promotion reaches it.
 
-Separate CI planning and implementation PR. Blueprint merge does not change current workflows.
+## D19 — W1-01 reconciliation
 
-## D12 — fictional and artificial exceptions
+**Fixed:** PR #133 remains separate and unmerged during blueprint work.
 
-### Fixed
+**Open:** amendments required for initial conditions, identity envelopes, comparison adapter placement, history duration, future field groups, and screenshot policy.
 
-Declared exceptions are explicit inputs with provenance and cannot silently weaken natural-world rules.
-
-### Open
-
-Exception taxonomy, compatibility rules, and how fictional physics changes downstream evidence expectations.
-
-### Resolution gate
-
-No exception executes until its own premise/interior claim bundle and negative tests are approved.
-
-## D13 — active-authority promotion scope
-
-### Fixed
-
-Authority transfers one named domain at a time with rollback and no dual writers.
-
-### Open
-
-The first domain to transfer after shadow projections: identities, process fields, basin support, continental support, or another bounded field.
-
-### Resolution gate
-
-Use W1-06 evidence to choose the smallest domain that provides real value without forcing premature terrain ownership.
-
-## D14 — W1-01 reconciliation
-
-### Fixed
-
-PR #133 remains separate and unmerged during blueprint work.
-
-### Open
-
-Which audited W1-01 changes need rebase or amendment after the governing blueprint is approved, especially screenshot policy, future field groups, and exact type completeness.
-
-### Resolution gate
-
-Audit PR #133 against the merged governing blueprint before any merge decision.
+**Gate:** audit/rebase PR #133 against the merged governing blueprint before any merge decision.
 
 ## Decision-record format
-
-When one of these items is resolved, record:
 
 ```text
 decision ID
 chosen option
 alternatives considered
 evidence and prototype results
-affected blueprint sections
-affected schemas/processes
+affected blueprints/schemas/processes
 performance implications
 migration and rollback
 user approval and merge reference
 ```
 
-Resolved decisions are moved into the governing technical documents; they do not remain as hidden assumptions in code.
+Resolved decisions move into governing documents; they do not remain hidden in code.

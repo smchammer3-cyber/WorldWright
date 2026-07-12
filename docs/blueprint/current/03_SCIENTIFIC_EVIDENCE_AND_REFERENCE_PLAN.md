@@ -4,21 +4,21 @@
 
 WorldWright must be scientifically grounded without pretending to be a complete predictive planetary-physics model.
 
-The system therefore stores the reason for each scientific relationship, the range where it applies, uncertainty, exceptions, and contradictions.
+Every scientific relationship records why it exists, where it applies, uncertainty, exceptions, contradictions, and how it was tested.
 
-## Evidence layers
+## Evidence classes
 
 ### Direct observation or authoritative data
 
-Measurements and datasets from planets, laboratory work, or reviewed models.
+Measurements and maintained datasets from planetary missions, laboratory work, or authoritative scientific institutions.
 
-### Reviewed scientific relation
+### Primary reviewed research
 
-A source-backed rule or bounded tendency approved for runtime use.
+Peer-reviewed work presenting a model, experiment, reconstruction, or observation.
 
-### Synthesis
+### Review or synthesis
 
-A reviewed summary combining several sources, with correlation groups preventing duplicated evidence from manufacturing confidence.
+A reviewed summary combining sources. Correlation groups prevent repeated versions of the same evidence from manufacturing confidence.
 
 ### Controlled archetype
 
@@ -32,131 +32,119 @@ A visible provisional idea. It may drive diagnostics or a blocked result but may
 
 Runtime code never browses the web or improvises scientific facts. Reviewed source and claim bundles are committed, versioned fixtures.
 
-Each runtime claim rule records:
+Each claim rule records:
 
 ```text
 rule ID and version
 scientific domain
-source IDs
-applicable input ranges
+source IDs and quality classes
+applicable world/material/input ranges
 expected relationship or allowed alternatives
 units and scale
+calibration method
 weight/reliability rationale
-correlation group
+correlation group and independence notes
 known exceptions
 review status and reviewer
-limitations
+limitations and falsification tests
 ```
+
+## Review states
+
+- `RESEARCH_REQUIRED`: not allowed to drive authoritative natural-world output.
+- `PROVISIONAL`: may run in shadow with explicit low confidence and limitations.
+- `REVIEWED`: may drive the approved scope after source, applicability, and tests are reviewed.
+- `DEPRECATED`: retained for replay/migration but unavailable to new runs.
+
+A code review is not automatically a scientific review. The review record must state what was checked and by whom. Lack of domain-expert review remains a visible limitation rather than being hidden.
+
+## Numeric policy
+
+All coefficients, thresholds, probabilities, candidate-score weights, and category boundaries require one of:
+
+1. a source-backed physical relation;
+2. calibration against a declared training/reference set followed by validation on a separate holdout set;
+3. an explicitly provisional heuristic that cannot be promoted beyond shadow authority.
+
+Numbers appearing in older draft blueprints are illustrative examples unless separately approved under this policy. Passing a visual test does not convert a guessed coefficient into science.
 
 ## Confidence is not probability
 
-WorldWright keeps two questions separate:
+WorldWright keeps separate:
 
-1. How likely is this alternative inside the model?
-2. How strong is the evidence supporting that estimate?
+1. estimated probability inside the chosen model;
+2. evidential confidence in that estimate;
+3. model coverage—whether the applicable world family has adequate evidence at all.
 
-A model may choose the most plausible branch while still recording low confidence.
+A branch may be the most plausible option while confidence and coverage remain low.
 
 ## Contradictions
 
-Incompatible active claims create explicit contradiction records. High-severity contradictions block the affected domain unless independence is proven. Dismissal explains why claims are not comparable; it never fabricates a winning claim.
+Incompatible active claims create explicit contradiction records. High-severity contradictions block the affected domain unless independence or different applicability is proven. Dismissal explains non-comparability; it never fabricates a winner.
 
 ## Reference corpus
 
-The corpus is divided into five categories.
+The corpus contains:
 
-### Positive references
+- positive references;
+- threshold references;
+- negative references;
+- exception references;
+- missing-coverage records.
 
-Examples where a cause and expected consequence are well supported.
-
-### Threshold references
-
-Cases near a transition, used to prevent hard arbitrary cliffs or insensitive models.
-
-### Negative references
-
-Impossible or unsupported combinations that must not pass.
-
-### Exception references
-
-Known natural or declared fictional cases that would otherwise look contradictory.
-
-### Missing coverage
-
-Areas without enough reviewed evidence. Missing coverage is reported, not treated as success.
+References are divided into calibration and holdout validation sets. A rule may not be tuned against the same examples later presented as independent proof.
 
 ## Planetary behavior families
 
-Initial broad test families include:
+Initial broad validation families include active mobile-lid, stagnant-lid, old low-heat preserved, high-heat resurfacing, rift-dominated, plume-dominated, water-rich rocky, dry rocky, tidally heated, impact-dominated, fractured ice-shell, and approved artificial/fantasy worlds.
 
-- active mobile-lid rocky world;
-- stagnant-lid rocky world;
-- old low-heat preserved world;
-- high-heat resurfacing world;
-- rift-dominated world;
-- plume-dominated world;
-- water-rich rocky world;
-- dry rocky world;
-- tidally heated world;
-- impact-dominated world;
-- fractured ice-shell world;
-- approved artificial/fantasy exception.
+These are whole-pipeline validation families. They are not all planetary-premise categories.
 
 Known Solar System bodies provide behavior anchors, not templates to copy pixel-for-pixel.
 
 ## Geological feature families
 
-The evidence library should cover at least:
+The evidence library should cover cratons, rifts, passive margins, spreading ridges, ocean-floor age tendencies, subduction, trenches, arcs, collision belts, foreland basins, transforms, inherited grain, plume provinces, hotspot tracks, accretion, old eroded mountains, basin subsidence, sediment loading, isostatic response, and impacts where supported.
 
-- cratons and old continental kernels;
-- continental rifting and failed rifts;
-- passive margins;
-- spreading ridges and ocean-floor age tendencies;
-- subduction, trenches, volcanic arcs, and forearc/backarc relationships;
-- continent-continent collision and foreland basins;
-- transforms and inherited structural grain;
-- plume provinces and hotspot tracks;
-- accretion and terranes;
-- old eroded mountain belts;
-- basin subsidence, sediment loading, and isostatic response;
-- impact structures where the premise supports them.
+## Surface-process families
+
+Before final terrain authority, the evidence plan must also cover river incision and deposition, hillslope diffusion/mass movement, glacial erosion/deposition, aeolian transport, coastal/marine sediment, weathering, and scale/time-step sensitivity.
 
 ## Rule tests rather than image copying
 
-A reference image is evidence of relationships and morphology families, not a required outline.
+A reference image is evidence of relationships and morphology families, not a required outline. A collision-belt test asks whether convergence, thickening, uplift, adjacent basin tendency, age, and erosion are coherent; it does not require matching the Himalaya's shape.
 
-For example, a collision-belt test asks whether convergence, thickening, uplift, adjacent basin tendency, age, and erosion are mutually coherent. It does not require a generated range to match the Himalaya's exact shape.
+## Sensitivity and metamorphic tests
 
-## Sensitivity tests
-
-Each reviewed relation declares what should happen when one approved direct input changes while others remain fixed.
+Each reviewed relation declares expected behavior when one approved input changes while others remain fixed.
 
 Examples:
 
 - decreasing internal heat should not produce unexplained stronger global resurfacing;
-- increasing water inventory should not directly create tectonic convergence;
-- changing renderer colors must never alter causal records;
-- perturbing legacy terrain while causal inputs remain fixed must not change causal outputs.
+- changing a world ID, display name, timestamp, or renderer color must not change causal output;
+- perturbing legacy terrain while causal inputs remain fixed must not change causal outputs;
+- changing execution order or thread count must not change deterministic records;
+- increasing surface-process pass count within the approved stability range must not create unbounded divergence.
 
 Unknown sensitivity is marked research-required rather than invented.
 
-## Working precedents and their limits
+## Working precedents and limits
 
 ### GPlates
 
-GPlates demonstrates that geological features can be represented on a sphere, related to plate/reconstruction models, and manipulated through geological time. WorldWright uses this as precedent for time-aware spherical identities and geometry—not as proof that a fictional planet can be inferred uniquely.
+GPlates demonstrates spherical geological features and manipulation/reconstruction through geological time. It supports the representation pattern, not automatic generation of a uniquely correct fictional history.
 
 ### Landlab and CSDMS-style components
 
-Landlab demonstrates modular process components, grids, fields, boundary conditions, flow, erosion, diffusion, tectonic and lithology components. WorldWright uses this as precedent for separating process ownership and coupling through explicit fields—not as a drop-in planet generator.
+Landlab demonstrates explicit grids, fields, boundary conditions, and modular components for flow, erosion, diffusion, tectonics, lithology, and related surface processes. It supports the coupling pattern, not WorldWright's scientific calibration.
 
 ### Counter-based random generation
 
-Philox/Random123 demonstrates independently addressable reproducible random values suitable for parallel computation. WorldWright uses that pattern so an unrelated branch cannot scramble all later decisions.
+Philox/Random123 demonstrates independently addressable reproducible random values suitable for parallel computation. It supports deterministic branch addressing, not geological validity.
 
 ### Staged rollout
 
-Canary and staged-rollout practice demonstrates gradual responsibility expansion with measured stop conditions. WorldWright applies the pattern to authority ownership, not to user traffic.
+Staged rollout demonstrates a risk-management pattern: expand responsibility gradually, monitor metrics, and stop on regression. It is an analogy for authority promotion, not scientific evidence for the generator.
 
 ## Source references
 
@@ -167,4 +155,4 @@ Canary and staged-rollout practice demonstrates gradual responsibility expansion
 - Salmon et al. (2011), “Parallel Random Numbers: As Easy as 1, 2, 3,” DOI 10.1145/2063384.2063405.
 - Zhao, Liu, and Deb (2019), “Safely and Quickly Deploying New Features with a Staged Rollout Framework,” arXiv:1905.10493.
 
-These precedents prove that the architectural pieces function. They do not prove that WorldWright's first scientific weighting will be correct; that is why controlled references, uncertainty, diagnostics, and bounded promotion remain mandatory.
+These sources demonstrate that individual architectural patterns function. They do not prove that WorldWright's scientific rules or combined pipeline are correct. That must be established through source-backed rules, controlled references, holdout tests, uncertainty, diagnostics, and bounded promotion.

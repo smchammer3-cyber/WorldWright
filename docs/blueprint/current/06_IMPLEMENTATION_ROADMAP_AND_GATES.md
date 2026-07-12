@@ -2,167 +2,132 @@
 
 ## Principle
 
-Implementation proceeds from foundations to actual authority. Planning and audits must remain subordinate to the goal of producing a causally authored planet.
+Implementation proceeds from foundations to actual authority. Planning and audits remain subordinate to the goal of producing a causally authored planet.
 
 ## Phase R — blueprint reconciliation
 
-### Deliverable
+Deliver and approve this governing set. No code or authority change is bundled into its merge.
 
-This governing document set.
-
-### Exit gate
-
-- user understands and approves the causal chain;
-- conflicts and supersession are explicit;
-- performance, evidence, and promotion paths are defined;
-- no code or authority change is bundled into the merge.
+Exit requires explicit conflicts/supersession, technical bindings, evidence/performance paths, controlled surface coupling, promotion/rollback, and user approval.
 
 ## Phase F — foundation completion
 
-### F1: reconcile and finish W1-01
+### F1: reconcile W1-01
 
-- contracts, units, seed identity, evidence links, provenance, validators, storage, resource limits, process registrations, and read firewall;
-- no scientific algorithm;
-- align screenshot CI with the approved canonical/non-canonical policy through a separate reviewed change if necessary.
+Complete contracts, units, seed identity, evidence links, provenance, validators, storage, resource limits, registrations, and read firewall. Move legacy comparison outside the causal package. Align screenshot CI through a separate reviewed change if approved.
 
-### Exit gate
+### F2: initial-condition contract and adapter
 
-- audit-clean contracts;
-- exact deterministic data/replay;
-- no hidden legacy reads;
-- no physical change;
-- explicit merge approval.
+Define `GenerationRequestV1`, `PlanetInitialConditionBundleV1`, source classes, seed-resolved defaults, user override precedence, and a field-by-field adapter from current Generate controls.
+
+Exit requires no geological conclusions, deterministic defaults, identity-envelope separation, and tests proving display/storage metadata cannot change physics.
 
 ## Phase P — planetary premise
 
-### Work
+Implement broad body/layer/surface-medium alternatives, evidence/confidence/contradictions, `causal.premise`, detached runner, and fixed archetypes.
 
-- reviewed direct-input mapping;
-- world-family/layer/surface alternatives;
-- evidence, confidence, contradictions, and blocked cases;
-- `causal.premise` deterministic stream activation;
-- detached premise runner and fixed archetypes.
-
-### Exit gate
-
-Premise responds sensibly to direct inputs, ignores all legacy morphology, stays within budget, and does not claim unsupported precision.
+Exit requires sensible response to initial conditions, no legacy morphology, no tectonic/history conclusions, bounded performance, and honest uncertainty.
 
 ## Phase I — interior and rheology
 
-### Work
+Implement source-backed heat, rheology, lid, mobility, melting, rifting, plume, recycling, crust-production, and preservation capabilities.
 
-- source-backed heat and shell relations;
-- ranges for convection, rheology, mobility, melting, rifting, and plume tendency;
-- deterministic alternatives and sensitivity matrix.
-
-### Exit gate
-
-Interior outputs are explainable, evidence-linked, replayable, scientifically honest, and computationally bounded.
+Exit requires explainable ranges, sensitivity tests, holdout validation, replay, and performance budget.
 
 ## Phase H — tectonic regime history
 
-### Work
+Implement bounded epochs, transition triggers, inheritance/persistence, normalized time plus total duration, and no grid-scale deep-time simulation.
 
-- bounded epoch generation;
-- transition triggers;
-- inherited state and limitations;
-- no full-grid history simulation.
-
-### Exit gate
-
-History is contiguous, non-circular, sensitive to interior capability, and produces multiple plausible behavior families without unexplained collapse.
+Exit requires contiguous non-circular history, interior sensitivity, multiple behavior families, and no unexplained collapse.
 
 ## Phase S — geologic spine
 
-### Work
+Implement spherical nodes, edges, events, stable identities, ancestry, graph constraints, and reference families.
 
-- spherical nodes, edges, and events;
-- stable identities and ancestry;
-- graph constraints and reference families;
-- no terrain writes.
-
-### Exit gate
-
-The spine creates coherent major structures, survives resolution changes, references valid history, and remains within graph budgets.
+Exit requires coherent major structures, resolution independence, valid history links, graph budgets, and no terrain writes.
 
 ## Phase D — diagnostics and causal projections
 
-### Work
+Prototype process fields and structural roles as detached maps. Comparison adapters live outside the causal package and remain read-only.
 
-- process-field prototypes as diagnostic maps;
-- controlled archetypes, negative examples, thresholds, and exceptions;
-- full causal manifests and performance reports;
-- comparisons with legacy output kept read-only.
+Exit requires spatial usefulness, interpretability, no tuning feedback from legacy defects, and full performance/provenance reports.
 
-### Exit gate
+## Phase C — continent/ocean structural interpretation
 
-The system demonstrates spatially useful causal authority and identifies its failures without tuning itself to legacy defects.
+Implement explicit continental interiors, margins, shelves, slopes, deep basins, ridges, arcs, drowned fragments, transition roles, and ghost suppression without final land/water.
 
-## Phase A1 — bounded identity authority
+Exit requires stable role identities, field traceability, no hidden masks, resolution stability, and holdout reference success.
 
-### Work
+## Phase M — structure/material genesis
 
-Transfer canonical ownership of selected geological identities/ancestry. Legacy terrain remains physical owner.
+Implement crust/material provinces, buoyancy/thickness tendencies, resistance, structural grain, and terrain-term permissions.
 
-### Exit gate
+Exit requires a clear boundary between deep geological material and later surface material.
 
-No dual identities, stable serialization/replay, rollback proven, and downstream adapters consume the causal IDs.
+## Phase L — landform potential
 
-## Phase A2 — process-field authority
+Reconcile Landmass Genesis as causal landform potential and suppression.
 
-### Work
+Exit requires no final height or land mask, complete source traceability, and ocean/deep-basin authority able to suppress unsupported landforms.
 
-Make process fields canonical for an isolated experimental terrain path.
+## Phase B — base Terrain Birth
 
-### Exit gate
+Generate separate solid-body base terrain from approved geologic causes. Exclude climate-driven fluvial, glacial, aeolian, and marine evolution.
 
-Fields are coherent, grid-projection stable, bounded, and traceable to spine/history sources.
+Exit requires contribution proof, one height owner, no hidden legacy inputs, bounded detail, and real geological improvement across controlled references.
 
-## Phase T — causal Terrain Birth experiment
+## Phase E — provisional environment and surface evolution
 
-### Work
+### E1: provisional boundary
 
-Generate a separate causal terrain using the existing Terrain Birth blueprint amended by the governing cause gates.
+Compute temporary water fill, drainage, broad climate/ice/wind boundaries, and exposed material context.
 
-### Exit gate
+### E2: bounded surface processes
 
-- major forms have traceable causes;
-- no hidden land mask or legacy morphology input;
-- hydrology and later systems can consume the result;
-- performance fits the approved budget;
-- controlled references and full-globe inspection show real geological improvement;
-- known failures remain reported.
+Implement a frozen component schedule for erosion, transport, deposition, weathering, mass movement, glaciers, wind, coasts, and marine sediment.
 
-## Phase A3 — bounded physical authority
+Exit requires hard pass/time ceilings, stable deterministic parallel execution, mass/stability checks, no upstream geology rewrite, and final recomputation from evolved terrain.
 
-Transfer specific physical domains one at a time. Each transfer requires a separate promotion package, kill switch, rollback artifact, and comparison corpus.
+## Phase FNL — final surface baseline
 
-## Phase A4 — active causal geology
+Recompute final terrain, sea level, bathymetry, hydrology, climate, biomes, surface materials, and resources. Reconcile downstream blueprints before production authority.
 
-The causal pipeline owns geological structure, material permissions, and terrain. `CAUSAL_ACTIVE` becomes a real implemented mode only here.
+## Authority promotion phases
 
-## Phase L — legacy isolation and retirement
+### A1 — bounded identity authority
 
-Remove legacy geology from new-world generation or retain it only behind an explicit compatibility version.
+Transfer selected geological identities/ancestry without claiming legacy terrain was caused by them.
+
+### A2 — causal preparation authority
+
+Make fields, structural roles, materials, and landform potential canonical inside an isolated candidate namespace.
+
+### A3 — complete causal terrain candidate
+
+Run the complete causal physical route separately from legacy.
+
+### A4 — bounded route promotion
+
+Select the complete causal route for an explicit cohort/profile/run. One route owns physical fields.
+
+### A5 — active causal geology
+
+Make the causal route default after downstream compatibility and rollback are proven.
+
+### A6 — legacy isolation/retirement
+
+Retain legacy only as a named compatibility generator or remove it from new-world generation.
 
 ## PR discipline
 
-Every PR must be:
-
-- narrow and independently revertible;
-- based directly on the current governing branch;
-- explicit about planning versus implementation;
-- explicit about authority level;
-- validated against deterministic, scientific, performance, and visual gates appropriate to its scope;
-- audited before merge;
-- merged only after direct user approval.
+Every PR is narrow, revertible, based on the current governing branch, explicit about planning/implementation and authority level, validated against appropriate deterministic/scientific/performance/visual gates, audited before merge, and merged only after direct user approval.
 
 ## Direction check at every milestone
 
-Before opening the next phase, answer in plain language:
+Before the next phase, answer plainly:
 
-1. What new causal ability exists now?
-2. What visible or authoritative ability is still intentionally absent?
-3. How does this step move us closer to causal terrain?
-4. What could still make the system scientifically or computationally fail?
-5. Is the next task the earliest missing cause, or are we drifting into downstream polish?
+1. What new causal ability exists?
+2. What visible or authoritative ability is intentionally absent?
+3. How does this move toward causal terrain?
+4. What could still fail scientifically or computationally?
+5. Is the next task the earliest missing cause?

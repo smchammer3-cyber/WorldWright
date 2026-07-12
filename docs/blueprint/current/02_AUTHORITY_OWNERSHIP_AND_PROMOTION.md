@@ -4,26 +4,33 @@
 
 A causal system is useful only if it eventually owns the fields it explains. Permanent shadow geology would leave the legacy generator as the real source of truth.
 
-WorldWright therefore separates safe development from final ownership.
-
 ## One-owner rule
 
-Every authoritative field has exactly one active owner during a run. Other systems may read it, derive caches from it, or compare against it. They may not quietly overwrite it.
+Every authoritative field has exactly one owner during a run. Other systems may read it, derive caches, or compare against it. They may not quietly overwrite it.
+
+A contribution is not an owner. Several causal terms may contribute to height, but one terrain composer owns the final height field.
 
 ## Target ownership map
 
 | Information | Target owner | Derived consumers |
 |---|---|---|
-| Direct planetary declarations | Input authority | Premise and approved physical derivations |
+| World lineage and coordinate namespace | Planet identity envelope | All artifacts; never physical cause |
+| Missing initial physical facts | Initial-condition resolver | Sanitizer |
+| Approved physical input and derivations | Input authority | Premise and interior |
 | Root seed and random addresses | C02 random system | All deterministic branches |
-| World family and layer premise | Planetary premise | Interior and later exception rules |
-| Heat and shell behavior | Interior resolver | Regime history |
+| Body/layer/surface-medium premise | Planetary premise | Interior and exception rules |
+| Heat and shell capabilities | Interior resolver | Regime history |
 | Geological eras and transitions | Regime-history resolver | Geologic spine |
-| Major geological identities and ancestry | Geologic spine | Process fields, diagnostics, later worldbuilding |
-| Spatial geological influence | Process-field resolver | Materials and Terrain Birth |
-| Crust/material province state | Structure/material genesis | Terrain, resources, erosion response |
-| Final physical height | Terrain Birth | Sea level, hydrology, climate, rendering |
-| Land/water classification | Sea-level/water resolver | Hydrology, climate, biomes |
+| Major geological identities and ancestry | Geologic spine | Fields, diagnostics, worldbuilding |
+| Spatial geological influence | Process-field resolver | Structure and terrain preparation |
+| Continental/ocean structural roles | Structural interpretation | Materials, landform potential, terrain |
+| Crust/material province state | Structure/material genesis | Terrain and resources |
+| Landform potential and suppression | Landform-potential resolver | Base Terrain Birth |
+| Solid-body starting height | Base Terrain Birth | Provisional surface state |
+| Temporary surface boundary | Provisional surface resolver | Surface evolution only |
+| Erosion/deposition delta | Surface-evolution resolver | Final terrain composer |
+| Final physical height | Final terrain composer | Sea level, hydrology, climate, rendering |
+| Final land/water and bathymetry | Final surface resolver | Hydrology, climate, biomes |
 | Rivers and drainage | Hydrology | Climate, ecology, settlement |
 | Final colors and presentation | Renderer | User view only; never upstream authority |
 
@@ -39,82 +46,83 @@ Types, validators, source rules, process registration, replay, and resource limi
 
 ### Level 1 — detached shadow records
 
-Premise, interior, history, and spine run only through an explicit developer/audit path. They return immutable detached artifacts and cannot affect normal Generate.
+Initial conditions, premise, interior, history, and spine run only through an explicit developer/audit path. They return immutable detached artifacts and cannot affect normal Generate.
 
 ### Level 2 — shadow spatial projections
 
-The causal spine is projected into diagnostic maps. These maps are inspectable and comparable but cannot alter the legacy planet.
+The causal spine is projected into diagnostic maps and structural candidates. These maps are inspectable but cannot alter the legacy planet.
 
 ### Level 3 — bounded identity authority
 
-The causal system becomes the canonical owner of selected non-height identities, such as geologic-spine object IDs and ancestry, while legacy terrain remains unchanged.
+The causal system becomes canonical owner of selected non-height geological identities and ancestry. Legacy terrain remains unchanged and is not relabeled as though it were caused by those identities.
 
-No legacy system may recreate competing canonical identities.
+### Level 4 — causal preparation authority
 
-### Level 4 — process-field authority
+Process fields, structural roles, material state, and landform potential become canonical inputs for an isolated causal candidate path. They do not change the production planet.
 
-Causal process fields become canonical inputs for an experimental terrain path. Legacy fields remain available only as comparison or rollback data.
+### Level 5 — complete causal terrain candidate
 
-### Level 5 — causal Terrain Birth experiment
+A separate candidate world namespace runs base Terrain Birth, provisional surface boundaries, bounded surface evolution, and final terrain composition. Legacy and causal candidates are compared as complete alternatives. They never both write one final terrain field.
 
-A separate experimental run creates physical terrain from causal fields. It does not overwrite the normal production path. Both results are exported for geological, visual, performance, and determinism review.
+### Level 6 — bounded route promotion
 
-### Level 6 — bounded physical authority
+A selected cohort, feature flag, generation profile, or explicit developer mode chooses the **entire causal physical route** for a run. The legacy route remains rollback-compatible but does not write that world's physical fields.
 
-Specific physical domains transfer one at a time—for example basin support, continental support, or tectonic uplift permissions. Dual ownership is forbidden. Each transfer has a kill switch and rollback artifact.
+Individual causal terms may be promoted internally only when one causal terrain composer still owns final height. Piecemeal cross-pipeline height writing is forbidden.
 
 ### Level 7 — active causal geology
 
-The causal chain owns geological identities, process fields, material structure, and terrain. Legacy geology is removed from the active generation path or isolated as an explicit compatibility generator.
+The causal route becomes the default owner of geological identities, process fields, structural/material state, base terrain, surface evolution, and final terrain. Legacy geology is isolated as an explicit compatibility generator.
 
 ### Level 8 — legacy retirement
 
-Legacy geological code is deleted, archived, or kept behind a named old-version loader. It cannot silently influence new worlds.
+Legacy geological code is deleted, archived, or retained only behind a named old-version loader.
 
 ## Promotion package
 
-Every promotion requires a separate planning and implementation decision containing:
+Every promotion requires:
 
 ```text
-exact fields transferring ownership
+exact route or fields transferring ownership
 old owner and new owner
-read/write registry changes
+namespace and read/write registry changes
 feature flags and authority mode
 input/output schemas
-rollback path
+rollback route and preserved artifacts
 fixed reference corpus
-negative and exception cases
+negative, threshold, and exception cases
 performance and memory budget
-visual and physical equivalence expectations
+visual and physical expectations
 known failures and blocked conditions
 ```
 
 ## Stop conditions
 
-Promotion stops when any of the following occurs:
+Promotion stops when:
 
 - hidden legacy reads affect causal output;
+- comparison diagnostics feed generation;
 - the new owner cannot replay deterministically;
 - a field has two active writers;
 - contradictions or missing evidence are hidden;
-- performance exceeds the approved budget;
+- performance exceeds budget;
 - reference behavior collapses into one unexplained branch;
 - visible quality improves through an unsupported cause;
-- the system passes tests but still looks geologically wrong.
+- the system passes tests but remains geologically wrong.
 
 ## Rollback
 
-A promoted stage stores enough provenance to reproduce its inputs and prior owner state. Rollback switches field ownership back at a declared boundary; it does not merge competing states.
+Rollback selects the prior complete route and its preserved deterministic artifacts. It does not blend legacy and causal state. Operational metadata records which route authored each world.
 
 ## Screenshot and visual authority
 
 Authoritative physical evidence comes from serialized world data and controlled globe captures. Full application-page screenshots are presentation diagnostics, not canonical world truth. Browser text and edge antialiasing may vary without a physical change.
 
-The proposed reconciled gate is:
+Proposed reconciled gate:
 
-- physical data: exact;
-- canonical hashes: exact;
-- authoritative globe captures: exact where the renderer contract supports it;
+- physical data and hashes: exact;
+- deterministic causal records: exact;
+- controlled authoritative globe captures: exact where renderer contracts support it;
 - full-page UI capture: structural/pixel-tolerance diagnostic, never causal identity.
 
-Changing current CI to this policy requires explicit review; this document does not modify the workflow.
+Changing CI requires a separate reviewed change.

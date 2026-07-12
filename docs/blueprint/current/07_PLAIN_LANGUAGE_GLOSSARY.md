@@ -1,117 +1,124 @@
 # Plain-Language Glossary
 
 ## Authority
-
-The system officially allowed to decide a fact. If Terrain Birth owns height, another system may read height but may not secretly replace it.
+The system officially allowed to decide a fact.
 
 ## Causal
-
 A result exists because an earlier recorded condition or event supports it.
 
-## Causal input
+## Generation request
+The user's constraints, selected profile/template, root seed, and explicit natural or fictional rules.
 
-The cleaned list of facts the causal system is allowed to know before it begins reasoning.
+## Initial conditions
+The starting physical facts of the planet. Missing facts may be deterministically chosen from approved ranges before geology begins.
+
+## Identity envelope
+The world IDs, names, timestamps, revision IDs, and attachment information used for lineage. These do not decide physical generation.
+
+## Causal input
+The checked list of facts and approved derivations the causal system may know before reasoning.
 
 ## Planetary premise
-
-The broad answer to “what kind of planet can these facts support?”
+The broad answer to “what body and layer arrangement can these facts support?”
 
 ## Interior and rheology
-
-A compact description of internal heat and how easily the planet's outer shell bends, breaks, moves, or preserves old surfaces.
+A compact description of internal heat and how easily the outer shell bends, breaks, moves, melts, or preserves old surfaces.
 
 ## Geological era or epoch
-
-A broad chapter in the planet's history with a dominant style of geological behavior.
+A broad chapter in the planet's history.
 
 ## Geologic spine
-
-The planet's structural skeleton: major kernels, basins, rifts, collision systems, transforms, plumes, events, and ancestry.
+The structural skeleton: major kernels, basins, rifts, collisions, transforms, plumes, impacts, events, and ancestry.
 
 ## Process field
+A map of how strongly a geological cause influences each location. It is not final height or climate-driven erosion.
 
-A map of how strongly a geological cause influences each location. It is a cause or permission, not final height.
+## Structural role
+An explicit regional interpretation such as continental interior, margin, shelf, slope, deep basin, ridge, or arc.
 
-## Terrain Birth
+## Landform potential
+Permission and support for a terrain form to be born. It is not a land mask.
 
-The stage that converts allowed geological causes and material responses into physical height.
+## Base Terrain Birth
+The first solid-body terrain created from geological causes before climate-driven erosion and deposition.
+
+## Provisional surface boundary
+A temporary water/drainage/climate/ice/wind estimate used only to drive surface processes.
+
+## Surface-process evolution
+A fixed, budgeted set of erosion, transport, deposition, weathering, glacial, wind, coastal, and marine processes.
+
+## Final terrain composer
+The single owner that combines base terrain with validated surface-process deltas.
 
 ## Derived system
-
-A later system that responds to earlier authority. Rivers are derived from terrain and water; they do not decide the planet's tectonic history.
+A later system responding to earlier authority. Rivers respond to terrain; they do not decide tectonic history.
 
 ## Legacy
-
-The current older generation system. It remains the physical owner until bounded causal promotion occurs.
+The current older generation system.
 
 ## Shadow mode
+The new system runs independently and records results but cannot change the production planet.
 
-The new system runs independently and records results, but cannot change the visible production planet.
+## Candidate namespace
+A separate complete world result used for comparison. Candidate routes do not write into each other.
 
 ## Bounded authority
-
-The causal system is allowed to own one clearly named field or domain while everything else remains unchanged.
+A clearly named route or field receives authority under a limited profile or cohort.
 
 ## Active authority
-
-The causal system owns the actual physical result rather than only producing reports.
+The causal route owns the actual physical result.
 
 ## Deterministic
-
-The same seed, inputs, versions, and flags produce the same authoritative result.
+The same approved inputs, seed, versions, and flags produce the same authoritative result.
 
 ## Random address
-
-A stable name for one random choice. It allows that choice to be reproduced without depending on every random choice made before it.
+A stable name for one random choice.
 
 ## Evidence
-
 A source or controlled reason supporting or opposing a scientific claim.
 
-## Confidence
+## Calibration set
+Examples used to choose or tune model parameters.
 
-How strongly the available evidence supports an estimate. It is not the same as the estimated probability of one alternative.
+## Holdout set
+Separate examples used to test whether tuned rules generalize.
+
+## Confidence
+How strongly evidence supports an estimate; not the same as the estimate itself.
+
+## Coverage
+Whether the evidence/model adequately applies to the requested world family.
 
 ## Contradiction
-
 Two active claims that cannot both be true under the same interpretation.
 
 ## Blocked
-
-The system honestly cannot produce an authoritative answer because required evidence or inputs are missing or contradictory.
+The system cannot produce an authoritative answer because required support is missing or contradictory.
 
 ## Partial
-
-A valid answer exists, but named information is missing. Only explicitly compatible later stages may continue.
+A valid answer exists, but named information is missing.
 
 ## Provenance
-
-The record of where an output came from: seed, inputs, versions, evidence, random streams, stages, and hashes.
+The record of seed, inputs, versions, evidence, streams, stages, and hashes behind an output.
 
 ## Hash
-
-A compact deterministic fingerprint of a record. If authoritative content changes, its hash should change.
+A deterministic fingerprint of authoritative content.
 
 ## Invalidation
-
-Marking a result stale because one of the causes it depends on changed.
+Marking a result stale because a cause changed.
 
 ## Coarse to fine
+Deciding global structure before regional and local detail.
 
-Deciding large global structure first, then adding regional and local detail.
-
-## Rasterization or projection
-
-Turning a graph, line, region, or continuous cause into values on the world grid.
+## Projection
+Turning a graph or continuous source into values on a world grid.
 
 ## Canonical
-
-The official stored or computed representation used as truth. A screenshot is generally diagnostic, not canonical world state.
+The official representation used as truth. A screenshot is generally diagnostic, not canonical world state.
 
 ## Promotion gate
-
-The evidence and safety requirements a stage must satisfy before receiving more authority.
+Requirements a stage must satisfy before receiving more authority.
 
 ## Rollback
-
-Returning ownership to the previous approved system at a clear boundary without blending two competing truths.
+Selecting the previous complete approved route rather than blending competing truths.

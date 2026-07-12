@@ -4,41 +4,43 @@
 
 The causal model must be powerful enough to own the planet and inexpensive enough to run in Generate Mode.
 
-WorldWright achieves this through hierarchical decisions, bounded graph sizes, spatial projection, caching, independent random addresses, and optional local refinement.
+WorldWright achieves this through hierarchical decisions, bounded graph sizes, explicit spatial projections, caching, independently addressed randomness, fixed surface-process schedules, and optional local refinement.
 
 ## What WorldWright will not simulate
 
-It will not model every mantle cell, fluid parcel, mineral reaction, and geological year at final world resolution.
+It will not model every mantle cell, fluid parcel, mineral reaction, weather event, and geological year at final world resolution.
 
-That approach is unnecessary for believable generative causality and would exceed ordinary interactive budgets.
+It will not run an unconstrained climate–erosion loop until an arbitrary convergence condition happens to be met.
 
 ## Coarse-to-fine execution
 
-### Global record scale
+### Initial-condition scale
 
-Resolve:
+Resolve a small set of user-constrained or seed-generated physical starting facts. This stage is cheap and contains no spatial geology.
 
-- dozens of input declarations;
-- one premise;
-- one compact interior state;
-- a limited number of eras;
-- a bounded graph of major geological identities and events.
+### Global causal-record scale
+
+Resolve one premise, one compact interior state, a bounded era sequence, and a bounded spherical graph of major geological identities and events.
 
 ### Global spatial scale
 
-Project the spine to coarse or resolution-independent process fields. Expensive graph influence is calculated once per stable source, not separately through unbounded all-pairs interactions at every cell.
+Project the spine into coarse or analytic process fields. Source influence is calculated through bounded kernels or spatial indexing, not unrestricted all-pairs comparison at every cell.
+
+### Structural scale
+
+Resolve continent/ocean roles, material provinces, and landform potential on a stable global sampling representation.
 
 ### World-grid scale
 
-Sample/blend process fields onto the selected Generate grid and create material/terrain state.
+Create base terrain, provisional surface boundaries, and a fixed number of surface-process passes. Each pass reads an immutable prior snapshot and writes a new deterministic result or delta.
 
 ### Regional/local scale
 
-Add finer terrain, erosion, hydrology, and presentation detail only after large-scale authority is stable. High-resolution local products may be generated on demand.
+Add finer terrain, hydrology, ecology, and presentation only after global identities and final macro terrain are stable. High-resolution local products may be generated on demand.
 
-## Initial safety ceilings
+## Initial hard ceilings
 
-The current audited W1-01 draft proposes the following initial hard ceilings, subject to approval and benchmark review:
+The audited W1-01 draft proposed these foundation safety caps:
 
 ```text
 input declarations: 64
@@ -51,63 +53,103 @@ spine events: 16,384
 serialized causal payload: 16 MiB
 ```
 
-These are emergency ceilings, not expected normal counts. Typical runs should be substantially smaller. W1-02 must record a real baseline before scientific algorithms are promoted.
+These are emergency rejection ceilings, not normal design targets and not proof of acceptable performance.
+
+Before each later stage merges, it must define:
+
+```text
+expected normal count/range
+hard ceiling
+time complexity
+memory estimate
+fixed benchmark corpus
+supported hardware/runtime
+regression tolerance
+```
 
 ## Complexity rules
 
 - no unbounded retry loops;
 - no unrestricted all-pairs feature comparison;
 - no full-history simulation at terrain-grid resolution;
-- no stage may silently scale work with screenshot size;
-- graph searches must declare bounds and complexity;
+- no unconstrained surface-process convergence loop;
+- no stage may scale work with screenshot size;
+- graph searches declare bounds and complexity;
 - spatial kernels have finite influence or indexed lookup;
 - repeated derived values are cached by authoritative input hash;
-- diagnostic comparison cannot feed back into generation;
-- local refinement cannot change stable global identities without explicit upstream invalidation.
+- diagnostics and legacy comparison cannot feed generation;
+- local refinement cannot change global identities without upstream invalidation;
+- candidate worlds use separate namespaces and memory budgets.
 
 ## Deterministic parallelism
 
-Counter-based random streams allow decisions to be evaluated independently from stable addresses:
+Counter-based random streams address decisions with:
 
 ```text
 root seed
 + stream name/version
 + stage/object identity
 + decision purpose
++ pass/iteration index when applicable
 + counter
 ```
 
-This permits parallel computation without relying on one mutable random sequence. Reordering work does not change the result.
+Reordering tasks, changing worker count, or computing one region first must not change authoritative results.
+
+Surface-process passes use double buffering or equivalent immutable snapshots so parallel updates do not read partially written neighboring values.
 
 ## Caching and invalidation
 
-Each stage stores hashes of its authoritative inputs and outputs.
+Each stage stores hashes of authoritative inputs and outputs.
 
 - unchanged input hash: reuse validated output;
-- changed premise: invalidate interior and everything downstream;
-- changed one spine branch: invalidate affected spatial projections and descendants where dependencies are explicit;
+- changed initial conditions: invalidate the premise and everything downstream;
+- changed premise: invalidate interior and downstream;
+- changed spine branch: invalidate affected projections only when dependency records prove locality; otherwise invalidate the whole downstream stage;
+- changed surface-process schedule: invalidate provisional/final surface products, not upstream geology;
 - renderer-only change: invalidate presentation only;
 - diagnostic-only change: invalidate diagnostics only.
 
-The first safe implementation may invalidate whole downstream stages. Later fine-grained invalidation is allowed only when dependency records prove correctness.
+The first safe implementation may invalidate whole downstream stages. Fine-grained invalidation is allowed only after correctness is proven.
+
+## Surface-process schedule
+
+The first surface-evolution contract must freeze:
+
+```text
+component order or declared operator splitting
+number of passes or represented time span
+time-step bounds
+boundary conditions
+mass/volume conservation expectations
+maximum elevation delta per pass where applicable
+stability and divergence checks
+final recomputation rules
+```
+
+A surface component that fails stability checks blocks the final terrain candidate. It does not silently skip itself or continue forever.
 
 ## Execution modes
 
 ### Normal LEGACY
 
-No causal shadow work runs implicitly. Existing physical output remains unchanged during foundation development.
+No causal shadow work runs implicitly during foundation development.
 
 ### Explicit CAUSAL_SHADOW
 
-Runs the approved causal stages and writes detached artifacts/diagnostics. It must have a separate performance report.
+Runs approved detached causal stages and produces artifacts, diagnostics, and performance reports.
 
-### Comparative terrain experiment
+### Comparative causal candidate
 
-Runs both legacy and causal experimental terrain from the same declared inputs, isolated from normal Generate. Used only after a promotion plan.
+Runs a complete causal candidate in a separate namespace. Legacy and causal outputs may be compared, but neither reads the other's solved morphology as generation input.
+
+### Bounded causal route
+
+An explicit profile/flag selects the full causal physical route for that world. Only one route owns physical fields in that run.
 
 ### CAUSAL_ACTIVE
 
-Unavailable until the full promotion contract is implemented and approved.
+Unavailable until the promotion contract is implemented and approved.
 
 ## Performance evidence
 
@@ -115,28 +157,24 @@ Each algorithmic PR reports:
 
 ```text
 wall-clock time by stage
-peak memory or a stable proxy
+peak memory or stable proxy
 serialized output size
-node/edge/event counts
-number of alternatives and retries
+normal and worst-case object counts
+number of alternatives/retries
+surface pass count and component timings
 cache hit/miss behavior
 complexity notes
 fixed hardware/runtime context
 ```
 
-Performance regressions above the frozen tolerance block merge unless the budget is deliberately amended.
+Performance regressions above frozen tolerances block merge unless the budget is deliberately amended.
 
 ## Why the architecture is practical
 
-Working systems already demonstrate the required pieces:
+GPlates demonstrates time-aware spherical geological representation. Landlab demonstrates modular grids, fields, and surface-process components. Counter-based generators demonstrate reproducible independently addressed random work. Staged rollout demonstrates cautious responsibility expansion.
 
-- GPlates handles spherical geological features and deep-time reconstructions;
-- Landlab couples explicit process components through grids and fields;
-- counter-based generators produce reproducible independent random streams for parallel workloads;
-- staged rollout limits risk while responsibility expands.
-
-WorldWright combines these ideas at a deliberately lower-fidelity generative level. It resolves plausible causal categories and relationships, not a research-grade numerical forecast of an actual planet.
+WorldWright combines these patterns at lower fidelity. It resolves plausible causal categories, relationships, fields, and bounded surface evolution rather than a research-grade numerical forecast of a real planet.
 
 ## Power requirement conclusion
 
-The causal system becomes computationally dangerous only if it is flattened into a full-resolution time simulation or allowed unbounded interactions. The governing blueprint prohibits both. Its power comes from authoritative relationships and staged expansion, not brute force.
+The system becomes computationally dangerous only if it is flattened into full-resolution deep-time simulation, allowed unbounded interactions, or allowed unconstrained feedback. The governing blueprint prohibits all three.
