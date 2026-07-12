@@ -1,76 +1,55 @@
 # W1-01 Post-Implementation Audit Findings
 
-## Initial verdict
+## Governing comparison
 
-The first green W1-01 head was not merge-ready. The audit found eleven contract defects that the original test suite had not exercised.
+PR #133 was re-audited against the unified causal blueprint merged at `53f1fb8166adfcc5ff292afe90ff91b0dfa45a50`. The audit treated the blueprint as authoritative and did not use older W1-01 assumptions to override it.
 
-## Corrected blockers
+## Verdict before correction
 
-1. Replaced free-form `rootSeed: string` with C02 `RootSeedIdentity` and fingerprint verification.
-2. Added declaration confidence subjects and prevented reserved derivations or direct derivation metadata from masquerading as approved inputs.
-3. Recomputed stage output hashes and validated stage-specific records at runtime.
-4. Required contiguous stage dependencies, explicit partial compatibility, and exact top-level record/stage agreement.
-5. Removed authoritative `BLOCKED` domain records and restored all minimum premise, interior, and epoch fields from the approved plan.
-6. Added runtime node/edge enums, canonical graph ordering, edge compatibility, epoch links, and acyclic event ancestry.
-7. Classified newer nested payload/input/domain schemas as `UNSUPPORTED_NEWER` rather than corruption.
-8. Added provenance root-seed integrity, causal-geology metadata, truthful partial/blocked stage statuses, and stage/hash cross-checks.
-9. Replaced the vacuous four-filename import test with a recursive causal-module read firewall.
-10. Loaded the real committed research fixtures in tests and rejected unapproved input IDs, duplicate fingerprints, and source-free non-research claims.
-11. Closed the empty `CAUSAL_ACTIVE` scaffold path so active authority remains structurally invalid throughout Wave 1.
+The previously green W1-01 head was not clean against the new architecture. Its foundation was useful, but several contracts were broad enough to admit later-stage conclusions, operational identity, legacy comparison, or unnamed future ownership.
 
-## Enforced resource ceilings
+## Required corrections made
 
-W1-01 enforces deterministic safety ceilings for input declarations, research sources and claim rules, epoch count, spine nodes/edges/events, and serialized causal payload size. Regression tests prove oversized records fail before expensive nested traversal. These are safety guardrails rather than target counts.
+1. Bound sanitized causal input to a detached constraint-aware initial-condition bundle hash without implementing the future resolver.
+2. Kept the generation request/root seed and compatible physical declarations causal while keeping display, storage, timestamp, and revision identifiers in the operational artifact envelope.
+3. Removed `CAUSAL_SHADOW_AUDIT` from the causal generation stage sequence and registered it as an external read-only diagnostic side branch.
+4. Strengthened the recursive import firewall so `src/core/causalGeology` cannot import legacy world, generator, geology-audit, or comparison authority.
+5. Narrowed planetary premise to body class, layer stack, and surface medium; later tectonic, resurfacing, impact-history, plate, continent, basin, epoch, and terrain conclusions are rejected.
+6. Added explicit total geological duration to regime history.
+7. Added epoch persistence and surface-exposure ranges.
+8. Added spine node/event formation age, persistence, surface-exposure duration, and preservation state, with duration and relationship validation.
+9. Required spine formation-event references to agree in both directions and required event time to remain within its epoch.
+10. Removed generic scaffold bags that could hide event, process, surface, ledger, or scale ownership.
+11. Registered distinct future ownership groups for process fields, structural roles, structure/material state, landform potential, base terrain, provisional surface boundary, surface-evolution deltas, final terrain, and terrain-cause ledger.
+12. Kept every operable process free of `CAUSAL_ACTIVE`; active authority remains structurally invalid.
+13. Preserved `LEGACY` as the sole physical generator authority.
+14. Updated hostile tests to exercise the new bundle lineage, identity separation, temporal contracts, external diagnostic boundary, ownership groups, and active-authority rejection.
+15. Extended the exhaustive mutation-guard field map for the newly named authority groups.
 
-Runtime performance baselines for actual causal algorithms remain a W1-02 merge prerequisite because W1-01 deliberately contains no premise algorithm or shadow runner.
+## Preserved earlier W1-01 protections
 
-## Software and physical-output evidence
+The audit retained strict root-seed identity, canonical hashing, deep immutability, declaration authority, reserved derivations, confidence/evidence linkage, stage prerequisite ordering, exact stage/top-level agreement, graph validation, payload quarantine, provenance checks, scientific research records, and deterministic resource ceilings.
 
-Exact-head GitHub Actions run #446 passed:
+## Screenshot rule
 
-- build;
-- 72 test files / 296 tests;
-- snapshot canary;
-- full-globe review;
-- full-globe exit code `0` with no recorded failures.
+The governing blueprint classifies the full-page application screenshot as presentation diagnostic evidence, not canonical physical authority. The authoritative physical comparison remains globe/data output.
 
-All four authoritative globe captures are SHA-256 byte-identical to merged C04:
+This PR does not alter the CI workflow, silently add pixel tolerance, or weaken existing checks. The full-page screenshot remains collected wherever the existing workflow collects it, while audit conclusions distinguish it from authoritative globe captures.
+
+## Physical truth that must remain visible
+
+W1-01 contains no physical-generation algorithm and makes no claim that the planet is repaired. The current legacy geological failure still begins at `RAW_GENERATOR` and must remain visible in the final exact-head evidence.
+
+## Final gate and merge status
+
+The final verdict depends on an exact-head run of build, tests, snapshot canary, full-globe review, baseline comparison, and visual inspection after all reconciliation commits. Exact run evidence is recorded in the PR description rather than frozen into this file.
+
+Until that gate is complete and the user explicitly approves a merge:
 
 ```text
-final-globe-front.png
-final-globe-triad-120.png
-final-globe-triad-240.png
-final-globe.png
+PR #133: draft and unmerged
+physical authority: LEGACY
+CAUSAL_ACTIVE: invalid and unimplemented
+W1-02: not started
+PR #118: untouched
 ```
-
-The legacy geological audit remains intentionally failed at `RAW_GENERATOR`; W1-01 does not claim to repair physical geology.
-
-## Unresolved full-page capture stability gate
-
-The non-authoritative `generate-app-final.png` capture is not byte-stable across equivalent documentation-only heads:
-
-- run #444 differed from C04 by 5 pixels, maximum channel delta 2;
-- a targeted rerun reproduced that 5-pixel difference;
-- run #445 produced a byte-identical image;
-- exact-head run #446 differed by 2 pixels, maximum channel delta 1.
-
-The differing pixels lie on rounded control-panel background edges. No text, control value, globe pixel, generated-world pixel, application code, or style changed. The only commits between these observations modified this Markdown audit record. Therefore the variation is browser rasterization noise in the full-page screenshot harness rather than a W1-01 runtime or physical-output regression.
-
-The approved gate nevertheless requires all five standard PNGs to be byte-identical. This audit does not silently replace that requirement with a tolerance merely because the observed difference is visually negligible.
-
-## Final verdict
-
-**Do not merge yet.**
-
-The W1-01 implementation, contracts, authority boundaries, tests, and physical globe output are audit-clean. PR #133 remains blocked only by the nondeterministic full-page screenshot gate.
-
-Resolve this through one of two separately reviewed paths:
-
-1. make the full-page Playwright capture byte-stable across repeated equivalent runs; or
-2. approve a planning amendment defining a narrowly bounded pixel tolerance for the non-authoritative page screenshot while retaining byte-exact authoritative globe captures.
-
-PR #133 remains draft and unmerged.
-
-## Locked scope
-
-No premise, interior, history, spine-generation, random-stream activation, shadow execution, `CAUSAL_ACTIVE`, or physical-output logic was added by the audit corrections.
