@@ -6,10 +6,19 @@ import { applyWorldAction, WorldAction } from '../worldActions';
 import { recomputeWorld } from '../worldRecompute';
 import { validateWorld } from '../worldValidation';
 import { saveWorld, getWorldById } from '../worldStorage';
-import { cloneWorld, simulateTick } from '../worldSim';
+import { simulateTick } from '../worldSim';
 import { ensureCrustFields } from '../worldCrust';
 import { ensureContinentSkeletonFields } from '../worldContinents';
 import { applyGeneratedGeographyPipeline } from '../worldGeographyPipeline';
+import { cloneStructuredValue, cloneWorldDocument } from '../worldCloning';
+import { migrateWorldDocument } from '../worldMigrations/migrateWorldDocument';
+import type { WorldMigrationReport } from '../worldMigrations/types';
+
+interface PreparedWorld {
+  world: WorldBrain;
+  report: WorldMigrationReport;
+  migrated: boolean;
+}
 
 /**
  * WorldSession encapsulates all live state and editing operations on a single
@@ -26,12 +35,22 @@ class WorldSession {
   private historyIndex = -1;
   private listeners: Array<(w: WorldBrain | null) => void> = [];
   private dirty = false;
+  private worldLoadReport: WorldMigrationReport | null = null;
+  private migrationPending = false;
 
-  /**
-   * Get the current canonical world. Returns null if no world is loaded.
-   */
+  /** Get the current canonical world. Returns null if no world is loaded. */
   getWorld(): WorldBrain | null {
     return this.world;
+  }
+
+  /** Return a defensive copy of the most recent load/migration report. */
+  getWorldLoadReport(): WorldMigrationReport | null {
+    return this.worldLoadReport ? cloneStructuredValue(this.worldLoadReport) : null;
+  }
+
+  /** True when a loaded legacy world has only been upgraded in memory. */
+  isMigrationPending(): boolean {
+    return this.migrationPending;
   }
 
   /**
@@ -41,23 +60,15 @@ class WorldSession {
    * Create state until a future explicit promotion flow accepts it.
    */
   getSimBranchWorld(): WorldBrain | null {
-    return this.simBranchWorld ? cloneWorld(this.simBranchWorld) : null;
+    return this.simBranchWorld ? cloneWorldDocument(this.simBranchWorld) : null;
   }
 
-  /**
-   * Discard the current transitional Sim branch snapshot without touching the
-   * canonical world.
-   */
+  /** Discard the transitional Sim branch without touching canonical Create state. */
   clearSimBranch(): void {
     this.simBranchWorld = null;
   }
 
-  /**
-   * Subscribe to world changes. Returns an unsubscribe function. All
-   * subscribers are called whenever the canonical world reference changes (e.g.,
-   * on creation, load, undo/redo, or Create edit). When the world is null
-   * subscribers are still called with null.
-   */
+  /** Subscribe to canonical world changes. Returns an unsubscribe function. */
   subscribe(listener: (w: WorldBrain | null) => void): () => void {
     this.listeners.push(listener);
     listener(this.world);
@@ -67,10 +78,6 @@ class WorldSession {
     };
   }
 
-  /**
-   * Notify all subscribers of the current canonical world. Always invoked after
-   * canonical modifications.
-   */
   private notify(): void {
     for (const fn of this.listeners) {
       try {
@@ -82,79 +89,41 @@ class WorldSession {
     }
   }
 
-  /**
-   * Returns true if there are unsaved canonical Create changes. Creating or
-   * loading a world resets the dirty flag. Create edits mark the world dirty.
-   * Sim branch exploration must not make canonical Save look dirty.
-   */
+  /** Returns true if there are unsaved canonical Create changes. */
   isDirty(): boolean {
     return this.dirty;
   }
 
   /**
-   * Internal helper to normalize a world snapshot. Ensures that derived
-   * properties required by the schema exist, repairs legacy fields, and
-   * removes obsolete properties. This function mutates the world in place.
+   * Convert raw/current/legacy input into the current in-memory document shape.
+   * This method never writes storage and never fabricates missing core cells.
+   * Compatibility geology initialization remains outside the pure migrator so
+   * the existing legacy recompute sequence is preserved exactly in C01.
    */
-  private normalizeWorld(world: WorldBrain): void {
-    if (typeof world.seaLevel !== 'number') {
-      const metaSea = (world as any).metadata?.seaLevel;
-      if (typeof metaSea === 'number') {
-        (world as any).seaLevel = metaSea;
-      } else {
-        (world as any).seaLevel = 0;
-      }
+  private prepareWorld(raw: unknown): PreparedWorld {
+    const result = migrateWorldDocument(raw);
+
+    if (result.status === 'UNSUPPORTED_NEWER' || result.status === 'QUARANTINED') {
+      throw new Error(`${result.status}: ${result.reason}`);
     }
 
-    if (Array.isArray(world.cells)) {
-      const gw = world.gridWidth;
-      const gh = world.gridHeight;
-
-      for (let i = 0; i < world.cells.length; i++) {
-        const cell: any = world.cells[i];
-        cell.index = i;
-
-        if (cell && Object.prototype.hasOwnProperty.call(cell, 'seaLevel')) {
-          delete cell.seaLevel;
-        }
-
-        if (typeof cell.editHeightDelta !== 'number') cell.editHeightDelta = 0;
-        if (typeof cell.simHeightDelta !== 'number') cell.simHeightDelta = 0;
-        if (typeof cell.isWater !== 'boolean') cell.isWater = false;
-        if (typeof cell.temperature !== 'number') cell.temperature = 0.5;
-        if (typeof cell.rainfall !== 'number') cell.rainfall = 0.5;
-        if (typeof cell.baseBiomeId !== 'number') cell.baseBiomeId = 0;
-        if (typeof cell.editBiomeId !== 'number') cell.editBiomeId = cell.baseBiomeId;
-        if (typeof cell.snowCover !== 'number') cell.snowCover = 0;
-      }
-
-      const expected = gw * gh;
-      if (world.cells.length > expected) {
-        world.cells.length = expected;
-      } else if (world.cells.length < expected) {
-        for (let i = world.cells.length; i < expected; i++) {
-          const clone = world.cells[world.cells.length - 1];
-          world.cells.push(JSON.parse(JSON.stringify(clone)));
-        }
-      }
-    }
-
+    const world = result.world;
     ensureContinentSkeletonFields(world);
     ensureCrustFields(world);
+
+    return {
+      world,
+      report: result.report,
+      migrated: result.status === 'MIGRATED_IN_MEMORY',
+    };
   }
 
-  /**
-   * Clone into a fresh authoritative world reference.
-   * This prevents outside callers from retaining mutable references into the
-   * session's canonical world object.
-   */
+  /** Clone into a fresh authoritative world reference. */
   private replaceWorld(nextWorld: WorldBrain): void {
-    this.world = cloneWorld(nextWorld);
+    this.world = cloneWorldDocument(nextWorld);
   }
 
-  /**
-   * Push the current authoritative world into history.
-   */
+  /** Push the current authoritative world into history. */
   private pushHistorySnapshot(): void {
     if (!this.world) return;
 
@@ -162,13 +131,14 @@ class WorldSession {
       this.history = this.history.slice(0, this.historyIndex + 1);
     }
 
-    this.history.push(cloneWorld(this.world));
+    this.history.push(cloneWorldDocument(this.world));
     this.historyIndex = this.history.length - 1;
   }
 
   async createWorld(params: GeneratorParams): Promise<void> {
-    const w = generateWorldFromParams(params);
-    this.normalizeWorld(w);
+    const prepared = this.prepareWorld(generateWorldFromParams(params));
+    const w = prepared.world;
+
     recomputeWorld(w, ['GENERATED']);
     applyGeneratedGeographyPipeline(w);
 
@@ -206,26 +176,31 @@ class WorldSession {
 
     this.replaceWorld(w);
     this.simBranchWorld = null;
-    this.history = this.world ? [cloneWorld(this.world)] : [];
+    this.history = this.world ? [cloneWorldDocument(this.world)] : [];
     this.historyIndex = this.world ? 0 : -1;
+    this.worldLoadReport = prepared.report;
+    // A newly generated, unsaved world has no stored legacy document awaiting upgrade.
+    this.migrationPending = false;
     this.dirty = false;
     this.notify();
   }
 
   async loadWorld(arg: string | WorldBrain): Promise<void> {
-    let w: WorldBrain | null = null;
+    let raw: unknown = null;
 
     if (typeof arg === 'string') {
-      w = await getWorldById(arg);
+      raw = await getWorldById(arg);
     } else if (arg && typeof arg === 'object') {
-      w = arg;
+      raw = arg;
     }
 
-    if (!w) {
+    if (!raw) {
       throw new Error('World not found');
     }
 
-    this.normalizeWorld(w);
+    const prepared = this.prepareWorld(raw);
+    const w = prepared.world;
+
     recomputeWorld(w, ['LOADED']);
 
     const errors = validateWorld(w);
@@ -236,8 +211,10 @@ class WorldSession {
 
     this.replaceWorld(w);
     this.simBranchWorld = null;
-    this.history = this.world ? [cloneWorld(this.world)] : [];
+    this.history = this.world ? [cloneWorldDocument(this.world)] : [];
     this.historyIndex = this.world ? 0 : -1;
+    this.worldLoadReport = prepared.report;
+    this.migrationPending = prepared.migrated;
     this.dirty = false;
     this.notify();
   }
@@ -248,15 +225,16 @@ class WorldSession {
     }
 
     const saved = await saveWorld(this.world);
-    this.world = saved;
+    const verified = this.prepareWorld(saved);
+    this.replaceWorld(verified.world);
+    this.worldLoadReport = verified.report;
+    this.migrationPending = false;
     this.dirty = false;
     this.notify();
-    return saved;
+    return cloneWorldDocument(verified.world);
   }
 
-  /**
-   * Apply a committed, undoable Create edit.
-   */
+  /** Apply a committed, undoable Create edit. */
   apply(action: WorldAction): void {
     if (!this.world) return;
 
@@ -274,10 +252,7 @@ class WorldSession {
     this.notify();
   }
 
-  /**
-   * Apply a local preview edit without recompute or history.
-   * This is for high-frequency interactive editing paths.
-   */
+  /** Apply a local preview edit without recompute or history. */
   applyPreviewEdit(world: WorldBrain): void {
     if (!world) return;
     this.replaceWorld(world);
@@ -285,10 +260,7 @@ class WorldSession {
     this.notify();
   }
 
-  /**
-   * Apply a finalized local edit with a single recompute + history push.
-   * Use this when an interaction finishes, such as brush stroke end.
-   */
+  /** Apply a finalized local edit with one recompute and history push. */
   applyCommittedLocalEdit(world: WorldBrain): void {
     if (!world) return;
 
@@ -308,9 +280,7 @@ class WorldSession {
     this.notify();
   }
 
-  /**
-   * Backward-compatible path. Keep behavior safe, but route through committed edit.
-   */
+  /** Backward-compatible path routed through committed edit behavior. */
   applyLocalEdit(world: WorldBrain): void {
     this.applyCommittedLocalEdit(world);
   }
@@ -318,7 +288,7 @@ class WorldSession {
   undo(): void {
     if (this.historyIndex > 0) {
       this.historyIndex--;
-      this.world = cloneWorld(this.history[this.historyIndex]);
+      this.world = cloneWorldDocument(this.history[this.historyIndex]);
       this.dirty = true;
       this.notify();
     }
@@ -327,25 +297,18 @@ class WorldSession {
   redo(): void {
     if (this.historyIndex < this.history.length - 1) {
       this.historyIndex++;
-      this.world = cloneWorld(this.history[this.historyIndex]);
+      this.world = cloneWorldDocument(this.history[this.historyIndex]);
       this.dirty = true;
       this.notify();
     }
   }
 
-  /**
-   * Advance a transitional Sim branch snapshot without mutating canonical
-   * Create state.
-   *
-   * This is intentionally not a promotion workflow. It gives current code a
-   * safe branch boundary first; durable branch persistence follows in the next
-   * implementation phase.
-   */
+  /** Advance a transitional Sim branch without mutating canonical Create state. */
   simulateTick(dt: number = 1): void {
     if (!this.world) return;
 
     if (!this.simBranchWorld) {
-      this.simBranchWorld = cloneWorld(this.world);
+      this.simBranchWorld = cloneWorldDocument(this.world);
     }
 
     simulateTick(this.simBranchWorld, dt);
