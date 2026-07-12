@@ -1,71 +1,121 @@
-// WorldWright – World Simulation (V1.3 Spine)
-//
-// Simulation runs on branch snapshots (cloneWorld). The canonical world
-// should never be mutated by Sim Mode directly without promotion.
-// This module provides simulation ticking with event generation and
-// cultural/demographic evolution.
+// WorldWright – deterministic simulation foundation (C02)
 
-import { WorldBrain } from '../worldSchema';
-import { generateSimEvents } from '../simEvents';
+import { generateSimEvents, type SimEvent } from '../simEvents';
+import { cloneWorldDocument } from '../worldCloning';
+import type { ResolvedWorldFeatureFlagSnapshot } from '../worldFeatureFlags/types';
+import type { WorldBrain } from '../worldSchema';
+import {
+  advanceSimRandomContext,
+  createSimRandomContext,
+  createSimRandomOracle,
+  type SimRandomContextV1,
+} from './randomContext';
+
+export interface SimTickRequest {
+  readonly branchId: string;
+  readonly year: number;
+  readonly randomContext: SimRandomContextV1;
+  readonly dt?: number;
+  readonly flags?: ResolvedWorldFeatureFlagSnapshot;
+}
+
+export interface SimTickResult {
+  readonly events: readonly SimEvent[];
+  readonly nextRandomContext: SimRandomContextV1;
+}
 
 export function cloneWorld(world: WorldBrain): WorldBrain {
-  // Deep clone (safe baseline). Optimize later with structured cloning.
-  return JSON.parse(JSON.stringify(world)) as WorldBrain;
+  return cloneWorldDocument(world);
 }
 
 /**
- * Main simulation tick: advance world by one year.
- * - Grows city populations
- * - Generates events (culture splits, wars, disasters)
- * - Evolves culture zones
+ * Advance a branch snapshot deterministically. The caller persists the returned
+ * random context only after the entire tick and save transaction succeeds.
  */
-export function simulateTick(world: WorldBrain, dt: number = 1): void {
-  // City population growth
+export function simulateTick(
+  world: WorldBrain,
+  requestOrDt: SimTickRequest | number = 1,
+): SimTickResult {
+  const request = typeof requestOrDt === 'number'
+    ? fallbackTickRequest(world, requestOrDt)
+    : requestOrDt;
+  const dt = request.dt ?? 1;
+  if (!Number.isFinite(dt) || dt <= 0) throw new RangeError('Simulation dt must be a positive finite number.');
+  if (request.randomContext.tickIndex < 0) throw new RangeError('Simulation tick index cannot be negative.');
+
+  const random = createSimRandomOracle(request.randomContext);
+
   const growthRate = 0.01 * dt;
-  for (const city of world.cities) {
-    city.population += city.population * growthRate;
+  for (const city of world.cities) city.population += city.population * growthRate;
+
+  const landCellIndices = world.cells
+    .map((cell, index) => ({ cell, index }))
+    .filter(({ cell }) => !cell.isWater)
+    .map(({ index }) => index);
+
+  for (const culture of [...world.cultures].sort(byId)) {
+    const scope = [request.branchId, request.year, request.randomContext.tickIndex, culture.id] as const;
+    if (!random.boolean({ stream: 'sim.culture-drift', scope, draw: 'trigger' }, 0.05)) continue;
+    if (landCellIndices.length === 0) continue;
+    const cellIndex = random.pick({ stream: 'sim.culture-drift', scope, draw: 'target-cell' }, landCellIndices);
+    world.cells[cellIndex].cultureId = culture.id;
   }
 
-  // Culture drift (slowly shift nearby cells to culture)
-  for (const culture of world.cultures) {
-    if (Math.random() < 0.05) {
-      const cellIdx = Math.floor(Math.random() * world.cells.length);
-      if (!world.cells[cellIdx].isWater) {
-        world.cells[cellIdx].cultureId = culture.id;
+  for (const country of [...world.countries].sort(byId)) {
+    const countryCellIndices = world.cells
+      .map((cell, index) => ({ cell, index }))
+      .filter(({ cell }) => cell.countryId === country.id)
+      .map(({ index }) => index)
+      .sort((a, b) => a - b);
+    if (countryCellIndices.length === 0) continue;
+
+    const scope = [request.branchId, request.year, request.randomContext.tickIndex, country.id] as const;
+    if (!random.boolean({ stream: 'sim.country-expansion', scope, draw: 'trigger' }, 0.03)) continue;
+    const sourceIndex = random.pick({ stream: 'sim.country-expansion', scope, draw: 'source-cell' }, countryCellIndices);
+    const neighbors = neighborIndices(world, sourceIndex).sort((a, b) => a - b);
+    const offset = random.integer({ stream: 'sim.country-expansion', scope, draw: 'neighbor-order' }, 0, neighbors.length);
+    for (let step = 0; step < neighbors.length; step += 1) {
+      const neighbor = world.cells[neighbors[(offset + step) % neighbors.length]];
+      if (!neighbor.isWater && !neighbor.countryId) {
+        neighbor.countryId = country.id;
+        break;
       }
     }
   }
 
-  // Natural country expansion (borders shift into unclaimed land)
-  for (const country of world.countries) {
-    // Find cells belonging to this country
-    const countryCells = world.cells
-      .map((c, idx) => ({ cell: c, idx }))
-      .filter((x) => x.cell.countryId === country.id);
+  const events = generateSimEvents(world, request.year, {
+    branchId: request.branchId,
+    tickIndex: request.randomContext.tickIndex,
+    random,
+  });
 
-    if (countryCells.length > 0 && Math.random() < 0.03) {
-      const randomCell = countryCells[Math.floor(Math.random() * countryCells.length)];
-      const cellIdx = randomCell.idx;
-      const row = Math.floor(cellIdx / world.gridWidth);
-      const col = cellIdx % world.gridWidth;
+  return Object.freeze({
+    events: Object.freeze(events),
+    nextRandomContext: advanceSimRandomContext(request.randomContext),
+  });
+}
 
-      // Try to expand to a neighbor
-      const neighbors = [
-        ((row - 1 + world.gridHeight) % world.gridHeight) * world.gridWidth + col,
-        ((row + 1) % world.gridHeight) * world.gridWidth + col,
-        row * world.gridWidth + ((col - 1 + world.gridWidth) % world.gridWidth),
-        row * world.gridWidth + ((col + 1) % world.gridWidth),
-      ];
+function fallbackTickRequest(world: WorldBrain, dt: number): SimTickRequest {
+  const branchId = `transient-${world.metadata.id}`;
+  return {
+    branchId,
+    year: 0,
+    dt,
+    randomContext: createSimRandomContext(world.metadata.seed, branchId),
+  };
+}
 
-      for (const neighborIdx of neighbors) {
-        const neighbor = world.cells[neighborIdx];
-        if (!neighbor.isWater && !neighbor.countryId) {
-          neighbor.countryId = country.id;
-          break;
-        }
-      }
-    }
-  }
+function neighborIndices(world: WorldBrain, cellIndex: number): number[] {
+  const row = Math.floor(cellIndex / world.gridWidth);
+  const col = cellIndex % world.gridWidth;
+  return [
+    ((row - 1 + world.gridHeight) % world.gridHeight) * world.gridWidth + col,
+    ((row + 1) % world.gridHeight) * world.gridWidth + col,
+    row * world.gridWidth + ((col - 1 + world.gridWidth) % world.gridWidth),
+    row * world.gridWidth + ((col + 1) % world.gridWidth),
+  ];
+}
 
-  // Future (blueprint): trade routes, roads, religious spread, etc.
+function byId<T extends { id: string }>(a: T, b: T): number {
+  return a.id.localeCompare(b.id);
 }
