@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultGeneratorParams, generateWorldFromParams } from '../src/core/worldGenerator';
+import {
+  createDefaultGeneratorParams,
+  generateLegacyV3WorldFromParams,
+} from '../src/core/worldGenerator';
 import { WorldSession, type WorldSessionStorage } from '../src/core/worldSession';
 import { CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION } from '../src/core/worldSchema/version';
 import type { WorldBrain } from '../src/core/worldSchema';
 
 function createV3World(seed = 'session-migration-v3'): WorldBrain {
-  return generateWorldFromParams({
+  return generateLegacyV3WorldFromParams({
     ...createDefaultGeneratorParams(),
     width: 32,
     height: 16,
