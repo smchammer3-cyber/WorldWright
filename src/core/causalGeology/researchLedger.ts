@@ -1,11 +1,13 @@
 import { CAUSAL_INPUT_AUTHORITY_REGISTRY } from './inputAuthority';
 import { cloneAndDeepFreeze } from './immutable';
 import { assertDeterministicHash, deterministicHashEquals, hashCausalPayload } from './hashes';
+import { CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1 } from './limits';
 import type { ScientificClaimRuleV1, ScientificResearchBundleV1, ScientificSourceV1 } from './types';
 
 const APPROVED_INPUT_IDS = new Set(CAUSAL_INPUT_AUTHORITY_REGISTRY.map((entry) => entry.inputId));
 
 export function createScientificResearchBundle(input: Omit<ScientificResearchBundleV1, 'schemaVersion' | 'contentHash'>): ScientificResearchBundleV1 {
+  assertResearchCounts(input.sources, input.claimRules);
   const payload = {
     schemaVersion: 1 as const,
     bundleVersion: input.bundleVersion,
@@ -26,7 +28,7 @@ export function validateScientificResearchBundle(value: unknown): asserts value 
   if (!value || typeof value !== 'object') throw new Error('Scientific research bundle must be an object.');
   const bundle = value as Partial<ScientificResearchBundleV1>;
   if (bundle.schemaVersion !== 1 || !isNonEmptyText(bundle.bundleVersion)) throw new Error('Unsupported scientific research bundle.');
-  if (!Array.isArray(bundle.sources) || !Array.isArray(bundle.claimRules)) throw new Error('Scientific research bundle records are missing.');
+  assertResearchCounts(bundle.sources, bundle.claimRules);
   const groups = validateSortedUniqueText(bundle.correlationGroups, 'Research correlation groups');
   const limitations = validateSortedUniqueText(bundle.knownLimitations, 'Research limitations');
   const sources = bundle.sources as readonly ScientificSourceV1[];
@@ -90,6 +92,12 @@ export function validateScientificClaimRule(value: unknown): asserts value is Sc
   validateSortedUniqueText(rule.exceptions, `Rule ${rule.ruleId} exceptions`);
   if (!['RESEARCH_REQUIRED', 'PROVISIONAL', 'REVIEWED'].includes(rule.evidenceStatus as string)) throw new Error(`Rule ${rule.ruleId} evidence status is invalid.`);
   if (rule.evidenceStatus !== 'RESEARCH_REQUIRED' && sourceIds.length === 0) throw new Error(`Rule ${rule.ruleId} requires at least one source.`);
+}
+
+function assertResearchCounts(sources: unknown, rules: unknown): asserts sources is readonly ScientificSourceV1[] {
+  if (!Array.isArray(sources) || !Array.isArray(rules)) throw new Error('Scientific research bundle records are missing.');
+  if (sources.length > CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxResearchSources) throw new Error(`Scientific sources exceed the limit of ${CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxResearchSources}.`);
+  if (rules.length > CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxResearchClaimRules) throw new Error(`Scientific claim rules exceed the limit of ${CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxResearchClaimRules}.`);
 }
 
 function sortedUniqueText<T extends string>(values: readonly T[], label: string): readonly T[] {
