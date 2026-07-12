@@ -26,7 +26,7 @@ Runtime performance baselines for actual causal algorithms remain a W1-02 merge 
 
 ## Software and physical-output evidence
 
-GitHub Actions run #445 passed:
+Exact-head GitHub Actions run #446 passed:
 
 - build;
 - 72 test files / 296 tests;
@@ -34,31 +34,42 @@ GitHub Actions run #445 passed:
 - full-globe review;
 - full-globe exit code `0` with no recorded failures.
 
-All five standard PNGs were SHA-256 byte-identical to merged C04:
+All four authoritative globe captures are SHA-256 byte-identical to merged C04:
 
 ```text
 final-globe-front.png
 final-globe-triad-120.png
 final-globe-triad-240.png
 final-globe.png
-generate-app-final.png
 ```
 
 The legacy geological audit remains intentionally failed at `RAW_GENERATOR`; W1-01 does not claim to repair physical geology.
 
-## Full-page capture stability investigation
+## Unresolved full-page capture stability gate
 
-Run #444 and its targeted full-globe rerun produced a five-pixel difference in `generate-app-final.png`, limited to rounded control-panel background edges, with a maximum channel delta of 2. All four actual globe captures remained byte-identical.
+The non-authoritative `generate-app-final.png` capture is not byte-stable across equivalent documentation-only heads:
 
-The immediately preceding code head had produced a byte-identical full-page PNG, and the only intervening commit changed this Markdown audit record. That isolated the discrepancy to browser rasterization rather than W1-01 runtime code or physical generation.
+- run #444 differed from C04 by 5 pixels, maximum channel delta 2;
+- a targeted rerun reproduced that 5-pixel difference;
+- run #445 produced a byte-identical image;
+- exact-head run #446 differed by 2 pixels, maximum channel delta 1.
 
-The contract was not weakened or replaced with a tolerance. A fresh exact-head run #445 subsequently produced all five standard PNGs byte-identically, satisfying the approved gate while documenting the capture-stability caution for future CI work.
+The differing pixels lie on rounded control-panel background edges. No text, control value, globe pixel, generated-world pixel, application code, or style changed. The only commits between these observations modified this Markdown audit record. Therefore the variation is browser rasterization noise in the full-page screenshot harness rather than a W1-01 runtime or physical-output regression.
+
+The approved gate nevertheless requires all five standard PNGs to be byte-identical. This audit does not silently replace that requirement with a tolerance merely because the observed difference is visually negligible.
 
 ## Final verdict
 
-The corrected W1-01 implementation is ready for an explicit merge decision.
+**Do not merge yet.**
 
-PR #133 remains draft and unmerged. A squash merge still requires direct user authorization.
+The W1-01 implementation, contracts, authority boundaries, tests, and physical globe output are audit-clean. PR #133 remains blocked only by the nondeterministic full-page screenshot gate.
+
+Resolve this through one of two separately reviewed paths:
+
+1. make the full-page Playwright capture byte-stable across repeated equivalent runs; or
+2. approve a planning amendment defining a narrowly bounded pixel tolerance for the non-authoritative page screenshot while retaining byte-exact authoritative globe captures.
+
+PR #133 remains draft and unmerged.
 
 ## Locked scope
 
