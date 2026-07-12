@@ -78,7 +78,26 @@ docs/blueprint/current/04_EXECUTION_AND_PERFORMANCE_MODEL.md
 docs/blueprint/current/05_BLUEPRINT_RECONCILIATION_REGISTER.md
 docs/blueprint/current/06_IMPLEMENTATION_ROADMAP_AND_GATES.md
 docs/blueprint/current/07_PLAIN_LANGUAGE_GLOSSARY.md
+docs/blueprint/current/08_TECHNICAL_BINDING_MATRIX.md
+docs/blueprint/current/09_OPEN_DECISIONS_AND_RESEARCH_QUESTIONS.md
 ```
+
+The plain-language map explains the system to non-specialists. The technical architecture and binding matrix define what code must exist, what each stage reads and writes, and which older detailed contract supplies the implementation rules.
+
+## Blueprint completeness rule
+
+A governing blueprint is not required to contain every final scientific formula before research is complete. It is required to define:
+
+- the authoritative stage order;
+- the canonical records and owners;
+- allowed and forbidden inputs;
+- failure and uncertainty behavior;
+- deterministic and performance boundaries;
+- evidence requirements;
+- promotion and rollback;
+- which decisions remain deliberately open and when they must be resolved.
+
+An unresolved formula is acceptable when it is named and gated. An unnamed authority gap or competing causal chain is not.
 
 ## Precedence rule
 
@@ -93,4 +112,4 @@ After approval, this document set becomes the current governing map. Older docum
 
 ## Required user decisions
 
-Merging this blueprint set approves the direction and precedence rules, not implementation or active authority. Every implementation PR, W1-01 merge, and authority promotion still requires its own review and explicit approval.
+Merging this blueprint set approves the direction and precedence rules, not implementation or active authority. Every implementation PR, W1-01 merge, scientific formula bundle, and authority promotion still requires its own review and explicit approval.
