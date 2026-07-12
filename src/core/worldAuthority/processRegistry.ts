@@ -1,17 +1,23 @@
 import type { GeneratorAuthorityMode } from '../causalWorld/schema';
 import type { AuthorityFieldGroup, AuthorityProcessDefinition } from './types';
 
-const ALL_MODES: readonly GeneratorAuthorityMode[] = ['LEGACY', 'CAUSAL_SHADOW', 'CAUSAL_ACTIVE'];
+const OPERABLE_MODES: readonly GeneratorAuthorityMode[] = ['LEGACY', 'CAUSAL_SHADOW'];
 const LEGACY_ONLY: readonly GeneratorAuthorityMode[] = ['LEGACY'];
 const SHADOW_ONLY: readonly GeneratorAuthorityMode[] = ['CAUSAL_SHADOW'];
 const ALL_GROUPS: readonly AuthorityFieldGroup[] = [
-  'metadata', 'planetInput', 'terrain', 'derivedSurface', 'plateCause', 'skeletonCause',
+  'metadata', 'planetInput', 'planetInitialConditions', 'terrain', 'derivedSurface', 'plateCause', 'skeletonCause',
   'crustCause', 'featureCause', 'climateDerived', 'biomeDerived', 'hydrologyDerived',
-  'worldCollections', 'worldbuilding', 'causalRecord', 'diagnostics', 'presentation',
+  'worldCollections', 'worldbuilding', 'causalRecord', 'processFieldAuthority',
+  'structuralRoleAuthority', 'structureMaterialCause', 'landformPotentialAuthority',
+  'baseTerrain', 'provisionalSurfaceBoundary', 'surfaceEvolutionDelta', 'finalTerrain',
+  'terrainCauseLedger', 'diagnostics', 'presentation',
 ];
 const PHYSICAL_GROUPS: readonly AuthorityFieldGroup[] = [
   'terrain', 'derivedSurface', 'plateCause', 'skeletonCause', 'crustCause', 'featureCause',
-  'climateDerived', 'biomeDerived', 'hydrologyDerived', 'worldCollections', 'worldbuilding', 'presentation',
+  'climateDerived', 'biomeDerived', 'hydrologyDerived', 'worldCollections', 'worldbuilding',
+  'processFieldAuthority', 'structuralRoleAuthority', 'structureMaterialCause',
+  'landformPotentialAuthority', 'baseTerrain', 'provisionalSurfaceBoundary',
+  'surfaceEvolutionDelta', 'finalTerrain', 'terrainCauseLedger', 'presentation',
 ];
 
 function process(
@@ -66,11 +72,15 @@ export const CAUSAL_SHADOW_PROCESS_ORDER = Object.freeze([
   'CAUSAL_INTERIOR_RESOLUTION',
   'CAUSAL_REGIME_HISTORY',
   'CAUSAL_GEOLOGIC_SPINE',
+] as const);
+
+export const CAUSAL_SHADOW_DIAGNOSTIC_PROCESS_ORDER = Object.freeze([
   'CAUSAL_SHADOW_AUDIT',
 ] as const);
 
 export type LegacyGenerateProcessId = (typeof LEGACY_GENERATE_PROCESS_ORDER)[number];
 export type CausalShadowProcessId = (typeof CAUSAL_SHADOW_PROCESS_ORDER)[number];
+export type CausalShadowDiagnosticProcessId = (typeof CAUSAL_SHADOW_DIAGNOSTIC_PROCESS_ORDER)[number];
 
 export const WORLD_AUTHORITY_PROCESSES: readonly AuthorityProcessDefinition[] = Object.freeze([
   process('RAW_GENERATOR', 'source', ['planetInput'], ['terrain', 'plateCause', 'featureCause', 'derivedSurface', 'climateDerived', 'biomeDerived', 'hydrologyDerived', 'worldCollections'], { legacyException: 'Legacy source creates terrain and first-pass derived state before the future causal stack.', invariants: ['Explicit-seed output remains unchanged.'] }),
@@ -93,16 +103,16 @@ export const WORLD_AUTHORITY_PROCESSES: readonly AuthorityProcessDefinition[] = 
   process('FINAL_RECOMPUTE', 'derived-recompute', ['terrain', 'plateCause', 'skeletonCause'], ['derivedSurface', 'climateDerived', 'biomeDerived', 'hydrologyDerived', 'worldCollections'], { prerequisites: ['OCEAN_BATHYMETRY_SMOOTHING'] }),
   process('FINAL_CONTINENT_RESEED', 'final-cause-sync', ['terrain', 'derivedSurface', 'plateCause'], ['skeletonCause'], { prerequisites: ['FINAL_RECOMPUTE'], terminal: true, legacyException: 'Terminal explanation sync must never feed later terrain.' }),
   process('FINAL_CRUST_RESEED', 'final-cause-sync', ['terrain', 'derivedSurface', 'plateCause', 'skeletonCause', 'featureCause'], ['crustCause'], { prerequisites: ['FINAL_CONTINENT_RESEED'], terminal: true, legacyException: 'Terminal explanation sync must never feed later terrain.' }),
-  process('CAUSAL_INPUT_SANITIZATION', 'causal-input', ['planetInput'], [], { owner: 'CAUSAL_GEOLOGY_SHADOW', modes: SHADOW_ONLY, invariants: ['Produces a detached sanitized input snapshot.', 'Never reads solved morphology or writes canonical world state.'] }),
-  process('CAUSAL_PREMISE_RESOLUTION', 'causal-resolution', [], ['causalRecord'], { owner: 'CAUSAL_GEOLOGY_SHADOW', prerequisites: ['CAUSAL_INPUT_SANITIZATION'], modes: SHADOW_ONLY, invariants: ['Accepts only CausalGeologyInputV1; never accepts WorldBrain.'] }),
+  process('CAUSAL_INPUT_SANITIZATION', 'causal-input', ['planetInitialConditions'], [], { owner: 'CAUSAL_GEOLOGY_SHADOW', modes: SHADOW_ONLY, invariants: ['Consumes only a detached PlanetInitialConditionBundleV1 contract.', 'Produces a detached sanitized input snapshot.', 'Never reads solved morphology or writes canonical world state.'] }),
+  process('CAUSAL_PREMISE_RESOLUTION', 'causal-resolution', [], ['causalRecord'], { owner: 'CAUSAL_GEOLOGY_SHADOW', prerequisites: ['CAUSAL_INPUT_SANITIZATION'], modes: SHADOW_ONLY, invariants: ['Accepts only CausalGeologyInputV1; never accepts WorldBrain.', 'Owns body, layer, and surface-medium alternatives only.'] }),
   process('CAUSAL_INTERIOR_RESOLUTION', 'causal-resolution', ['causalRecord'], ['causalRecord'], { owner: 'CAUSAL_GEOLOGY_SHADOW', prerequisites: ['CAUSAL_PREMISE_RESOLUTION'], modes: SHADOW_ONLY, invariants: ['Reads only sanitized input and validated premise records.'] }),
-  process('CAUSAL_REGIME_HISTORY', 'causal-resolution', ['causalRecord'], ['causalRecord'], { owner: 'CAUSAL_GEOLOGY_SHADOW', prerequisites: ['CAUSAL_INTERIOR_RESOLUTION'], modes: SHADOW_ONLY, invariants: ['Uses normalized history time and stable epoch identities.'] }),
-  process('CAUSAL_GEOLOGIC_SPINE', 'causal-resolution', ['causalRecord'], ['causalRecord'], { owner: 'CAUSAL_GEOLOGY_SHADOW', prerequisites: ['CAUSAL_REGIME_HISTORY'], modes: SHADOW_ONLY, invariants: ['Produces resolution-independent spherical graph records, never terrain.'] }),
-  process('CAUSAL_SHADOW_AUDIT', 'diagnostic', ALL_GROUPS, ['diagnostics'], { owner: 'CAUSAL_GEOLOGY_SHADOW', prerequisites: ['CAUSAL_GEOLOGIC_SPINE'], modes: SHADOW_ONLY, invariants: ['Legacy comparison data cannot feed back into causal resolution.', 'Never mutates canonical causal or physical state.'] }),
-  process('CREATE_EDIT', 'edit', ['terrain', 'biomeDerived', 'worldbuilding'], ['terrain', 'biomeDerived', 'worldbuilding'], { owner: 'CREATE_MODE', modes: ALL_MODES }),
-  process('SIM_TICK', 'simulation', ['terrain', 'worldbuilding', 'causalRecord'], ['terrain', 'worldbuilding'], { owner: 'SIM_MODE', modes: ALL_MODES }),
-  process('DIAGNOSTIC_REPLAY', 'diagnostic', ALL_GROUPS, [], { owner: 'DIAGNOSTICS', modes: ALL_MODES, invariants: ['Never mutates canonical world state.'] }),
-  process('FINAL_RENDER', 'render', ['terrain', 'derivedSurface', 'climateDerived', 'biomeDerived', 'hydrologyDerived', 'worldCollections', 'presentation'], [], { owner: 'RENDERER', modes: ALL_MODES, invariants: ['Never mutates canonical state or reads raw debug identity as final authority.'] }),
+  process('CAUSAL_REGIME_HISTORY', 'causal-resolution', ['causalRecord'], ['causalRecord'], { owner: 'CAUSAL_GEOLOGY_SHADOW', prerequisites: ['CAUSAL_INTERIOR_RESOLUTION'], modes: SHADOW_ONLY, invariants: ['Uses normalized history time plus declared total duration and stable epoch identities.'] }),
+  process('CAUSAL_GEOLOGIC_SPINE', 'causal-resolution', ['causalRecord'], ['causalRecord'], { owner: 'CAUSAL_GEOLOGY_SHADOW', prerequisites: ['CAUSAL_REGIME_HISTORY'], modes: SHADOW_ONLY, invariants: ['Produces resolution-independent spherical graph records with age, persistence, exposure, and preservation; never terrain.'] }),
+  process('CAUSAL_SHADOW_AUDIT', 'diagnostic', ['causalRecord'], ['diagnostics'], { owner: 'WORLD_DIAGNOSTICS', prerequisites: ['CAUSAL_GEOLOGIC_SPINE'], modes: SHADOW_ONLY, invariants: ['Causal modules export immutable records only.', 'An external read-only adapter may separately read legacy/reference data.', 'Comparison output cannot feed causal generation or mutate canonical state.'] }),
+  process('CREATE_EDIT', 'edit', ['terrain', 'biomeDerived', 'worldbuilding'], ['terrain', 'biomeDerived', 'worldbuilding'], { owner: 'CREATE_MODE', modes: OPERABLE_MODES }),
+  process('SIM_TICK', 'simulation', ['terrain', 'worldbuilding', 'causalRecord'], ['terrain', 'worldbuilding'], { owner: 'SIM_MODE', modes: OPERABLE_MODES }),
+  process('DIAGNOSTIC_REPLAY', 'diagnostic', ALL_GROUPS, [], { owner: 'DIAGNOSTICS', modes: OPERABLE_MODES, invariants: ['Never mutates canonical world state.'] }),
+  process('FINAL_RENDER', 'render', ['terrain', 'derivedSurface', 'climateDerived', 'biomeDerived', 'hydrologyDerived', 'worldCollections', 'presentation'], [], { owner: 'RENDERER', modes: OPERABLE_MODES, invariants: ['Never mutates canonical state or reads raw debug identity as final authority.'] }),
 ]);
 
 const PROCESS_BY_ID = new Map(WORLD_AUTHORITY_PROCESSES.map((definition) => [definition.id, definition]));
@@ -120,6 +130,7 @@ export function validateAuthorityProcessRegistry(): readonly string[] {
     if (!Number.isSafeInteger(processDefinition.version) || processDefinition.version < 1) errors.push(`${processDefinition.id}: invalid version`);
     for (const prerequisite of processDefinition.prerequisites) if (!PROCESS_BY_ID.has(prerequisite)) errors.push(`${processDefinition.id}: unknown prerequisite ${prerequisite}`);
     for (const group of processDefinition.writes) if (processDefinition.forbiddenWrites.includes(group)) errors.push(`${processDefinition.id}: ${group} both allowed and forbidden`);
+    if (processDefinition.modes.includes('CAUSAL_ACTIVE')) errors.push(`${processDefinition.id}: CAUSAL_ACTIVE remains forbidden`);
   }
   let terminalSeen = false;
   for (const id of LEGACY_GENERATE_PROCESS_ORDER) {
@@ -127,10 +138,12 @@ export function validateAuthorityProcessRegistry(): readonly string[] {
     if (terminalSeen && definition.writes.includes('terrain')) errors.push(`${id}: terrain writer follows terminal cause sync`);
     terminalSeen ||= definition.terminal;
   }
-  for (const id of CAUSAL_SHADOW_PROCESS_ORDER) {
+  for (const id of [...CAUSAL_SHADOW_PROCESS_ORDER, ...CAUSAL_SHADOW_DIAGNOSTIC_PROCESS_ORDER]) {
     const definition = getAuthorityProcess(id);
     if (definition.modes.length !== 1 || definition.modes[0] !== 'CAUSAL_SHADOW') errors.push(`${id}: must be shadow-only`);
     for (const group of definition.writes) if (PHYSICAL_GROUPS.includes(group)) errors.push(`${id}: illegal physical write ${group}`);
   }
+  const audit = getAuthorityProcess('CAUSAL_SHADOW_AUDIT');
+  if (audit.reads.some((group) => group !== 'causalRecord')) errors.push('CAUSAL_SHADOW_AUDIT: comparison must read legacy/reference state only through an external adapter');
   return Object.freeze(errors);
 }
