@@ -1,4 +1,5 @@
 import { canonicalJsonStringify } from '../worldProvenance/canonicalJson';
+import type { DeterministicHash } from '../worldProvenance/hash';
 import { createRootSeedIdentity } from '../worldRandom/seedMixer';
 import type { RootSeedIdentity } from '../worldRandom/types';
 import { cloneAndDeepFreeze } from './immutable';
@@ -20,6 +21,12 @@ export interface CausalDerivationDefinitionV1 {
   readonly formulaVersion: string;
   readonly dependencyInputIds: readonly CausalGeologyInputId[];
   readonly status: 'RESERVED' | 'ACTIVE';
+}
+
+export interface CausalInputCreationOptionsV1 {
+  readonly initialConditionBundleHash: DeterministicHash;
+  readonly contradictionIds?: readonly string[];
+  readonly limitations?: readonly string[];
 }
 
 const DIRECT: readonly CausalInputSourceClass[] = ['DIRECT_DECLARATION'];
@@ -55,10 +62,18 @@ export const CAUSAL_DERIVATION_REGISTRY: readonly CausalDerivationDefinitionV1[]
 
 export const FORBIDDEN_LEGACY_CAUSAL_INPUT_FIELDS: readonly string[] = Object.freeze([
   'world.cells',
+  'world.terrain',
+  'world.elevation',
+  'world.landMask',
   'world.plates',
   'world.rivers',
   'world.continentSkeletons',
   'world.oceanBasinSkeletons',
+  'world.biomes',
+  'world.materials',
+  'legacyCandidate',
+  'legacyComparison',
+  'comparisonDiagnostics',
   'planetFoundation.geologyStack',
   'planetFoundation.resolvedPhysicalConsequences',
   'planetFoundation.surfaceWaterMode',
@@ -87,9 +102,10 @@ if (DERIVATION_BY_INPUT_ID.size !== CAUSAL_DERIVATION_REGISTRY.length) throw new
 export function createCausalGeologyInput(
   rootSeed: string | number | RootSeedIdentity,
   declarations: readonly CausalInputDeclarationV1[],
-  options: Readonly<{ contradictionIds?: readonly string[]; limitations?: readonly string[] }> = {},
+  options: CausalInputCreationOptionsV1,
 ): CausalGeologyInputV1 {
   const normalizedRootSeed = normalizeRootSeedIdentity(rootSeed);
+  assertDeterministicHash(options?.initialConditionBundleHash, 'Initial-condition bundle');
   assertDeclarationCount(declarations);
 
   const sorted = [...declarations].sort((a, b) => compareStableText(a.inputId, b.inputId));
@@ -107,6 +123,8 @@ export function createCausalGeologyInput(
   const payload = {
     schemaVersion: 1 as const,
     inputContractVersion: 1 as const,
+    initialConditionContract: 'PLANET_INITIAL_CONDITION_BUNDLE_V1' as const,
+    initialConditionBundleHash: options.initialConditionBundleHash,
     rootSeed: normalizedRootSeed,
     sourceDeclarations: sorted.map((entry) => cloneAndDeepFreeze(entry)),
     physicalInputs,
@@ -126,6 +144,8 @@ export function validateCausalGeologyInput(value: unknown): asserts value is Cau
   if (!value || typeof value !== 'object') throw new Error('Causal geology input must be an object.');
   const input = value as Partial<CausalGeologyInputV1>;
   if (input.schemaVersion !== 1 || input.inputContractVersion !== 1) throw new Error('Unsupported causal geology input contract.');
+  if (input.initialConditionContract !== 'PLANET_INITIAL_CONDITION_BUNDLE_V1') throw new Error('Causal geology input is not bound to the approved initial-condition contract.');
+  assertDeterministicHash(input.initialConditionBundleHash, 'Initial-condition bundle');
   const rootSeed = normalizeRootSeedIdentity(input.rootSeed as RootSeedIdentity);
   assertDeclarationCount(input.sourceDeclarations);
   if (!isRecord(input.physicalInputs) || !isRecord(input.approvedDerivations)) throw new Error('Causal input maps are invalid.');
@@ -151,6 +171,8 @@ export function validateCausalGeologyInput(value: unknown): asserts value is Cau
   const expected = hashCausalPayload('WorldWright/causal-geology-input/v1', {
     schemaVersion: 1,
     inputContractVersion: 1,
+    initialConditionContract: input.initialConditionContract,
+    initialConditionBundleHash: input.initialConditionBundleHash,
     rootSeed,
     sourceDeclarations: input.sourceDeclarations,
     physicalInputs: input.physicalInputs,
