@@ -1,12 +1,12 @@
 import { validateCausalConfidenceLedger } from '../worldConfidence/confidence';
 import type { CausalConfidenceLedgerV1 } from '../worldConfidence/types';
 import { getRandomStreamDefinition } from '../worldRandom/streamRegistry';
-import { canonicalJsonStringify, canonicalizeJson } from '../worldProvenance/canonicalJson';
+import { canonicalJsonStringify } from '../worldProvenance/canonicalJson';
 import { isCausalProvenanceManifestV1 } from '../worldProvenance/schema';
 import { assertDeterministicHash, deterministicHashEquals, hashCausalPayload, hashRecordWithoutContentHash } from './hashes';
 import { validateCausalGeologyInput } from './inputAuthority';
 import { CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1 } from './limits';
-import { validateScientificRange } from './quantities';
+import { validateScientificQuantity, validateScientificRange } from './quantities';
 import { validateSphericalAnchor, validateSphericalExtent } from './spatial';
 import type {
   CausalDomainRecordBaseV1,
@@ -14,9 +14,11 @@ import type {
   CausalGeologyStageId,
   CausalShadowRunV1,
   CausalStageResultV1,
+  GeologicPreservationState,
   GeologicSpineEdgeKind,
   GeologicSpineNodeFamily,
   GeologicSpineV1,
+  GeologicTemporalContextV1,
   InteriorStateV1,
   PlanetaryPremiseV1,
   ScientificRangeV1,
@@ -29,7 +31,6 @@ export const CAUSAL_GEOLOGY_STAGE_ORDER: readonly CausalGeologyStageId[] = Objec
   'CAUSAL_INTERIOR_RESOLUTION',
   'CAUSAL_REGIME_HISTORY',
   'CAUSAL_GEOLOGIC_SPINE',
-  'CAUSAL_SHADOW_AUDIT',
 ]);
 
 const NODE_FAMILIES: readonly GeologicSpineNodeFamily[] = Object.freeze([
@@ -50,6 +51,15 @@ const EDGE_KINDS: readonly GeologicSpineEdgeKind[] = Object.freeze([
   'SEPARATED_FROM',
   'SUBDUCTS_BENEATH',
   'TRANSFORMS_AGAINST',
+]);
+
+const PRESERVATION_STATES: readonly GeologicPreservationState[] = Object.freeze([
+  'ACTIVE',
+  'BURIED',
+  'ERODED_RELICT',
+  'EXPOSED',
+  'INHERITED',
+  'REWORKED',
 ]);
 
 const TEXT_ENCODER = new TextEncoder();
@@ -88,15 +98,25 @@ export function validatePlanetaryPremise(value: unknown): asserts value is Plane
   const premise = value as PlanetaryPremiseV1;
   if (!Number.isSafeInteger(premise.premiseVersion) || premise.premiseVersion < 1) throw new Error('Planetary premise version is invalid.');
   assertDeterministicHash(premise.inputSnapshotHash, 'Planetary premise input');
-  requireText(premise.planetProfile, 'Planetary premise profile');
-  validateCanonicalText(premise.surfaceSupportCandidates, 'Surface support candidates', 1);
-  validateCanonicalText(premise.surfaceWaterCandidates, 'Surface water candidates', 1);
-  validateCanonicalText(premise.layerStackCandidates, 'Layer stack candidates', 1);
-  if (premise.status === 'COMPLETE' && premise.resolvedLayerStack === undefined) throw new Error('Complete planetary premise requires a resolved layer stack.');
+  const bodyCandidates = validateCanonicalText(premise.bodyClassCandidates, 'Body-class candidates', 1);
+  const mediumCandidates = validateCanonicalText(premise.surfaceMediumCandidates, 'Surface-medium candidates', 1);
+  validateCanonicalText(premise.layerStackCandidates, 'Layer-stack candidates', 1);
+  if (premise.status === 'COMPLETE' && (premise.resolvedBodyClass === undefined || premise.resolvedSurfaceMedium === undefined || premise.resolvedLayerStack === undefined)) {
+    throw new Error('Complete planetary premise requires resolved body, surface-medium, and layer-stack alternatives.');
+  }
+  if (premise.resolvedBodyClass !== undefined) {
+    requireText(premise.resolvedBodyClass, 'Resolved body class');
+    if (!bodyCandidates.includes(premise.resolvedBodyClass)) throw new Error('Resolved body class is not one of the recorded candidates.');
+  }
+  if (premise.resolvedSurfaceMedium !== undefined) {
+    requireText(premise.resolvedSurfaceMedium, 'Resolved surface medium');
+    if (!mediumCandidates.includes(premise.resolvedSurfaceMedium)) throw new Error('Resolved surface medium is not one of the recorded candidates.');
+  }
   if (premise.resolvedLayerStack !== undefined) validateCanonicalText(premise.resolvedLayerStack, 'Resolved layer stack', 1);
   validateCanonicalText(premise.assumptions, 'Premise assumptions');
   validateCanonicalText(premise.branchResolutionIds, 'Premise branch IDs');
   requireText(premise.confidenceAssessmentSubject, 'Premise confidence subject');
+  assertNoForbiddenPremiseConclusions(premise);
   assertRecordHash('WorldWright/planetary-premise/v1', premise);
 }
 
@@ -128,6 +148,8 @@ export function validateTectonicRegimeHistory(value: unknown): asserts value is 
   validateDomainBase(value, 'Tectonic regime history');
   const history = value as TectonicRegimeHistoryV1;
   if (!Number.isSafeInteger(history.historyVersion) || history.historyVersion < 1 || history.timeConvention !== 'FRACTION_OF_RESOLVED_GEOLOGIC_HISTORY_V1') throw new Error('Tectonic history contract is invalid.');
+  validateScientificQuantity(history.totalResolvedDuration);
+  if (history.totalResolvedDuration.unit !== 'gigaannum' || history.totalResolvedDuration.scaleId !== 'gigaannum-v1' || history.totalResolvedDuration.value <= 0) throw new Error('Tectonic history total resolved duration must be a positive gigaannum-v1 quantity.');
   if (!Array.isArray(history.epochs) || history.epochs.length === 0) throw new Error('Tectonic history epochs are missing.');
   if (history.epochs.length > CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxEpochs) throw new Error(`Tectonic epochs exceed the limit of ${CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxEpochs}.`);
   const epochIds = new Set<string>();
@@ -143,6 +165,9 @@ export function validateTectonicRegimeHistory(value: unknown): asserts value is 
       ['mobility', epoch.mobilityRange], ['extension', epoch.extensionRange], ['convergence', epoch.convergenceRange],
       ['transform', epoch.transformRange], ['plume', epoch.plumeRange], ['crust production', epoch.crustProductionRange],
     ] as const) assertNormalizedRange(range, `Epoch ${epoch.epochId} ${label} range`);
+    assertDurationRange(epoch.persistenceRange, `Epoch ${epoch.epochId} persistence`, history.totalResolvedDuration.value);
+    assertDurationRange(epoch.surfaceExposureRange, `Epoch ${epoch.epochId} surface exposure`, history.totalResolvedDuration.value);
+    if (epoch.surfaceExposureRange.max > epoch.persistenceRange.max) throw new Error(`Epoch ${epoch.epochId} surface exposure exceeds persistence.`);
     requireText(epoch.confidenceSubject, 'Epoch confidence subject');
     validateCanonicalText(epoch.evidenceIds, 'Epoch evidence IDs');
   });
@@ -182,6 +207,8 @@ export function validateGeologicSpine(value: unknown): asserts value is Geologic
     nodeById.set(node.nodeId, node);
     validateSphericalAnchor(node.anchor);
     validateSphericalExtent(node.extent);
+    validateCanonicalText(node.formationEventIds, `Spine node ${node.nodeId} formation event IDs`, spine.status === 'COMPLETE' ? 1 : 0);
+    validateGeologicTemporalContext(node.temporalContext, `Spine node ${node.nodeId}`);
     validateCanonicalText(node.evidenceIds, 'Spine node evidence IDs');
   }
   const edgeIds = new Set<string>();
@@ -202,13 +229,20 @@ export function validateGeologicSpine(value: unknown): asserts value is Geologic
     if (eventById.has(event.eventId)) throw new Error(`Duplicate spine event ID: ${event.eventId}`);
     eventById.set(event.eventId, event);
     requireText(event.epochId, 'Spine event epoch ID');
+    assertNormalizedRange(event.normalizedTimeRange, `Spine event ${event.eventId} normalized time range`);
     for (const nodeId of validateCanonicalText(event.relatedNodeIds, 'Spine event node IDs')) if (!nodeById.has(nodeId)) throw new Error(`Spine event ${event.eventId} references missing node ${nodeId}.`);
     validateCanonicalText(event.parentEventIds, 'Spine parent event IDs');
+    validateGeologicTemporalContext(event.temporalContext, `Spine event ${event.eventId}`);
     validateCanonicalText(event.evidenceIds, 'Spine event evidence IDs');
   }
   for (const event of spine.events) for (const parentId of event.parentEventIds) {
     if (!eventById.has(parentId)) throw new Error(`Spine event ${event.eventId} references missing parent ${parentId}.`);
     if (parentId === event.eventId) throw new Error(`Spine event ${event.eventId} cannot parent itself.`);
+  }
+  for (const node of spine.nodes) for (const eventId of node.formationEventIds) {
+    const event = eventById.get(eventId);
+    if (!event) throw new Error(`Spine node ${node.nodeId} references missing formation event ${eventId}.`);
+    if (!event.relatedNodeIds.includes(node.nodeId)) throw new Error(`Formation event ${eventId} does not reference spine node ${node.nodeId}.`);
   }
   assertAcyclicEventAncestry(eventById);
   const featureFamilies = validateCanonicalNodeFamilies(spine.featureFamilies);
@@ -257,10 +291,7 @@ export function validateCausalShadowRun(value: unknown): asserts value is Causal
   validateInputReferences(run.inputSnapshot, run.confidenceLedger);
   validateStageReferences(run.stageResults, run.confidenceLedger);
   validateCausalDomainReferences({ premise: run.premise, interior: run.interior, regimeHistory: run.regimeHistory, geologicSpine: run.geologicSpine }, run.confidenceLedger);
-  if (run.geologicSpine && run.regimeHistory) {
-    const epochIds = new Set(run.regimeHistory.epochs.map((epoch) => epoch.epochId));
-    for (const event of run.geologicSpine.events) if (!epochIds.has(event.epochId)) throw new Error(`Spine event ${event.eventId} references missing epoch ${event.epochId}.`);
-  }
+  if (run.geologicSpine && run.regimeHistory) validateSpineHistoryLinks(run.geologicSpine, run.regimeHistory);
 
   validateRunProvenance(run);
   assertDeterministicHash(run.contentHash, 'Causal shadow run');
@@ -313,9 +344,15 @@ export function validateCausalDomainReferences(
   }
   if (domains.geologicSpine) {
     assertIdsExist(domains.geologicSpine.branchResolutionIds, index.branches, 'Spine branch resolutions');
-    for (const node of domains.geologicSpine.nodes) assertIdsExist(node.evidenceIds, index.evidence, `Spine node ${node.nodeId} evidence`);
+    for (const node of domains.geologicSpine.nodes) {
+      assertIdsExist(node.evidenceIds, index.evidence, `Spine node ${node.nodeId} evidence`);
+      for (const range of temporalContextRanges(node.temporalContext)) assertIdsExist([range.confidenceSubject], index.assessments, `Spine node ${node.nodeId} temporal confidence assessment`);
+    }
     for (const edge of domains.geologicSpine.edges) assertIdsExist(edge.evidenceIds, index.evidence, `Spine edge ${edge.edgeId} evidence`);
-    for (const event of domains.geologicSpine.events) assertIdsExist(event.evidenceIds, index.evidence, `Spine event ${event.eventId} evidence`);
+    for (const event of domains.geologicSpine.events) {
+      assertIdsExist(event.evidenceIds, index.evidence, `Spine event ${event.eventId} evidence`);
+      for (const range of [event.normalizedTimeRange, ...temporalContextRanges(event.temporalContext)]) assertIdsExist([range.confidenceSubject], index.assessments, `Spine event ${event.eventId} temporal confidence assessment`);
+    }
   }
 }
 
@@ -336,8 +373,7 @@ function validateStageRecord(stageId: CausalGeologyStageId, record: unknown): vo
   else if (stageId === 'CAUSAL_PREMISE_RESOLUTION') validatePlanetaryPremise(record);
   else if (stageId === 'CAUSAL_INTERIOR_RESOLUTION') validateInteriorState(record);
   else if (stageId === 'CAUSAL_REGIME_HISTORY') validateTectonicRegimeHistory(record);
-  else if (stageId === 'CAUSAL_GEOLOGIC_SPINE') validateGeologicSpine(record);
-  else canonicalizeJson(record);
+  else validateGeologicSpine(record);
 }
 
 function assertStageDomainMatch(stageResults: readonly CausalStageResultV1[], stageId: CausalGeologyStageId, domain: unknown, label: string): void {
@@ -372,6 +408,7 @@ function validateRunProvenance(run: Partial<CausalShadowRunV1>): void {
   if (!isCausalProvenanceManifestV1(run.provenance)) throw new Error('Causal shadow provenance is invalid.');
   const provenance = run.provenance;
   if (provenance.authorityMode !== 'CAUSAL_SHADOW') throw new Error('Causal shadow run provenance must use CAUSAL_SHADOW authority.');
+  if (provenance.software.buildCommit !== undefined || provenance.legacyCompatibility !== undefined) throw new Error('Operational revision and legacy-comparison provenance must remain outside the deterministic causal payload.');
   assertCanonicalEqual(provenance.rootSeed, run.inputSnapshot?.rootSeed, 'Run provenance root seed does not match sanitized input.');
   const geology = provenance.causalGeology;
   if (!geology || !run.inputSnapshot || !deterministicHashEquals(geology.inputHash, run.inputSnapshot.contentHash)) throw new Error('Run provenance causal-geology input hash is missing or inconsistent.');
@@ -442,12 +479,55 @@ function interiorRanges(interior: InteriorStateV1): readonly ScientificRangeV1[]
 }
 
 function epochRanges(epoch: TectonicRegimeHistoryV1['epochs'][number]): readonly ScientificRangeV1[] {
-  return [epoch.mobilityRange, epoch.extensionRange, epoch.convergenceRange, epoch.transformRange, epoch.plumeRange, epoch.crustProductionRange];
+  return [epoch.mobilityRange, epoch.extensionRange, epoch.convergenceRange, epoch.transformRange, epoch.plumeRange, epoch.crustProductionRange, epoch.persistenceRange, epoch.surfaceExposureRange];
+}
+
+function temporalContextRanges(context: GeologicTemporalContextV1): readonly ScientificRangeV1[] {
+  return [context.formationAgeRange, context.persistenceRange, context.surfaceExposureDurationRange];
+}
+
+function validateGeologicTemporalContext(context: unknown, label: string): asserts context is GeologicTemporalContextV1 {
+  if (!context || typeof context !== 'object') throw new Error(`${label} temporal context is missing.`);
+  const temporal = context as Partial<GeologicTemporalContextV1>;
+  assertGigaannumRange(temporal.formationAgeRange, `${label} formation age`);
+  assertGigaannumRange(temporal.persistenceRange, `${label} persistence`);
+  assertGigaannumRange(temporal.surfaceExposureDurationRange, `${label} surface exposure duration`);
+  if (temporal.persistenceRange.max > temporal.formationAgeRange.max) throw new Error(`${label} persistence exceeds formation age.`);
+  if (temporal.surfaceExposureDurationRange.max > temporal.persistenceRange.max) throw new Error(`${label} surface exposure exceeds persistence.`);
+  if (!PRESERVATION_STATES.includes(temporal.preservationState as GeologicPreservationState)) throw new Error(`${label} preservation state is invalid.`);
+}
+
+function validateSpineHistoryLinks(spine: GeologicSpineV1, history: TectonicRegimeHistoryV1): void {
+  const epochById = new Map(history.epochs.map((epoch) => [epoch.epochId, epoch]));
+  const duration = history.totalResolvedDuration.value;
+  for (const context of [...spine.nodes.map((node) => node.temporalContext), ...spine.events.map((event) => event.temporalContext)]) {
+    for (const range of temporalContextRanges(context)) if (range.max > duration) throw new Error('Geologic temporal range exceeds total resolved geological duration.');
+  }
+  for (const event of spine.events) {
+    const epoch = epochById.get(event.epochId);
+    if (!epoch) throw new Error(`Spine event ${event.eventId} references missing epoch ${event.epochId}.`);
+    if (event.normalizedTimeRange.min < epoch.startTime || event.normalizedTimeRange.max > epoch.endTime) throw new Error(`Spine event ${event.eventId} falls outside its epoch interval.`);
+  }
+}
+
+function assertNoForbiddenPremiseConclusions(premise: PlanetaryPremiseV1): void {
+  const forbidden = ['tectonic', 'resurfacing', 'impactHistory', 'impact-history', 'plates', 'continents', 'basins', 'epochs', 'terrain'];
+  for (const key of forbidden) if (key in (premise as unknown as Record<string, unknown>)) throw new Error(`Planetary premise contains forbidden later-stage conclusion: ${key}.`);
 }
 
 function assertNormalizedRange(range: ScientificRangeV1, label: string): void {
   validateScientificRange(range);
   if (range.unit !== 'normalized-0-1' || range.scaleId !== 'normalized-0-1-v1') throw new Error(`${label} must use normalized-0-1-v1.`);
+}
+
+function assertGigaannumRange(range: unknown, label: string): asserts range is ScientificRangeV1 {
+  validateScientificRange(range);
+  if (range.unit !== 'gigaannum' || range.scaleId !== 'gigaannum-v1') throw new Error(`${label} must use gigaannum-v1.`);
+}
+
+function assertDurationRange(range: ScientificRangeV1, label: string, totalDuration: number): void {
+  assertGigaannumRange(range, label);
+  if (range.max > totalDuration) throw new Error(`${label} exceeds total resolved geological duration.`);
 }
 
 function assertAcyclicEventAncestry(events: ReadonlyMap<string, GeologicSpineV1['events'][number]>): void {
