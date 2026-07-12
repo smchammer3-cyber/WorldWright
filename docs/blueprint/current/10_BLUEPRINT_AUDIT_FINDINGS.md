@@ -66,6 +66,35 @@ These precedents validate architectural pieces, not the scientific correctness o
 
 The blueprint names rather than hides unresolved initial priors, formulas, premise vocabulary, interior rules, history duration, spine population, fields, structural boundaries, calibration, Terrain Birth, provisional climate, surface schedule, deep-time fidelity, budgets, screenshot policy, exceptions, promotion, downstream reconciliation, and W1-01 amendments.
 
-## Audit verdict before final CI
+## Exact-head repository validation
 
-The corrected architecture is coherent enough for exact-head validation. It remains planning-only, draft, and unmerged. A green CI run proves repository non-regression, not scientific completion. Merge still requires explicit user approval after final evidence is recorded.
+GitHub Actions run #451 on head `1b60abe360f1bd5e4bd54b3c9b5d899baaa034b2` passed:
+
+```text
+Build: success
+Tests: 60 files / 269 tests passed
+Jarvis snapshot canary: success
+Jarvis full-globe review: success
+Full-globe exit code: 0
+Recorded snapshot failures: none
+```
+
+All five standard PNGs are SHA-256 byte-identical to merged C04 run #427:
+
+```text
+final-globe-front.png
+final-globe-triad-120.png
+final-globe-triad-240.png
+final-globe.png
+generate-app-final.png
+```
+
+The existing geological authority audit remains honestly failed at `RAW_GENERATOR`. This planning PR does not claim to repair physical geology.
+
+## Final audit verdict
+
+The reconciled blueprint is now coherent enough to serve as the proposed governing architecture and is ready for an explicit merge decision.
+
+That verdict means the direction, authority boundaries, evidence policy, performance model, old-document precedence, and implementation roadmap are sufficiently clear to govern later work. It does **not** mean the scientific formulas are complete, the causal generator exists, W1-01 is approved, or geological quality is solved.
+
+PR #134 remains draft and unmerged. Merge still requires direct user authorization.
