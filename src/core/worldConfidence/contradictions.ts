@@ -1,5 +1,6 @@
 import { canonicalJsonStringify } from '../worldProvenance/canonicalJson';
 import { hashCanonicalJson } from '../worldProvenance/hash';
+import { cloneAndDeepFreezeCausalValue, validateCausalBranchValue } from './immutable';
 import type {
   CausalBranchValue,
   ContradictionRecordV1,
@@ -11,10 +12,16 @@ import type {
 export function detectClaimContradictions(
   claims: readonly ScientificClaimV1[],
 ): readonly ContradictionRecordV1[] {
-  const activeClaims = claims.filter((claim) => {
+  if (!Array.isArray(claims)) throw new Error('Scientific claims must be an array.');
+  const seenClaimIds = new Set<string>();
+  const activeClaims: ScientificClaimV1[] = [];
+  for (const claim of claims) {
     validateScientificClaim(claim);
-    return claim.status === 'ACTIVE';
-  });
+    if (seenClaimIds.has(claim.id)) throw new Error(`Duplicate scientific claim ID: ${claim.id}`);
+    seenClaimIds.add(claim.id);
+    if (claim.status === 'ACTIVE') activeClaims.push(claim);
+  }
+
   const bySubject = new Map<string, ScientificClaimV1[]>();
   for (const claim of activeClaims) {
     const group = bySubject.get(claim.subject) ?? [];
@@ -23,8 +30,8 @@ export function detectClaimContradictions(
   }
 
   const contradictions: ContradictionRecordV1[] = [];
-  for (const subject of [...bySubject.keys()].sort()) {
-    const subjectClaims = [...(bySubject.get(subject) ?? [])].sort((a, b) => a.id.localeCompare(b.id));
+  for (const subject of [...bySubject.keys()].sort(compareStableText)) {
+    const subjectClaims = [...(bySubject.get(subject) ?? [])].sort((a, b) => compareStableText(a.id, b.id));
     const valueGroups = new Map<string, { value: CausalBranchValue; claims: ScientificClaimV1[] }>();
     for (const claim of subjectClaims) {
       const key = canonicalJsonStringify(claim.value);
@@ -35,10 +42,10 @@ export function detectClaimContradictions(
     if (valueGroups.size < 2) continue;
 
     const claimIds = Object.freeze(subjectClaims.map((claim) => claim.id));
-    const evidenceIds = Object.freeze([...new Set(subjectClaims.flatMap((claim) => claim.evidenceIds))].sort());
+    const evidenceIds = Object.freeze([...new Set<string>(subjectClaims.flatMap((claim) => claim.evidenceIds))].sort(compareStableText));
     const observedValues = Object.freeze([...valueGroups.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([, group]) => structuredClone(group.value)));
+      .sort(([a], [b]) => compareStableText(a, b))
+      .map(([, group]) => cloneAndDeepFreezeCausalValue(group.value)));
     const severity = contradictionSeverity(subjectClaims);
     const idHash = hashCanonicalJson({ contract: 'WorldWright/contradiction/v1', subject, claimIds, observedValues });
 
@@ -72,6 +79,7 @@ export function resolveContradiction(
     ...contradiction,
     status: 'RESOLVED',
     resolution: Object.freeze({ ...resolution }),
+    dismissal: undefined,
   });
 }
 
@@ -84,7 +92,8 @@ export function dismissContradiction(
   return Object.freeze({
     ...contradiction,
     status: 'DISMISSED',
-    resolution: Object.freeze({ selectedClaimId: contradiction.claimIds[0], rationale }),
+    resolution: undefined,
+    dismissal: Object.freeze({ rationale }),
   });
 }
 
@@ -96,9 +105,9 @@ export function validateScientificClaim<T extends CausalBranchValue>(claim: Scie
   if (!Number.isFinite(claim.confidence) || claim.confidence < 0 || claim.confidence > 1) {
     throw new RangeError(`Claim ${claim.id} confidence must be within [0, 1].`);
   }
-  if (!Array.isArray(claim.evidenceIds) || !claim.evidenceIds.every(isNonEmptyString)) throw new Error(`Claim ${claim.id} evidence IDs are invalid.`);
+  assertUniqueNonEmptyStrings(claim.evidenceIds, `Claim ${claim.id} evidence IDs`);
   if (claim.status !== 'ACTIVE' && claim.status !== 'RETRACTED') throw new Error(`Claim ${claim.id} status is invalid.`);
-  canonicalJsonStringify(claim.value);
+  validateCausalBranchValue(claim.value);
 }
 
 function contradictionSeverity(claims: readonly ScientificClaimV1[]): ContradictionSeverity {
@@ -108,10 +117,19 @@ function contradictionSeverity(claims: readonly ScientificClaimV1[]): Contradict
   return 'LOW';
 }
 
+function assertUniqueNonEmptyStrings(values: readonly string[], label: string): void {
+  if (!Array.isArray(values) || !values.every(isNonEmptyString)) throw new Error(`${label} are invalid.`);
+  if (new Set(values).size !== values.length) throw new Error(`${label} contain duplicates.`);
+}
+
 function assertNonEmpty(value: string, label: string): void {
   if (typeof value !== 'string' || value.trim().length === 0) throw new Error(`${label} must be non-empty text.`);
 }
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function compareStableText(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }

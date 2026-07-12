@@ -40,14 +40,24 @@ describe('C04 contradiction records', () => {
     expect(first[0].id).toMatch(/^contradiction_[0-9a-f]{16}$/);
   });
 
-  it('ignores retracted claims', () => {
+  it('rejects duplicate claim identity and ignores retracted claims', () => {
+    expect(() => detectClaimContradictions([claim(), claim({ value: 'stagnant-lid' })])).toThrow(/Duplicate scientific claim/);
     expect(detectClaimContradictions([
       claim(),
       claim({ id: 'claim-b', value: 'stagnant-lid', status: 'RETRACTED' }),
     ])).toEqual([]);
   });
 
-  it('resolves or dismisses immutably and validates the selected claim', () => {
+  it('deep-freezes observed structured values', () => {
+    const contradiction = detectClaimContradictions([
+      claim({ value: { regime: 'mobile-lid', epochs: [1, 2] } }),
+      claim({ id: 'claim-b', value: { regime: 'stagnant-lid', epochs: [1, 3] }, evidenceIds: ['evidence-b'] }),
+    ])[0];
+    expect(Object.isFrozen(contradiction.observedValues[0])).toBe(true);
+    expect(Object.isFrozen((contradiction.observedValues[0] as { epochs: readonly number[] }).epochs)).toBe(true);
+  });
+
+  it('resolves or dismisses immutably without inventing a selected claim for dismissal', () => {
     const contradiction = detectClaimContradictions([
       claim(),
       claim({ id: 'claim-b', value: 'stagnant-lid', evidenceIds: ['evidence-b'] }),
@@ -57,6 +67,8 @@ describe('C04 contradiction records', () => {
     expect(resolved.status).toBe('RESOLVED');
     expect(resolved.resolution?.selectedClaimId).toBe('claim-a');
     expect(dismissed.status).toBe('DISMISSED');
+    expect(dismissed.resolution).toBeUndefined();
+    expect(dismissed.dismissal?.rationale).toMatch(/different epochs/);
     expect(contradiction.status).toBe('OPEN');
     expect(() => resolveContradiction(contradiction, { selectedClaimId: 'missing', rationale: 'No.' })).toThrow(/not part/);
   });

@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { resolveWeightedBranch } from '../src/core/worldConfidence';
+import { isCausalConfidenceLedgerV1, resolveWeightedBranch, type ConfidenceEvidenceV1 } from '../src/core/worldConfidence';
 import { createWorldRandomOracle } from '../src/core/worldRandom/oracle';
 
 const options = [
   { id: 'mobile-lid', value: 'mobile-lid', weight: 3, evidenceIds: ['evidence-a'] },
   { id: 'stagnant-lid', value: 'stagnant-lid', weight: 1, evidenceIds: ['evidence-b'] },
 ] as const;
+
+const evidence: readonly ConfidenceEvidenceV1[] = [
+  { schemaVersion: 1, id: 'evidence-a', subject: 'interior.regime', kind: 'DERIVATION', polarity: 'SUPPORTS', weight: 1, reliability: 1, source: 'model-a' },
+  { schemaVersion: 1, id: 'evidence-b', subject: 'interior.regime', kind: 'DERIVATION', polarity: 'SUPPORTS', weight: 1, reliability: 1, source: 'model-b' },
+];
 
 describe('C04 deterministic weighted branch resolution', () => {
   it('replays exactly and is independent of caller option order', () => {
@@ -36,7 +41,7 @@ describe('C04 deterministic weighted branch resolution', () => {
     expect(first.randomUnit).not.toBe(second.randomUnit);
   });
 
-  it('rejects ambiguous or weightless option sets', () => {
+  it('rejects ambiguous, invalid, or weightless option sets', () => {
     const oracle = createWorldRandomOracle('c04-seed', { authorityMode: 'CAUSAL_SHADOW' });
     expect(() => resolveWeightedBranch({
       branchId: 'duplicate', stream: 'causal.interior', scope: ['interior'], oracle,
@@ -46,6 +51,27 @@ describe('C04 deterministic weighted branch resolution', () => {
       branchId: 'weightless', stream: 'causal.interior', scope: ['interior'], oracle,
       options: options.map((option) => ({ ...option, weight: 0 })),
     })).toThrow(/positive/);
+    expect(() => resolveWeightedBranch({
+      branchId: 'invalid-value', stream: 'causal.interior', scope: ['interior'], oracle,
+      options: [{ id: 'invalid', value: undefined as never, weight: 1, evidenceIds: [] }],
+    })).toThrow(/canonical JSON/);
+  });
+
+  it('deep-freezes the chosen value and survives serialized ledger validation', () => {
+    const oracle = createWorldRandomOracle('c04-seed', { authorityMode: 'CAUSAL_SHADOW' });
+    const resolution = resolveWeightedBranch({
+      branchId: 'structured-branch',
+      stream: 'causal.interior',
+      scope: ['interior'],
+      oracle,
+      options: [
+        { id: 'structured', value: { regime: 'mobile-lid', epochs: [1, 2] }, weight: 1, evidenceIds: ['evidence-a'] },
+      ],
+    });
+    expect(Object.isFrozen(resolution.chosenValue)).toBe(true);
+    expect(Object.isFrozen((resolution.chosenValue as { epochs: readonly number[] }).epochs)).toBe(true);
+    const roundTripped = JSON.parse(JSON.stringify(resolution));
+    expect(isCausalConfidenceLedgerV1({ schemaVersion: 1, evidence, assessments: [], branchResolutions: [roundTripped], contradictions: [] })).toBe(true);
   });
 
   it('cannot consume reserved causal randomness under LEGACY authority', () => {

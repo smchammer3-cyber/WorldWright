@@ -87,6 +87,10 @@ export interface ContradictionResolutionV1 {
   readonly rationale: string;
 }
 
+export interface ContradictionDismissalV1 {
+  readonly rationale: string;
+}
+
 export interface ContradictionRecordV1 {
   readonly schemaVersion: 1;
   readonly id: string;
@@ -98,6 +102,7 @@ export interface ContradictionRecordV1 {
   readonly observedValues: readonly CausalBranchValue[];
   readonly message: string;
   readonly resolution?: ContradictionResolutionV1;
+  readonly dismissal?: ContradictionDismissalV1;
 }
 
 export interface CausalConfidenceLedgerV1 {
