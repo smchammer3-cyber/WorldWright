@@ -55,7 +55,9 @@ describe('W1-01 geological-history duration contract', () => {
   });
 
   it('rejects absent or non-positive total geological duration', () => {
-    expect(() => validateTectonicRegimeHistory(history({ totalResolvedDuration: undefined as never }))).toThrow(/Scientific quantity/);
+    const missingDuration = structuredClone(history()) as TectonicRegimeHistoryV1 & { totalResolvedDuration?: TectonicRegimeHistoryV1['totalResolvedDuration'] };
+    delete missingDuration.totalResolvedDuration;
+    expect(() => validateTectonicRegimeHistory(missingDuration)).toThrow(/Scientific quantity/);
     expect(() => validateTectonicRegimeHistory(history({ totalResolvedDuration: createScientificQuantity(0, 'gigaannum', 'gigaannum-v1') }))).toThrow(/positive/);
   });
 
