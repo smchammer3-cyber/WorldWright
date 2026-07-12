@@ -16,6 +16,7 @@ import { recomputeWorld } from './worldRecompute';
 import { applyPlateBoundaryFeatureTerrain } from './worldPlateBoundaryFeatures';
 import { applyIsostaticTerrainResponse } from './worldTerrainResponse';
 import type { Cell, WorldBrain } from './worldSchema';
+import { DETERMINISTIC_HASH_ALGORITHM, hashCanonicalJson, type DeterministicHash } from './worldProvenance/hash';
 
 export type PipelineAuthorityPhase = 'source' | 'cause-seed' | 'feature-material' | 'terrain-shape' | 'derived-recompute' | 'terrain-cleanup' | 'final-cause-sync';
 export type PipelineAuthorityLevel = 'ok' | 'watch' | 'bad';
@@ -32,6 +33,10 @@ export type PipelineFieldChange = {
 
 export type PipelineLedgerStage = {
   id: string;
+  stageVersion: number;
+  hashAlgorithm?: typeof DETERMINISTIC_HASH_ALGORITHM;
+  inputHash?: DeterministicHash;
+  outputHash?: DeterministicHash;
   label: string;
   phase: PipelineAuthorityPhase;
   authorityCategory: PipelineAuthorityCategory;
@@ -118,6 +123,7 @@ type WorldSnapshot = { cells: CellSnapshot[]; riverCount: number; riverPathCells
 
 type StageContract = {
   id: string;
+  stageVersion?: number;
   label: string;
   phase: PipelineAuthorityPhase;
   authorityCategory: PipelineAuthorityCategory;
@@ -158,16 +164,22 @@ const GROUP_LABELS: Record<PipelineFieldGroup, string> = {
 
 const NUMERIC_EPSILON = 1e-7;
 
-export function computeGeneratePipelineAuthorityLedger(sourceWorld: WorldBrain | null | undefined): GeneratePipelineAuthorityLedger | null {
+export function computeGeneratePipelineAuthorityLedger(
+  sourceWorld: WorldBrain | null | undefined,
+  options: { readonly includeStageHashes?: boolean } = {},
+): GeneratePipelineAuthorityLedger | null {
   if (!sourceWorld?.cells?.length) return null;
   const params = generatorParamsFromWorld(sourceWorld);
   const world = generateWorldFromParams(params);
-  const stages: PipelineLedgerStage[] = [sourceStage(world, snapshotWorld(world))];
+  const initialSnapshot = snapshotWorld(world);
+  const includeStageHashes = options.includeStageHashes === true;
+  const stages: PipelineLedgerStage[] = [sourceStage(world, initialSnapshot, includeStageHashes)];
 
   for (const contract of stageContracts()) {
     const before = snapshotWorld(world);
     contract.run(world);
-    stages.push(stageFromDiff(contract, before, snapshotWorld(world)));
+    const after = snapshotWorld(world);
+    stages.push(stageFromDiff(contract, before, after, includeStageHashes));
   }
 
   const summary: PipelineLedgerSummary = {
@@ -210,9 +222,9 @@ function stageContracts(): StageContract[] {
   ];
 }
 
-function sourceStage(world: WorldBrain, snapshot: WorldSnapshot): PipelineLedgerStage {
+function sourceStage(world: WorldBrain, snapshot: WorldSnapshot, includeStageHashes: boolean): PipelineLedgerStage {
   return {
-    id: 'RAW_GENERATOR', label: 'Raw generator', phase: 'source', authorityCategory: 'source', authority: 'Initial source: creates base terrain plus first-pass plate and feature fields from the seed.',
+    id: 'RAW_GENERATOR', stageVersion: 1, ...(includeStageHashes ? { hashAlgorithm: DETERMINISTIC_HASH_ALGORITHM, inputHash: hashCanonicalJson({ seed: world.metadata.seed, parameters: world.parameters ?? {} }), outputHash: hashCanonicalJson(snapshot) } : {}), label: 'Raw generator', phase: 'source', authorityCategory: 'source', authority: 'Initial source: creates base terrain plus first-pass plate and feature fields from the seed.',
     expectedReads: [], allowedWrites: ['terrain', 'plateCause', 'featureCause'],
     actualWrites: [
       { group: 'terrain', field: 'baseHeight', changedCount: snapshot.cells.length, changedShare: 1 },
@@ -224,7 +236,7 @@ function sourceStage(world: WorldBrain, snapshot: WorldSnapshot): PipelineLedger
   };
 }
 
-function stageFromDiff(contract: StageContract, before: WorldSnapshot, after: WorldSnapshot): PipelineLedgerStage {
+function stageFromDiff(contract: StageContract, before: WorldSnapshot, after: WorldSnapshot, includeStageHashes: boolean): PipelineLedgerStage {
   const actualWrites = diffSnapshots(before, after);
   const changedGroups = unique(actualWrites.map((change) => change.group));
   const unexpectedWrites = actualWrites.filter((change) => !contract.allowedWrites.includes(change.group));
@@ -242,7 +254,7 @@ function stageFromDiff(contract: StageContract, before: WorldSnapshot, after: Wo
 
   const level: PipelineAuthorityLevel = unexpectedWrites.length > 0 ? 'bad' : warnings.some((warning) => /violates|Unexpected|changed terrain|feedback/i.test(warning)) ? 'watch' : 'ok';
   return {
-    id: contract.id, label: contract.label, phase: contract.phase, authorityCategory: contract.authorityCategory, authority: contract.authority,
+    id: contract.id, stageVersion: contract.stageVersion ?? 1, ...(includeStageHashes ? { hashAlgorithm: DETERMINISTIC_HASH_ALGORITHM, inputHash: hashCanonicalJson(before), outputHash: hashCanonicalJson(after) } : {}), label: contract.label, phase: contract.phase, authorityCategory: contract.authorityCategory, authority: contract.authority,
     expectedReads: contract.expectedReads, allowedWrites: contract.allowedWrites, actualWrites, unexpectedWrites, changedGroups,
     changedCellShare: cellChangedShare(before, after), terrainWriteShare: terrain.changedShare, topologyFlipShare, heightDeltaMean: terrain.meanAbsDelta, heightDeltaMax: terrain.maxAbsDelta,
     collectionChanges: collectionChangeText(before, after), warnings,

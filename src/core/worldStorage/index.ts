@@ -4,10 +4,22 @@
 // ========================================================
 
 import type { GeneratorAuthorityMode } from '../causalWorld/schema';
+import type { SimEvent } from '../simEvents';
+import { createRandomIdentity, type EntropySource } from '../worldEntropy';
+import { recomputeWorld } from '../worldRecompute';
+import { simulateTick } from '../worldSim';
+import {
+  createSimRandomContext,
+  deriveLegacySimBranchSalt,
+  validateSimRandomContext,
+  type SimRandomContextV1,
+} from '../worldSim/randomContext';
 import { cloneWorldDocument } from '../worldCloning';
 import { migrateWorldDocument } from '../worldMigrations/migrateWorldDocument';
+import { hashCanonicalJson } from '../worldProvenance/hash';
 import type { WorldBrain } from '../worldSchema';
 import { CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION } from '../worldSchema/version';
+import { validateWorld } from '../worldValidation';
 
 const DB_NAME = 'worldwright-db';
 const INDEXED_DB_SCHEMA_VERSION = 4;
@@ -51,8 +63,14 @@ export type StoredSimEventDecision = {
   resolvedAt: string;
 };
 
+export type SimRandomContextProvenance = {
+  source: 'CREATED_C02' | 'COMPAT_DERIVED';
+  derivation: 'WEB_CRYPTO_BRANCH_SALT' | 'PERSISTED_IMMUTABLE_FIELDS_V1';
+  assumption?: string;
+};
+
 export type SimBranchRecord = {
-  recordSchemaVersion?: 1;
+  recordSchemaVersion?: 1 | 2;
   id: string;
   worldId: string;
   name: string;
@@ -66,7 +84,15 @@ export type SimBranchRecord = {
   status: SimBranchRecordStatus;
   worldSnapshot: WorldBrain;
   eventHistory: StoredSimEventDecision[];
+  randomContext?: SimRandomContextV1;
+  randomContextProvenance?: SimRandomContextProvenance;
+  replayStateHash?: string;
 };
+
+export interface SimBranchTickCommitResult {
+  readonly record: SimBranchRecord;
+  readonly events: readonly SimEvent[];
+}
 
 export interface WorldStorageEngine {
   listWorldSummaries(): Promise<WorldSummary[]>;
@@ -185,7 +211,7 @@ class IndexedDbWorldStorageEngine implements WorldStorageEngine {
     const records = await tx<SimBranchRecord[]>(db, STORE_SIM_BRANCHES, 'readonly', (s) => s.getAll());
     return records
       .filter((record) => record.worldId === worldId && record.status !== 'TRASHED')
-      .map(normalizeSimBranchRecord);
+      .map((record) => normalizeSimBranchRecord(record, 'LOAD'));
   }
 
   async getSimBranchRecord(id: string): Promise<SimBranchRecord | null> {
@@ -196,7 +222,7 @@ class IndexedDbWorldStorageEngine implements WorldStorageEngine {
 
   async putSimBranchRecord(record: SimBranchRecord): Promise<void> {
     const db = await getDb();
-    await tx(db, STORE_SIM_BRANCHES, 'readwrite', (s) => s.put(normalizeSimBranchRecord(record)));
+    await tx(db, STORE_SIM_BRANCHES, 'readwrite', (s) => s.put(normalizeSimBranchRecord(record, 'SAVE')));
   }
 
   async deleteSimBranchRecord(id: string): Promise<void> {
@@ -280,21 +306,130 @@ export async function summarizeWorldWithBranchLookup(
   }
 }
 
-function normalizeSimBranchRecord(record: SimBranchRecord): SimBranchRecord {
+type SimBranchNormalizationMode = 'LOAD' | 'SAVE';
+
+function normalizeSimBranchRecord(
+  record: SimBranchRecord,
+  mode: SimBranchNormalizationMode = 'LOAD',
+): SimBranchRecord {
+  if (!record || typeof record !== 'object') throw new Error('Sim branch record is missing or invalid.');
+  const sourceSchemaVersion = record.recordSchemaVersion ?? 1;
+  if (sourceSchemaVersion !== 1 && sourceSchemaVersion !== 2) {
+    throw new Error(`Sim branch ${record.id || '<unknown>'} uses unsupported record schema ${String(sourceSchemaVersion)}.`);
+  }
+  if (!Number.isSafeInteger(record.startYear) || !Number.isSafeInteger(record.currentYear)) {
+    throw new Error(`Sim branch ${record.id} startYear/currentYear must be safe integers.`);
+  }
+  if (record.currentYear < record.startYear) {
+    throw new Error(`Sim branch ${record.id} currentYear cannot precede startYear.`);
+  }
+
   const migration = migrateWorldDocument(record.worldSnapshot);
   if (migration.status === 'UNSUPPORTED_NEWER' || migration.status === 'QUARANTINED') {
     throw new Error(`Sim branch ${record.id} snapshot cannot be loaded: ${migration.reason}`);
   }
 
-  return {
+  let randomContext: SimRandomContextV1;
+  let randomContextProvenance: SimRandomContextProvenance;
+  if (sourceSchemaVersion === 2) {
+    try {
+      validateSimRandomContext(record.randomContext);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'invalid random context';
+      throw new Error(`Sim branch ${record.id} schema 2 random context is invalid: ${reason}`);
+    }
+    randomContext = record.randomContext;
+    if (randomContext.rootWorldSeed !== migration.world.metadata.seed) {
+      throw new Error(`Sim branch ${record.id} random root seed does not match its world snapshot.`);
+    }
+    randomContextProvenance = validateSimRandomContextProvenance(record.randomContextProvenance, record.id);
+  } else {
+    randomContext = createSimRandomContext(
+      migration.world.metadata.seed,
+      deriveLegacySimBranchSalt({
+        baseWorldId: record.baseWorldId,
+        baseRevisionId: record.baseRevisionId || '',
+        branchId: record.id,
+        createdAt: record.createdAt,
+      }),
+      Math.max(0, Math.floor(record.currentYear - record.startYear)),
+    );
+    randomContextProvenance = {
+      source: 'COMPAT_DERIVED',
+      derivation: 'PERSISTED_IMMUTABLE_FIELDS_V1',
+      assumption: 'Pre-C02 branch randomness begins from persisted currentYear relative to startYear.',
+    };
+  }
+
+  if (randomContext.tickIndex !== record.currentYear - record.startYear) {
+    throw new Error(`Sim branch ${record.id} year and random tick index are inconsistent.`);
+  }
+
+  const normalized: SimBranchRecord = {
     ...record,
-    recordSchemaVersion: 1,
+    recordSchemaVersion: 2,
     baseRevisionId: record.baseRevisionId || '',
     baseContentHash: record.baseContentHash || '',
     status: record.status || 'ACTIVE',
-    eventHistory: Array.isArray(record.eventHistory) ? record.eventHistory : [],
+    eventHistory: Array.isArray(record.eventHistory)
+      ? record.eventHistory.map((event) => ({ ...event }))
+      : [],
+    randomContext,
+    randomContextProvenance,
     worldSnapshot: cloneWorldDocument(migration.world),
   };
+  const replayStateHash = computeSimBranchReplayStateHash(normalized);
+  if (sourceSchemaVersion === 2 && mode === 'LOAD') {
+    if (typeof record.replayStateHash !== 'string' || record.replayStateHash.length === 0) {
+      throw new Error(`Sim branch ${record.id} schema 2 replay state hash is missing.`);
+    }
+    if (record.replayStateHash !== replayStateHash) {
+      throw new Error(`Sim branch ${record.id} replay state hash mismatch.`);
+    }
+  }
+  return { ...normalized, replayStateHash };
+}
+
+function validateSimRandomContextProvenance(
+  value: SimRandomContextProvenance | undefined,
+  branchId: string,
+): SimRandomContextProvenance {
+  if (!value) throw new Error(`Sim branch ${branchId} schema 2 random context provenance is missing.`);
+  if (value.source === 'CREATED_C02' && value.derivation === 'WEB_CRYPTO_BRANCH_SALT') {
+    return { source: value.source, derivation: value.derivation };
+  }
+  if (value.source === 'COMPAT_DERIVED' && value.derivation === 'PERSISTED_IMMUTABLE_FIELDS_V1') {
+    return {
+      source: value.source,
+      derivation: value.derivation,
+      ...(typeof value.assumption === 'string' ? { assumption: value.assumption } : {}),
+    };
+  }
+  throw new Error(`Sim branch ${branchId} schema 2 random context provenance is invalid.`);
+}
+
+export function computeSimBranchReplayStateHash(record: SimBranchRecord): string {
+  const hash = hashCanonicalJson({
+    contract: 'WorldWright/sim-branch-replay-state/v1',
+    recordSchemaVersion: 2,
+    id: record.id,
+    worldId: record.worldId,
+    baseWorldId: record.baseWorldId,
+    baseRevisionId: record.baseRevisionId || '',
+    baseContentHash: record.baseContentHash || '',
+    startYear: record.startYear,
+    currentYear: record.currentYear,
+    status: record.status,
+    worldSnapshotContentHash: computeWorldContentHash(record.worldSnapshot),
+    eventHistory: Array.isArray(record.eventHistory) ? record.eventHistory : [],
+    randomContext: record.randomContext ?? null,
+    randomContextProvenance: record.randomContextProvenance ?? null,
+  });
+  return `${hash.algorithm}:${hash.value}`;
+}
+
+function withSimBranchReplayStateHash(record: SimBranchRecord): SimBranchRecord {
+  return { ...record, replayStateHash: computeSimBranchReplayStateHash(record) };
 }
 
 function canonicalize(value: unknown): unknown {
@@ -403,21 +538,32 @@ function verifySimBranchReadback(expected: SimBranchRecord, actual: SimBranchRec
   if (actual.baseContentHash !== expected.baseContentHash) {
     throw new Error(`Sim branch readback verification failed: base content hash mismatch for ${expected.id}.`);
   }
+  if (actual.currentYear !== expected.currentYear) {
+    throw new Error(`Sim branch readback verification failed: current year mismatch for ${expected.id}.`);
+  }
+  if (actual.replayStateHash !== expected.replayStateHash) {
+    throw new Error(`Sim branch readback verification failed: replay state hash mismatch for ${expected.id}.`);
+  }
+  if (computeSimBranchReplayStateHash(actual) !== actual.replayStateHash) {
+    throw new Error(`Sim branch readback verification failed: stored replay state is inconsistent for ${expected.id}.`);
+  }
 }
 
 export function createSimBranchRecordFromWorld(
   baseWorld: WorldBrain,
   name: string = `Branch ${new Date().toISOString()}`,
-  startYear: number = 0
+  startYear: number = 0,
+  entropy?: EntropySource,
 ): SimBranchRecord {
+  if (!Number.isSafeInteger(startYear)) throw new RangeError('Sim branch start year must be a safe integer.');
   const currentWorld = readCurrentWorld(baseWorld, 'Cannot create Sim branch');
   const now = new Date().toISOString();
   const baseContentHash = currentWorld.metadata.contentHash || computeWorldContentHash(currentWorld);
   const baseRevisionId = currentWorld.metadata.revisionId || createRevisionId(currentWorld, baseContentHash);
 
-  return {
-    recordSchemaVersion: 1,
-    id: `simbranch_${currentWorld.metadata.id}_${Date.now()}`,
+  return withSimBranchReplayStateHash({
+    recordSchemaVersion: 2,
+    id: `simbranch_${createRandomIdentity(entropy)}`,
     worldId: currentWorld.metadata.id,
     name,
     baseWorldId: currentWorld.metadata.id,
@@ -430,7 +576,12 @@ export function createSimBranchRecordFromWorld(
     status: 'ACTIVE',
     worldSnapshot: cloneWorldDocument(currentWorld),
     eventHistory: [],
-  };
+    randomContext: createSimRandomContext(currentWorld.metadata.seed, `sim-${createRandomIdentity(entropy)}`),
+    randomContextProvenance: {
+      source: 'CREATED_C02',
+      derivation: 'WEB_CRYPTO_BRANCH_SALT',
+    },
+  });
 }
 
 export async function saveWorldWithEngine(world: WorldBrain, engine: WorldStorageEngine): Promise<WorldBrain> {
@@ -457,13 +608,45 @@ export async function saveSimBranchRecordWithEngine(
   const nextRecord = normalizeSimBranchRecord({
     ...record,
     updatedAt: new Date().toISOString(),
-  });
+  }, 'SAVE');
 
   await engine.putSimBranchRecord(nextRecord);
-  const readback = await engine.getSimBranchRecord(nextRecord.id);
+  const readbackRaw = await engine.getSimBranchRecord(nextRecord.id);
+  const readback = readbackRaw ? normalizeSimBranchRecord(readbackRaw, 'LOAD') : null;
   verifySimBranchReadback(nextRecord, readback);
 
-  return normalizeSimBranchRecord(nextRecord);
+  return readback as SimBranchRecord;
+}
+
+export async function simulateAndSaveSimBranchTickWithEngine(
+  record: SimBranchRecord,
+  engine: WorldStorageEngine,
+  dt = 1,
+): Promise<SimBranchTickCommitResult> {
+  if (dt !== 1) throw new RangeError('Persisted Sim branch ticks advance exactly one year.');
+  const current = normalizeSimBranchRecord(record, 'SAVE');
+  const candidateWorld = cloneWorldDocument(current.worldSnapshot);
+  const result = simulateTick(candidateWorld, {
+    branchId: current.id,
+    year: current.currentYear,
+    dt,
+    randomContext: current.randomContext as SimRandomContextV1,
+  });
+  recomputeWorld(candidateWorld, ['SIM_STEP']);
+  const errors = validateWorld(candidateWorld);
+  if (errors.length > 0) {
+    throw new Error(`Sim branch tick validation failed for ${current.id}: ${errors.join(' ')}`);
+  }
+
+  const candidateRecord = withSimBranchReplayStateHash({
+    ...current,
+    currentYear: current.currentYear + 1,
+    worldSnapshot: candidateWorld,
+    randomContext: result.nextRandomContext,
+    updatedAt: new Date().toISOString(),
+  });
+  const saved = await saveSimBranchRecordWithEngine(candidateRecord, engine);
+  return Object.freeze({ record: saved, events: Object.freeze([...result.events]) });
 }
 
 export async function listWorldSummaries(): Promise<WorldSummary[]> {
@@ -492,6 +675,13 @@ export async function getSimBranchRecord(id: string): Promise<SimBranchRecord | 
 
 export async function saveSimBranchRecord(record: SimBranchRecord): Promise<SimBranchRecord> {
   return saveSimBranchRecordWithEngine(record, indexedDbStorageEngine);
+}
+
+export async function simulateAndSaveSimBranchTick(
+  record: SimBranchRecord,
+  dt = 1,
+): Promise<SimBranchTickCommitResult> {
+  return simulateAndSaveSimBranchTickWithEngine(record, indexedDbStorageEngine, dt);
 }
 
 export async function deleteSimBranchRecord(id: string): Promise<void> {

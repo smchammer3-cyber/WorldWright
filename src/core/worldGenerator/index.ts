@@ -9,6 +9,7 @@ import {
 } from '../worldSchema';
 import { buildTectonicsField, type TectonicsField } from '../tectonicsSystem';
 import { resolveGeneratePlanetFoundation } from '../generatePlanetFoundation';
+import { createRandomNumericSeed } from '../worldEntropy';
 import {
   allowsNormalContinentalMorphology,
   allowsPlateBoundaryFeatureTerrain,
@@ -66,7 +67,7 @@ export function createDefaultGeneratorParams(): GeneratorParams {
     temperatureOffset: 0,
     erosionIntensity: 70,
     continentCount: 4,
-    seed: Math.floor(Math.random() * 1_000_000_000),
+    seed: createRandomNumericSeed(),
     styleMode: 'EARTHLIKE',
     planetProfile: 'EARTHLIKE_ROCKY',
     planetRadiusEarth: 1,

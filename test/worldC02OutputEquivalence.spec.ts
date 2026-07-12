@@ -5,9 +5,16 @@ import {
   generateWorldFromParams,
 } from '../src/core/worldGenerator';
 import { CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION } from '../src/core/worldSchema/version';
+import { isCausalProvenanceManifestV1 } from '../src/core/worldProvenance/schema';
 
-describe('C01 generated-world output equivalence', () => {
-  it('changes only document schema/scaffold metadata for the CI baseline world', () => {
+function physicalProjection<T extends ReturnType<typeof generateWorldFromParams>>(world: T): Omit<T, 'causal'> {
+  const clone = structuredClone(world) as T & { causal?: unknown };
+  delete clone.causal;
+  return clone;
+}
+
+describe('C02 explicit-seed legacy output equivalence', () => {
+  it('adds only schema and provenance state to the 384x192 CI baseline world', () => {
     const params = {
       ...createDefaultGeneratorParams(),
       width: 384,
@@ -23,17 +30,22 @@ describe('C01 generated-world output equivalence', () => {
       schemaVersion: 1,
       authorityMode: 'LEGACY',
       status: 'EMPTY',
-      provenance: { schemaVersion: 1, completeness: 'COMPLETE', authorityMode: 'LEGACY' },
+    });
+    expect(isCausalProvenanceManifestV1(current.causal?.provenance)).toBe(true);
+    expect(current.causal?.provenance).toMatchObject({
+      completeness: 'COMPLETE',
+      authorityMode: 'LEGACY',
+      legacyCompatibility: {
+        physicalGenerator: 'LEGACY',
+        explicitSeedOutputPreserved: true,
+        stageHistoryObserved: true,
+      },
     });
 
-    const normalizedCurrent = structuredClone(current) as typeof current & {
-      causal?: unknown;
-    };
-    delete normalizedCurrent.causal;
+    const normalizedCurrent = physicalProjection(current);
     normalizedCurrent.metadata.schemaVersion = legacy.metadata.schemaVersion;
     normalizedCurrent.metadata.createdAt = legacy.metadata.createdAt;
     normalizedCurrent.metadata.updatedAt = legacy.metadata.updatedAt;
-
     expect(normalizedCurrent).toEqual(legacy);
   }, 30_000);
 });

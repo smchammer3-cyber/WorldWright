@@ -107,7 +107,9 @@ describe('Sim branch record storage', () => {
     expect(branch.baseContentHash).toBe(savedWorld.metadata.contentHash);
     expect(branch.currentYear).toBe(12);
     expect(branch.status).toBe('ACTIVE');
-    expect(branch.recordSchemaVersion).toBe(1);
+    expect(branch.recordSchemaVersion).toBe(2);
+    expect(branch.randomContext).toMatchObject({ schemaVersion: 1, rootWorldSeed: savedWorld.metadata.seed, tickIndex: 0 });
+    expect(branch.randomContextProvenance?.source).toBe('CREATED_C02');
 
     branch.worldSnapshot.cells[0].editHeightDelta = 0.75;
     expect(savedWorld.cells[0].editHeightDelta).toBe(0);
@@ -160,7 +162,7 @@ describe('Sim branch record storage', () => {
       engine.simBranches.set(record.id, tampered);
     };
 
-    await expect(saveSimBranchRecordWithEngine(branch, engine)).rejects.toThrow(/base content hash mismatch/);
+    await expect(saveSimBranchRecordWithEngine(branch, engine)).rejects.toThrow(/replay state hash mismatch|base content hash mismatch/);
   });
 
   it('creates, saves, loads, selects, updates, and deletes a branch without mutating canonical world', async () => {
@@ -179,6 +181,9 @@ describe('Sim branch record storage', () => {
     const updated = await saveSimBranchRecordWithEngine({
       ...selected!,
       currentYear: 6,
+      randomContext: selected!.randomContext
+        ? { ...selected!.randomContext, tickIndex: selected!.randomContext.tickIndex + 1 }
+        : undefined,
       worldSnapshot: {
         ...selected!.worldSnapshot,
         cells: selected!.worldSnapshot.cells.map((cell, index) =>
@@ -261,7 +266,13 @@ describe('Sim branch record storage', () => {
       engine,
     );
 
-    await saveSimBranchRecordWithEngine({ ...branch, currentYear: branch.currentYear + 1 }, engine);
+    await saveSimBranchRecordWithEngine({
+      ...branch,
+      currentYear: branch.currentYear + 1,
+      randomContext: branch.randomContext
+        ? { ...branch.randomContext, tickIndex: branch.randomContext.tickIndex + 1 }
+        : undefined,
+    }, engine);
     const roundtripped = await engine.getSimBranchRecord(branch.id);
 
     expect(roundtripped?.currentYear).toBe(1);

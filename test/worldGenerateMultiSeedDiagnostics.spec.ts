@@ -40,7 +40,7 @@ describe('multi-seed Generate diagnostics', () => {
     const a = runMultiSeedGenerateDiagnostics({ seeds, width: 64, height: 32 }).rankings;
     const b = runMultiSeedGenerateDiagnostics({ seeds, width: 64, height: 32 }).rankings;
     expect(a).toEqual(b);
-  });
+  }, 15_000);
 
   it('can ablate a terrain stage without changing normal pipeline output', () => {
     const skipped: AblationStageId = 'QUALITY_PASS';

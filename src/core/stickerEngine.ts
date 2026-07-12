@@ -1,3 +1,5 @@
+import { createRandomIdentity } from './worldEntropy'
+
 // ========================================================
 // JARVIS_CHANGE
 // Date: 2025-12-03
@@ -196,7 +198,7 @@ export interface UpdateStickerInput {
  * swapped out without changing the external API.
  */
 function generateStickerId(): string {
-  return `stk_${Math.random().toString(36).slice(2, 10)}`
+  return `stk_${createRandomIdentity()}`
 }
 
 /**
