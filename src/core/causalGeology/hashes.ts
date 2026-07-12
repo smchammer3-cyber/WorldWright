@@ -7,9 +7,9 @@ export function hashCausalPayload(contract: string, value: unknown): Determinist
 
 export function hashRecordWithoutContentHash(
   contract: string,
-  record: Readonly<Record<string, unknown>>,
+  record: object,
 ): DeterministicHash {
-  const { contentHash: _contentHash, ...payload } = record;
+  const { contentHash: _contentHash, ...payload } = record as Readonly<Record<string, unknown>>;
   return hashCausalPayload(contract, payload);
 }
 
