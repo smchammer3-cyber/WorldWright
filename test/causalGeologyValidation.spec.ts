@@ -11,6 +11,8 @@ import { createConfidenceAssessment } from '../src/core/worldConfidence/confiden
 import type { CausalConfidenceLedgerV1 } from '../src/core/worldConfidence/types';
 import type { CausalProvenanceManifestV1 } from '../src/core/worldProvenance/schema';
 
+const INITIAL_CONDITION_HASH = hashCausalPayload('fixture/planet-initial-condition-bundle/v1', { profile: 'fixture' });
+
 function fixtureRun(): CausalShadowRunV1 {
   const input = createCausalGeologyInput('fixture-seed', [{
     schemaVersion: 1,
@@ -20,8 +22,8 @@ function fixtureRun(): CausalShadowRunV1 {
     sourceRecordId: 'fixture:planet.radius',
     confidenceSubject: 'input.planet.radius',
     evidenceIds: [],
-  }]);
-  const stage = createCausalStageResult({ stageId: 'CAUSAL_INPUT_SANITIZATION', stageVersion: 1, status: 'COMPLETE', input: { fixture: 'raw-input' }, record: input });
+  }], { initialConditionBundleHash: INITIAL_CONDITION_HASH });
+  const stage = createCausalStageResult({ stageId: 'CAUSAL_INPUT_SANITIZATION', stageVersion: 1, status: 'COMPLETE', input: { initialConditionBundleHash: INITIAL_CONDITION_HASH }, record: input });
   const confidenceLedger: CausalConfidenceLedgerV1 = {
     schemaVersion: 1,
     evidence: [],
@@ -71,8 +73,23 @@ describe('W1-01 complete shadow-run validation', () => {
     expect(() => validateCausalShadowRun(skipped)).toThrow(/contiguous prefix/);
 
     const mismatched = structuredClone(fixtureRun());
-    const other = createCausalGeologyInput('other-seed', [mismatched.inputSnapshot.sourceDeclarations[0]]);
+    const other = createCausalGeologyInput('other-seed', [mismatched.inputSnapshot.sourceDeclarations[0]], { initialConditionBundleHash: INITIAL_CONDITION_HASH });
     mismatched.provenance.rootSeed = other.rootSeed;
     expect(() => validateCausalShadowRun(mismatched)).toThrow(/root seed/);
+  });
+
+  it('rejects operational revision and legacy-comparison metadata inside causal identity', () => {
+    const buildCommit = structuredClone(fixtureRun());
+    buildCommit.provenance.software.buildCommit = 'operational-revision';
+    expect(() => validateCausalShadowRun(buildCommit)).toThrow(/Operational revision/);
+
+    const legacy = structuredClone(fixtureRun());
+    legacy.provenance.legacyCompatibility = {
+      physicalGenerator: 'LEGACY',
+      randomAlgorithm: 'fixture',
+      explicitSeedOutputPreserved: true,
+      stageHistoryObserved: true,
+    };
+    expect(() => validateCausalShadowRun(legacy)).toThrow(/legacy-comparison provenance/);
   });
 });
