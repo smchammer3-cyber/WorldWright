@@ -150,10 +150,9 @@ class IndexedDbWorldStorageEngine implements WorldStorageEngine {
     const db = await getDb();
     const summaries = await tx<WorldSummary[]>(db, STORE_INDEX, 'readonly', (s) => s.getAll());
     return Promise.all(
-      summaries.map(async (summary) => {
-        const branches = await this.listSimBranchRecords(summary.id);
-        return normalizeSummary(summary, branches.length);
-      })
+      summaries.map((summary) =>
+        summarizeWorldWithBranchLookup(summary, () => this.listSimBranchRecords(summary.id))
+      )
     );
   }
 
@@ -256,6 +255,29 @@ function normalizeSummary(summary: WorldSummary, simBranchCount?: number): World
       simBranchCount: simBranchCount ?? summary.status?.simBranchCount ?? 0,
     },
   };
+}
+
+export async function summarizeWorldWithBranchLookup(
+  summary: WorldSummary,
+  loadBranches: () => Promise<SimBranchRecord[]>
+): Promise<WorldSummary> {
+  try {
+    const branches = await loadBranches();
+    return normalizeSummary(summary, branches.length);
+  } catch {
+    return normalizeSummary(
+      {
+        ...summary,
+        status: {
+          ...defaultStatus(),
+          ...(summary.status || {}),
+          needsAttention: true,
+          recoveryAvailable: true,
+        },
+      },
+      summary.status?.simBranchCount ?? 0
+    );
+  }
 }
 
 function normalizeSimBranchRecord(record: SimBranchRecord): SimBranchRecord {
