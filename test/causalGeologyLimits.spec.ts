@@ -4,6 +4,7 @@ import {
   createCausalGeologyInput,
   createScientificQuantity,
   createScientificResearchBundle,
+  hashCausalPayload,
   validateCausalShadowRun,
   validateGeologicSpine,
   validateTectonicRegimeHistory,
@@ -11,6 +12,7 @@ import {
 } from '../src/core/causalGeology';
 
 const HASH = { algorithm: 'fnv1a64-canonical-json-v1' as const, value: '0000000000000000' };
+const INITIAL_CONDITION_HASH = hashCausalPayload('fixture/planet-initial-condition-bundle/v1', { fixture: true });
 
 function radiusDeclaration(index: number): CausalInputDeclarationV1 {
   return {
@@ -30,7 +32,7 @@ describe('W1-01 deterministic resource ceilings', () => {
       { length: CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxInputDeclarations + 1 },
       (_, index) => radiusDeclaration(index),
     );
-    expect(() => createCausalGeologyInput('seed', declarations)).toThrow(/exceed the limit/);
+    expect(() => createCausalGeologyInput('seed', declarations, { initialConditionBundleHash: INITIAL_CONDITION_HASH })).toThrow(/exceed the limit/);
 
     const sources = Array.from(
       { length: CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxResearchSources + 1 },
@@ -68,6 +70,7 @@ describe('W1-01 deterministic resource ceilings', () => {
       historyVersion: 1,
       status: 'PARTIAL',
       timeConvention: 'FRACTION_OF_RESOLVED_GEOLOGIC_HISTORY_V1',
+      totalResolvedDuration: createScientificQuantity(4.5, 'gigaannum', 'gigaannum-v1'),
       epochs,
       transitions: [],
       branchResolutionIds: [],
