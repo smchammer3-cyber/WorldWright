@@ -65,7 +65,9 @@ describe('W1-01 geologic-spine structural validation', () => {
   });
 
   it('rejects missing temporal context and impossible exposure history', () => {
-    expect(() => validateGeologicSpine(spine({ nodes: [{ ...spine().nodes[0], temporalContext: undefined as never }, spine().nodes[1]] }))).toThrow(/temporal context is missing/);
+    const missingTemporal = structuredClone(spine()) as GeologicSpineV1;
+    delete (missingTemporal.nodes[0] as { temporalContext?: GeologicTemporalContextV1 }).temporalContext;
+    expect(() => validateGeologicSpine(missingTemporal)).toThrow(/temporal context is missing/);
     expect(() => validateGeologicSpine(spine({ nodes: [{ ...spine().nodes[0], temporalContext: temporal('bad', 2, 1, 1.5) }, spine().nodes[1]] }))).toThrow(/surface exposure exceeds persistence/);
   });
 
