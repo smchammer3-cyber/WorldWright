@@ -94,12 +94,13 @@ function validateCurrentWorldDocument(value: unknown): string[] {
 }
 
 function createReport(
+  raw: unknown,
   sourceSchemaVersion: unknown,
   decodedSourceVersion: number | null,
   assumptions: MigrationAssumption[],
   warnings: MigrationWarning[]
 ): WorldMigrationReport {
-  const metadata = getMetadata(sourceSchemaVersion);
+  const metadata = getMetadata(raw);
   return {
     sourceSchemaVersion,
     decodedSourceVersion,
@@ -128,7 +129,7 @@ export function migrateWorldDocument(raw: unknown): WorldLoadResult {
     sourceVersion = classifyUnversionedWorld(raw, assumptions);
   }
 
-  const report = createReport(sourceVersionValue, sourceVersion, assumptions, warnings);
+  const report = createReport(raw, sourceVersionValue, sourceVersion, assumptions, warnings);
 
   if (decoded.kind === 'UNSUPPORTED_NEWER') {
     return {
