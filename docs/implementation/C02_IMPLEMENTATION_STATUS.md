@@ -38,6 +38,38 @@ C02 must not:
 - modify or merge PR #118;
 - merge this PR without explicit user approval.
 
-## First implementation gate
+## Gate 1 — Philox4x32-10 core
 
-The first code change must establish and test the exact Philox4x32-10 core and known-answer vectors before schema, simulation, or provenance integration proceeds.
+Status: **COMPLETE AND VERIFIED**
+
+Implemented:
+
+- exact Philox4x32-10 multipliers, Weyl increments, round permutation, and ten-round schedule;
+- exact unsigned 32-bit high/low multiplication using 16-bit decomposition;
+- strict counter/key uint32 validation;
+- the three official Random123 Philox4x32-10 known-answer vectors;
+- multiplication edge vectors, key-wrap behavior, and invalid-input tests.
+
+Primary reference snapshot:
+
+```text
+DEShawResearch/random123
+commit: 9545ff6413f258be2f04c1d319d99aaef7521150
+files: include/Random123/philox.h, tests/kat_vectors
+```
+
+Verification on implementation head `0f8128f999154d5cf9f12d11cbbb6cb8c27c00f5`:
+
+```text
+Build: success
+Tests: success
+Snapshot canary: success
+Full-globe review generation: success
+Changed files: status document, Philox core, Philox tests only
+```
+
+No schema, simulation, provenance, feature-flag, storage, terrain, or renderer integration has started.
+
+## Next implementation gate
+
+Create and test the versioned seed derivation, typed scope encoding, named stream registry, and stateless random oracle. This must prove stream and entity isolation before simulation or provenance integration begins.
