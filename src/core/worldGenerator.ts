@@ -6,6 +6,7 @@ import {
   type WorldBrain,
 } from './worldSchema';
 import { migrateWorldDocument } from './worldMigrations/migrateWorldDocument';
+import { ensureC02Provenance } from './worldProvenance/ensureManifest';
 import {
   buildContinentIntentField,
   seedContinentSkeletonFields,
@@ -38,7 +39,7 @@ export function generateLegacyV3WorldFromParams(params: GeneratorParams): WorldB
 export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
   const result = migrateWorldDocument(generateLegacyV3WorldFromParams(params));
   if (result.status === 'CURRENT' || result.status === 'MIGRATED_IN_MEMORY') {
-    return result.world;
+    return ensureC02Provenance(result.world, { observedLegacyGeneration: true });
   }
   throw new Error(`Generated world could not be converted to the current document schema: ${result.reason}`);
 }
