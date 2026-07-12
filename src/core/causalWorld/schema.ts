@@ -1,5 +1,6 @@
 import type { GeologicSpineV1, InteriorStateV1, PlanetaryPremiseV1, TectonicRegimeHistoryV1 } from '../causalGeology/types';
-import { validateCausalDomainReferences, validateGeologicSpine, validateInteriorState, validatePlanetaryPremise, validateTectonicRegimeHistory } from '../causalGeology/validation';
+import { validateCausalDomainReferences, validateGeologicSpine, validateInteriorState, validateTectonicRegimeHistory } from '../causalGeology/validation';
+import { validatePlanetaryPremise } from '../causalGeology/scopeValidation';
 import { isCausalConfidenceLedgerV1 } from '../worldConfidence/confidence';
 import type { CausalConfidenceLedgerV1 } from '../worldConfidence/types';
 import { isCausalProvenanceManifestV1, type CausalProvenanceManifestV1 } from '../worldProvenance/schema';
