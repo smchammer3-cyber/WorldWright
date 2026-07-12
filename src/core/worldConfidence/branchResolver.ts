@@ -42,7 +42,7 @@ export function resolveWeightedBranch<T extends CausalBranchValue>(
     optionId: option.id,
     probability: option.weight / totalWeight,
   })));
-  const evidenceIds = Object.freeze([...new Set(chosen.evidenceIds)].sort());
+  const evidenceIds = Object.freeze([...new Set<string>(chosen.evidenceIds)].sort());
 
   return Object.freeze({
     schemaVersion: 1,
