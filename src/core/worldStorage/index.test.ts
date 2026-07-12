@@ -6,6 +6,7 @@ import {
   computeWorldContentHash,
   saveWorldWithEngine,
   summarizeWorld,
+  summarizeWorldWithBranchLookup,
   type SimBranchRecord,
   type WorldStorageEngine,
   type WorldSummary,
@@ -145,5 +146,19 @@ describe('world storage transitional hardening', () => {
     expect(summary.generatorAuthorityMode).toBe('LEGACY');
     expect(summary.revisionId).toBe('');
     expect(summary.contentHash).toBe('');
+  });
+
+  it('keeps the world library summary available when branch snapshots cannot be loaded', async () => {
+    const summary = summarizeWorld(makeWorld('branch-recovery-world'));
+    const result = await summarizeWorldWithBranchLookup(summary, async () => {
+      throw new Error('corrupt Sim branch snapshot');
+    });
+
+    expect(result.id).toBe(summary.id);
+    expect(result.status.needsAttention).toBe(true);
+    expect(result.status.recoveryAvailable).toBe(true);
+    expect(result.status.simBranchCount).toBe(0);
+    expect(result.schemaVersion).toBe(CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION);
+    expect(result.generatorAuthorityMode).toBe('LEGACY');
   });
 });
