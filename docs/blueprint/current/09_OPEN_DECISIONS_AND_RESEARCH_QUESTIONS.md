@@ -166,11 +166,19 @@ Fixed architecture is separated from choices requiring evidence, prototypes, or 
 
 ## D20 — W1-01 reconciliation
 
-**Fixed:** PR #133 remains separate and unmerged.
+**Resolved:** PR #133 was audited against the unified causal blueprint and merged into `WorldWright-new` at `df3b09efa9eef3d5828f6d870d66bd0adeb843e3`.
 
-**Open:** amendments for initial conditions, identity, comparison placement, history duration/exposure, field groups, and screenshot policy.
+**Fixed:** W1-01 remains contract-only; physical authority remains `LEGACY`; `CAUSAL_ACTIVE` remains invalid and unimplemented; the known `RAW_GENERATOR` failure remains visible.
 
-**Gate:** audit/rebase against merged governing blueprint before merge.
+**Gate:** no additional W1-01 gate. Later work must satisfy its own decision and implementation gates.
+
+## D21 — W1-02 readiness
+
+**Proposed fixed boundary:** split the W1-02 milestone into W1-02A initial-condition bundle resolution and W1-02B planetary-premise shadow resolution. Initial conditions remain a separate deterministic authority layer, and premise remains limited to body class, layer stack, and surface medium.
+
+**Open until the readiness PR is approved:** final prior distributions, reviewed scientific claim rules, source bundle contents, calibrated thresholds, and numeric performance budgets.
+
+**Gate:** merge the W1-02 readiness contracts with explicit approval before W1-02A begins; merge and freeze W1-02A before W1-02B begins; each implementation PR requires separate approval.
 
 ## Decision-record format
 
