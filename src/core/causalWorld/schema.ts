@@ -67,6 +67,5 @@ export function isCausalWorldScaffoldV1(value: unknown): value is CausalWorldSca
 
 function authorityStatusMatch(authorityMode: GeneratorAuthorityMode | undefined, status: CausalWorldStatus | undefined): boolean {
   return (authorityMode === 'LEGACY' && status === 'EMPTY')
-    || (authorityMode === 'CAUSAL_SHADOW' && status === 'SHADOW')
-    || (authorityMode === 'CAUSAL_ACTIVE' && status === 'ACTIVE');
+    || (authorityMode === 'CAUSAL_SHADOW' && status === 'SHADOW');
 }
