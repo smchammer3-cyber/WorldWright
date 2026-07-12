@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { generateWorldFromParams, createDefaultGeneratorParams } from '../src/core/worldGenerator';
+import {
+  createDefaultGeneratorParams,
+  generateLegacyV3WorldFromParams,
+} from '../src/core/worldGenerator';
 import { migrateWorldDocument } from '../src/core/worldMigrations/migrateWorldDocument';
 import { CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION } from '../src/core/worldSchema/version';
 
 function createV3World() {
-  return generateWorldFromParams({
+  return generateLegacyV3WorldFromParams({
     ...createDefaultGeneratorParams(),
     width: 32,
     height: 16,
@@ -26,7 +29,7 @@ describe('world document migration', () => {
     expect(result.report.stepsApplied).toEqual(['world-v3-to-v4-causal-scaffold']);
     expect(result.report.changed).toBe(true);
     expect(result.world.metadata.schemaVersion).toBe(CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION);
-    expect((result.world as typeof result.world & { causal: unknown }).causal).toEqual({
+    expect(result.world.causal).toEqual({
       schemaVersion: 1,
       authorityMode: 'LEGACY',
       status: 'EMPTY',
