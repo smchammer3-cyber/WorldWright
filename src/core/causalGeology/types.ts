@@ -8,8 +8,7 @@ export type CausalGeologyStageId =
   | 'CAUSAL_PREMISE_RESOLUTION'
   | 'CAUSAL_INTERIOR_RESOLUTION'
   | 'CAUSAL_REGIME_HISTORY'
-  | 'CAUSAL_GEOLOGIC_SPINE'
-  | 'CAUSAL_SHADOW_AUDIT';
+  | 'CAUSAL_GEOLOGIC_SPINE';
 
 export type CausalStageStatus = 'COMPLETE' | 'PARTIAL' | 'BLOCKED' | 'FAILED';
 export type CausalDomainStatus = 'COMPLETE' | 'PARTIAL';
@@ -66,6 +65,8 @@ export interface CausalInputDeclarationV1 {
 export interface CausalGeologyInputV1 {
   readonly schemaVersion: 1;
   readonly inputContractVersion: 1;
+  readonly initialConditionContract: 'PLANET_INITIAL_CONDITION_BUNDLE_V1';
+  readonly initialConditionBundleHash: DeterministicHash;
   readonly rootSeed: RootSeedIdentity;
   readonly sourceDeclarations: readonly CausalInputDeclarationV1[];
   readonly physicalInputs: Readonly<Record<string, ScientificQuantityV1>>;
@@ -170,10 +171,11 @@ export interface CausalDomainRecordBaseV1 {
 export interface PlanetaryPremiseV1 extends CausalDomainRecordBaseV1 {
   readonly premiseVersion: number;
   readonly inputSnapshotHash: DeterministicHash;
-  readonly planetProfile: string;
-  readonly surfaceSupportCandidates: readonly string[];
-  readonly surfaceWaterCandidates: readonly string[];
+  readonly bodyClassCandidates: readonly string[];
+  readonly surfaceMediumCandidates: readonly string[];
   readonly layerStackCandidates: readonly string[];
+  readonly resolvedBodyClass?: string;
+  readonly resolvedSurfaceMedium?: string;
   readonly resolvedLayerStack?: readonly string[];
   readonly assumptions: readonly string[];
   readonly branchResolutionIds: readonly string[];
@@ -216,6 +218,8 @@ export interface TectonicEpochV1 {
   readonly transformRange: ScientificRangeV1;
   readonly plumeRange: ScientificRangeV1;
   readonly crustProductionRange: ScientificRangeV1;
+  readonly persistenceRange: ScientificRangeV1;
+  readonly surfaceExposureRange: ScientificRangeV1;
   readonly confidenceSubject: string;
   readonly evidenceIds: readonly string[];
 }
@@ -232,6 +236,7 @@ export interface TectonicTransitionV1 {
 export interface TectonicRegimeHistoryV1 extends CausalDomainRecordBaseV1 {
   readonly historyVersion: number;
   readonly timeConvention: 'FRACTION_OF_RESOLVED_GEOLOGIC_HISTORY_V1';
+  readonly totalResolvedDuration: ScientificQuantityV1;
   readonly epochs: readonly TectonicEpochV1[];
   readonly transitions: readonly TectonicTransitionV1[];
   readonly branchResolutionIds: readonly string[];
@@ -255,11 +260,22 @@ export type GeologicSpineEdgeKind =
   | 'INHERITS_FROM'
   | 'OVERPRINTS';
 
+export type GeologicPreservationState = 'ACTIVE' | 'EXPOSED' | 'INHERITED' | 'REWORKED' | 'BURIED' | 'ERODED_RELICT';
+
+export interface GeologicTemporalContextV1 {
+  readonly formationAgeRange: ScientificRangeV1;
+  readonly persistenceRange: ScientificRangeV1;
+  readonly surfaceExposureDurationRange: ScientificRangeV1;
+  readonly preservationState: GeologicPreservationState;
+}
+
 export interface GeologicSpineNodeV1 {
   readonly nodeId: string;
   readonly family: GeologicSpineNodeFamily;
   readonly anchor: SphericalAnchorV1;
   readonly extent: SphericalExtentV1;
+  readonly formationEventIds: readonly string[];
+  readonly temporalContext: GeologicTemporalContextV1;
   readonly evidenceIds: readonly string[];
 }
 
@@ -274,8 +290,10 @@ export interface GeologicSpineEdgeV1 {
 export interface GeologicSpineEventV1 {
   readonly eventId: string;
   readonly epochId: string;
+  readonly normalizedTimeRange: ScientificRangeV1;
   readonly relatedNodeIds: readonly string[];
   readonly parentEventIds: readonly string[];
+  readonly temporalContext: GeologicTemporalContextV1;
   readonly evidenceIds: readonly string[];
 }
 
@@ -311,6 +329,9 @@ export interface CausalShadowArtifactEnvelopeV1 {
   readonly createdAt: string;
   readonly createdBy: string;
   readonly storageRecordId: string;
+  readonly displayName?: string;
+  readonly worldId?: string;
+  readonly sourceRevisionId?: string;
   readonly notes: readonly string[];
 }
 
