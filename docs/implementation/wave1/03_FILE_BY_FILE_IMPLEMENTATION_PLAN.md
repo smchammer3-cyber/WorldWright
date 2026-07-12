@@ -6,12 +6,18 @@ Create `src/core/causalGeology/` with:
 
 ```text
 types.ts
+quantities.ts
+inputAuthority.ts
+researchLedger.ts
 validation.ts
+stageResult.ts
 premise.ts
 interior.ts
 regimeHistory.ts
+spatial.ts
 geologicSpine.ts
 shadowRunner.ts
+storage.ts
 diagnostics.ts
 hashes.ts
 index.ts
@@ -19,51 +25,76 @@ index.ts
 
 ### `types.ts`
 
-Define all Wave 1 schema-versioned records, IDs, ranges, node/edge/event families, run options, and validation-result types. Do not place algorithms in this file.
+Define schema-versioned records, IDs, stage statuses, ranges, node/edge/event families, run options, and validation-result types. Algorithms do not belong here.
+
+### `quantities.ts`
+
+Define registered units, normalization contracts, range validation, conversions, and incompatible-unit failures. No scientific scalar enters a causal record without a registered scale.
+
+### `inputAuthority.ts`
+
+This is the only causal-side adapter allowed to inspect declared generation/foundation input sources. It builds `CausalGeologyInputV1` from a reviewed allowlist and rejects legacy-derived interpretations. Premise, interior, history, and spine modules never import `WorldBrain`.
+
+### `researchLedger.ts`
+
+Load and validate committed source, claim-rule, correlation-group, evidence-status, and review fixtures. Runtime does not browse or fetch scientific facts.
 
 ### `validation.ts`
 
-Provide fail-closed validators for every record and the complete `CausalShadowRunV1`. Validation must check nested shape, finite numeric ranges, canonical ordering, unique IDs, cross-references, disposition semantics, and recomputed hashes.
+Provide fail-closed validators for every record and complete shadow payload. Check nested shape, units, ranges, ordering, IDs, cross-references, stage dependencies/status, disposition semantics, and recomputed hashes.
+
+### `stageResult.ts`
+
+Centralize COMPLETE/PARTIAL/BLOCKED/FAILED construction and downstream gating. Prevent valid-looking records from escaping blocked or failed stages.
 
 ### `premise.ts`
 
-Resolve `PlanetaryPremiseV1` only from approved planetary inputs, C02 random streams, and C04 evidence/confidence contracts. Expose pure deterministic functions.
+Resolve `PlanetaryPremiseV1` only from sanitized inputs, C02 random streams, and C04 evidence/confidence contracts. Expose pure deterministic functions.
 
 ### `interior.ts`
 
-Resolve `InteriorStateV1` from premise plus approved foundation inputs. Preserve ranges and limitations. Do not read legacy cells or world collections.
+Resolve `InteriorStateV1` from validated premise plus sanitized input. Preserve ranges and limitations. Do not read legacy world or comparison data.
 
 ### `regimeHistory.ts`
 
-Create ordered epochs and transitions using stable epoch IDs and `causal.regime-history`. The number and identity of earlier epochs must not change because an unrelated later diagnostic field was added.
+Create contiguous normalized epochs and adjacent transitions using stable IDs and `causal.regime-history`.
+
+### `spatial.ts`
+
+Define canonical spherical anchors/extents, longitude normalization, distance/bearing operations, and grid-resolution-independent validation.
 
 ### `geologicSpine.ts`
 
-Create graph identities, relationships, events, and ancestry. It may express expected feature tendencies, but it must not rasterize terrain or write current cell causes.
+Create graph identities, spherical tendencies, relationships, events, and ancestry. It must not rasterize terrain or write current cell causes.
 
 ### `shadowRunner.ts`
 
-Orchestrate the four causal stages and return a detached immutable run. Optional attachment must target a cloned world and require explicit `CAUSAL_SHADOW` mode plus `causal.shadow.enabled`.
+Orchestrate stages from a sanitized input snapshot and return a detached immutable run. Optional attachment targets a cloned world and requires explicit `CAUSAL_SHADOW` plus `causal.shadow.enabled`.
+
+### `storage.ts`
+
+Define deterministic payload versus operational envelope, strict load outcomes (`LOADED`, `UNSUPPORTED_NEWER`, `QUARANTINED`), and hash verification. Do not silently regenerate decisions.
 
 ### `diagnostics.ts`
 
-Compare completed causal records with rules, references, and legacy observations. This module is the only Wave 1 module allowed to read legacy solved morphology.
+Compare completed causal records with rules, references, and legacy observations. This is the only Wave 1 module allowed to accept legacy solved morphology.
 
 ### `hashes.ts`
 
-Centralize canonical content hashes and stable ID derivation. Avoid locale-sensitive ordering and timestamp-derived causal identity.
+Centralize canonical hashes and stable ID derivation. Avoid locale, timestamp, insertion-order, and operational-identity dependence.
 
 ## Existing files to update
 
 ### `src/core/causalWorld/schema.ts`
 
-Replace generic optional Wave 1 fields with typed records and validate them when present. Preserve empty LEGACY scaffold compatibility.
+Replace generic Wave 1 fields with typed records and validate them when present. Preserve absent-field LEGACY compatibility; quarantine malformed present records.
 
 ### `src/core/worldAuthority/processRegistry.ts`
 
 Register:
 
 ```text
+CAUSAL_INPUT_SANITIZATION
 CAUSAL_PREMISE_RESOLUTION
 CAUSAL_INTERIOR_RESOLUTION
 CAUSAL_REGIME_HISTORY
@@ -71,109 +102,122 @@ CAUSAL_GEOLOGIC_SPINE
 CAUSAL_SHADOW_AUDIT
 ```
 
-The first four read allowed inputs/causal records and write only `causalRecord`. The audit process reads broadly and writes diagnostics only. Their modes are `CAUSAL_SHADOW`; none is allowed in normal LEGACY execution.
+Input sanitization produces a detached snapshot. The four causal stages write only `causalRecord`; audit writes diagnostics only. Modes are `CAUSAL_SHADOW`; normal LEGACY execution cannot invoke them.
+
+C03 currently enforces writes, not reads. Read isolation is therefore enforced structurally by narrow function signatures, import boundaries, and tests proving causal modules do not import or accept `WorldBrain`.
 
 ### `src/core/worldAuthority/fieldRegistry.ts`
 
-No new physical writer should be needed. Confirm `world.causal` remains the sole canonical Wave 1 write target. If domain-level field definitions are added, they must remain under the `causalRecord` group.
+No physical writer is added. `world.causal` remains the only canonical Wave 1 write target. Domain-level definitions remain under `causalRecord`.
 
 ### `src/core/worldFeatureFlags/*`
 
-Use the existing `causal.shadow.enabled` flag. Do not add a second shadow flag. Ensure resolution rejects the flag under LEGACY authority and continues to block `causal.active.enabled`.
+Use existing `causal.shadow.enabled`; do not add a duplicate. Resolution rejects it under LEGACY authority and continues to block `causal.active.enabled`.
 
 ### `src/core/worldRandom/streamRegistry.ts`
 
-Use existing reserved streams. Promote a stream from `RESERVED` only in the PR that first legitimately uses it, while preserving its name, version, owner, purpose, scope schema, and allowed modes.
+Promote reserved streams only in the PR that first uses them, preserving names, versions, owners, purposes, scope schemas, and allowed modes.
 
 ### `src/core/worldProvenance/*`
 
-Record Wave 1 stage versions, stream usage, evidence/branch hashes, limitations, and shadow-run output hashes.
+Record sanitized input hash, source-bundle version, stage versions/statuses, streams, evidence/branch hashes, limitations, and output hashes.
 
 ### `src/geologyAudit/contracts.ts`
 
-Add optional causal-shadow manifest references and causal metrics without changing existing legacy manifest compatibility.
+Add optional causal-shadow manifest references and causal metrics without changing legacy manifest compatibility.
 
 ### `src/geologyAudit/worldWrightAdapter.ts`
 
-Add a separate shadow export adapter. Do not alter legacy region extraction so that old reports remain comparable.
+Add a separate shadow export adapter. Do not alter legacy region extraction.
 
 ### `src/core/worldGeneratePipelineLedger.ts`
 
-Do not insert shadow stages into the ordinary legacy Generate ledger. Provide a separate shadow ledger or explicitly nested diagnostic ledger.
+Do not insert shadow stages into ordinary Generate. Provide a separate shadow ledger.
 
 ### UI
 
-No user-facing generation control is required in the first implementation PR. If a developer control is later added, it must be clearly labeled experimental shadow mode and may not alter the final rendered globe.
+No user-facing control is required initially. A later developer control must be clearly experimental, explicit, and unable to alter the rendered globe.
 
 ## Required tests
 
 Create focused suites for:
 
 ```text
+causalGeologyInputAuthority.spec.ts
+causalGeologyQuantities.spec.ts
+causalGeologyResearchLedger.spec.ts
+causalGeologyStageResult.spec.ts
 causalGeologyPremise.spec.ts
 causalGeologyInterior.spec.ts
 causalGeologyRegimeHistory.spec.ts
+causalGeologySpatial.spec.ts
 causalGeologySpine.spec.ts
 causalGeologyValidation.spec.ts
 causalGeologyDeterminism.spec.ts
 causalGeologyAuthority.spec.ts
 causalGeologyTerrainIsolation.spec.ts
+causalGeologyDependencyIsolation.spec.ts
 causalGeologySerialization.spec.ts
+causalGeologyStorageOutcomes.spec.ts
 causalGeologyReferenceAudit.spec.ts
+causalGeologyPerformance.spec.ts
 ```
 
-Also extend:
+Also extend authority registry, feature flags, provenance, explicit-seed output equivalence, geology-audit tests, and snapshot/full-globe evidence.
 
-```text
-worldAuthorityRegistry.spec.ts
-worldFeatureFlags.spec.ts
-worldProvenance.spec.ts
-worldC02OutputEquivalence.spec.ts
-geologyAudit tests
-snapshot/full-globe CI evidence
-```
+A source/import guard must fail if premise, interior, regime-history, or spine imports `worldSchema`, `worldGenerator`, legacy geography modules, or the legacy audit adapter.
 
-## PR boundaries
+## Revised PR boundaries
 
-### W1-01 — contracts and validators
+### W1-01 — foundation contracts
 
-- types, strict validators, hashes, typed scaffold fields;
-- process definitions but no execution path;
-- research/evidence fixture format;
-- no random stream activation yet.
+- input authority matrix and sanitizer contract;
+- scientific quantities/units;
+- research/source ledger fixture format;
+- strict types, validators, stage results, hashes, spatial primitives;
+- payload/envelope and load-outcome contracts;
+- process definitions and import/read-isolation guards;
+- no causal algorithm and no stream activation.
 
-### W1-02 — premise and interior
+### W1-02 — planetary premise
 
-- activate `causal.premise` and `causal.interior` in shadow mode;
-- deterministic records, evidence, confidence, contradictions;
-- detached runner through interior only.
+- activate `causal.premise` in shadow mode;
+- premise-only detached runner;
+- evidence, confidence, contradictions, threshold and blocked-state tests.
 
-### W1-03 — regime history
+### W1-03 — interior and rheology
+
+- activate `causal.interior`;
+- premise-to-interior dependency tests;
+- thermal/rheology ranges, limitations, replay, and source coverage.
+
+### W1-04 — regime history
 
 - activate `causal.regime-history`;
-- epochs, transitions, replay and threshold tests.
+- normalized epochs, adjacent transitions, replay and threshold tests.
 
-### W1-04 — geologic spine
+### W1-05 — geologic spine
 
 - activate `causal.geologic-spine`;
-- graph, event ancestry, structural validation.
+- spherical graph, events, ancestry, structural and resolution-independence tests.
 
-### W1-05 — audit and references
+### W1-06 — audit and references
 
 - controlled archetypes;
-- threshold fixtures;
+- direct-input threshold fixtures;
 - geology-audit integration;
-- fixed-seed aggregate reports;
+- fixed-seed aggregate and performance reports;
 - no active authority.
 
-### W1-06 — completion report
+### W1-07 — completion report
 
-- summarize evidence and failures;
-- identify blocked scientific areas;
+- summarize evidence, performance, contradictions, blocked domains, and failures;
 - state whether Wave 1 is ready for a separate promotion-planning discussion;
 - make no physical-output changes.
 
-## CI gate for every implementation PR
+## CI gate
+
+Every implementation PR runs:
 
 ```text
 npm run build
@@ -184,6 +228,9 @@ npm run diagnostics:world-audit-export
 snapshot canary
 full 384×192 globe review
 legacy physical output equivalence
+focused affected Wave 1 corpus
 ```
 
-A passing software gate does not imply geological approval. Reports must continue to show known failures and missing evidence honestly.
+W1-06 and W1-07 additionally run the complete 24+ seed corpus, complete threshold matrix, archetype coverage, aggregate reports, and frozen performance budget.
+
+A passing software gate does not imply geological approval. Reports continue to show known failures, blocked stages, low confidence, and missing evidence honestly.

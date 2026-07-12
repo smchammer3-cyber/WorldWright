@@ -2,24 +2,45 @@
 
 ## Audit philosophy
 
-Shadow geology must not be scored solely by resemblance to the current legacy planet. The legacy generator is the known failing comparison case at `RAW_GENERATOR`. Wave 1 should be judged against explicit geological rules, controlled archetypes, threshold behavior, negative examples, valid exceptions, and internal causal consistency.
+Shadow geology is not scored solely by resemblance to the current legacy planet. The legacy generator is the known failing comparison case at `RAW_GENERATOR`. Wave 1 is judged against reviewed scientific claims, controlled archetypes, threshold behavior, negative examples, valid exceptions, internal causal consistency, and explicit missing coverage.
 
-The existing `src/geologyAudit` contracts already separate:
+The existing `src/geologyAudit` contracts already separate positive, threshold, negative, exception, and missing-reference evidence. Wave 1 extends that system rather than creating a second visual-review framework.
 
-- positive references;
-- threshold references;
-- negative references;
-- exception references;
-- missing reference coverage.
+## Research bundle gate
 
-Wave 1 should extend that system rather than create a second visual-review framework.
+Before an algorithmic relation is implemented, W1-01 or the relevant implementation PR must commit a reviewed research bundle containing:
+
+```text
+source-registry.json
+claim-rules.json
+parameter-and-unit-registry.json
+correlation-groups.json
+known-limitations.json
+review-record.json
+```
+
+Every claim rule states:
+
+- domain and version;
+- source IDs;
+- applicable input ranges;
+- expected relation or allowed alternatives;
+- weight/reliability rationale;
+- correlation group;
+- exceptions;
+- evidence status: research-required, provisional, or reviewed;
+- reviewer and review date when reviewed.
+
+`research-required` rules may support diagnostics and block-model reports, but cannot silently drive a completed scientific result.
 
 ## Required diagnostic outputs
 
-Every shadow run should produce:
+Every explicit shadow run produces or reports absence for:
 
 ```text
 causal-shadow-manifest.json
+sanitized-input.json
+stage-results.json
 premise.json
 interior.json
 regime-history.json
@@ -30,13 +51,14 @@ provenance.json
 validation-report.json
 reference-audit-plan.json
 shadow-vs-legacy-comparison.json
+performance-report.json
 ```
 
-The final comparison file must be explicitly non-authoritative and must identify which values came from causal records and which came from legacy state.
+The legacy comparison is explicitly non-authoritative, identifies the source of every compared value, and cannot be read by causal resolvers.
 
 ## Controlled archetype families
 
-Before full-world promotion review, create deterministic small/controlled cases for at least:
+Before promotion review, create deterministic controlled cases for at least:
 
 - mobile-lid rocky world;
 - stagnant-lid rocky world;
@@ -46,122 +68,147 @@ Before full-world promotion review, create deterministic small/controlled cases 
 - high-heat young world;
 - water-rich rocky world;
 - dry rocky world;
-- super-Earth input range;
+- super-Earth direct-input range;
 - approved artificial/fantasy exception.
 
-Each family needs positive, threshold, and negative cases where applicable. Shapes may vary; the audit should test rules and relationships rather than require image-template copying.
+Each family needs positive, threshold, and negative cases where scientifically meaningful. Shapes may vary; the audit tests rules and relationships, not template copying.
 
 ## Threshold matrix
 
-Store a fixed deterministic fixture matrix. At minimum it must vary:
+The threshold corpus varies direct declarations, not already-resolved geology outputs. At minimum:
 
 ```text
-surface gravity
+planet radius
+planet density
+stellar luminosity
+orbital distance
+declared albedo/greenhouse inputs
 thermal age
 radiogenic heat
 primordial heat
 tidal heating
-mantle convection index
-tectonic vigor
 water inventory
 volatile inventory
 ```
 
-Expected threshold relations must be written before implementation results are reviewed. When scientific expectations are not yet researched, mark them `research-required`; do not invent a monotonic rule merely to obtain a passing test.
+Mass, gravity, escape velocity, flux, thermal totals, convection, tectonic vigor, rift tendency, and hotspot tendency are evaluated as derived outputs. They are not independently varied as if they were unrelated inputs.
+
+Expected threshold relations are written before results are reviewed. Unknown relations remain `research-required`; no monotonic rule is invented to obtain a passing test.
 
 ## Core invariant tests
 
-### Causality isolation
+### Input and causality isolation
 
-Changing legacy terrain or derived fields while holding planetary inputs constant must not change:
+Holding `CausalGeologyInputV1` constant while arbitrarily changing every legacy cell field, legacy plates, continents, crust fields, and legacy foundation interpretation must leave premise, interior, history, and spine byte-identical.
 
-- premise;
-- interior;
-- regime history;
-- geologic spine.
-
-The shadow audit comparison may change, but the causal records may not.
+Changing an approved direct input must change only records causally downstream of that input. The test suite must include dependency-matrix assertions rather than only whole-run inequality.
 
 ### Deterministic isolation
 
-- identical input/seed/version produces identical records and hashes;
-- reordering option arrays produces identical resolutions;
-- adding an unrelated branch does not perturb existing branch results;
-- serialization/reload preserves exact records;
+- identical sanitized input/seed/version produces identical payloads and hashes;
+- reordering source records, option arrays, or map insertion order changes nothing;
+- adding an unrelated branch does not perturb existing results;
+- serialization/reload preserves exact records and statuses;
 - no direct `Math.random()` exists;
-- locale settings cannot change IDs or order.
+- locale and timezone settings cannot change causal payloads;
+- timestamps and storage IDs cannot enter causal identity.
 
 ### Authority isolation
 
+- causal resolvers do not accept `WorldBrain`;
 - Wave 1 processes write only `causalRecord`;
 - shadow audit writes diagnostics only;
 - rejected writes do not leak into canonical state;
-- normal `LEGACY` generation never invokes shadow processes implicitly;
-- `causal.active.enabled` remains false and blocked.
+- normal `LEGACY` generation never invokes input sanitization or shadow processes implicitly;
+- `causal.active.enabled` remains false, blocked, and unimplemented.
 
 ### Structural validity
 
-- epoch intervals are ordered and non-overlapping;
+- stage dependency/status rules are enforced;
+- quantities use compatible registered units/scales;
+- epoch intervals cover `[0,1]` without overlap or gaps;
 - transitions reference adjacent valid epochs;
+- spine coordinates are valid spherical coordinates and do not depend on grid resolution;
 - spine IDs are unique and stable;
-- every edge references existing nodes;
+- every edge references existing compatible nodes;
 - no orphan event or ancestry link exists;
-- relationship types are compatible with node families;
-- all branch/evidence/contradiction references resolve;
+- all branch/evidence/source/contradiction references resolve;
 - all stored hashes recompute exactly.
 
 ### Scientific honesty
 
-- unsupported precision is represented as a range or limitation;
+- unsupported precision is a range or limitation;
 - unresolved contradictions remain open;
-- branch distributions do not collapse to one option unless inputs/evidence require it;
-- repeated evidence from one source cannot manufacture certainty;
-- missing reference coverage produces warnings, never a pass.
+- high-severity contradictions block affected domains;
+- `research-required` rules cannot produce a falsely complete stage;
+- repeated or correlated evidence cannot manufacture certainty;
+- missing reference coverage produces warnings or blocks, never a pass;
+- branch distributions do not collapse without an evidence/input explanation.
 
-## Fixed-seed and profile corpus
+## Fixed corpus and CI tiers
 
-Create a versioned fixture corpus with at least 24 fixed seeds across multiple foundation profiles and a separate controlled threshold corpus. The seed corpus must be committed and reviewed; CI must not select random seeds at runtime.
+Use a committed versioned corpus. CI never chooses random seeds at runtime.
 
-Aggregate reports should include:
+To prevent Wave 1 from making every PR impractically expensive:
 
 ```text
-branch-option frequency
-confidence-band distribution
-open contradiction frequency
-missing-evidence frequency
-missing-reference coverage
-invalid-state count
-premise/interior sensitivity by threshold
-regime transition count distribution
-spine node/edge/event count distribution
+PR gate: focused contracts + at least 6 fixed seeds + relevant controlled fixtures
+full Wave 1 gate: at least 24 fixed seeds + complete threshold corpus + all archetypes
+scheduled/manual diagnostic gate: expanded corpus, aggregate distributions, performance trends
 ```
 
-Distribution reports are diagnostic, not target quotas. Tests should detect pathological collapse and instability without forcing arbitrary aesthetic diversity.
+The full legacy snapshot and 384×192 globe gate remains required for every PR because physical output must stay unchanged. The larger causal corpus may be tiered, but no PR may omit its directly affected fixtures.
+
+Aggregate reports include branch frequency, confidence bands, open contradictions, missing evidence/reference coverage, invalid/blocked state count, direct-input sensitivity, epoch distribution, spine graph distribution, and performance.
+
+Distribution reports are diagnostic, not target quotas. Tests detect pathological collapse and instability without forcing arbitrary aesthetic diversity.
+
+## Resource budgets
+
+Shadow mode is optional, but it still requires bounded cost.
+
+W1-01 establishes benchmark fixtures and records:
+
+- wall-clock runtime per stage and complete run;
+- peak memory or best available stable proxy;
+- serialized payload size;
+- node/edge/event counts;
+- algorithmic complexity notes.
+
+Hard initial rules:
+
+- no hidden shadow work in normal generation;
+- no unbounded retry loops;
+- no quadratic all-pairs graph construction without a reviewed bound;
+- deterministic maximum counts for epochs, nodes, edges, events, and alternatives;
+- any benchmark regression above the agreed tolerance blocks merge until explained.
+
+The exact numeric budget is recorded from the W1-01 baseline before W1-02 implementation, then frozen or deliberately revised in a planning amendment.
 
 ## Legacy-output gate
 
 For the standard explicit seed and 384×192 configuration:
 
-- physical world data must remain unchanged;
-- snapshot canary must pass;
-- front, +120°, -120°, final-globe, and Generate-page PNGs must remain byte-identical to the merged C04 baseline;
+- physical world data remains unchanged;
+- snapshot canary passes;
+- front, +120°, -120°, final-globe, and Generate-page PNGs are byte-identical to the merged C04 baseline;
 - geological authority failure at the legacy source remains visible.
 
 Any physical difference is a Wave 1 regression.
 
-## Promotion gates
+## Hard completion and promotion gates
 
-Wave 1 cannot promote itself to active authority.
+Wave 1 cannot promote itself to active authority. Completion requires:
 
-A future promotion proposal may be opened only after all of these are true:
-
-1. contracts and validation are stable across serialized fixtures;
-2. controlled archetypes have approved reference coverage;
-3. threshold behavior is reviewed and documented;
-4. fixed-seed reports show no unexplained branch collapse;
-5. open high-severity contradictions are absent or explicitly block affected domains;
-6. shadow records are causally independent of legacy terrain;
-7. provenance and replay evidence are complete;
-8. the user explicitly approves a separate promotion brief.
+1. 100% of committed serialized fixtures validate and recompute hashes;
+2. zero authority violations and zero causal changes under forbidden-field perturbation;
+3. zero hidden shadow execution during normal LEGACY generation;
+4. all stages report truthful COMPLETE/PARTIAL/BLOCKED/FAILED status;
+5. no open high-severity contradiction is ignored; affected domains are blocked;
+6. every completed domain has reviewed source coverage and approved positive, threshold, and negative/exception coverage where applicable;
+7. fixed-corpus reports show no unexplained branch collapse or ordering instability;
+8. provenance, replay, unit, input-authority, and performance evidence is complete;
+9. LEGACY physical data and five standard PNGs remain byte-identical;
+10. the user explicitly approves a separate promotion-planning brief.
 
 Even then, the next step is a planning PR for bounded causal influence—not an immediate switch to `CAUSAL_ACTIVE`.

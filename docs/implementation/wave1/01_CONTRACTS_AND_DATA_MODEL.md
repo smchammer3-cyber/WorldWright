@@ -2,7 +2,7 @@
 
 ## Design requirements
 
-All Wave 1 records must be:
+All Wave 1 causal records must be:
 
 - schema-versioned;
 - canonical-JSON compatible;
@@ -11,11 +11,119 @@ All Wave 1 records must be:
 - validated fail-closed on load;
 - provenance-linked;
 - confidence/evidence-linked through C04;
+- explicit about units, normalization, source authority, and limitations;
 - independent of legacy solved morphology.
 
-## Proposed causal scaffold typing
+## Input authority contract
 
-Replace the remaining generic Wave 1 causal-domain records with typed optional contracts:
+Wave 1 must introduce `CausalGeologyInputV1`. Resolvers accept this type, never `WorldBrain` or `PlanetFoundationSnapshot` directly.
+
+Minimum structure:
+
+```text
+schemaVersion
+inputContractVersion
+rootSeed
+sourceDeclarations[]
+physicalInputs{}
+approvedDerivations{}
+excludedLegacyFields[]
+contradictions[]
+limitations[]
+contentHash
+```
+
+Each source declaration records:
+
+```text
+inputId
+value
+quantity/enum contract
+sourceClass: DIRECT_DECLARATION | APPROVED_PHYSICAL_DERIVATION
+sourceRecordId
+formulaVersion, when derived
+confidenceSubject
+evidenceIds
+```
+
+W1-01 must commit a field-by-field allowlist. The initial direct/approved input families may include radius, density, stellar luminosity, orbital distance, declared albedo/greenhouse parameters, water inventory, volatile inventory, thermal age, primordial heat, radiogenic heat, and tidal heating. Derived mass, gravity, escape velocity, flux, or heat totals must be recomputed through versioned Wave 1 formulas rather than trusted from a legacy snapshot.
+
+The following existing foundation fields are comparison-only until independently derived by Wave 1:
+
+```text
+geologyStack
+resolvedPhysicalConsequences
+surfaceWaterMode
+reliefGravityScale
+seaLevelOffset
+adjustedAlbedo
+effectiveHeatIndex
+evaporationPotential
+snowlineBias
+coreHeat
+mantleHeat
+heatFlowIndex
+mantleConvectionIndex
+tectonicVigor
+volcanismBias
+riftLikelihood
+hotspotPotential
+erosionSedimentScale
+```
+
+A future research review may promote a field to an approved derivation, but that requires a versioned formula, evidence, tests, and a planning amendment.
+
+## Scientific quantities and ranges
+
+No naked scientific number is allowed in a causal record unless its type defines the scale.
+
+```ts
+interface ScientificQuantityV1 {
+  value: number;
+  unit: string;                 // e.g. earth-radius, earth-mass, normalized-0-1
+  scaleId: string;              // registered interpretation
+  derivationId?: string;
+}
+
+interface ScientificRangeV1 {
+  min: number;
+  max: number;
+  unit: string;
+  scaleId: string;
+  confidenceSubject: string;
+}
+```
+
+Rules:
+
+- values and bounds are finite;
+- `min <= max`;
+- normalization contracts define clamp behavior and physical meaning;
+- incompatible units cannot be compared or combined;
+- conversion functions are versioned and tested;
+- a scalar is used only when precision is justified; otherwise a range is required.
+
+## Stage result contract
+
+Every stage returns a typed result:
+
+```text
+stageId
+stageVersion
+status: COMPLETE | PARTIAL | BLOCKED | FAILED
+inputHash
+outputHash, when output exists
+record, when valid
+limitations[]
+blockingReasons[]
+validationIssues[]
+evidenceIds[]
+contradictionIds[]
+```
+
+`BLOCKED` and `FAILED` results cannot contain a record presented as authoritative. `PARTIAL` records must enumerate missing domains and downstream compatibility.
+
+## Proposed causal scaffold typing
 
 ```ts
 interface CausalWorldScaffoldV1 {
@@ -25,11 +133,10 @@ interface CausalWorldScaffoldV1 {
   geologicSpine?: GeologicSpineV1;
   confidence?: CausalConfidenceLedgerV1;
   provenance?: CausalProvenanceManifestV1;
-  // Existing later-wave fields remain absent or generic until their own PRs.
 }
 ```
 
-The C01 scaffold schema should not be bumped merely for replacing optional `Record<string, unknown>` fields with stricter TypeScript types. A persisted schema bump is required only if the serialized compatibility contract changes in a way old readers cannot safely ignore.
+The scaffold schema is not bumped merely for replacing optional generic types. However, any persisted incompatible serialized shape requires an explicit schema/version decision. Missing Wave 1 fields remain valid. Present malformed fields fail validation and are quarantined; they are never silently dropped or rebuilt.
 
 ## `PlanetaryPremiseV1`
 
@@ -38,31 +145,23 @@ Minimum fields:
 ```text
 schemaVersion
 premiseVersion
+status
 planetProfile
-surfaceSupportMode
-surfaceWaterMode
-geologyStackCandidates
+surfaceSupportCandidates
+surfaceWaterCandidates
+layerStackCandidates
 resolvedLayerStack
-inputSnapshot
-assumptions
-limitations
-branchResolutionIds
-evidenceIds
+inputSnapshotHash
+assumptions[]
+limitations[]
+branchResolutionIds[]
+evidenceIds[]
+contradictionIds[]
 confidenceAssessmentSubject
 contentHash
 ```
 
-`inputSnapshot` must use approved planetary inputs such as the existing `PlanetFoundationSnapshot` values: radius, density, mass, gravity, escape velocity, water/volatile inventory, thermal age, heat sources, mantle heat, convection index, tectonic vigor, and related foundation values.
-
-Premise must distinguish:
-
-- direct input;
-- deterministic derivation;
-- uncertain scientific alternative;
-- user-declared fantasy/artificial exception;
-- unsupported or contradictory state.
-
-No silent fallback may be recorded as fact.
+Premise distinguishes direct declaration, approved derivation, uncertain alternative, user-declared artificial/fantasy exception, and unsupported/contradictory state. No silent fallback is recorded as fact.
 
 ## `InteriorStateV1`
 
@@ -71,166 +170,199 @@ Minimum fields:
 ```text
 schemaVersion
 interiorVersion
-thermalBudget
+status
+thermalBudgetRange
 heatSourceFractions
 mantleConvectionRange
-rheologyFamily
-lithosphereBehavior
+rheologyCandidates
+lithosphereBehaviorCandidates
 lidRegimeCandidates
 resolvedLidRegime
-meltAndVolcanismTendency
-riftTendency
-hotspotTendency
-assumptions
-limitations
-branchResolutionIds
-evidenceIds
+meltAndVolcanismRange
+riftTendencyRange
+hotspotTendencyRange
+assumptions[]
+limitations[]
+branchResolutionIds[]
+evidenceIds[]
+contradictionIds[]
 confidenceAssessmentSubject
 contentHash
 ```
 
-Ranges must remain ranges where precision is not justified. A single scalar may be stored only when the model has an explicit derivation or deterministic branch resolution explaining it.
+Interior may read only sanitized inputs and validated premise. It may not read the legacy foundation's already-resolved convection, vigor, volcanism, rift, or hotspot fields.
 
 ## `TectonicRegimeHistoryV1`
 
-A history is an ordered causal record, not a current-state label.
+Wave 1 uses exactly one initial time convention:
+
+```text
+FRACTION_OF_RESOLVED_GEOLOGIC_HISTORY_V1
+0.0 = formation/start of modeled history
+1.0 = present/end of modeled history
+```
+
+Epochs must:
+
+- cover `[0, 1]` without gaps or overlaps;
+- use half-open intervals `[start, end)` except the final epoch, which includes 1;
+- have safe integer `sequenceIndex` values starting at 0;
+- have stable IDs independent of later diagnostic fields;
+- avoid claims of absolute age unless a later reviewed conversion contract is approved.
+
+Minimum history fields:
 
 ```text
 schemaVersion
 historyVersion
+status
 timeConvention
 epochs[]
 transitions[]
-branchResolutionIds
-evidenceIds
-contradictionIds
+branchResolutionIds[]
+evidenceIds[]
+contradictionIds[]
 contentHash
 ```
 
-Each epoch should contain:
-
-```text
-epochId
-sequenceIndex
-startTime
-endTime
-regimeFamily
-mobilityRange
-extensionRange
-convergenceRange
-transformRange
-plumeRange
-crustProductionRange
-confidenceSubject
-evidenceIds
-```
-
-Each transition should contain:
-
-```text
-transitionId
-fromEpochId
-toEpochId
-triggerFamily
-triggerEvidenceIds
-confidenceSubject
-```
-
-Time must use one explicit normalized convention until a researched absolute-age model is approved. Epoch IDs and random scopes must remain stable when unrelated later fields are added.
+Each epoch includes regime family plus explicit mobility, extension, convergence, transform, plume, and crust-production ranges. Transitions reference adjacent epochs and evidence-backed trigger families.
 
 ## `GeologicSpineV1`
 
-The geologic spine is a graph of large-scale identities and relationships. It is not a heightmap.
+The geologic spine is a resolution-independent spherical graph, not a heightmap and not a grid-label map.
+
+### Spatial contract
+
+```text
+SphericalAnchorV1:
+  latitudeDegrees  [-90, 90]
+  longitudeDegrees [-180, 180)
+
+SphericalExtentV1:
+  angularRadiusDegrees (0, 180]
+  axisBearingDegrees   [0, 360), optional
+  elongation           [0, 1], optional
+```
+
+Grid cell indices, current plate IDs, continent IDs, and raster polygons are forbidden in the causal spine. Later waves may rasterize the spine through a separate versioned projection.
+
+Minimum spine fields:
 
 ```text
 schemaVersion
 spineVersion
+status
+coordinateConvention
 nodes[]
 edges[]
 events[]
 featureFamilies[]
-branchResolutionIds
-evidenceIds
-contradictionIds
+branchResolutionIds[]
+evidenceIds[]
+contradictionIds[]
 contentHash
 ```
 
-Proposed node families:
+Node families initially include continental kernels, ocean basins, rift systems, convergence systems, transform systems, plume systems, and accretion systems. Edges express separated-from, converges-with, transforms-against, subducts-beneath, accretes-to, inherits-from, and overprints relationships. Every ID, edge, and event reference validates and remains canonically ordered.
+
+Every visible-feature candidate produced in a later wave must trace to a spine node, edge, or event. Wave 1 itself creates only identities, spherical tendencies, relationships, temporal ancestry, and limitations.
+
+## Evidence and source registry
+
+Evidence cannot use an unstructured source string as its complete scientific provenance. W1-01 must define `ScientificSourceV1` and `ScientificClaimRuleV1`.
+
+`ScientificSourceV1` minimum fields:
 
 ```text
-CONTINENTAL_KERNEL
-OCEAN_BASIN
-RIFT_SYSTEM
-CONVERGENCE_SYSTEM
-TRANSFORM_SYSTEM
-PLUME_SYSTEM
-ACCRETION_SYSTEM
+sourceId
+sourceType
+citation
+title
+authorsOrInstitution
+publicationYear
+revisionOrAccessDate
+domain
+qualityClass
+licenseOrUsageNote
+limitations[]
+contentFingerprint
 ```
 
-Proposed edge semantics:
+Allowed quality classes:
 
 ```text
-SEPARATED_FROM
-CONVERGES_WITH
-TRANSFORMS_AGAINST
-SUBDUCTS_BENEATH
-ACCRETES_TO
-INHERITS_FROM
-OVERPRINTS
+PRIMARY_PEER_REVIEWED
+AUTHORITATIVE_DATA_OR_MODEL
+REVIEW_OR_SYNTHESIS
+INTERNAL_CONTROLLED_ARCHETYPE
+INTERNAL_HYPOTHESIS
 ```
 
-Every visible-feature candidate eventually produced in later waves must be traceable to a spine node, edge, or event. Wave 1 itself creates only identities, relationships, temporal ancestry, and expected tendencies.
+Rules:
 
-## Evidence and confidence rules
-
-- Every deterministic derivation records its source input IDs.
-- Every weighted choice records a C04 `WeightedBranchResolutionV1`.
-- Every confidence assessment references existing evidence and open contradictions.
-- Evidence from the same source remains contribution-capped by C04.
-- `CERTAIN` is not produced from repeated modeled evidence.
-- A low-confidence result may exist in shadow mode, but it may not be silently promoted later.
-- Missing evidence creates an explicit limitation or `UNKNOWN` assessment.
+- runtime code never searches the web for scientific facts;
+- reviewed sources and claim rules are committed versioned fixtures;
+- source class does not automatically determine evidence weight;
+- every weight/reliability value has an explicit rationale;
+- correlated sources share a correlation group so duplication cannot manufacture confidence;
+- internal hypotheses remain visibly provisional;
+- missing coverage blocks or limits the affected model rather than triggering invented defaults.
 
 ## Contradiction rules
 
-Contradictions must be created for incompatible active claims such as:
+Contradictions are required for incompatible active claims, including input declarations versus derivations, premise versus interior, interior versus regime history, and regime history versus spine relationships.
 
-- foundation geology stack versus resolved lid regime;
-- heat/convection inputs versus a low-mobility history;
-- water/volatile premise versus an unsupported surface state;
-- regime transitions that require mutually exclusive triggers;
-- spine relationships incompatible with the resolved regime epoch.
-
-A contradiction can be resolved only by selecting an actual claim with rationale. A dismissal must explain why claims are not genuinely comparable and must not fabricate a selected claim.
+A contradiction can be resolved only by selecting an actual claim with rationale. A dismissal explains non-comparability and never fabricates a selected claim. High-severity open contradictions block the affected downstream domain unless a validator explicitly proves independence.
 
 ## Deterministic random scopes
 
-Reserved streams already exist and should be used directly:
+Use the existing reserved streams:
 
 ```text
-causal.premise        scope: [purpose]
-causal.interior       scope: [purpose]
-causal.regime-history scope: [epoch, purpose]
-causal.geologic-spine scope: [feature, purpose]
+causal.premise        scope: [registeredPurpose]
+causal.interior       scope: [registeredPurpose]
+causal.regime-history scope: [epochId, registeredPurpose]
+causal.geologic-spine scope: [featureId, registeredPurpose]
 ```
 
-Stable purpose strings must be registered in code, not assembled ad hoc from prose. Option lists must be canonically ordered by stable IDs before selection. Changing one branch must not perturb unrelated branches.
+Stable purposes are a code registry. Option lists use stable IDs and code-unit ordering. Adding an unrelated branch cannot perturb existing choices.
+
+## Shadow run and artifact envelope
+
+The deterministic payload is separate from operational metadata.
+
+```text
+CausalShadowRunV1:
+  schemaVersion
+  runContractVersion
+  inputSnapshot
+  stageResults
+  premise/interior/history/spine, when produced
+  confidenceLedger
+  contradictions
+  provenance
+  contentHash
+
+CausalShadowArtifactEnvelopeV1:
+  envelopeSchemaVersion
+  payload
+  payloadHash
+  createdAt
+  createdBy
+  storageRecordId
+  notes[]
+```
+
+`createdAt`, storage IDs, and operator notes are excluded from the deterministic payload hash. The same payload may exist in multiple envelopes without changing causal identity.
+
+Load behavior:
+
+- known schema: strict nested validation and hash verification;
+- unsupported future schema: return `UNSUPPORTED_NEWER`;
+- malformed current schema/hash mismatch: `QUARANTINED`;
+- absent Wave 1 state: valid legacy world;
+- no silent migration, regeneration, or compatibility reinterpretation of causal decisions.
 
 ## Hash and provenance contract
 
-Each domain record receives a canonical deterministic hash. The overall shadow run records:
-
-```text
-root seed identity
-branch salt, if any
-authority mode
-feature-flag snapshot
-random algorithm and stream versions
-domain schema versions
-input hashes
-output hashes
-limitations
-software/build identity
-```
-
-Diagnostic hashes remain diagnostic; they are not security signatures.
+Every domain and the complete payload receive canonical deterministic hashes. Provenance records root seed, sanitized input hash, authority mode, flag snapshot, random algorithms and stream versions, schema versions, source-bundle version, stage inputs/outputs, limitations, and software/build identity. Diagnostic hashes remain diagnostic rather than security signatures.
