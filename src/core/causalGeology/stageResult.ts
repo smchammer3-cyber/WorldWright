@@ -8,7 +8,6 @@ const STAGE_ORDER: readonly CausalGeologyStageId[] = [
   'CAUSAL_INTERIOR_RESOLUTION',
   'CAUSAL_REGIME_HISTORY',
   'CAUSAL_GEOLOGIC_SPINE',
-  'CAUSAL_SHADOW_AUDIT',
 ];
 
 export interface CausalStageResultOptions<TRecord> {
@@ -27,6 +26,7 @@ export interface CausalStageResultOptions<TRecord> {
 }
 
 export function createCausalStageResult<TRecord>(options: CausalStageResultOptions<TRecord>): CausalStageResultV1<TRecord> {
+  if (!STAGE_ORDER.includes(options.stageId)) throw new Error(`Unregistered causal generation stage: ${String(options.stageId)}`);
   if (!Number.isSafeInteger(options.stageVersion) || options.stageVersion < 1) throw new Error('Causal stage version must be a positive safe integer.');
   const recordAllowed = options.status === 'COMPLETE' || options.status === 'PARTIAL';
   if (recordAllowed !== (options.record !== undefined)) throw new Error(`${options.status} causal stage result ${recordAllowed ? 'requires' : 'cannot contain'} a record.`);
