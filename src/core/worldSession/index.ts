@@ -20,6 +20,16 @@ interface PreparedWorld {
   migrated: boolean;
 }
 
+export interface WorldSessionStorage {
+  getWorldById(id: string): Promise<unknown | null>;
+  saveWorld(world: WorldBrain): Promise<WorldBrain>;
+}
+
+const defaultWorldSessionStorage: WorldSessionStorage = {
+  getWorldById,
+  saveWorld,
+};
+
 /**
  * WorldSession encapsulates all live state and editing operations on a single
  * WorldBrain instance. It enforces the blueprint contract that the canonical
@@ -28,7 +38,7 @@ interface PreparedWorld {
  * Simulation ticks run against a branch snapshot until an explicit promotion
  * workflow exists.
  */
-class WorldSession {
+export class WorldSession {
   private world: WorldBrain | null = null;
   private simBranchWorld: WorldBrain | null = null;
   private history: WorldBrain[] = [];
@@ -37,6 +47,8 @@ class WorldSession {
   private dirty = false;
   private worldLoadReport: WorldMigrationReport | null = null;
   private migrationPending = false;
+
+  constructor(private readonly storage: WorldSessionStorage = defaultWorldSessionStorage) {}
 
   /** Get the current canonical world. Returns null if no world is loaded. */
   getWorld(): WorldBrain | null {
@@ -149,7 +161,7 @@ class WorldSession {
     }
 
     try {
-      const existing = await getWorldById(w.metadata.id);
+      const existing = await this.storage.getWorldById(w.metadata.id);
       if (existing) {
         // eslint-disable-next-line no-console
         console.warn(
@@ -160,7 +172,7 @@ class WorldSession {
         let candidate = `${base}_dup${i}`;
         while (i < 1000) {
           // eslint-disable-next-line no-await-in-loop
-          const ex = await getWorldById(candidate);
+          const ex = await this.storage.getWorldById(candidate);
           if (!ex) break;
           i++;
           candidate = `${base}_dup${i}`;
@@ -189,7 +201,7 @@ class WorldSession {
     let raw: unknown = null;
 
     if (typeof arg === 'string') {
-      raw = await getWorldById(arg);
+      raw = await this.storage.getWorldById(arg);
     } else if (arg && typeof arg === 'object') {
       raw = arg;
     }
@@ -224,7 +236,7 @@ class WorldSession {
       throw new Error('No world loaded');
     }
 
-    const saved = await saveWorld(this.world);
+    const saved = await this.storage.saveWorld(this.world);
     const verified = this.prepareWorld(saved);
     this.replaceWorld(verified.world);
     this.worldLoadReport = verified.report;
