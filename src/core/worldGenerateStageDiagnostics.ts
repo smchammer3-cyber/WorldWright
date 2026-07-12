@@ -1,6 +1,8 @@
 import { seedContinentSkeletonFields } from './worldContinents';
 import {
+  applyCoastShapePass,
   applyCrustProvinceTerrainDelta,
+  applyMaterialReliefReinforcement,
   applyProvinceCoastBreakup,
   applyProvinceCoherence,
   cleanupAccidentalTinyIslands,
@@ -26,12 +28,16 @@ export type GenerateStageId =
   | 'SKELETON_ELEVATION'
   | 'FIRST_RECOMPUTE'
   | 'QUALITY_PASS'
+  | 'SECOND_RECOMPUTE'
+  | 'CRUST_CONTINENT_RESEED'
   | 'CRUST_FIELDS'
   | 'ISOSTATIC_TERRAIN_RESPONSE'
   | 'CRUST_PROVINCE_DELTA'
   | 'CRUST_COAST_BREAKUP'
   | 'CRUST_COHERENCE'
   | 'CRUST_TINY_ISLAND_CLEANUP'
+  | 'MATERIAL_RELIEF_REINFORCEMENT'
+  | 'COAST_SHAPE_PASS'
   | 'OCEAN_BATHYMETRY_SMOOTHING'
   | 'FINAL_RECOMPUTE'
   | 'FINAL_CONTINENT_RESEED'
@@ -134,7 +140,9 @@ export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null 
   applyGeneratedWorldQualityPass(world);
   record('QUALITY_PASS', 'Quality pass', 'Terrain cleanup after initial generated relief. Watch that cleanup does not hide upstream authority mistakes.');
   recomputeWorld(world, ['GENERATED']);
+  record('SECOND_RECOMPUTE', 'Second recompute', 'Derived fields refreshed after quality cleanup.');
   seedContinentSkeletonFields(world);
+  record('CRUST_CONTINENT_RESEED', 'Crust continent reseed', 'Known legacy compatibility reseed before crust material fields.');
   seedCrustFields(world);
   record('CRUST_FIELDS', 'Crust fields', 'Feature-backed crust thickness, age, and province label seeded. Height should not change here.');
   applyIsostaticTerrainResponse(world);
@@ -147,6 +155,10 @@ export function computeGeneratedStageDiagnostics(sourceWorld: WorldBrain | null 
   record('CRUST_COHERENCE', 'Crust cohere', 'Material/feature coherence cleanup.');
   cleanupAccidentalTinyIslands(world);
   record('CRUST_TINY_ISLAND_CLEANUP', 'Tiny cleanup', 'Tiny accidental island cleanup after crust material subpasses.');
+  applyMaterialReliefReinforcement(world);
+  record('MATERIAL_RELIEF_REINFORCEMENT', 'Material relief', 'Bounded feature/material relief reinforcement.');
+  applyCoastShapePass(world);
+  record('COAST_SHAPE_PASS', 'Coast shape', 'Final local coast variation from solved adjacency.');
   applyOceanBathymetrySmoothing(world);
   record('OCEAN_BATHYMETRY_SMOOTHING', 'Ocean bathy', 'Cause-aware ocean-only smoothing preserving ridges, trenches, arcs, and shelves.');
   recomputeWorld(world, ['GENERATED']);
