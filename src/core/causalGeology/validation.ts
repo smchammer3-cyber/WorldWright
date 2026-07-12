@@ -191,9 +191,10 @@ function validateDomainBase(value: unknown, label: string): asserts value is Cau
   assertDeterministicHash(record.contentHash, label);
 }
 
-function assertRecordHash(contract: string, record: Readonly<Record<string, unknown>>): void {
-  const expected = hashRecordWithoutContentHash(contract, record);
-  if (!deterministicHashEquals(record.contentHash as never, expected)) throw new Error(`${contract} content hash mismatch.`);
+function assertRecordHash(contract: string, record: object): void {
+  const candidate = record as Readonly<Record<string, unknown>>;
+  const expected = hashRecordWithoutContentHash(contract, candidate);
+  if (!deterministicHashEquals(candidate.contentHash as never, expected)) throw new Error(`${contract} content hash mismatch.`);
 }
 
 function validateCanonicalText(value: unknown, label: string): readonly string[] {
