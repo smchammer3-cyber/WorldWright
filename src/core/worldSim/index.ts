@@ -2,6 +2,7 @@
 
 import { generateSimEvents, type SimEvent } from '../simEvents';
 import { cloneWorldDocument } from '../worldCloning';
+import { worldFeatureFlagValue } from '../worldFeatureFlags/resolve';
 import type { ResolvedWorldFeatureFlagSnapshot } from '../worldFeatureFlags/types';
 import type { WorldBrain } from '../worldSchema';
 import {
@@ -40,8 +41,16 @@ export function simulateTick(
     ? fallbackTickRequest(world, requestOrDt)
     : requestOrDt;
   const dt = request.dt ?? 1;
-  if (!Number.isFinite(dt) || dt <= 0) throw new RangeError('Simulation dt must be a positive finite number.');
+  if (!Number.isSafeInteger(dt) || dt <= 0) {
+    throw new RangeError('Simulation dt must be a positive safe integer.');
+  }
+  if (!Number.isSafeInteger(request.year)) {
+    throw new RangeError('Simulation year must be a safe integer.');
+  }
   if (request.randomContext.tickIndex < 0) throw new RangeError('Simulation tick index cannot be negative.');
+  if (request.flags && !worldFeatureFlagValue<boolean>(request.flags, 'simulation.deterministic-rng.enabled')) {
+    throw new Error('Deterministic simulation RNG is disabled for this run.');
+  }
 
   const random = createSimRandomOracle(request.randomContext);
 

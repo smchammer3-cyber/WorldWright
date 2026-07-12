@@ -96,7 +96,9 @@ The production bundle remains above Vite's 500 kB advisory threshold. C02 adds i
 - Run #379: Gate 1 Philox baseline — all configured jobs passed.
 - Run #382: tests and both visual jobs passed; build found a readonly TypeScript declaration error. The implementation type was corrected without weakening tests.
 - Run #384: exact source through deterministic Sim/session/storage integration — all configured jobs passed.
-- Final complete-head CI and artifact evidence must be recorded before merge review.
+- Run #410: pre-audit complete head — build, tests, snapshot canary, and full-globe review passed.
+- Post-audit corrections add atomic persisted tick/save, replay-state hashing, strict schema-2 validation, integer simulation time, and nested provenance validation.
+- The final corrected-head run ID and artifact evidence are recorded in the PR conversation after GitHub assigns them.
 
 ## Geological and visual status
 
