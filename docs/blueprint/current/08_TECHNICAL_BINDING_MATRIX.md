@@ -2,23 +2,23 @@
 
 ## Purpose
 
-This document binds the governing ideas to target records, modules, process identities, read/write boundaries, streams, owners, and implementation phases.
+This binds governing ideas to target records, modules, process identities, read/write boundaries, streams, owners, and implementation phases.
 
-Names marked **merged** exist on `WorldWright-new`. Names marked **audited draft** exist only in PR #133. Names marked **planned** are blueprint commitments, not implementation authority.
+**Merged** names exist on `WorldWright-new`; **audited draft** names exist only in PR #133; **planned** names are commitments, not implementation authority.
 
 ## 0. Planet identity envelope
 
 ```text
-record: PlanetIdentityEnvelopeV1 — planned successor/amendment to existing Planet Identity contract
-module: src/core/worldIdentity/* — planned/reconciled
-process: lineage/namespace creation, outside physical causal resolution
-reads: generation request metadata, root-seed identity reference, profile/version metadata
+record: PlanetIdentityEnvelopeV1 — planned amendment/successor
+module: src/core/worldIdentity/* — planned
+process: lineage/namespace creation outside physical causality
+reads: generation request metadata, root-seed reference, profile/version metadata
 writes: operational identity envelope
-random stream: none for physics; ID generation cannot enter causal hashes
-owner: world lineage and coordinate namespace
+random stream: none for physics
+owner: lineage and coordinate namespace
 ```
 
-Display name, timestamps, storage IDs, birth IDs, and revision IDs never change physical output.
+Display names, timestamps, storage/birth/revision IDs never affect physical output.
 
 ## 1. Initial-condition resolution
 
@@ -26,44 +26,44 @@ Display name, timestamps, storage IDs, birth IDs, and revision IDs never change 
 records: GenerationRequestV1, PlanetInitialConditionBundleV1 — planned
 module: src/core/planetInitialConditions/* — planned outside causalGeology
 process ID: PLANET_INITIAL_CONDITIONS — planned
-reads: user constraints, template/import constraints, generation profile, root seed, approved ranges
-writes: detached initial-condition bundle
-random stream: causal.initial-conditions — planned
+reads: user/template/import constraints, profile, root seed, reviewed prior/constraint bundle
+writes: detached compatible initial-condition bundle
+random stream: causal.initial-conditions — planned, scoped by fact/decision/reroll purpose
 owner: missing starting physical facts only
 phase: foundation F2
 ```
 
-Source classes include user-declared, template-declared, imported, and seed-resolved default. No solved geology is allowed.
+The record includes source/lock state, dependencies, prior/constraint versions, rejected alternatives, and satisfaction report. The resolver uses bounded conditional sampling or constraint solving; it cannot independently sample related facts or use unbounded rejection.
 
 ## 2. Causal input sanitization
 
 ```text
 record: CausalGeologyInputV1 — audited draft
 module: src/core/causalGeology/inputAuthority.ts — audited draft
-process ID: CAUSAL_INPUT_SANITIZATION — audited draft registration
+process ID: CAUSAL_INPUT_SANITIZATION
 reads: PlanetInitialConditionBundleV1 + approved formula registry
 writes: detached sanitized input
 random stream: none
-owner: approved causal input record
+owner: approved causal input
 phase: W1-01 reconciliation
 ```
 
-The current-world adapter lives outside `src/core/causalGeology`. The causal package never imports `WorldBrain`, terrain, plates, continents, renderer, or legacy geological conclusions.
+The current-world adapter lives outside `causalGeology`; the causal package never imports solved legacy morphology.
 
 ## 3. Planetary premise
 
 ```text
-record: PlanetaryPremiseV1 — audited draft contract
+record: PlanetaryPremiseV1 — audited draft contract, semantic narrowing required
 module: src/core/causalGeology/premise.ts — planned
 process ID: CAUSAL_PREMISE_RESOLUTION
-reads: sanitized input, reviewed premise claims, resolved flags
+reads: sanitized input + reviewed premise claims + flags
 writes: causalRecord.premise
 random stream: causal.premise — merged reservation
 owner: body/layer/surface-medium alternatives
 phase: P
 ```
 
-No tectonic regime, resurfacing history, impact history, terrain, or spatial structure.
+No tectonic/resurfacing/impact history or spatial geology.
 
 ## 4. Interior and rheology
 
@@ -71,19 +71,17 @@ No tectonic regime, resurfacing history, impact history, terrain, or spatial str
 record: InteriorStateV1 — audited draft contract
 module: src/core/causalGeology/interior.ts — planned
 process ID: CAUSAL_INTERIOR_RESOLUTION
-reads: sanitized input + premise + reviewed interior claims
+reads: input + premise + reviewed claims
 writes: causalRecord.interior
 random stream: causal.interior — merged reservation
 owner: thermal/rheology/lid capability ranges
 phase: I
 ```
 
-Actual crust/material provinces are downstream; interior supplies capabilities and constraints.
-
 ## 5. Tectonic regime history
 
 ```text
-record: TectonicRegimeHistoryV1 — audited draft contract, amendment required for total duration/persistence
+record: TectonicRegimeHistoryV1 — audited draft; add total duration, persistence, exposure summaries
 module: src/core/causalGeology/regimeHistory.ts — planned
 process ID: CAUSAL_REGIME_HISTORY
 reads: premise + interior + reviewed history claims
@@ -96,14 +94,13 @@ phase: H
 ## 6. Geologic spine
 
 ```text
-record: GeologicSpineV1 — audited draft contract
+record: GeologicSpineV1 — audited draft; add formation-age/exposure fields where required
 module: src/core/causalGeology/geologicSpine.ts — planned
-spatial helpers: src/core/causalGeology/spatial.ts — audited draft
 process ID: CAUSAL_GEOLOGIC_SPINE
-reads: premise + interior + regime history + reviewed spine claims
+reads: premise + interior + history + reviewed spine claims
 writes: causalRecord.geologicSpine
 random stream: causal.geologic-spine — planned
-owner: major spherical geological identities, relationships, events, ancestry
+owner: spherical source identities, relationships, events, ancestry
 phase: S
 ```
 
@@ -111,28 +108,28 @@ phase: S
 
 ```text
 record: CausalShadowAuditReportV1 — planned
-causal export module: src/core/causalGeology/diagnosticExport.ts — planned, causal records only
+causal export: src/core/causalGeology/diagnosticExport.ts — planned, causal records only
 comparison adapter: src/core/worldDiagnostics/causalLegacyComparison.ts — planned outside causalGeology
 process ID: CAUSAL_SHADOW_AUDIT
-reads: immutable causal export; comparison adapter may separately read legacy morphology/reference corpus
+reads: immutable causal export; external adapter separately reads legacy/reference data
 writes: diagnostics only
 random stream: none
 owner: none
 phase: D
 ```
 
-No module under `src/core/causalGeology` receives solved legacy morphology. Comparison output cannot feed generation.
+Comparison output cannot feed generation.
 
 ## 8. Process fields
 
 ```text
 record: ProcessFieldSetV2 or reconciled successor — planned
 module: src/core/causalGeology/processFields.ts — planned
-process ID: CAUSAL_PROCESS_FIELDS — planned
-reads: spine + regime history + upstream composition constraints
+process ID: CAUSAL_PROCESS_FIELDS
+reads: spine + history + upstream composition constraints
 writes: processFieldAuthority
-random stream: causal.process-fields — planned
-owner: continuous/coarse geological influence
+random stream: causal.process-fields
+owner: continuous geological influence, including source age/exposure summaries
 phase: D then A2
 ```
 
@@ -143,11 +140,11 @@ Climate-driven erosion, rivers, glaciers, dunes, and marine sediment are exclude
 ```text
 record: ContinentOceanStructureStateV1 — planned
 module: src/core/causalGeology/continentOceanStructure.ts — planned
-process ID: CAUSAL_CONTINENT_OCEAN_STRUCTURE — planned
-reads: process fields + spine/history capability constraints
+process ID: CAUSAL_CONTINENT_OCEAN_STRUCTURE
+reads: fields + spine/history constraints
 writes: structuralRoleAuthority
-random stream: causal.structure-roles — planned
-owner: explicit regional roles and ghost-risk/suppression records
+random stream: causal.structure-roles
+owner: sampled regional roles and ghost-risk/suppression, not source identities
 phase: C
 ```
 
@@ -155,11 +152,11 @@ phase: C
 
 ```text
 record: StructureMaterialStateV1 — planned
-module: src/core/causalGeology/structureMaterial.ts — planned
-process ID: CAUSAL_STRUCTURE_MATERIAL_GENESIS — planned
-reads: process fields + structural roles + premise/interior material constraints
+module: src/core/causalGeology/structureMaterial.ts
+process ID: CAUSAL_STRUCTURE_MATERIAL_GENESIS
+reads: fields + roles + premise/interior material constraints
 writes: structureMaterialCause
-random stream: causal.structure-material — planned
+random stream: causal.structure-material
 owner: crust/material provinces, resistance, grain, terrain permissions
 phase: M
 ```
@@ -168,42 +165,39 @@ phase: M
 
 ```text
 record: LandformPotentialStateV1 — planned successor to Landmass Genesis
-module: src/core/causalGeology/landformPotential.ts — planned
-process ID: CAUSAL_LANDFORM_POTENTIAL — planned
-reads: process fields + structural roles + material state
+module: src/core/causalGeology/landformPotential.ts
+process ID: CAUSAL_LANDFORM_POTENTIAL
+reads: fields + roles + material state
 writes: landformPotentialAuthority
-random stream: causal.landform-potential — planned
-owner: named terrain-birth potentials and suppression
+random stream: causal.landform-potential
+owner: named terrain potentials and suppression
 phase: L
 ```
-
-No final land, water, coastline, or height.
 
 ## 12. Base Terrain Birth
 
 ```text
 record: BaseTerrainStateV1 — planned
-module: current Terrain Birth adapted behind reconciled contract or clean implementation — open decision
-process ID: CAUSAL_BASE_TERRAIN_BIRTH — planned
-reads: process fields + structural roles + material state + landform potential
+module: adapted current Terrain Birth or clean implementation — open
+process ID: CAUSAL_BASE_TERRAIN_BIRTH
+reads: fields + roles + materials + landform potential
 writes: baseTerrain
 random streams: versioned terrain streams
 owner: solid-body starting height and contribution ledger
 phase: B
 ```
 
-Climate-driven fluvial, glacial, aeolian, coastal, and marine terms are forbidden here.
+Climate-driven surface terms are forbidden.
 
 ## 13. Provisional surface boundary
 
 ```text
 record: ProvisionalSurfaceBoundaryStateV1 — planned
-module: src/core/surfaceEvolution/provisionalBoundary.ts — planned
-process ID: CAUSAL_PROVISIONAL_SURFACE_BOUNDARY — planned
-reads: base terrain + initial conditions + premise + exposed material context
+module: src/core/surfaceEvolution/provisionalBoundary.ts
+process ID: CAUSAL_PROVISIONAL_SURFACE_BOUNDARY
+reads: base terrain + initial conditions + premise + exposed materials + schedule checkpoint
 writes: provisional water/drainage/climate/ice/wind fields
-random stream: explicit per component or none
-owner: temporary process-driving boundary only
+owner: temporary process boundary only
 phase: E1
 ```
 
@@ -211,11 +205,11 @@ phase: E1
 
 ```text
 record: SurfaceEvolutionStateV1 — planned
-module: src/core/surfaceEvolution/* — planned
-process ID: CAUSAL_SURFACE_EVOLUTION — planned
-reads: base terrain + provisional boundary + material resistance + fixed schedule
-writes: surfaceEvolutionDelta and component ledgers
-random streams: component-specific, pass-indexed
+module: src/core/surfaceEvolution/*
+process ID: CAUSAL_SURFACE_EVOLUTION
+reads: base/prior terrain + provisional boundary + materials + feature age/exposure/history summary + fixed schedule
+writes: surfaceEvolutionDelta, refreshed provisional boundaries at declared checkpoints, component ledgers
+random streams: component-specific and pass-indexed
 owner: erosion/transport/deposition deltas
 phase: E2
 ```
@@ -224,51 +218,23 @@ phase: E2
 
 ```text
 records: FinalTerrainStateV1, FinalSurfaceStateV1 — planned
-module: src/core/causalTerrain/finalTerrain.ts and downstream resolvers — planned
-process IDs: CAUSAL_FINAL_TERRAIN, CAUSAL_FINAL_SURFACE — planned
+module: src/core/causalTerrain/finalTerrain.ts and downstream resolvers
+process IDs: CAUSAL_FINAL_TERRAIN, CAUSAL_FINAL_SURFACE
 reads: base terrain + validated surface delta + initial water/environment constraints
-writes: final terrain, sea level, land/water, bathymetry, then downstream baselines
-owner: one final terrain composer and named downstream owners
+writes: final terrain, then named downstream domains
+owner: one final terrain composer and named surface owners
 phase: FNL
 ```
 
 ## Future C03 field groups
 
-Before physical promotion the registry explicitly represents:
-
-```text
-processFieldAuthority
-structuralRoleAuthority
-structureMaterialCause
-landformPotentialAuthority
-baseTerrain
-provisionalSurfaceBoundary
-surfaceEvolutionDelta
-finalTerrain
-terrainCauseLedger
-```
-
-No implementation may hide these inside generic metadata or diagnostics.
+Before physical promotion, add explicit groups for process fields, structural roles, materials, landform potential, base terrain, provisional boundaries, surface deltas, final terrain, and terrain cause ledger. None may hide inside generic metadata.
 
 ## Module boundary target
 
-```text
-planetInitialConditions reads UI/template/import declarations
-causalGeology/inputAuthority reads only the clean initial-condition bundle
-premise reads sanitized input
-interior reads premise + sanitized input
-regimeHistory reads premise + interior
-geologicSpine reads premise + interior + history
-processFields reads history + spine + approved upstream constraints
-continentOceanStructure reads fields + spine/history
-structureMaterial reads fields + roles + upstream material constraints
-landformPotential reads fields + roles + materials
-base Terrain Birth reads causal preparation records
-surfaceEvolution reads base terrain + provisional boundary + materials
-worldDiagnostics comparison alone may read legacy solved morphology
-```
+Only `planetInitialConditions` reads UI/template/import declarations. `causalGeology/inputAuthority` reads the clean bundle. Each later causal module reads only declared upstream records. `surfaceEvolution` reads causal terrain/boundaries/material/history summaries. Only `worldDiagnostics` comparison may read legacy morphology.
 
-Recursive import-boundary tests enforce this architecture.
+Recursive import tests enforce this.
 
 ## Process-order target
 
@@ -294,6 +260,4 @@ CAUSAL_FINAL_TERRAIN
 CAUSAL_FINAL_SURFACE
 ```
 
-## Technical completion test
-
-A stage is implementation-ready only when it has a versioned type, module/process ID, exact read/write contract, stream or no-random rule, evidence fixtures where scientific, validators/hashes, normal and hard resource budgets, fixed reference tests, provenance, invalidation, authority level, and promotion boundary.
+A stage is implementation-ready only with a versioned type, process/module, exact reads/writes, deterministic scope, evidence, validators/hashes, normal and hard budgets, references, provenance, invalidation, authority, and promotion boundary.

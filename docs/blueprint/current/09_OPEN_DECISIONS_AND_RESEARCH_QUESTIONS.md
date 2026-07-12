@@ -2,179 +2,176 @@
 
 ## Purpose
 
-Fixed architecture is separated from choices requiring evidence, prototypes, or user approval. Open items are not permission for implementations to choose silently.
+Fixed architecture is separated from choices requiring evidence, prototypes, or user approval. Open items are not permission to choose silently.
 
 ## D0 — initial-condition generation
 
-**Fixed:** Generate Mode must work when the user does not supply every physical fact; seed-generated defaults cannot contain solved geology.
+**Fixed:** Generate must work without every fact supplied; seed defaults cannot contain solved geology and related facts cannot be sampled independently.
 
-**Open:** initial condition vocabulary, natural ranges, generation-profile constraints, source precedence, and which values are user-visible.
+**Open:** vocabulary, reviewed joint/conditional distributions, hard constraints, soft correlations, constraint-satisfaction method, bounded retry/backtracking, user-lock precedence, scoped rerolls, and selection bias.
 
-**Gate:** before premise work, approve `GenerationRequestV1`, `PlanetInitialConditionBundleV1`, deterministic stream, ranges, and override tests.
+**Gate:** approve `GenerationRequestV1`, `PlanetInitialConditionBundleV1`, stream, prior/constraint bundle, compatibility tests, unsatisfiable-request behavior, and holdout validation before premise work.
 
 ## D1 — current control migration
 
-**Fixed:** causal resolvers receive a clean initial-condition bundle and `CausalGeologyInputV1`, never `PlanetFoundationSnapshot` or `WorldBrain`.
+**Fixed:** causal resolvers receive the clean bundle and `CausalGeologyInputV1`, never `PlanetFoundationSnapshot` or `WorldBrain`.
 
-**Open:** which current UI/template fields are literal constraints, which become reality/exception permissions, and which are rejected conclusions.
+**Open:** which UI/template fields are literal constraints, exception permissions, preferences, or rejected conclusions.
 
-**Gate:** field-by-field migration table and firewall tests before W1-02.
+**Gate:** field-by-field table and firewall tests before W1-02.
 
 ## D2 — identity and causal hashing
 
-**Fixed:** display names, timestamps, storage IDs, birth IDs, and revision IDs do not affect physical generation.
+**Fixed:** display names, timestamps, storage/birth/revision IDs do not affect physics.
 
-**Open:** stable seed-derived identity fingerprint and envelope linkage contract.
+**Open:** stable seed-derived identity fingerprint and envelope linkage.
 
-**Gate:** identity/hash metamorphic tests before initial-condition integration.
+**Gate:** identity/hash metamorphic tests before integration.
 
 ## D3 — approved physical derivations
 
-**Fixed:** mass, gravity, escape velocity, stellar flux, total heat, and similar quantities require versioned formulas and dependencies.
+**Fixed:** mass, gravity, escape velocity, stellar flux, total heat, tidal forcing, and similar quantities require versioned formulas/dependencies.
 
-**Open:** constants, units, precision, clamping, and evidence.
+**Open:** constants, units, precision, clamping, evidence, and dependency coverage.
 
-**Gate:** narrow formula PRs; reserved derivations remain unusable until approved.
+**Gate:** narrow formula PRs; reserved derivations remain inactive.
 
 ## D4 — premise categories
 
-**Fixed:** premise resolves body/layer/surface-medium alternatives without tectonic or spatial geology.
+**Fixed:** premise resolves body/layer/surface-medium alternatives without tectonic or impact history.
 
 **Open:** vocabulary and natural/unsupported/fictional boundaries.
 
-**Gate:** premise research bundle, calibration/holdout archetypes, and review.
+**Gate:** research bundle, calibration/holdout archetypes, and review.
 
 ## D5 — interior relations
 
-**Fixed:** interior produces bounded capability ranges, not events.
+**Fixed:** interior produces capabilities, not events.
 
-**Open:** equations/rule tables, applicability, correlated evidence, and calibration.
+**Open:** equations/rules, applicability, correlations, and calibration.
 
-**Gate:** reviewed claims, sensitivity directions, and holdout tests before implementation.
+**Gate:** reviewed claims, sensitivity directions, and holdout tests.
 
 ## D6 — history time and granularity
 
-**Fixed:** bounded contiguous eras with inheritance and total resolved duration.
+**Fixed:** bounded contiguous eras with inheritance, total duration, and exposure summaries.
 
-**Open:** typical counts, trigger vocabulary, persistence, absolute-age conversion, and time represented by surface evolution.
+**Open:** typical counts, transitions, persistence, absolute-age conversion, and age uncertainty.
 
-**Gate:** controlled prototypes across heat/mobility families before freezing.
+**Gate:** controlled prototypes across heat/mobility families.
 
 ## D7 — spine population model
 
-**Fixed:** bounded spherical graph with stable identities and ancestry.
+**Fixed:** bounded spherical graph with stable identities, event times, and ancestry.
 
-**Open:** candidate counts, spatial competition, coverage, impacts, and mandatory edge compatibility.
+**Open:** candidate counts, competition, coverage, impacts, relationship compatibility, and survival/exposure records.
 
 **Gate:** implementation brief plus positive, negative, threshold, and exception graphs.
 
 ## D8 — process-field representation
 
-**Fixed:** geological fields spatialize spine causes and exclude climate-driven surface outcomes.
+**Fixed:** fields spatialize geological causes and age/exposure summaries while excluding climate-driven outcomes.
 
-**Open:** analytic kernels, coarse icosphere/grid, spherical basis functions, hybrid representation, directional tensors, and projection versioning.
+**Open:** analytic kernels, coarse icosphere/grid, spherical basis functions, hybrid representation, tensors, and projection versioning.
 
-**Gate:** prototype comparison for determinism, seams, resolution stability, memory, speed, and interpretability.
+**Gate:** determinism/seam/resolution/memory/speed/interpretability prototypes.
 
 ## D9 — structural-stage decomposition
 
-**Fixed:** explicit structural roles, material state, and landform potential exist before height.
+**Fixed:** explicit roles, material state, and landform potential exist before height.
 
-**Open:** whether continent/ocean roles and material provinces share a sampling graph or remain separate processes; exact record boundaries.
+**Open:** shared versus separate sampling graphs and exact record boundaries.
 
-**Gate:** reconcile the old Continent/Ocean, crust, and Landmass documents before code.
+**Gate:** reconcile old Continent/Ocean, crust, and Landmass documents before code.
 
-## D10 — numeric calibration policy in practice
+## D10 — numeric calibration
 
-**Fixed:** old draft weights are illustrative; promoted natural-world numbers require source-backed relations or calibration plus holdout validation.
+**Fixed:** old weights/priors are illustrative; promoted numbers require source backing or calibration plus holdout validation.
 
-**Open:** fitting method, corpus size, acceptable error metrics, and who may approve provisional versus reviewed rules.
+**Open:** fitting method, corpus size, metrics, reviewer roles, and overfitting controls.
 
-**Gate:** approved calibration protocol before any old coefficient is implemented.
+**Gate:** approve calibration protocol before implementing old coefficients.
 
 ## D11 — base Terrain Birth strategy
 
-**Fixed:** base terrain has one composer and excludes climate-driven surface evolution.
+**Fixed:** one base-height composer; no climate-driven evolution.
 
-**Open:** adapt current code or build clean; exact geological terrain terms and first prototype resolution.
+**Open:** adapt or rebuild, geological terms, and prototype resolution.
 
 **Gate:** current-code audit and isolated prototype decision.
 
 ## D12 — provisional environment
 
-**Fixed:** surface processes need temporary water/drainage/climate/ice/wind boundaries that cannot feed upstream geology.
+**Fixed:** surface processes need temporary water/drainage/climate/ice/wind fields that cannot feed upstream geology.
 
-**Open:** minimum atmosphere/rotation/stellar inputs, climate fidelity, water-fill method, and provisional/final recomputation differences.
+**Open:** atmosphere/rotation/stellar inputs, climate fidelity, water fill, refresh checkpoints, and provisional/final differences.
 
-**Gate:** boundary-state contract before surface-process implementation.
+**Gate:** boundary-state contract before surface processes.
 
 ## D13 — surface-process schedule
 
-**Fixed:** fixed versioned schedule, hard pass/time ceilings, immutable pass snapshots, one final terrain composer.
+**Fixed:** fixed versioned schedule, hard pass/time bounds, immutable pass snapshots, scheduled boundary refreshes, one final composer.
 
-**Open:** component order/operator splitting, time scales, step sizes, conservation/stability metrics, and local refinement.
+**Open:** component order/operator splitting, steps, conservation/stability metrics, and local refinement.
 
-**Gate:** Landlab-informed prototypes and stability/performance benchmarks before terrain promotion.
+**Gate:** Landlab-informed prototypes and stability/performance benchmarks.
 
-## D14 — performance budgets
+## D14 — deep-time surface fidelity
 
-**Fixed:** each stage reports time, memory, output size, counts, retries, passes, and cache behavior.
+**Fixed:** structure age/exposure affects final morphology; old and young structures cannot be treated identically.
+
+**Open:** cumulative approximation, key epoch checkpoints, hybrid event-triggered checkpoints, historical climate/water summaries, and accuracy/performance tradeoffs.
+
+**Gate:** compare methods on old/young mountain, basin, rift, volcanic, and impact archetypes before physical terrain promotion.
+
+## D15 — performance budgets
+
+**Fixed:** every stage reports time, memory, size, counts, retries/search effort, passes, and cache behavior.
 
 **Open:** target numbers on supported hardware.
 
-**Gate:** first benchmark harness before W1-02 merge; frozen stage budgets before each algorithmic merge.
+**Gate:** benchmark harness before W1-02 merge; frozen budgets before each algorithmic merge.
 
-## D15 — full-page screenshot policy
+## D16 — screenshot policy
 
 **Fixed:** screenshots are not causal identity; physical data and controlled globe captures remain strict evidence.
 
-**Open:** stabilize capture or use a narrow structural/pixel tolerance for the full UI page.
+**Open:** stabilize full-page capture or use narrow structural/pixel tolerance.
 
-**Gate:** separate CI planning/implementation PR.
+**Gate:** separate CI PR.
 
-## D16 — fictional and artificial exceptions
+## D17 — fictional/artificial exceptions
 
-**Fixed:** exceptions are explicit, provenance-linked, and cannot silently weaken natural rules.
+**Fixed:** exceptions are explicit and provenance-linked.
 
 **Open:** taxonomy, compatibility, and evidence expectations.
 
-**Gate:** exception-specific claim bundles and negative tests.
+**Gate:** exception-specific claims and negative tests.
 
-## D17 — promotion scope
+## D18 — promotion scope
 
-**Fixed:** one complete physical route owns a generated world's physical fields. No cross-pipeline height blending.
+**Fixed:** one complete physical route owns a world's physical fields; no cross-pipeline height blending.
 
-**Open:** first promoted profile/cohort and whether identity authority precedes a complete candidate route.
+**Open:** first profile/cohort and whether identity authority precedes the full candidate route.
 
-**Gate:** use diagnostic evidence to choose the smallest complete route promotion with rollback.
+**Gate:** diagnostic evidence and rollback plan.
 
-## D18 — blueprint/downstream inventory
+## D19 — downstream inventory
 
-**Fixed:** unlisted old documents are subordinate and cannot authorize implementation.
+**Fixed:** unlisted old documents are subordinate.
 
-**Open:** full classification of downstream ocean, hydrology, climate, biome, material, resource, micro-tile, and handoff blueprints.
+**Open:** full classification of ocean, hydrology, climate, biome, material, resource, micro-tile, and handoff blueprints.
 
-**Gate:** classify each affected downstream document before causal physical promotion reaches it.
+**Gate:** classify affected documents before causal promotion reaches them.
 
-## D19 — W1-01 reconciliation
+## D20 — W1-01 reconciliation
 
-**Fixed:** PR #133 remains separate and unmerged during blueprint work.
+**Fixed:** PR #133 remains separate and unmerged.
 
-**Open:** amendments required for initial conditions, identity envelopes, comparison adapter placement, history duration, future field groups, and screenshot policy.
+**Open:** amendments for initial conditions, identity, comparison placement, history duration/exposure, field groups, and screenshot policy.
 
-**Gate:** audit/rebase PR #133 against the merged governing blueprint before any merge decision.
+**Gate:** audit/rebase against merged governing blueprint before merge.
 
 ## Decision-record format
 
-```text
-decision ID
-chosen option
-alternatives considered
-evidence and prototype results
-affected blueprints/schemas/processes
-performance implications
-migration and rollback
-user approval and merge reference
-```
-
-Resolved decisions move into governing documents; they do not remain hidden in code.
+Record the decision ID, chosen option, alternatives, evidence/prototypes, affected documents/schemas/processes, performance, migration/rollback, and user approval/merge reference. Resolved decisions move into governing documents rather than hiding in code.

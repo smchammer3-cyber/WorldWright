@@ -38,35 +38,11 @@ Causal replay is controlled by approved initial conditions, root-seed identity, 
 
 ## Cross-cutting foundations
 
-Every causal stage uses the existing foundations rather than creating local alternatives:
-
-- C02 root-seed identity and counter-based random streams;
-- C02 feature-flag resolution and provenance;
-- C03 process/field ownership and fail-closed mutation guards;
-- C04 evidence, confidence, weighted alternatives, claims, and contradictions;
-- canonical JSON and deterministic content hashes;
-- strict schema/version load outcomes;
-- explicit resource and execution limits.
+Every causal stage uses the existing C02 deterministic random/provenance system, C03 ownership guards, C04 evidence/confidence/contradiction system, canonical hashes, strict schema loading, and explicit resource limits.
 
 ## Stage contract template
 
-Every stage contract defines:
-
-```text
-purpose
-allowed inputs
-forbidden inputs
-output record
-status: COMPLETE | PARTIAL | BLOCKED | FAILED
-owned fields
-random stream and stable scope
-scientific claim rules and evidence
-resource ceiling and expected normal range
-validation rules
-invalidation dependencies
-diagnostic exports
-promotion level
-```
+Every stage defines purpose, allowed/forbidden inputs, output record, status, ownership, random scope, scientific evidence, normal and hard resource bounds, validation, invalidation, diagnostics, and promotion level.
 
 No stage may silently invent a fallback to preserve pipeline completion.
 
@@ -76,16 +52,27 @@ No stage may silently invent a fallback to preserve pipeline completion.
 
 Make automatic Generate Mode complete rather than assuming all planetary facts are supplied externally.
 
-### Inputs
+### Input families
 
 - root seed and generation profile;
-- explicit user constraints;
-- template/import declarations;
-- selected natural, artificial, or fantasy rules.
+- explicit user locks and ranges;
+- template/import constraints;
+- stellar and orbital context;
+- radius/mass/density/composition context;
+- age and thermal source context;
+- rotation, obliquity, eccentricity, and parent/tidal context where applicable;
+- volatile, water, atmosphere-boundary, and solvent context;
+- explicit natural, artificial, or fantasy permissions.
+
+### Constraint law
+
+Missing values are selected from reviewed **joint or conditional** distributions and a versioned compatibility graph. The resolver may not sample related facts independently merely because each isolated value is within range.
+
+It preserves locked values, reports unsatisfiable requests, and uses stable per-fact/per-decision random addresses so scoped rerolls do not scramble unrelated facts.
 
 ### Output
 
-`PlanetInitialConditionBundleV1`, recording each value, unit, source class, allowed range, whether it was constrained or seed-resolved, and provenance.
+`PlanetInitialConditionBundleV1`, recording every value, unit, source class, lock state, distribution/rule version, dependencies, rejected alternatives, limitations, and provenance.
 
 ### Forbidden conclusions
 
@@ -93,145 +80,59 @@ No continent count or shape, plate map, tectonic regime, geologic history, terra
 
 ## B. Causal input sanitization
 
-### Purpose
+The sanitizer separates approved physical starting conditions and versioned derivations from conclusions and legacy morphology. The current-world adapter lives outside `src/core/causalGeology`; the causal package accepts only the clean initial-condition bundle and approved formulas.
 
-Separate approved physical starting conditions and versioned derivations from geological conclusions and legacy morphology.
-
-### Boundary rule
-
-The adapter that reads current UI/template/legacy-compatible declarations lives outside `src/core/causalGeology`. The causal package accepts only `PlanetInitialConditionBundleV1` and approved formula definitions.
-
-### Output
-
-`CausalGeologyInputV1`, including C02 root-seed identity, source class, unit/scale, evidence/confidence subject, exclusions, limitations, contradictions, and deterministic hash.
+Output: `CausalGeologyInputV1` with C02 root seed, source/units/scales, evidence/confidence references, exclusions, contradictions, limitations, and deterministic hash.
 
 ## C. Planetary premise
 
-### Purpose
+The premise resolves broad body, layer, and surface-medium alternatives. It may resolve solid, ice, regolith, ocean, or other layer arrangements and broad solvent/water-state possibilities.
 
-Resolve broad body, layer, and surface-medium alternatives.
-
-### Output responsibilities
-
-- physical body/profile family;
-- solid, ice, regolith, ocean, or other layer-stack alternatives;
-- broad surface-support and solvent/water-state alternatives when evidence permits;
-- assumptions, limitations, evidence, confidence, branch, and contradiction links.
-
-### Non-responsibilities
-
-No tectonic regime, resurfacing history, impact history, terrain, continents, basins, plates, epochs, or spatial structures.
+It does not resolve tectonic regime, resurfacing history, impact history, terrain, continents, basins, plates, epochs, or spatial structures.
 
 ## D. Interior and rheology
 
-### Purpose
+The interior resolves bounded capabilities for thermal budget, heat sources, convection, melt, shell/lithosphere behavior, lid alternatives, rifting, plume activity, recycling, crust production, and impact preservation.
 
-Resolve bounded ranges for internal energy, material response, and shell behavior.
-
-### Output responsibilities
-
-- thermal budget and heat-source fractions;
-- convection and melt capability ranges;
-- rheology, shell/lithosphere, and lid alternatives;
-- rift, plume, recycling, crust-production, and impact-preservation capabilities;
-- explicit limits on unsupported precision.
-
-These are capabilities and tendencies, not events or terrain.
+These are capabilities and tendencies, not events or material provinces.
 
 ## E. Tectonic regime history
 
-### Purpose
+The history converts interior capability into bounded contiguous epochs, transitions, inheritance/persistence, process ranges, and stable branch identities.
 
-Convert interior capability into a small ordered sequence of geological eras and transitions.
-
-### Time contract
-
-The first version uses contiguous normalized intervals plus a declared total resolved history duration. Absolute dates require a versioned conversion contract before time-dependent surface evolution uses them.
-
-### Output responsibilities
-
-- contiguous epochs;
-- regime family and process ranges per epoch;
-- transitions and evidence-backed trigger families;
-- inheritance/persistence state;
-- stable identities and branch records.
+The first version uses normalized intervals plus a declared total resolved duration. Absolute dates require a versioned conversion contract before time-dependent surface evolution relies on them.
 
 ## F. Geologic spine
 
-### Purpose
+The spine is a resolution-independent spherical graph of major continental kernels, ocean basins, rifts, convergence systems, transforms, plumes, accretion systems, impacts, and approved exceptional structures.
 
-Create the resolution-independent spherical graph of major surviving causes.
-
-### Node families
-
-Continental kernels, ocean basins, rifts, convergence systems, transforms, plumes, accretion systems, impacts, and approved exceptional structures.
-
-### Required properties
-
-- spherical anchors/extents, not grid IDs;
-- canonical ordering and stable IDs;
-- event ancestry linked to valid epochs;
-- compatible edge families;
-- acyclic ancestry;
-- deterministic graph limits.
+Every event or surviving structure records its epoch/time range, ancestry, formation age or age range, preservation state, and any surface-exposure duration needed downstream. Geometry uses spherical anchors/extents rather than grid IDs. Ordering, identities, relationships, ancestry, and graph sizes are deterministic and validated.
 
 ## G. Process fields
 
-### Purpose
+Process fields project graph causes onto spatial authority suitable for structural interpretation and terrain.
 
-Project graph causes onto a spatial representation suitable for structural interpretation and terrain.
+Geological field families include continental/basin support, crustal age/buoyancy/material tendency, uplift/subsidence, extension/convergence/shear, plume/volcanic/impact/cryo influence, structural direction, resistance, preservation, and source age/exposure summaries.
 
-### Geological field families
-
-```text
-continental and basin support
-crustal age/buoyancy/material tendency
-uplift and subsidence
-extension, convergence, and transform shear
-plume, volcanic, impact, and cryotectonic influence
-structural direction/grain
-material resistance and preservation potential
-```
-
-Actual rainfall, river incision, glacial sculpting, dune migration, and marine sediment transport are downstream surface processes, not upstream geological process fields.
-
-### Resolution rule
-
-The canonical representation is resolution-independent or coarse global authority. World grids are versioned projections.
+Rainfall, river incision, glaciers, dunes, coastal transport, and marine sediment are downstream surface processes, not upstream geological fields.
 
 ## H. Structural interpretation
 
-### Purpose
+`ContinentOceanStructureStateV1` converts continuous fields into explicit regional roles—continental interiors, margins, shelves, slopes, deep basins, ridges, arcs, seamount chains, drowned fragments, transitions, confidence, and ghost-risk/suppression—without creating land/water or height.
 
-Convert continuous fields into explicit continent/ocean and regional structural roles without making a land mask.
-
-### Output
-
-`ContinentOceanStructureStateV1`, including continental interiors, margins, shelves, slopes, deep basins, ridges, arcs, seamount chains, drowned fragments, transition roles, confidence, and ghost-risk/suppression records.
-
-This preserves the useful role of the existing Continent/Ocean Structure blueprints while requiring inputs from the new history-based chain.
+Spine basin/kernel objects remain causal source identities; these structural roles are their spatial interpretation, not competing identities.
 
 ## I. Structure and material genesis
 
-### Purpose
-
-Resolve crust/material provinces, thickness/buoyancy tendencies, structural grain, resistance, and terrain-term permissions.
-
-This stage separates material identity from height and cannot derive a hidden land mask.
+This stage resolves crust/material provinces, thickness/buoyancy tendencies, structural grain, resistance, and terrain-term permissions. It cannot derive a hidden land mask.
 
 ## J. Landform potential and suppression
 
-### Purpose
-
-Translate structural roles and material/process authority into named terrain-birth potential and suppression fields.
-
-`LandformPotentialStateV1` is the reconciled successor to Landmass Genesis. It may support continental, margin, island, volcanic, impact, ice-shell, alien, or fantasy forms where upstream causes allow them. It does not output land/water or height.
+`LandformPotentialStateV1` is the reconciled successor to Landmass Genesis. It translates roles and material/process authority into named terrain-birth potential and suppression. It does not output land/water or height.
 
 ## K. Base Terrain Birth
 
-### Purpose
-
-Generate solid-body starting height from approved geological causes.
+Base Terrain Birth creates solid-body starting height from approved geological causes:
 
 ```text
 base height = large-scale support
@@ -240,69 +141,46 @@ base height = large-scale support
             + bounded seeded detail
 ```
 
-Each term has a cause gate. Climate-driven fluvial, glacial, aeolian, and marine processes are excluded from base Terrain Birth.
-
-Numerical coefficients and thresholds in older Terrain Birth drafts are illustrative only until reviewed and calibrated.
+Each term has a cause gate. Climate-driven fluvial, glacial, aeolian, coastal, and marine processes are excluded. Numerical coefficients in older drafts are illustrative until reviewed and calibrated.
 
 ## L. Provisional surface boundary
 
-### Purpose
+This stage creates temporary sea level/ocean fill, drainage/runoff, broad temperature/precipitation/wind/ice boundaries, exposed material, and solvent context needed to drive surface processes.
 
-Create the minimum temporary environment needed to drive surface processes:
-
-- provisional sea level and ocean fill;
-- provisional drainage and runoff directions;
-- broad temperature/precipitation/wind/ice boundary fields;
-- exposed material and solvent context.
-
-These outputs are explicitly provisional and cannot become hidden upstream geology inputs.
+These fields are provisional, versioned, and never become hidden upstream geological inputs.
 
 ## M. Bounded surface-process evolution
 
-### Purpose
+Erosion, transport, deposition, weathering, mass movement, glacial, aeolian, coastal, and marine components run through a fixed versioned schedule.
 
-Apply erosion, transport, deposition, weathering, mass movement, glacial, aeolian, coastal, and marine processes through a fixed, versioned execution schedule.
+- maximum passes and represented time are declared;
+- each pass reads an immutable prior snapshot and writes a new result/delta;
+- scheduled drainage/climate boundary refreshes are allowed only at declared checkpoints;
+- traversal/thread order cannot change the result;
+- no unconstrained convergence loop exists;
+- no component rewrites premise, interior, history, spine, event ages, or structural identities;
+- one final terrain composer owns height.
 
-### Coupling law
+### Deep-time fidelity
 
-- maximum pass count and time scale are declared;
-- traversal and parallel order do not change results;
-- each pass reads the prior pass snapshot and writes a new delta/snapshot;
-- no stage rewrites premise, interior, history, spine, or structural identities;
-- no convergence loop runs without a hard iteration ceiling;
-- final terrain composition has one owner.
+Surface evolution reads formation age, exposure duration, material history, and regime-history summaries so old and young structures do not weather identically.
 
-Landlab/CSDMS-style components are precedent for explicit process coupling through grids and fields; WorldWright still requires its own calibrated low-fidelity contracts.
+The first implementation may use a calibrated cumulative-history approximation. Whether key epochs require explicit surface checkpoints is an open scientific/performance decision that must be resolved before physical promotion.
 
 ## N. Final surface derivation
 
-Final terrain is composed from base terrain plus validated surface-evolution deltas. Sea level, bathymetry, hydrology, climate, biomes, surface materials, resources, and worldbuilding baselines are recomputed from the final terrain.
+Final terrain is composed from base terrain plus validated surface-evolution deltas. Sea level, bathymetry, hydrology, climate, biomes, materials, resources, and worldbuilding baselines are recomputed from final terrain.
 
 Derived stages never become hidden upstream inputs.
 
 ## Status and failure propagation
 
-- `COMPLETE`: contract coverage is sufficient for downstream use.
-- `PARTIAL`: a valid record exists, with named missing domains and explicitly allowed downstream stages.
-- `BLOCKED`: insufficient or contradictory inputs prevent an authoritative record.
-- `FAILED`: validation or execution failure.
-
-`FAILED` stops dependent stages. `BLOCKED` prevents dependent domains. `PARTIAL` continues only through a declared compatibility edge.
+`COMPLETE`, `PARTIAL`, `BLOCKED`, and `FAILED` retain their strict meanings. Failed dependencies stop. Blocked domains do not fabricate outputs. Partial continuation requires an explicit compatibility edge.
 
 ## Invalidation and recomputation
 
-A stage records hashes of its authoritative inputs. When an upstream hash changes:
-
-1. the affected stage and dependent outputs become stale;
-2. unrelated branches remain valid only when dependency records prove independence;
-3. deterministic random addresses preserve unaffected choices;
-4. recomputation begins at the earliest invalid stage;
-5. diagnostics identify the changed cause and affected outputs.
-
-No downstream edit silently mutates upstream history.
+Stages hash authoritative inputs. Changes invalidate dependent outputs; locality is used only when dependency records prove it. Deterministic addresses preserve unaffected choices. No downstream edit mutates upstream history.
 
 ## Persistence
 
-Deterministic causal payloads are separated from operational envelopes. Timestamps, storage IDs, UI notes, comparison metadata, and capture metadata do not enter causal identity.
-
-Known schemas validate deeply and verify hashes. Newer unsupported schemas return `UNSUPPORTED_NEWER`. Corrupted current schemas are quarantined. No causal decision is silently regenerated on load.
+Deterministic causal payloads are separated from operational envelopes. Timestamps, IDs, UI notes, comparison metadata, and capture metadata do not enter causal identity. Known schemas validate deeply; unsupported newer schemas are classified; corrupted current schemas are quarantined; no decision is silently regenerated on load.

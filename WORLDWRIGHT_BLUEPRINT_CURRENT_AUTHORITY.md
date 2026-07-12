@@ -21,7 +21,7 @@ WorldWright must create a planet by resolving believable starting conditions and
 ```text
 generation request + root seed
   → planet identity envelope
-  → initial planetary conditions
+  → constraint-aware initial planetary conditions
   → sanitized causal input
   → planetary premise
   → interior and rheology
@@ -39,6 +39,12 @@ generation request + root seed
 
 Each arrow is an authority boundary. A later stage may use earlier causes. An earlier stage may not infer itself backward from later terrain, land masks, colors, legacy classifications, or comparison diagnostics.
 
+## Constraint-aware starting conditions
+
+When the user does not provide every fact, WorldWright may generate missing facts from reviewed distributions and constraint relationships. It may not roll radius, density, orbit, atmosphere, water, age, and heat independently when those facts are physically related.
+
+The resolver must choose an internally compatible bundle, explain rejected combinations, preserve user-locked values, and use separate deterministic addresses so one unlocked choice can be rerolled without scrambling unrelated facts.
+
 ## Why the chain has a bounded surface loop
 
 Tectonics creates initial relief, but water, climate, ice, wind, and sediment later reshape it. WorldWright therefore separates **base terrain** from **surface-process evolution**.
@@ -48,12 +54,13 @@ The coupling is controlled rather than open-ended:
 ```text
 base terrain
   → provisional environment
-  → a fixed, budgeted set of erosion/deposition passes
+  → fixed, budgeted surface-process passes
+  → optional scheduled boundary refreshes
   → final terrain
   → final surface recomputation
 ```
 
-Surface evolution may wear down or deposit upon geological structures. It may not rewrite the interior, history, or geologic-spine identities that caused them.
+Surface evolution may wear down or deposit upon geological structures. It may not rewrite the interior, history, geologic-spine identities, or event ages that caused them.
 
 ## What the system is
 
@@ -70,22 +77,23 @@ It is not:
 ## Non-negotiable rules
 
 1. User constraints, seed-resolved initial conditions, approved derivations, and geological conclusions are distinct.
-2. Causal resolvers cannot read legacy solved morphology.
-3. Comparison adapters live outside the causal resolver package and are permanently read-only.
-4. Scientific uncertainty remains visible as ranges, alternatives, limitations, or blocked stages.
-5. Random variation may shape an allowed feature but may not invent its cause.
-6. Every authoritative field has one owner at a time.
-7. Final height has one composer per run; experimental legacy and causal worlds use separate namespaces.
-8. Shadow mode is temporary proof, not the final architecture.
-9. Promotion to physical authority happens in bounded, reversible stages.
-10. The system must fit ordinary Generate Mode through coarse-to-fine resolution, caching, fixed limits, and no unbounded all-pairs or time-step simulation.
-11. Numerical coefficients and thresholds in older draft blueprints are examples, not authority, until reviewed under the evidence plan.
-12. A green software test does not prove geological quality.
-13. A visually attractive planet does not excuse a broken causal chain.
+2. Seed-generated starting facts are sampled from reviewed joint constraints or conditional distributions, not unrelated independent ranges.
+3. Causal resolvers cannot read legacy solved morphology.
+4. Comparison adapters live outside the causal resolver package and are permanently read-only.
+5. Scientific uncertainty remains visible as ranges, alternatives, limitations, coverage, or blocked stages.
+6. Random variation may shape an allowed feature but may not invent its cause.
+7. Every authoritative field has one owner at a time.
+8. Final height has one composer per run; experimental legacy and causal worlds use separate namespaces.
+9. Shadow mode is temporary proof, not the final architecture.
+10. Promotion to physical authority happens in bounded, reversible stages.
+11. The system must fit ordinary Generate Mode through coarse-to-fine resolution, caching, fixed limits, and no unbounded all-pairs or time-step simulation.
+12. Numerical coefficients, priors, and thresholds in older draft blueprints are examples, not authority, until reviewed under the evidence plan.
+13. A green software test does not prove geological quality.
+14. A visually attractive planet does not excuse a broken causal chain.
 
 ## Identity is not physical cause
 
-Planet identity, display names, timestamps, storage IDs, and source revision IDs provide lineage. They must not change physical generation. Deterministic causal identity comes from approved inputs, root seed, versions, flags, and stage records. Operational identity fields remain outside causal hashes unless a field is explicitly defined as stable causal input.
+Planet identity, display names, timestamps, storage IDs, and source revision IDs provide lineage. They must not change physical generation. Deterministic causal identity comes from approved inputs, root seed, versions, flags, claim bundles, and stage records. Operational identity fields remain outside causal hashes unless explicitly defined as stable causal input.
 
 ## Current repository position
 
@@ -112,8 +120,6 @@ docs/blueprint/current/09_OPEN_DECISIONS_AND_RESEARCH_QUESTIONS.md
 docs/blueprint/current/10_BLUEPRINT_AUDIT_FINDINGS.md
 ```
 
-The plain-language map explains the system to non-specialists. The technical architecture and binding matrix define what code must exist, what each stage reads and writes, and which older detailed contract supplies implementation detail.
-
 ## Blueprint completeness rule
 
 A governing blueprint is not required to contain every final scientific formula before research is complete. It is required to define:
@@ -123,12 +129,12 @@ A governing blueprint is not required to contain every final scientific formula 
 - allowed and forbidden inputs;
 - failure and uncertainty behavior;
 - deterministic and performance boundaries;
-- evidence requirements;
+- evidence and calibration requirements;
 - controlled coupling and iteration;
 - promotion and rollback;
 - which decisions remain deliberately open and when they must be resolved.
 
-An unresolved formula is acceptable when it is named and gated. An unnamed authority gap, unbounded loop, or competing causal chain is not.
+An unresolved formula is acceptable when named and gated. An unnamed authority gap, impossible independent sampling assumption, unbounded loop, or competing causal chain is not.
 
 ## Precedence rule
 
@@ -139,8 +145,8 @@ Until this reconciliation is explicitly approved and merged:
 3. this branch is a proposed governing reconciliation;
 4. older technical blueprints remain useful but do not override newer input-firewall, history, evidence, coupling, or authority-promotion requirements.
 
-After approval, this document set becomes the current governing map. Older documents retain detailed concepts only where the reconciliation register marks them authoritative. Any unlisted older blueprint is subordinate by default and cannot establish a competing causal chain.
+After approval, this document set becomes the current governing map. Any unlisted older blueprint is subordinate by default and cannot establish a competing causal chain.
 
 ## Required user decisions
 
-Merging this blueprint set approves the direction and precedence rules, not implementation or active authority. Every implementation PR, W1-01 merge, scientific formula bundle, surface-process contract, and authority promotion still requires its own review and explicit approval.
+Merging this blueprint set approves the direction and precedence rules, not implementation or active authority. Every implementation PR, W1-01 merge, scientific formula or prior bundle, surface-process contract, and authority promotion still requires its own review and explicit approval.
