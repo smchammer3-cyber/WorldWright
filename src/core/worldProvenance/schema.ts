@@ -31,7 +31,7 @@ export interface StageProvenanceRecord {
   readonly stageId: string;
   readonly stageVersion: number;
   readonly status: 'NOT_RUN' | 'RECORDED' | 'FAILED';
-  readonly streamsUsed: readonly Array<{ readonly name: CausalRandomStreamName; readonly version: number }>;
+  readonly streamsUsed: ReadonlyArray<{ readonly name: CausalRandomStreamName; readonly version: number }>;
   readonly flagsUsed: readonly WorldFeatureFlagKey[];
   readonly inputHash?: DeterministicHash;
   readonly outputHash?: DeterministicHash;
