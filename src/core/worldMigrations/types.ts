@@ -32,18 +32,37 @@ export interface WorldMigrationReport {
   sourceContentHash?: string;
 }
 
+export type CurrentWorldLoadResult = {
+  status: 'CURRENT';
+  world: WorldBrain;
+  report: WorldMigrationReport;
+};
+
+export type MigratedWorldLoadResult = {
+  status: 'MIGRATED_IN_MEMORY';
+  world: WorldBrain;
+  report: WorldMigrationReport;
+};
+
+export type UnsupportedNewerWorldLoadResult = {
+  status: 'UNSUPPORTED_NEWER';
+  raw: unknown;
+  report: WorldMigrationReport;
+  reason: string;
+};
+
+export type QuarantinedWorldLoadResult = {
+  status: 'QUARANTINED';
+  raw: unknown;
+  report: WorldMigrationReport;
+  reason: string;
+};
+
 export type WorldLoadResult =
-  | {
-      status: 'CURRENT' | 'MIGRATED_IN_MEMORY';
-      world: WorldBrain;
-      report: WorldMigrationReport;
-    }
-  | {
-      status: 'UNSUPPORTED_NEWER' | 'QUARANTINED';
-      raw: unknown;
-      report: WorldMigrationReport;
-      reason: string;
-    };
+  | CurrentWorldLoadResult
+  | MigratedWorldLoadResult
+  | UnsupportedNewerWorldLoadResult
+  | QuarantinedWorldLoadResult;
 
 export interface MigrationContext {
   assumptions: MigrationAssumption[];
