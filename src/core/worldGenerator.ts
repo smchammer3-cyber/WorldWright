@@ -5,6 +5,7 @@ import {
   type Cell,
   type WorldBrain,
 } from './worldSchema';
+import { migrateWorldDocument } from './worldMigrations/migrateWorldDocument';
 import {
   buildContinentIntentField,
   seedContinentSkeletonFields,
@@ -19,13 +20,27 @@ import {
 export { createDefaultGeneratorParams } from './worldGenerator/index';
 export type { GeneratorParams } from './worldGenerator/index';
 
-export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
+/**
+ * Temporary C01 compatibility seam. This preserves the exact pre-C01 public
+ * generation path so schema/output-equivalence tests can prove that upgrading
+ * the finished document does not alter its physical or visual state.
+ */
+export function generateLegacyV3WorldFromParams(params: GeneratorParams): WorldBrain {
   const world = generateNoiseWorldFromParams(params);
   applyContinentIntentBirthTerrain(world);
   if (world.planetFoundation && allowsNormalContinentalMorphology(world.planetFoundation.geologyStack)) {
     seedContinentSkeletonFields(world);
   }
   return world;
+}
+
+/** Generate the unchanged legacy physical world, then wrap it in schema v4. */
+export function generateWorldFromParams(params: GeneratorParams): WorldBrain {
+  const result = migrateWorldDocument(generateLegacyV3WorldFromParams(params));
+  if (result.status === 'CURRENT' || result.status === 'MIGRATED_IN_MEMORY') {
+    return result.world;
+  }
+  throw new Error(`Generated world could not be converted to the current document schema: ${result.reason}`);
 }
 
 /**

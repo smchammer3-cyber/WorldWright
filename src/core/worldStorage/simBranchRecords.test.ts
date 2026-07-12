@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { createEmptyLegacyCausalScaffold } from '../causalWorld/schema';
 import { resolveEvent, type SimEvent } from '../simEvents';
 import { createEmptyCell, type WorldBrain } from '../worldSchema';
+import { CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION } from '../worldSchema/version';
 import {
   computeWorldContentHash,
   createSimBranchRecordFromWorld,
@@ -23,11 +25,12 @@ function makeWorld(id = 'world-1'): WorldBrain {
     cultures: [],
     cultureRegions: [],
     cities: [],
+    causal: createEmptyLegacyCausalScaffold(),
     metadata: {
       id,
       name: 'Branch Test World',
       seed: 'seed-branch',
-      schemaVersion: '1.0',
+      schemaVersion: CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION,
       version: 'test',
       styleMode: 'EARTHLIKE',
       gridWidth: 1,
@@ -55,7 +58,7 @@ class MemoryWorldStorageEngine implements WorldStorageEngine {
     }));
   }
 
-  async getWorldById(id: string): Promise<WorldBrain | null> {
+  async getWorldById(id: string): Promise<unknown | null> {
     return this.worlds.get(id) ?? null;
   }
 
@@ -104,6 +107,7 @@ describe('Sim branch record storage', () => {
     expect(branch.baseContentHash).toBe(savedWorld.metadata.contentHash);
     expect(branch.currentYear).toBe(12);
     expect(branch.status).toBe('ACTIVE');
+    expect(branch.recordSchemaVersion).toBe(1);
 
     branch.worldSnapshot.cells[0].editHeightDelta = 0.75;
     expect(savedWorld.cells[0].editHeightDelta).toBe(0);
@@ -194,7 +198,7 @@ describe('Sim branch record storage', () => {
 
   it('updates branch worldSnapshot and eventHistory for event resolution while canonical world stays unchanged', async () => {
     const engine = new MemoryWorldStorageEngine();
-    const savedWorld = await saveWorldWithEngine(makeWorld('branch-event-base'), engine);
+    let savedWorld = await saveWorldWithEngine(makeWorld('branch-event-base'), engine);
     savedWorld.cities.push({
       id: 'event-city',
       name: 'Event City',
@@ -207,7 +211,7 @@ describe('Sim branch record storage', () => {
       tags: [],
       description: '',
     });
-    await saveWorldWithEngine(savedWorld, engine);
+    savedWorld = await saveWorldWithEngine(savedWorld, engine);
     const canonicalBefore = structuredClone(await engine.getWorldById(savedWorld.metadata.id));
     const branch = createSimBranchRecordFromWorld(savedWorld, 'Event branch', 2);
     const branchWorld = structuredClone(branch.worldSnapshot);

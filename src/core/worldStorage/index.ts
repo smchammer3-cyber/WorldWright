@@ -1,28 +1,20 @@
 // ========================================================
 // WORLDWRIGHT -- WORLD STORAGE (TRANSITIONAL SAVE HARDENING)
 // File: src/core/worldStorage/index.ts
-//
-// Phase 2 storage hardening:
-// - Keep IndexedDB as the active storage engine.
-// - Add a storage engine interface boundary for future engines.
-// - Stamp saved worlds with revision IDs and content hashes.
-// - Verify every save by reading the stored world back before success.
-// - Add world-summary status placeholders without changing current UX flow.
-//
-// Phase 3 transitional Sim branch storage:
-// - Persist Sim branch records separately from canonical worlds.
-// - Preserve base revision/hash metadata on branch records.
-// - Keep Sim branch records out of the world index/source truth.
 // ========================================================
 
-import { WorldBrain } from "../worldSchema";
+import type { GeneratorAuthorityMode } from '../causalWorld/schema';
+import { cloneWorldDocument } from '../worldCloning';
+import { migrateWorldDocument } from '../worldMigrations/migrateWorldDocument';
+import type { WorldBrain } from '../worldSchema';
+import { CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION } from '../worldSchema/version';
 
-const DB_NAME = "worldwright-db";
-const DB_VERSION = 4;
+const DB_NAME = 'worldwright-db';
+const INDEXED_DB_SCHEMA_VERSION = 4;
 
-const STORE_WORLDS = "worlds";
-const STORE_INDEX = "index";
-const STORE_SIM_BRANCHES = "simBranches";
+const STORE_WORLDS = 'worlds';
+const STORE_INDEX = 'index';
+const STORE_SIM_BRANCHES = 'simBranches';
 
 export type WorldSummaryStatus = {
   needsAttention: boolean;
@@ -43,10 +35,12 @@ export type WorldSummary = {
   styleMode: string;
   revisionId: string;
   contentHash: string;
+  schemaVersion: number | null;
+  generatorAuthorityMode: GeneratorAuthorityMode | null;
   status: WorldSummaryStatus;
 };
 
-export type SimBranchRecordStatus = "ACTIVE" | "ARCHIVED" | "TRASHED" | "PROMOTED";
+export type SimBranchRecordStatus = 'ACTIVE' | 'ARCHIVED' | 'TRASHED' | 'PROMOTED';
 
 export type StoredSimEventDecision = {
   eventId: string;
@@ -58,6 +52,7 @@ export type StoredSimEventDecision = {
 };
 
 export type SimBranchRecord = {
+  recordSchemaVersion?: 1;
   id: string;
   worldId: string;
   name: string;
@@ -75,7 +70,7 @@ export type SimBranchRecord = {
 
 export interface WorldStorageEngine {
   listWorldSummaries(): Promise<WorldSummary[]>;
-  getWorldById(id: string): Promise<WorldBrain | null>;
+  getWorldById(id: string): Promise<unknown | null>;
   putWorld(world: WorldBrain): Promise<void>;
   putWorldSummary(summary: WorldSummary): Promise<void>;
   deleteWorld(id: string): Promise<void>;
@@ -88,19 +83,11 @@ export interface WorldStorageEngine {
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
-/**
- * Open (or create) the IndexedDB database. Handles onblocked events and
- * enforces an open timeout to prevent hanging. The returned promise
- * resolves with an opened database or rejects with an error. Once a
- * database is successfully opened, subsequent calls return the same
- * promise. On blocked or timeout errors callers can call resetStorage() to
- * delete the database and retry.
- */
 function getDb(): Promise<IDBDatabase> {
   if (!dbPromise) {
     dbPromise = new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, DB_VERSION);
-      // If the database needs to be upgraded, create object stores.
+      const req = indexedDB.open(DB_NAME, INDEXED_DB_SCHEMA_VERSION);
+
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE_WORLDS)) {
@@ -114,12 +101,10 @@ function getDb(): Promise<IDBDatabase> {
         }
       };
 
-      // Blocked: another tab with an older version prevents upgrade.
       req.onblocked = () => {
         reject(new Error('Database upgrade blocked. Please close other WorldWright tabs and try again.'));
       };
 
-      // Timeout: if the open takes too long, reject.
       const timer = setTimeout(() => {
         reject(new Error('Opening database timed out. Try reloading or resetting storage.'));
       }, 5000);
@@ -131,7 +116,12 @@ function getDb(): Promise<IDBDatabase> {
 
       req.onsuccess = () => {
         clearTimeout(timer);
-        resolve(req.result);
+        const db = req.result;
+        db.onversionchange = () => {
+          db.close();
+          dbPromise = null;
+        };
+        resolve(db);
       };
     });
   }
@@ -158,60 +148,60 @@ function tx<T>(
 class IndexedDbWorldStorageEngine implements WorldStorageEngine {
   async listWorldSummaries(): Promise<WorldSummary[]> {
     const db = await getDb();
-    const summaries = await tx<WorldSummary[]>(db, STORE_INDEX, "readonly", (s) => s.getAll());
+    const summaries = await tx<WorldSummary[]>(db, STORE_INDEX, 'readonly', (s) => s.getAll());
     return Promise.all(
-      summaries.map(async (summary) => {
-        const branches = await this.listSimBranchRecords(summary.id);
-        return normalizeSummary(summary, branches.length);
-      })
+      summaries.map((summary) =>
+        summarizeWorldWithBranchLookup(summary, () => this.listSimBranchRecords(summary.id))
+      )
     );
   }
 
-  async getWorldById(id: string): Promise<WorldBrain | null> {
+  async getWorldById(id: string): Promise<unknown | null> {
     const db = await getDb();
-    return tx(db, STORE_WORLDS, "readonly", (s) => s.get(id));
+    const value = await tx<unknown | undefined>(db, STORE_WORLDS, 'readonly', (s) => s.get(id));
+    return value ?? null;
   }
 
   async putWorld(world: WorldBrain): Promise<void> {
     const db = await getDb();
-    await tx(db, STORE_WORLDS, "readwrite", (s) => s.put(world));
+    await tx(db, STORE_WORLDS, 'readwrite', (s) => s.put(world));
   }
 
   async putWorldSummary(summary: WorldSummary): Promise<void> {
     const db = await getDb();
-    await tx(db, STORE_INDEX, "readwrite", (s) => s.put(normalizeSummary(summary)));
+    await tx(db, STORE_INDEX, 'readwrite', (s) => s.put(normalizeSummary(summary)));
   }
 
   async deleteWorld(id: string): Promise<void> {
     const db = await getDb();
     const branches = await this.listSimBranchRecords(id);
     await Promise.all(branches.map((branch) => this.deleteSimBranchRecord(branch.id)));
-    await tx(db, STORE_WORLDS, "readwrite", (s) => s.delete(id));
-    await tx(db, STORE_INDEX, "readwrite", (s) => s.delete(id));
+    await tx(db, STORE_WORLDS, 'readwrite', (s) => s.delete(id));
+    await tx(db, STORE_INDEX, 'readwrite', (s) => s.delete(id));
   }
 
   async listSimBranchRecords(worldId: string): Promise<SimBranchRecord[]> {
     const db = await getDb();
-    const records = await tx<SimBranchRecord[]>(db, STORE_SIM_BRANCHES, "readonly", (s) => s.getAll());
+    const records = await tx<SimBranchRecord[]>(db, STORE_SIM_BRANCHES, 'readonly', (s) => s.getAll());
     return records
-      .filter((record) => record.worldId === worldId && record.status !== "TRASHED")
+      .filter((record) => record.worldId === worldId && record.status !== 'TRASHED')
       .map(normalizeSimBranchRecord);
   }
 
   async getSimBranchRecord(id: string): Promise<SimBranchRecord | null> {
     const db = await getDb();
-    const record = await tx<SimBranchRecord | undefined>(db, STORE_SIM_BRANCHES, "readonly", (s) => s.get(id));
+    const record = await tx<SimBranchRecord | undefined>(db, STORE_SIM_BRANCHES, 'readonly', (s) => s.get(id));
     return record ? normalizeSimBranchRecord(record) : null;
   }
 
   async putSimBranchRecord(record: SimBranchRecord): Promise<void> {
     const db = await getDb();
-    await tx(db, STORE_SIM_BRANCHES, "readwrite", (s) => s.put(normalizeSimBranchRecord(record)));
+    await tx(db, STORE_SIM_BRANCHES, 'readwrite', (s) => s.put(normalizeSimBranchRecord(record)));
   }
 
   async deleteSimBranchRecord(id: string): Promise<void> {
     const db = await getDb();
-    await tx(db, STORE_SIM_BRANCHES, "readwrite", (s) => s.delete(id));
+    await tx(db, STORE_SIM_BRANCHES, 'readwrite', (s) => s.delete(id));
   }
 
   async reset(): Promise<void> {
@@ -241,30 +231,69 @@ function defaultStatus(): WorldSummaryStatus {
 }
 
 function normalizeSummary(summary: WorldSummary, simBranchCount?: number): WorldSummary {
+  const schemaVersion = typeof summary.schemaVersion === 'number' ? summary.schemaVersion : null;
+  const authorityMode =
+    summary.generatorAuthorityMode === 'LEGACY' ||
+    summary.generatorAuthorityMode === 'CAUSAL_SHADOW' ||
+    summary.generatorAuthorityMode === 'CAUSAL_ACTIVE'
+      ? summary.generatorAuthorityMode
+      : null;
+
   return {
     ...summary,
-    revisionId: summary.revisionId || "",
-    contentHash: summary.contentHash || "",
+    revisionId: summary.revisionId || '',
+    contentHash: summary.contentHash || '',
+    schemaVersion,
+    generatorAuthorityMode: authorityMode,
     status: {
       ...defaultStatus(),
       ...(summary.status || {}),
+      needsAttention: summary.status?.needsAttention || schemaVersion === null,
+      migrationRequired:
+        summary.status?.migrationRequired ||
+        (schemaVersion !== null && schemaVersion !== CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION),
       simBranchCount: simBranchCount ?? summary.status?.simBranchCount ?? 0,
     },
   };
 }
 
-function cloneWorld(world: WorldBrain): WorldBrain {
-  return JSON.parse(JSON.stringify(world)) as WorldBrain;
+export async function summarizeWorldWithBranchLookup(
+  summary: WorldSummary,
+  loadBranches: () => Promise<SimBranchRecord[]>
+): Promise<WorldSummary> {
+  try {
+    const branches = await loadBranches();
+    return normalizeSummary(summary, branches.length);
+  } catch {
+    return normalizeSummary(
+      {
+        ...summary,
+        status: {
+          ...defaultStatus(),
+          ...(summary.status || {}),
+          needsAttention: true,
+          recoveryAvailable: true,
+        },
+      },
+      summary.status?.simBranchCount ?? 0
+    );
+  }
 }
 
 function normalizeSimBranchRecord(record: SimBranchRecord): SimBranchRecord {
+  const migration = migrateWorldDocument(record.worldSnapshot);
+  if (migration.status === 'UNSUPPORTED_NEWER' || migration.status === 'QUARANTINED') {
+    throw new Error(`Sim branch ${record.id} snapshot cannot be loaded: ${migration.reason}`);
+  }
+
   return {
     ...record,
-    baseRevisionId: record.baseRevisionId || "",
-    baseContentHash: record.baseContentHash || "",
-    status: record.status || "ACTIVE",
+    recordSchemaVersion: 1,
+    baseRevisionId: record.baseRevisionId || '',
+    baseContentHash: record.baseContentHash || '',
+    status: record.status || 'ACTIVE',
     eventHistory: Array.isArray(record.eventHistory) ? record.eventHistory : [],
-    worldSnapshot: cloneWorld(record.worldSnapshot),
+    worldSnapshot: cloneWorldDocument(migration.world),
   };
 }
 
@@ -309,25 +338,42 @@ function createRevisionId(world: WorldBrain, contentHash: string): string {
 export function summarizeWorld(w: WorldBrain): WorldSummary {
   const now = new Date().toISOString();
   const createdAt = w.metadata.createdAt || now;
+  const schemaVersion = typeof w.metadata.schemaVersion === 'number' ? w.metadata.schemaVersion : null;
+  const authorityMode = w.causal?.authorityMode ?? null;
 
   return normalizeSummary({
     id: w.metadata.id,
-    name: w.metadata.name || "Untitled World",
-    seed: w.metadata.seed || "",
+    name: w.metadata.name || 'Untitled World',
+    seed: w.metadata.seed || '',
     createdAt,
     updatedAt: w.metadata.updatedAt || now,
-    version: w.metadata.version || "unknown",
-    styleMode: w.metadata.styleMode || "unknown",
-    revisionId: w.metadata.revisionId || "",
-    contentHash: w.metadata.contentHash || "",
+    version: w.metadata.version || 'unknown',
+    styleMode: w.metadata.styleMode || 'unknown',
+    revisionId: w.metadata.revisionId || '',
+    contentHash: w.metadata.contentHash || '',
+    schemaVersion,
+    generatorAuthorityMode: authorityMode,
     status: defaultStatus(),
   });
 }
 
-function verifyReadback(expected: WorldBrain, actual: WorldBrain | null): void {
-  if (!actual) {
+function readCurrentWorld(raw: unknown, context: string): WorldBrain {
+  const migration = migrateWorldDocument(raw);
+  if (migration.status !== 'CURRENT') {
+    const reason =
+      migration.status === 'MIGRATED_IN_MEMORY'
+        ? 'stored readback unexpectedly required migration'
+        : migration.reason;
+    throw new Error(`${context}: ${reason}`);
+  }
+  return migration.world;
+}
+
+function verifyReadback(expected: WorldBrain, actualRaw: unknown | null): WorldBrain {
+  if (!actualRaw) {
     throw new Error(`Save readback verification failed: world ${expected.metadata.id} was not found after save.`);
   }
+  const actual = readCurrentWorld(actualRaw, 'Save readback verification failed');
   if (actual.metadata.id !== expected.metadata.id) {
     throw new Error(`Save readback verification failed: expected world ${expected.metadata.id} but read ${actual.metadata.id}.`);
   }
@@ -341,6 +387,7 @@ function verifyReadback(expected: WorldBrain, actual: WorldBrain | null): void {
   if (actualHash !== expected.metadata.contentHash) {
     throw new Error(`Save readback verification failed: stored content hash mismatch for world ${expected.metadata.id}.`);
   }
+  return actual;
 }
 
 function verifySimBranchReadback(expected: SimBranchRecord, actual: SimBranchRecord | null): void {
@@ -363,42 +410,44 @@ export function createSimBranchRecordFromWorld(
   name: string = `Branch ${new Date().toISOString()}`,
   startYear: number = 0
 ): SimBranchRecord {
+  const currentWorld = readCurrentWorld(baseWorld, 'Cannot create Sim branch');
   const now = new Date().toISOString();
-  const baseContentHash = baseWorld.metadata.contentHash || computeWorldContentHash(baseWorld);
-  const baseRevisionId = baseWorld.metadata.revisionId || createRevisionId(baseWorld, baseContentHash);
+  const baseContentHash = currentWorld.metadata.contentHash || computeWorldContentHash(currentWorld);
+  const baseRevisionId = currentWorld.metadata.revisionId || createRevisionId(currentWorld, baseContentHash);
 
   return {
-    id: `simbranch_${baseWorld.metadata.id}_${Date.now()}`,
-    worldId: baseWorld.metadata.id,
+    recordSchemaVersion: 1,
+    id: `simbranch_${currentWorld.metadata.id}_${Date.now()}`,
+    worldId: currentWorld.metadata.id,
     name,
-    baseWorldId: baseWorld.metadata.id,
+    baseWorldId: currentWorld.metadata.id,
     baseRevisionId,
     baseContentHash,
     startYear,
     currentYear: startYear,
     createdAt: now,
     updatedAt: now,
-    status: "ACTIVE",
-    worldSnapshot: cloneWorld(baseWorld),
+    status: 'ACTIVE',
+    worldSnapshot: cloneWorldDocument(currentWorld),
     eventHistory: [],
   };
 }
 
 export async function saveWorldWithEngine(world: WorldBrain, engine: WorldStorageEngine): Promise<WorldBrain> {
+  const current = readCurrentWorld(world, 'Cannot save world');
+  const candidate = cloneWorldDocument(current);
   const now = new Date().toISOString();
-  world.metadata.createdAt = world.metadata.createdAt || now;
-  world.metadata.updatedAt = now;
-  world.metadata.contentHash = computeWorldContentHash(world);
-  world.metadata.revisionId = createRevisionId(world, world.metadata.contentHash);
+  candidate.metadata.createdAt = candidate.metadata.createdAt || now;
+  candidate.metadata.updatedAt = now;
+  candidate.metadata.contentHash = computeWorldContentHash(candidate);
+  candidate.metadata.revisionId = createRevisionId(candidate, candidate.metadata.contentHash);
 
-  const summary = summarizeWorld(world);
+  await engine.putWorld(candidate);
+  const readbackRaw = await engine.getWorldById(candidate.metadata.id);
+  const verified = verifyReadback(candidate, readbackRaw);
+  await engine.putWorldSummary(summarizeWorld(verified));
 
-  await engine.putWorld(world);
-  const readback = await engine.getWorldById(world.metadata.id);
-  verifyReadback(world, readback);
-  await engine.putWorldSummary(summary);
-
-  return world;
+  return cloneWorldDocument(verified);
 }
 
 export async function saveSimBranchRecordWithEngine(
@@ -414,14 +463,14 @@ export async function saveSimBranchRecordWithEngine(
   const readback = await engine.getSimBranchRecord(nextRecord.id);
   verifySimBranchReadback(nextRecord, readback);
 
-  return nextRecord;
+  return normalizeSimBranchRecord(nextRecord);
 }
 
 export async function listWorldSummaries(): Promise<WorldSummary[]> {
   return indexedDbStorageEngine.listWorldSummaries();
 }
 
-export async function getWorldById(id: string): Promise<WorldBrain | null> {
+export async function getWorldById(id: string): Promise<unknown | null> {
   return indexedDbStorageEngine.getWorldById(id);
 }
 
@@ -449,12 +498,6 @@ export async function deleteSimBranchRecord(id: string): Promise<void> {
   await indexedDbStorageEngine.deleteSimBranchRecord(id);
 }
 
-/**
- * Clear all stored worlds and metadata by deleting the entire IndexedDB
- * database. This can be used as a recovery path if opening the database
- * continuously fails or becomes blocked. After deletion the next call to
- * getDb() will recreate the database.
- */
 export async function resetStorage(): Promise<void> {
   await indexedDbStorageEngine.reset();
 }

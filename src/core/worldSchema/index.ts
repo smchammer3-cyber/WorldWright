@@ -3,6 +3,8 @@
 // File: src/core/worldSchema/index.ts
 // ========================================================
 
+import type { CausalWorldScaffoldV1 } from '../causalWorld/schema';
+
 export type Vec2 = [number, number];
 
 export enum PlateType {
@@ -194,7 +196,8 @@ export interface WorldMetadata {
   id: string;
   name: string;
   seed: string;
-  schemaVersion: string;
+  /** Legacy documents use strings such as `v3`; current C01 documents use numeric 4. */
+  schemaVersion: string | number;
   seaLevel?: number;
   version: string;
   styleMode: 'EARTHLIKE' | 'FANTASY' | 'STYLIZED' | 'ALIEN';
@@ -342,6 +345,8 @@ export interface WorldBrain {
   planetFoundation?: PlanetFoundationSnapshot;
   metadata: WorldMetadata;
   parameters?: Record<string, unknown>;
+  /** Empty/LEGACY in C01. Future PRs may populate causal domains behind feature gates. */
+  causal?: CausalWorldScaffoldV1;
 }
 
 export function createEmptyCell(index: number): Cell {

@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { worldSession } from '../src/core/worldSession';
+import { WorldSession } from '../src/core/worldSession';
 import { createDefaultGeneratorParams } from '../src/core/worldGenerator';
+
+const testStorage = {
+  getWorldById: async () => null,
+  saveWorld: async <T>(world: T): Promise<T> => structuredClone(world),
+};
 
 describe('WorldSession Generate physical pipeline handoff', () => {
   it('normalizes ice-shell worlds before geography pipeline runs', async () => {
-    await worldSession.createWorld({
+    const session = new WorldSession(testStorage);
+
+    await session.createWorld({
       ...createDefaultGeneratorParams(),
       width: 64,
       height: 32,
@@ -15,7 +22,7 @@ describe('WorldSession Generate physical pipeline handoff', () => {
       orbitalDistanceAU: 2.0,
     });
 
-    const world = worldSession.getWorld();
+    const world = session.getWorld();
     expect(world?.planetFoundation?.surfaceWaterMode).toBe('ICE_SHELL_OVER_OCEAN');
     expect(world?.cells.every((cell) => !cell.isWater)).toBe(true);
     expect(world?.cells.every((cell) => cell.oceanDepthClass == null)).toBe(true);
