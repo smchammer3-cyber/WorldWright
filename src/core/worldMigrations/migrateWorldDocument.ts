@@ -23,10 +23,10 @@ function getMetadata(raw: unknown): Record<string, unknown> | null {
   return raw.metadata;
 }
 
-function classifyUnversionedWorld(raw: unknown, assumptions: MigrationAssumption[]): 3 | null {
-  if (!isRecord(raw) || !isRecord(raw.metadata)) return null;
+function looksLikeV3World(raw: unknown): boolean {
+  if (!isRecord(raw) || !isRecord(raw.metadata)) return false;
 
-  const looksLikeV3 =
+  return (
     typeof raw.gridWidth === 'number' &&
     typeof raw.gridHeight === 'number' &&
     Array.isArray(raw.cells) &&
@@ -35,9 +35,12 @@ function classifyUnversionedWorld(raw: unknown, assumptions: MigrationAssumption
     (raw.cells.length === 0 ||
       (isRecord(raw.cells[0]) &&
         typeof raw.cells[0].baseHeight === 'number' &&
-        'plateId' in raw.cells[0]));
+        'plateId' in raw.cells[0]))
+  );
+}
 
-  if (!looksLikeV3) return null;
+function classifyUnversionedWorld(raw: unknown, assumptions: MigrationAssumption[]): 3 | null {
+  if (!looksLikeV3World(raw)) return null;
 
   assumptions.push({
     code: 'CLASSIFIED_UNVERSIONED_V3_WORLD',
@@ -127,6 +130,21 @@ export function migrateWorldDocument(raw: unknown): WorldLoadResult {
   if (decoded.kind === 'KNOWN') sourceVersion = decoded.version;
   if (decoded.kind === 'UNVERSIONED') {
     sourceVersion = classifyUnversionedWorld(raw, assumptions);
+  }
+
+  // Some transitional current-shaped WorldBrain documents and older tests used
+  // the string "1.0" despite not matching the archived numeric schema-1 shape.
+  // Reclassify only when the document structurally matches v3. Genuine numeric
+  // schema 1 remains quarantined until a dedicated evidence-backed path exists.
+  if (sourceVersion === 1 && sourceVersionValue === '1.0' && looksLikeV3World(raw)) {
+    sourceVersion = 3;
+    assumptions.push({
+      code: 'RECLASSIFIED_STRING_1_0_AS_V3_COMPAT',
+      path: 'metadata.schemaVersion',
+      explanation:
+        'The string schema label 1.0 was attached to a current-shaped WorldBrain document, so the document was treated as schema v3. Numeric schema 1 remains unsupported.',
+      confidence: 'MEDIUM',
+    });
   }
 
   const report = createReport(raw, sourceVersionValue, sourceVersion, assumptions, warnings);
