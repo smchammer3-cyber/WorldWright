@@ -50,10 +50,11 @@ describe('WorldSession migration boundary', () => {
       stepsApplied: ['world-v3-to-v4-causal-scaffold'],
     });
     expect(session.getWorld()?.metadata.schemaVersion).toBe(CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION);
-    expect(session.getWorld()?.causal).toEqual({
+    expect(session.getWorld()?.causal).toMatchObject({
       schemaVersion: 1,
       authorityMode: 'LEGACY',
       status: 'EMPTY',
+      provenance: { schemaVersion: 1, completeness: 'PARTIAL', authorityMode: 'LEGACY' },
     });
 
     await session.save();
