@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "registryVersion": "w1-01-v1",
+  "source": "src/core/causalGeology/quantities.ts",
+  "status": "FORMAT_DEFINED_NO_SCIENTIFIC_ALGORITHMS"
+}

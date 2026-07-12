@@ -1,3 +1,5 @@
+import type { GeologicSpineV1, InteriorStateV1, PlanetaryPremiseV1, TectonicRegimeHistoryV1 } from '../causalGeology/types';
+import { validateGeologicSpine, validateInteriorState, validatePlanetaryPremise, validateTectonicRegimeHistory } from '../causalGeology/validation';
 import { isCausalConfidenceLedgerV1 } from '../worldConfidence/confidence';
 import type { CausalConfidenceLedgerV1 } from '../worldConfidence/types';
 import type { CausalProvenanceManifestV1 } from '../worldProvenance/schema';
@@ -13,10 +15,10 @@ export interface CausalWorldScaffoldV1 {
   schemaVersion: 1;
   authorityMode: GeneratorAuthorityMode;
   status: CausalWorldStatus;
-  premise?: Record<string, unknown>;
-  interior?: Record<string, unknown>;
-  regimeHistory?: Record<string, unknown>;
-  geologicSpine?: Record<string, unknown>;
+  premise?: PlanetaryPremiseV1;
+  interior?: InteriorStateV1;
+  regimeHistory?: TectonicRegimeHistoryV1;
+  geologicSpine?: GeologicSpineV1;
   eventGraph?: Record<string, unknown>;
   processRegistry?: Record<string, unknown>;
   physicalSurface?: Record<string, unknown>;
@@ -37,15 +39,17 @@ export function createEmptyLegacyCausalScaffold(): CausalWorldScaffoldV1 {
 export function isCausalWorldScaffoldV1(value: unknown): value is CausalWorldScaffoldV1 {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<CausalWorldScaffoldV1>;
-
-  return (
-    candidate.schemaVersion === 1 &&
-    (candidate.authorityMode === 'LEGACY' ||
-      candidate.authorityMode === 'CAUSAL_SHADOW' ||
-      candidate.authorityMode === 'CAUSAL_ACTIVE') &&
-    (candidate.status === 'EMPTY' ||
-      candidate.status === 'SHADOW' ||
-      candidate.status === 'ACTIVE') &&
-    (candidate.confidence === undefined || isCausalConfidenceLedgerV1(candidate.confidence))
-  );
+  if (candidate.schemaVersion !== 1
+    || !['LEGACY', 'CAUSAL_SHADOW', 'CAUSAL_ACTIVE'].includes(candidate.authorityMode as string)
+    || !['EMPTY', 'SHADOW', 'ACTIVE'].includes(candidate.status as string)
+    || (candidate.confidence !== undefined && !isCausalConfidenceLedgerV1(candidate.confidence))) return false;
+  try {
+    if (candidate.premise !== undefined) validatePlanetaryPremise(candidate.premise);
+    if (candidate.interior !== undefined) validateInteriorState(candidate.interior);
+    if (candidate.regimeHistory !== undefined) validateTectonicRegimeHistory(candidate.regimeHistory);
+    if (candidate.geologicSpine !== undefined) validateGeologicSpine(candidate.geologicSpine);
+    return true;
+  } catch {
+    return false;
+  }
 }

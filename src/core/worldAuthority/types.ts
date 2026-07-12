@@ -47,6 +47,8 @@ export type AuthorityProcessPhase =
   | 'derived-recompute'
   | 'terrain-cleanup'
   | 'final-cause-sync'
+  | 'causal-input'
+  | 'causal-resolution'
   | 'edit'
   | 'simulation'
   | 'diagnostic'
