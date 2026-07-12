@@ -1,3 +1,5 @@
+import type { CausalProvenanceManifestV1 } from '../worldProvenance/schema';
+
 export type GeneratorAuthorityMode =
   | 'LEGACY'
   | 'CAUSAL_SHADOW'
@@ -18,7 +20,7 @@ export interface CausalWorldScaffoldV1 {
   physicalSurface?: Record<string, unknown>;
   ledgers?: Record<string, unknown>;
   scaleRegistry?: Record<string, unknown>;
-  provenance?: Record<string, unknown>;
+  provenance?: CausalProvenanceManifestV1;
   confidence?: Record<string, unknown>;
 }
 
