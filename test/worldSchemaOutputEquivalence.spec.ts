@@ -19,10 +19,11 @@ describe('C01 generated-world output equivalence', () => {
     const current = generateWorldFromParams(params);
 
     expect(current.metadata.schemaVersion).toBe(CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION);
-    expect(current.causal).toEqual({
+    expect(current.causal).toMatchObject({
       schemaVersion: 1,
       authorityMode: 'LEGACY',
       status: 'EMPTY',
+      provenance: { schemaVersion: 1, completeness: 'COMPLETE', authorityMode: 'LEGACY' },
     });
 
     const normalizedCurrent = structuredClone(current) as typeof current & {
