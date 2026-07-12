@@ -77,13 +77,20 @@ describe('empty causal scaffold', () => {
     expect(isCausalWorldScaffoldV1(scaffold)).toBe(true);
   });
 
-  it('rejects incomplete or invalid authority containers', () => {
+  it('rejects incomplete, mismatched, or unsupported authority containers', () => {
     expect(isCausalWorldScaffoldV1(null)).toBe(false);
     expect(isCausalWorldScaffoldV1({ schemaVersion: 1 })).toBe(false);
     expect(
       isCausalWorldScaffoldV1({
         schemaVersion: 1,
         authorityMode: 'LEGACY',
+        status: 'ACTIVE',
+      })
+    ).toBe(false);
+    expect(
+      isCausalWorldScaffoldV1({
+        schemaVersion: 1,
+        authorityMode: 'CAUSAL_ACTIVE',
         status: 'ACTIVE',
       })
     ).toBe(true);
