@@ -211,7 +211,7 @@ class IndexedDbWorldStorageEngine implements WorldStorageEngine {
     const records = await tx<SimBranchRecord[]>(db, STORE_SIM_BRANCHES, 'readonly', (s) => s.getAll());
     return records
       .filter((record) => record.worldId === worldId && record.status !== 'TRASHED')
-      .map(normalizeSimBranchRecord);
+      .map((record) => normalizeSimBranchRecord(record, 'LOAD'));
   }
 
   async getSimBranchRecord(id: string): Promise<SimBranchRecord | null> {

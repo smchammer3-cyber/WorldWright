@@ -181,6 +181,9 @@ describe('Sim branch record storage', () => {
     const updated = await saveSimBranchRecordWithEngine({
       ...selected!,
       currentYear: 6,
+      randomContext: selected!.randomContext
+        ? { ...selected!.randomContext, tickIndex: selected!.randomContext.tickIndex + 1 }
+        : undefined,
       worldSnapshot: {
         ...selected!.worldSnapshot,
         cells: selected!.worldSnapshot.cells.map((cell, index) =>
