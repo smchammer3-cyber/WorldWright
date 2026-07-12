@@ -24,9 +24,12 @@ export function validateCausalShadowArtifactEnvelope(value: unknown): asserts va
   if (!deterministicHashEquals(envelope.payloadHash, envelope.payload.contentHash)) throw new Error('Causal shadow artifact payload hash mismatch.');
   if (!isIsoTimestamp(envelope.createdAt)) throw new Error('Causal shadow artifact timestamp is invalid.');
   for (const [label, text] of [['creator', envelope.createdBy], ['storage record ID', envelope.storageRecordId]] as const) {
-    if (typeof text !== 'string' || text.trim().length === 0) throw new Error(`Causal shadow artifact ${label} is invalid.`);
+    if (!isNonEmptyText(text)) throw new Error(`Causal shadow artifact ${label} is invalid.`);
   }
-  if (!Array.isArray(envelope.notes) || !envelope.notes.every((note) => typeof note === 'string' && note.trim().length > 0)) throw new Error('Causal shadow artifact notes are invalid.');
+  for (const [label, text] of [['display name', envelope.displayName], ['world ID', envelope.worldId], ['source revision ID', envelope.sourceRevisionId]] as const) {
+    if (text !== undefined && !isNonEmptyText(text)) throw new Error(`Causal shadow artifact ${label} is invalid.`);
+  }
+  if (!Array.isArray(envelope.notes) || !envelope.notes.every(isNonEmptyText)) throw new Error('Causal shadow artifact notes are invalid.');
 }
 
 function detectUnsupportedNewerSchema(value: unknown): { version: number; reason: string } | undefined {
@@ -58,6 +61,10 @@ function isIsoTimestamp(value: unknown): value is string {
   if (!Number.isFinite(parsed.getTime())) return false;
   const normalized = parsed.toISOString();
   return value === normalized || value === normalized.replace('.000Z', 'Z');
+}
+
+function isNonEmptyText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
