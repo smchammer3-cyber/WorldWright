@@ -1,3 +1,5 @@
+import { isCausalConfidenceLedgerV1 } from '../worldConfidence/confidence';
+import type { CausalConfidenceLedgerV1 } from '../worldConfidence/types';
 import type { CausalProvenanceManifestV1 } from '../worldProvenance/schema';
 
 export type GeneratorAuthorityMode =
@@ -21,7 +23,7 @@ export interface CausalWorldScaffoldV1 {
   ledgers?: Record<string, unknown>;
   scaleRegistry?: Record<string, unknown>;
   provenance?: CausalProvenanceManifestV1;
-  confidence?: Record<string, unknown>;
+  confidence?: CausalConfidenceLedgerV1;
 }
 
 export function createEmptyLegacyCausalScaffold(): CausalWorldScaffoldV1 {
@@ -43,6 +45,7 @@ export function isCausalWorldScaffoldV1(value: unknown): value is CausalWorldSca
       candidate.authorityMode === 'CAUSAL_ACTIVE') &&
     (candidate.status === 'EMPTY' ||
       candidate.status === 'SHADOW' ||
-      candidate.status === 'ACTIVE')
+      candidate.status === 'ACTIVE') &&
+    (candidate.confidence === undefined || isCausalConfidenceLedgerV1(candidate.confidence))
   );
 }
