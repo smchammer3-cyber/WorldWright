@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "bundleVersion": "w1-01-format-v1",
+  "status": "CONTRACT_FORMAT_REVIEWED",
+  "reviewDate": "2026-07-12",
+  "scope": "Architecture and validation contracts only; no scientific relation approved."
+}

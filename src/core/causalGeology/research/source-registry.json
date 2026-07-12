@@ -1,0 +1,16 @@
+[
+  {
+    "schemaVersion": 1,
+    "sourceId": "controlled-archetype-format-v1",
+    "sourceType": "internal-controlled-fixture",
+    "citation": "WorldWright Wave 1 controlled archetype fixture format",
+    "title": "Controlled Archetype Fixture Contract",
+    "authorsOrInstitution": "WorldWright",
+    "domain": "causal-geology-contracts",
+    "qualityClass": "INTERNAL_CONTROLLED_ARCHETYPE",
+    "correlationGroupId": "worldwright-controlled-fixtures",
+    "licenseOrUsageNote": "Internal contract fixture; not external scientific evidence.",
+    "limitations": ["format-only"],
+    "contentFingerprint": "w1-01-controlled-archetype-format-v1"
+  }
+]

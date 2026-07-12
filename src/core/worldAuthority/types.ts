@@ -24,6 +24,7 @@ export type AuthorityLifecycle =
 export type AuthorityFieldGroup =
   | 'metadata'
   | 'planetInput'
+  | 'planetInitialConditions'
   | 'terrain'
   | 'derivedSurface'
   | 'plateCause'
@@ -36,6 +37,15 @@ export type AuthorityFieldGroup =
   | 'worldCollections'
   | 'worldbuilding'
   | 'causalRecord'
+  | 'processFieldAuthority'
+  | 'structuralRoleAuthority'
+  | 'structureMaterialCause'
+  | 'landformPotentialAuthority'
+  | 'baseTerrain'
+  | 'provisionalSurfaceBoundary'
+  | 'surfaceEvolutionDelta'
+  | 'finalTerrain'
+  | 'terrainCauseLedger'
   | 'diagnostics'
   | 'presentation';
 
@@ -47,6 +57,8 @@ export type AuthorityProcessPhase =
   | 'derived-recompute'
   | 'terrain-cleanup'
   | 'final-cause-sync'
+  | 'causal-input'
+  | 'causal-resolution'
   | 'edit'
   | 'simulation'
   | 'diagnostic'
