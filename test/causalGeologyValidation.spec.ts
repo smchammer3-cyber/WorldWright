@@ -59,10 +59,10 @@ describe('W1-01 complete shadow-run validation', () => {
     expect(() => validateCausalShadowRun(fixtureRun())).not.toThrow();
   });
 
-  it('detects stage-record tampering before trusting the run hash', () => {
+  it('detects nested stage-record corruption before trusting outer hashes', () => {
     const run = structuredClone(fixtureRun());
     run.stageResults[0].record = { ...run.inputSnapshot, limitations: ['tampered'] } as never;
-    expect(() => validateCausalShadowRun(run)).toThrow(/output hash/);
+    expect(() => validateCausalShadowRun(run)).toThrow(/Causal input content hash mismatch/);
   });
 
   it('rejects skipped prerequisites and provenance seed mismatches', () => {
