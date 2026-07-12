@@ -5,6 +5,7 @@ import { canonicalJsonStringify, canonicalizeJson } from '../worldProvenance/can
 import { isCausalProvenanceManifestV1 } from '../worldProvenance/schema';
 import { assertDeterministicHash, deterministicHashEquals, hashCausalPayload, hashRecordWithoutContentHash } from './hashes';
 import { validateCausalGeologyInput } from './inputAuthority';
+import { CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1 } from './limits';
 import { validateScientificRange } from './quantities';
 import { validateSphericalAnchor, validateSphericalExtent } from './spatial';
 import type {
@@ -50,6 +51,8 @@ const EDGE_KINDS: readonly GeologicSpineEdgeKind[] = Object.freeze([
   'SUBDUCTS_BENEATH',
   'TRANSFORMS_AGAINST',
 ]);
+
+const TEXT_ENCODER = new TextEncoder();
 
 export function validateCausalStageResult(value: unknown): asserts value is CausalStageResultV1 {
   if (!value || typeof value !== 'object') throw new Error('Causal stage result must be an object.');
@@ -126,6 +129,7 @@ export function validateTectonicRegimeHistory(value: unknown): asserts value is 
   const history = value as TectonicRegimeHistoryV1;
   if (!Number.isSafeInteger(history.historyVersion) || history.historyVersion < 1 || history.timeConvention !== 'FRACTION_OF_RESOLVED_GEOLOGIC_HISTORY_V1') throw new Error('Tectonic history contract is invalid.');
   if (!Array.isArray(history.epochs) || history.epochs.length === 0) throw new Error('Tectonic history epochs are missing.');
+  if (history.epochs.length > CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxEpochs) throw new Error(`Tectonic epochs exceed the limit of ${CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxEpochs}.`);
   const epochIds = new Set<string>();
   let expectedStart = 0;
   history.epochs.forEach((epoch, index) => {
@@ -163,6 +167,9 @@ export function validateGeologicSpine(value: unknown): asserts value is Geologic
   const spine = value as GeologicSpineV1;
   if (!Number.isSafeInteger(spine.spineVersion) || spine.spineVersion < 1 || spine.coordinateConvention !== 'SPHERICAL_LAT_LON_DEGREES_V1') throw new Error('Geologic spine contract is invalid.');
   if (!Array.isArray(spine.nodes) || !Array.isArray(spine.edges) || !Array.isArray(spine.events)) throw new Error('Geologic spine collections are invalid.');
+  if (spine.nodes.length > CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxSpineNodes) throw new Error(`Spine nodes exceed the limit of ${CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxSpineNodes}.`);
+  if (spine.edges.length > CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxSpineEdges) throw new Error(`Spine edges exceed the limit of ${CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxSpineEdges}.`);
+  if (spine.events.length > CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxSpineEvents) throw new Error(`Spine events exceed the limit of ${CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxSpineEvents}.`);
   if (spine.status === 'COMPLETE' && spine.nodes.length === 0) throw new Error('Complete geologic spine requires at least one node.');
   assertCanonicalObjectOrder(spine.nodes, 'nodeId', 'Spine nodes');
   assertCanonicalObjectOrder(spine.edges, 'edgeId', 'Spine edges');
@@ -213,6 +220,8 @@ export function validateGeologicSpine(value: unknown): asserts value is Geologic
 
 export function validateCausalShadowRun(value: unknown): asserts value is CausalShadowRunV1 {
   if (!value || typeof value !== 'object') throw new Error('Causal shadow run must be an object.');
+  const serializedBytes = TEXT_ENCODER.encode(canonicalJsonStringify(value)).length;
+  if (serializedBytes > CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxSerializedPayloadBytes) throw new Error(`Causal shadow payload exceeds the limit of ${CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxSerializedPayloadBytes} bytes.`);
   const run = value as Partial<CausalShadowRunV1>;
   if (run.schemaVersion !== 1 || run.runContractVersion !== 1) throw new Error('Unsupported causal shadow run contract.');
   validateCausalGeologyInput(run.inputSnapshot);
@@ -227,8 +236,6 @@ export function validateCausalShadowRun(value: unknown): asserts value is Causal
       if (previous.status === 'PARTIAL' && !previous.downstreamCompatibleStageIds.includes(result.stageId)) throw new Error(`${previous.stageId} does not permit ${result.stageId} to proceed.`);
     }
   }
-  const last = run.stageResults[run.stageResults.length - 1];
-  if ((last.status === 'BLOCKED' || last.status === 'FAILED') && run.stageResults.length < 1) throw new Error('Invalid terminated run.');
   const first = run.stageResults[0];
   if (first.status !== 'COMPLETE' && first.status !== 'PARTIAL') throw new Error('A persisted shadow run requires a valid sanitized input snapshot.');
   assertCanonicalEqual(first.record, run.inputSnapshot, 'Input sanitization output does not match the run input snapshot.');
@@ -363,27 +370,28 @@ function assertExpectedStageInputHashes(run: Partial<CausalShadowRunV1>): void {
 
 function validateRunProvenance(run: Partial<CausalShadowRunV1>): void {
   if (!isCausalProvenanceManifestV1(run.provenance)) throw new Error('Causal shadow provenance is invalid.');
-  if (run.provenance.authorityMode !== 'CAUSAL_SHADOW') throw new Error('Causal shadow run provenance must use CAUSAL_SHADOW authority.');
-  assertCanonicalEqual(run.provenance.rootSeed, run.inputSnapshot?.rootSeed, 'Run provenance root seed does not match sanitized input.');
-  const geology = run.provenance.causalGeology;
+  const provenance = run.provenance;
+  if (provenance.authorityMode !== 'CAUSAL_SHADOW') throw new Error('Causal shadow run provenance must use CAUSAL_SHADOW authority.');
+  assertCanonicalEqual(provenance.rootSeed, run.inputSnapshot?.rootSeed, 'Run provenance root seed does not match sanitized input.');
+  const geology = provenance.causalGeology;
   if (!geology || !run.inputSnapshot || !deterministicHashEquals(geology.inputHash, run.inputSnapshot.contentHash)) throw new Error('Run provenance causal-geology input hash is missing or inconsistent.');
-  const stageProvenance = new Map<string, typeof run.provenance.stages[number]>();
-  for (const entry of run.provenance.stages) {
+  const stageProvenance = new Map<string, typeof provenance.stages[number]>();
+  for (const entry of provenance.stages) {
     if (!isStageId(entry.stageId)) continue;
     if (stageProvenance.has(entry.stageId)) throw new Error(`Duplicate causal stage provenance: ${entry.stageId}`);
     stageProvenance.set(entry.stageId, entry);
   }
   for (const result of run.stageResults ?? []) {
-    const provenance = stageProvenance.get(result.stageId);
-    if (!provenance) throw new Error(`Missing provenance for ${result.stageId}.`);
+    const recorded = stageProvenance.get(result.stageId);
+    if (!recorded) throw new Error(`Missing provenance for ${result.stageId}.`);
     const expectedStatus = result.status === 'COMPLETE' ? 'RECORDED' : result.status;
-    if (provenance.stageVersion !== result.stageVersion || provenance.status !== expectedStatus) throw new Error(`Provenance status/version mismatch for ${result.stageId}.`);
-    if (!provenance.inputHash || !deterministicHashEquals(provenance.inputHash, result.inputHash)) throw new Error(`Provenance input hash mismatch for ${result.stageId}.`);
-    if (result.outputHash === undefined ? provenance.outputHash !== undefined : !provenance.outputHash || !deterministicHashEquals(provenance.outputHash, result.outputHash)) throw new Error(`Provenance output hash mismatch for ${result.stageId}.`);
+    if (recorded.stageVersion !== result.stageVersion || recorded.status !== expectedStatus) throw new Error(`Provenance status/version mismatch for ${result.stageId}.`);
+    if (!recorded.inputHash || !deterministicHashEquals(recorded.inputHash, result.inputHash)) throw new Error(`Provenance input hash mismatch for ${result.stageId}.`);
+    if (result.outputHash === undefined ? recorded.outputHash !== undefined : !recorded.outputHash || !deterministicHashEquals(recorded.outputHash, result.outputHash)) throw new Error(`Provenance output hash mismatch for ${result.stageId}.`);
   }
   for (const branch of run.confidenceLedger?.branchResolutions ?? []) {
     const definition = getRandomStreamDefinition(branch.stream);
-    if (!run.provenance.streams.some((entry) => entry.name === branch.stream && entry.version === definition.version)) throw new Error(`Missing stream provenance for branch ${branch.branchId}.`);
+    if (!provenance.streams.some((entry) => entry.name === branch.stream && entry.version === definition.version)) throw new Error(`Missing stream provenance for branch ${branch.branchId}.`);
   }
 }
 
