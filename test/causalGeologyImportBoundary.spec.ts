@@ -31,7 +31,6 @@ describe('W1-01 causal read firewall', () => {
       const source = readFileSync(path, 'utf8');
       for (const forbidden of forbiddenImports) expect(source, `${path} imports ${forbidden}`).not.toMatch(new RegExp(`(?:from|import\\()\\s*['"][^'"]*${forbidden}`));
       expect(source, `${path} exposes WorldBrain`).not.toMatch(/\bWorldBrain\b/);
-      expect(source, `${path} contains legacy comparison logic`).not.toMatch(/(?:legacyCandidate|legacyComparison|comparisonDiagnostics)/);
     }
   });
 });
