@@ -1,7 +1,7 @@
 import { cloneAndDeepFreeze } from './immutable';
 import { assertDeterministicHash, deterministicHashEquals } from './hashes';
+import { validateCausalShadowRun } from './scopeValidation';
 import type { CausalShadowArtifactEnvelopeV1, CausalShadowLoadResult } from './types';
-import { validateCausalShadowRun } from './validation';
 
 export function loadCausalShadowArtifact(value: unknown): CausalShadowLoadResult {
   if (!value || typeof value !== 'object') return Object.freeze({ status: 'QUARANTINED', reason: 'Causal shadow artifact is not an object.' });
