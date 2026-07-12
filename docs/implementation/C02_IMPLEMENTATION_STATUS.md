@@ -98,6 +98,8 @@ The production bundle remains above Vite's 500 kB advisory threshold. C02 adds i
 - Run #384: exact source through deterministic Sim/session/storage integration — all configured jobs passed.
 - Run #410: pre-audit complete head — build, tests, snapshot canary, and full-globe review passed.
 - Post-audit corrections add atomic persisted tick/save, replay-state hashing, strict schema-2 validation, integer simulation time, and nested provenance validation.
+- Corrected implementation commit `9ac85b7628c5ae7c040db3d98a40cf195d3e4a8a` passed its complete in-run test and build validation before publication.
+- The bot-authored corrected head received `action_required` without starting normal CI jobs; this documentation-only connector commit exists solely to retrigger the required repository CI and visual jobs.
 - The final corrected-head run ID and artifact evidence are recorded in the PR conversation after GitHub assigns them.
 
 ## Geological and visual status
