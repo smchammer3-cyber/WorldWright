@@ -3,6 +3,7 @@ import { createRootSeedIdentity } from '../worldRandom/seedMixer';
 import type { RootSeedIdentity } from '../worldRandom/types';
 import { cloneAndDeepFreeze } from './immutable';
 import { hashCausalPayload, deterministicHashEquals, assertDeterministicHash } from './hashes';
+import { CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1 } from './limits';
 import { validateScientificQuantity } from './quantities';
 import type { CausalGeologyInputId, CausalGeologyInputV1, CausalInputDeclarationV1, CausalInputSourceClass } from './types';
 
@@ -89,7 +90,7 @@ export function createCausalGeologyInput(
   options: Readonly<{ contradictionIds?: readonly string[]; limitations?: readonly string[] }> = {},
 ): CausalGeologyInputV1 {
   const normalizedRootSeed = normalizeRootSeedIdentity(rootSeed);
-  if (!Array.isArray(declarations) || declarations.length === 0) throw new Error('At least one causal input declaration is required.');
+  assertDeclarationCount(declarations);
 
   const sorted = [...declarations].sort((a, b) => compareStableText(a.inputId, b.inputId));
   const seen = new Set<string>();
@@ -126,7 +127,7 @@ export function validateCausalGeologyInput(value: unknown): asserts value is Cau
   const input = value as Partial<CausalGeologyInputV1>;
   if (input.schemaVersion !== 1 || input.inputContractVersion !== 1) throw new Error('Unsupported causal geology input contract.');
   const rootSeed = normalizeRootSeedIdentity(input.rootSeed as RootSeedIdentity);
-  if (!Array.isArray(input.sourceDeclarations) || input.sourceDeclarations.length === 0) throw new Error('Causal input declarations are missing.');
+  assertDeclarationCount(input.sourceDeclarations);
   if (!isRecord(input.physicalInputs) || !isRecord(input.approvedDerivations)) throw new Error('Causal input maps are invalid.');
   const seen = new Set<string>();
   const ids: string[] = [];
@@ -188,6 +189,11 @@ export function normalizeRootSeedIdentity(seed: string | number | RootSeedIdenti
   const expected = createRootSeedIdentity(candidate.exactText);
   if (candidate.fingerprint !== expected.fingerprint) throw new Error('Causal root seed fingerprint mismatch.');
   return cloneAndDeepFreeze(expected);
+}
+
+function assertDeclarationCount(value: unknown): asserts value is readonly CausalInputDeclarationV1[] {
+  if (!Array.isArray(value) || value.length === 0) throw new Error('At least one causal input declaration is required.');
+  if (value.length > CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxInputDeclarations) throw new Error(`Causal input declarations exceed the limit of ${CAUSAL_GEOLOGY_RESOURCE_LIMITS_V1.maxInputDeclarations}.`);
 }
 
 function define(inputId: CausalGeologyInputId, requiredUnit: string, requiredScaleId: string, allowedSourceClasses: readonly CausalInputSourceClass[]): CausalInputAuthorityDefinitionV1 {
