@@ -1,0 +1,526 @@
+name: C02 Audit Fix
+
+on:
+  push:
+    branches:
+      - agent/c02-deterministic-seeds-flags-provenance
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: contains(github.event.head_commit.message, '[c02-audit-fix]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/c02-deterministic-seeds-flags-provenance
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Apply audited C02 corrections
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one exact replacement, found {count}')
+              file.write_text(text.replace(old, new))
+
+          def regex_once(path: str, pattern: str, replacement: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one regex replacement, found {count}')
+              file.write_text(updated)
+
+          # Integer-only simulation time and operative deterministic-RNG flag.
+          replace_once(
+              'src/core/worldSim/index.ts',
+              "import type { ResolvedWorldFeatureFlagSnapshot } from '../worldFeatureFlags/types';\n",
+              "import { worldFeatureFlagValue } from '../worldFeatureFlags/resolve';\nimport type { ResolvedWorldFeatureFlagSnapshot } from '../worldFeatureFlags/types';\n",
+          )
+          replace_once(
+              'src/core/worldSim/index.ts',
+              "  const dt = request.dt ?? 1;\n  if (!Number.isFinite(dt) || dt <= 0) throw new RangeError('Simulation dt must be a positive finite number.');\n  if (request.randomContext.tickIndex < 0) throw new RangeError('Simulation tick index cannot be negative.');\n\n  const random = createSimRandomOracle(request.randomContext);\n",
+              "  const dt = request.dt ?? 1;\n  if (!Number.isSafeInteger(dt) || dt <= 0) {\n    throw new RangeError('Simulation dt must be a positive safe integer.');\n  }\n  if (!Number.isSafeInteger(request.year)) {\n    throw new RangeError('Simulation year must be a safe integer.');\n  }\n  if (request.randomContext.tickIndex < 0) throw new RangeError('Simulation tick index cannot be negative.');\n  if (request.flags && !worldFeatureFlagValue<boolean>(request.flags, 'simulation.deterministic-rng.enabled')) {\n    throw new Error('Deterministic simulation RNG is disabled for this run.');\n  }\n\n  const random = createSimRandomOracle(request.randomContext);\n",
+          )
+
+          # Strict nested provenance validation.
+          regex_once(
+              'src/core/worldProvenance/schema.ts',
+              r"export function isCausalProvenanceManifestV1\(value: unknown\): value is CausalProvenanceManifestV1 \{.*?\n\}",
+              r'''export function isCausalProvenanceManifestV1(value: unknown): value is CausalProvenanceManifestV1 {
+  if (!isRecord(value)) return false;
+  if (value.schemaVersion !== 1 || (value.completeness !== 'COMPLETE' && value.completeness !== 'PARTIAL')) return false;
+  if (!isAuthorityMode(value.authorityMode)) return false;
+
+  const rootSeed = value.rootSeed;
+  if (!isRecord(rootSeed)
+    || typeof rootSeed.exactText !== 'string'
+    || rootSeed.encoding !== 'utf8-v1'
+    || typeof rootSeed.fingerprint !== 'string'
+    || rootSeed.fingerprint.length === 0) return false;
+
+  const randomSystem = value.randomSystem;
+  if (!isRecord(randomSystem)
+    || randomSystem.causalAlgorithm !== 'philox4x32-10'
+    || randomSystem.causalAlgorithmVersion !== 1
+    || typeof randomSystem.seedDerivationAlgorithm !== 'string'
+    || randomSystem.seedEncoding !== 'utf8-v1'
+    || (randomSystem.legacyGeneratorAlgorithm !== undefined && typeof randomSystem.legacyGeneratorAlgorithm !== 'string')) return false;
+
+  const software = value.software;
+  if (!isRecord(software)
+    || !Number.isSafeInteger(software.worldSchemaVersion)
+    || !Number.isSafeInteger(software.causalSchemaVersion)
+    || typeof software.generatorVersion !== 'string'
+    || typeof software.pipelineVersion !== 'string'
+    || (software.buildCommit !== undefined && typeof software.buildCommit !== 'string')) return false;
+
+  const flags = value.flags;
+  if (!isRecord(flags)
+    || flags.schemaVersion !== 1
+    || flags.authorityMode !== value.authorityMode
+    || !isRecord(flags.values)
+    || !Array.isArray(flags.warnings)
+    || !flags.warnings.every((warning) => typeof warning === 'string')) return false;
+  for (const [key, entry] of Object.entries(flags.values)) {
+    if (!isRecord(entry)
+      || entry.key !== key
+      || !isFeatureFlagValue(entry.value)
+      || !isFeatureFlagValue(entry.defaultValue)
+      || (entry.source !== 'DEFAULT' && entry.source !== 'RUN_OVERRIDE' && entry.source !== 'AUTHORITY_CONSTRAINT')
+      || (entry.reason !== 'DEFAULTED' && entry.reason !== 'OVERRIDDEN' && entry.reason !== 'MODE_BLOCKED' && entry.reason !== 'INVALID_OVERRIDE')
+      || typeof entry.affectsPhysicalOutput !== 'boolean') return false;
+  }
+
+  if (!Array.isArray(value.streams) || !value.streams.every(isRandomStreamProvenance)) return false;
+  if (!Array.isArray(value.stages) || !value.stages.every(isStageProvenance)) return false;
+  if (!Array.isArray(value.limitations) || !value.limitations.every((entry) => typeof entry === 'string')) return false;
+
+  if (value.legacyCompatibility !== undefined) {
+    const legacy = value.legacyCompatibility;
+    if (!isRecord(legacy)
+      || legacy.physicalGenerator !== 'LEGACY'
+      || typeof legacy.randomAlgorithm !== 'string'
+      || typeof legacy.explicitSeedOutputPreserved !== 'boolean'
+      || typeof legacy.stageHistoryObserved !== 'boolean') return false;
+  }
+
+  return true;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isAuthorityMode(value: unknown): value is GeneratorAuthorityMode {
+  return value === 'LEGACY' || value === 'CAUSAL_SHADOW' || value === 'CAUSAL_ACTIVE';
+}
+
+function isFeatureFlagValue(value: unknown): value is boolean | string | number {
+  return typeof value === 'boolean' || typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value));
+}
+
+function isRandomStreamProvenance(value: unknown): boolean {
+  return isRecord(value)
+    && typeof value.name === 'string'
+    && Number.isSafeInteger(value.version)
+    && (value.version as number) > 0
+    && typeof value.owner === 'string'
+    && typeof value.keyFingerprint === 'string'
+    && typeof value.purpose === 'string';
+}
+
+function isStageProvenance(value: unknown): boolean {
+  if (!isRecord(value)
+    || typeof value.stageId !== 'string'
+    || value.stageId.length === 0
+    || !Number.isSafeInteger(value.stageVersion)
+    || (value.stageVersion as number) < 1
+    || (value.status !== 'NOT_RUN' && value.status !== 'RECORDED' && value.status !== 'FAILED')
+    || !Array.isArray(value.streamsUsed)
+    || !Array.isArray(value.flagsUsed)
+    || !Array.isArray(value.warnings)) return false;
+  if (!value.streamsUsed.every((entry) => isRecord(entry)
+    && typeof entry.name === 'string'
+    && Number.isSafeInteger(entry.version)
+    && (entry.version as number) > 0)) return false;
+  if (!value.flagsUsed.every((entry) => typeof entry === 'string')) return false;
+  if (!value.warnings.every((entry) => typeof entry === 'string')) return false;
+  return isOptionalDeterministicHash(value.inputHash) && isOptionalDeterministicHash(value.outputHash);
+}
+
+function isOptionalDeterministicHash(value: unknown): boolean {
+  return value === undefined || (isRecord(value)
+    && value.algorithm === 'fnv1a64-canonical-json-v1'
+    && typeof value.value === 'string'
+    && /^[0-9a-f]{16}$/.test(value.value));
+}''',
+          )
+
+          # Persisted simulation replay integrity and atomic tick/save path.
+          replace_once(
+              'src/core/worldStorage/index.ts',
+              "import type { GeneratorAuthorityMode } from '../causalWorld/schema';\nimport { createRandomIdentity, type EntropySource } from '../worldEntropy';\n",
+              "import type { GeneratorAuthorityMode } from '../causalWorld/schema';\nimport type { SimEvent } from '../simEvents';\nimport { createRandomIdentity, type EntropySource } from '../worldEntropy';\nimport { recomputeWorld } from '../worldRecompute';\nimport { simulateTick } from '../worldSim';\n",
+          )
+          replace_once(
+              'src/core/worldStorage/index.ts',
+              "import { cloneWorldDocument } from '../worldCloning';\nimport { migrateWorldDocument } from '../worldMigrations/migrateWorldDocument';\n",
+              "import { cloneWorldDocument } from '../worldCloning';\nimport { migrateWorldDocument } from '../worldMigrations/migrateWorldDocument';\nimport { hashCanonicalJson } from '../worldProvenance/hash';\n",
+          )
+          replace_once(
+              'src/core/worldStorage/index.ts',
+              "import { CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION } from '../worldSchema/version';\n",
+              "import { CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION } from '../worldSchema/version';\nimport { validateWorld } from '../worldValidation';\n",
+          )
+          replace_once(
+              'src/core/worldStorage/index.ts',
+              "  randomContext?: SimRandomContextV1;\n  randomContextProvenance?: SimRandomContextProvenance;\n};\n",
+              "  randomContext?: SimRandomContextV1;\n  randomContextProvenance?: SimRandomContextProvenance;\n  replayStateHash?: string;\n};\n\nexport interface SimBranchTickCommitResult {\n  readonly record: SimBranchRecord;\n  readonly events: readonly SimEvent[];\n}\n",
+          )
+          replace_once(
+              'src/core/worldStorage/index.ts',
+              "    await tx(db, STORE_SIM_BRANCHES, 'readwrite', (s) => s.put(normalizeSimBranchRecord(record)));\n",
+              "    await tx(db, STORE_SIM_BRANCHES, 'readwrite', (s) => s.put(normalizeSimBranchRecord(record, 'SAVE')));\n",
+          )
+          regex_once(
+              'src/core/worldStorage/index.ts',
+              r"function normalizeSimBranchRecord\(record: SimBranchRecord\): SimBranchRecord \{.*?\n\}\n\nfunction canonicalize",
+              r'''type SimBranchNormalizationMode = 'LOAD' | 'SAVE';
+
+function normalizeSimBranchRecord(
+  record: SimBranchRecord,
+  mode: SimBranchNormalizationMode = 'LOAD',
+): SimBranchRecord {
+  if (!record || typeof record !== 'object') throw new Error('Sim branch record is missing or invalid.');
+  const sourceSchemaVersion = record.recordSchemaVersion ?? 1;
+  if (sourceSchemaVersion !== 1 && sourceSchemaVersion !== 2) {
+    throw new Error(`Sim branch ${record.id || '<unknown>'} uses unsupported record schema ${String(sourceSchemaVersion)}.`);
+  }
+  if (!Number.isSafeInteger(record.startYear) || !Number.isSafeInteger(record.currentYear)) {
+    throw new Error(`Sim branch ${record.id} startYear/currentYear must be safe integers.`);
+  }
+  if (record.currentYear < record.startYear) {
+    throw new Error(`Sim branch ${record.id} currentYear cannot precede startYear.`);
+  }
+
+  const migration = migrateWorldDocument(record.worldSnapshot);
+  if (migration.status === 'UNSUPPORTED_NEWER' || migration.status === 'QUARANTINED') {
+    throw new Error(`Sim branch ${record.id} snapshot cannot be loaded: ${migration.reason}`);
+  }
+
+  let randomContext: SimRandomContextV1;
+  let randomContextProvenance: SimRandomContextProvenance;
+  if (sourceSchemaVersion === 2) {
+    try {
+      validateSimRandomContext(record.randomContext);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'invalid random context';
+      throw new Error(`Sim branch ${record.id} schema 2 random context is invalid: ${reason}`);
+    }
+    randomContext = record.randomContext;
+    if (randomContext.rootWorldSeed !== migration.world.metadata.seed) {
+      throw new Error(`Sim branch ${record.id} random root seed does not match its world snapshot.`);
+    }
+    randomContextProvenance = validateSimRandomContextProvenance(record.randomContextProvenance, record.id);
+  } else {
+    randomContext = createSimRandomContext(
+      migration.world.metadata.seed,
+      deriveLegacySimBranchSalt({
+        baseWorldId: record.baseWorldId,
+        baseRevisionId: record.baseRevisionId || '',
+        branchId: record.id,
+        createdAt: record.createdAt,
+      }),
+      Math.max(0, Math.floor(record.currentYear - record.startYear)),
+    );
+    randomContextProvenance = {
+      source: 'COMPAT_DERIVED',
+      derivation: 'PERSISTED_IMMUTABLE_FIELDS_V1',
+      assumption: 'Pre-C02 branch randomness begins from persisted currentYear relative to startYear.',
+    };
+  }
+
+  const normalized: SimBranchRecord = {
+    ...record,
+    recordSchemaVersion: 2,
+    baseRevisionId: record.baseRevisionId || '',
+    baseContentHash: record.baseContentHash || '',
+    status: record.status || 'ACTIVE',
+    eventHistory: Array.isArray(record.eventHistory)
+      ? record.eventHistory.map((event) => ({ ...event }))
+      : [],
+    randomContext,
+    randomContextProvenance,
+    worldSnapshot: cloneWorldDocument(migration.world),
+  };
+  const replayStateHash = computeSimBranchReplayStateHash(normalized);
+  if (sourceSchemaVersion === 2 && mode === 'LOAD') {
+    if (typeof record.replayStateHash !== 'string' || record.replayStateHash.length === 0) {
+      throw new Error(`Sim branch ${record.id} schema 2 replay state hash is missing.`);
+    }
+    if (record.replayStateHash !== replayStateHash) {
+      throw new Error(`Sim branch ${record.id} replay state hash mismatch.`);
+    }
+  }
+  return { ...normalized, replayStateHash };
+}
+
+function validateSimRandomContextProvenance(
+  value: SimRandomContextProvenance | undefined,
+  branchId: string,
+): SimRandomContextProvenance {
+  if (!value) throw new Error(`Sim branch ${branchId} schema 2 random context provenance is missing.`);
+  if (value.source === 'CREATED_C02' && value.derivation === 'WEB_CRYPTO_BRANCH_SALT') {
+    return { source: value.source, derivation: value.derivation };
+  }
+  if (value.source === 'COMPAT_DERIVED' && value.derivation === 'PERSISTED_IMMUTABLE_FIELDS_V1') {
+    return {
+      source: value.source,
+      derivation: value.derivation,
+      ...(typeof value.assumption === 'string' ? { assumption: value.assumption } : {}),
+    };
+  }
+  throw new Error(`Sim branch ${branchId} schema 2 random context provenance is invalid.`);
+}
+
+export function computeSimBranchReplayStateHash(record: SimBranchRecord): string {
+  const hash = hashCanonicalJson({
+    contract: 'WorldWright/sim-branch-replay-state/v1',
+    recordSchemaVersion: 2,
+    id: record.id,
+    worldId: record.worldId,
+    baseWorldId: record.baseWorldId,
+    baseRevisionId: record.baseRevisionId || '',
+    baseContentHash: record.baseContentHash || '',
+    startYear: record.startYear,
+    currentYear: record.currentYear,
+    status: record.status,
+    worldSnapshotContentHash: computeWorldContentHash(record.worldSnapshot),
+    eventHistory: Array.isArray(record.eventHistory) ? record.eventHistory : [],
+    randomContext: record.randomContext ?? null,
+    randomContextProvenance: record.randomContextProvenance ?? null,
+  });
+  return `${hash.algorithm}:${hash.value}`;
+}
+
+function withSimBranchReplayStateHash(record: SimBranchRecord): SimBranchRecord {
+  return { ...record, replayStateHash: computeSimBranchReplayStateHash(record) };
+}
+
+function canonicalize''',
+          )
+          regex_once(
+              'src/core/worldStorage/index.ts',
+              r"function verifySimBranchReadback\(expected: SimBranchRecord, actual: SimBranchRecord \| null\): void \{.*?\n\}\n\nexport function createSimBranchRecordFromWorld",
+              r'''function verifySimBranchReadback(expected: SimBranchRecord, actual: SimBranchRecord | null): void {
+  if (!actual) {
+    throw new Error(`Sim branch readback verification failed: branch ${expected.id} was not found after save.`);
+  }
+  if (actual.id !== expected.id || actual.worldId !== expected.worldId) {
+    throw new Error(`Sim branch readback verification failed: branch identity mismatch for ${expected.id}.`);
+  }
+  if (actual.baseRevisionId !== expected.baseRevisionId) {
+    throw new Error(`Sim branch readback verification failed: base revision mismatch for ${expected.id}.`);
+  }
+  if (actual.baseContentHash !== expected.baseContentHash) {
+    throw new Error(`Sim branch readback verification failed: base content hash mismatch for ${expected.id}.`);
+  }
+  if (actual.currentYear !== expected.currentYear) {
+    throw new Error(`Sim branch readback verification failed: current year mismatch for ${expected.id}.`);
+  }
+  if (actual.replayStateHash !== expected.replayStateHash) {
+    throw new Error(`Sim branch readback verification failed: replay state hash mismatch for ${expected.id}.`);
+  }
+  if (computeSimBranchReplayStateHash(actual) !== actual.replayStateHash) {
+    throw new Error(`Sim branch readback verification failed: stored replay state is inconsistent for ${expected.id}.`);
+  }
+}
+
+export function createSimBranchRecordFromWorld''',
+          )
+          regex_once(
+              'src/core/worldStorage/index.ts',
+              r"export function createSimBranchRecordFromWorld\(.*?\n\}\n\nexport async function saveWorldWithEngine",
+              r'''export function createSimBranchRecordFromWorld(
+  baseWorld: WorldBrain,
+  name: string = `Branch ${new Date().toISOString()}`,
+  startYear: number = 0,
+  entropy?: EntropySource,
+): SimBranchRecord {
+  if (!Number.isSafeInteger(startYear)) throw new RangeError('Sim branch start year must be a safe integer.');
+  const currentWorld = readCurrentWorld(baseWorld, 'Cannot create Sim branch');
+  const now = new Date().toISOString();
+  const baseContentHash = currentWorld.metadata.contentHash || computeWorldContentHash(currentWorld);
+  const baseRevisionId = currentWorld.metadata.revisionId || createRevisionId(currentWorld, baseContentHash);
+
+  return withSimBranchReplayStateHash({
+    recordSchemaVersion: 2,
+    id: `simbranch_${createRandomIdentity(entropy)}`,
+    worldId: currentWorld.metadata.id,
+    name,
+    baseWorldId: currentWorld.metadata.id,
+    baseRevisionId,
+    baseContentHash,
+    startYear,
+    currentYear: startYear,
+    createdAt: now,
+    updatedAt: now,
+    status: 'ACTIVE',
+    worldSnapshot: cloneWorldDocument(currentWorld),
+    eventHistory: [],
+    randomContext: createSimRandomContext(currentWorld.metadata.seed, `sim-${createRandomIdentity(entropy)}`),
+    randomContextProvenance: {
+      source: 'CREATED_C02',
+      derivation: 'WEB_CRYPTO_BRANCH_SALT',
+    },
+  });
+}
+
+export async function saveWorldWithEngine''',
+          )
+          regex_once(
+              'src/core/worldStorage/index.ts',
+              r"export async function saveSimBranchRecordWithEngine\(.*?\n\}\n\nexport async function listWorldSummaries",
+              r'''export async function saveSimBranchRecordWithEngine(
+  record: SimBranchRecord,
+  engine: WorldStorageEngine
+): Promise<SimBranchRecord> {
+  const nextRecord = normalizeSimBranchRecord({
+    ...record,
+    updatedAt: new Date().toISOString(),
+  }, 'SAVE');
+
+  await engine.putSimBranchRecord(nextRecord);
+  const readbackRaw = await engine.getSimBranchRecord(nextRecord.id);
+  const readback = readbackRaw ? normalizeSimBranchRecord(readbackRaw, 'LOAD') : null;
+  verifySimBranchReadback(nextRecord, readback);
+
+  return readback as SimBranchRecord;
+}
+
+export async function simulateAndSaveSimBranchTickWithEngine(
+  record: SimBranchRecord,
+  engine: WorldStorageEngine,
+  dt = 1,
+): Promise<SimBranchTickCommitResult> {
+  const current = normalizeSimBranchRecord(record, 'SAVE');
+  const candidateWorld = cloneWorldDocument(current.worldSnapshot);
+  const result = simulateTick(candidateWorld, {
+    branchId: current.id,
+    year: current.currentYear,
+    dt,
+    randomContext: current.randomContext as SimRandomContextV1,
+  });
+  recomputeWorld(candidateWorld, ['SIM_STEP']);
+  const errors = validateWorld(candidateWorld);
+  if (errors.length > 0) {
+    throw new Error(`Sim branch tick validation failed for ${current.id}: ${errors.join(' ')}`);
+  }
+
+  const candidateRecord = withSimBranchReplayStateHash({
+    ...current,
+    currentYear: current.currentYear + dt,
+    worldSnapshot: candidateWorld,
+    randomContext: result.nextRandomContext,
+    updatedAt: new Date().toISOString(),
+  });
+  const saved = await saveSimBranchRecordWithEngine(candidateRecord, engine);
+  return Object.freeze({ record: saved, events: Object.freeze([...result.events]) });
+}
+
+export async function listWorldSummaries''',
+          )
+          replace_once(
+              'src/core/worldStorage/index.ts',
+              "export async function saveSimBranchRecord(record: SimBranchRecord): Promise<SimBranchRecord> {\n  return saveSimBranchRecordWithEngine(record, indexedDbStorageEngine);\n}\n\nexport async function deleteSimBranchRecord(id: string): Promise<void> {\n",
+              "export async function saveSimBranchRecord(record: SimBranchRecord): Promise<SimBranchRecord> {\n  return saveSimBranchRecordWithEngine(record, indexedDbStorageEngine);\n}\n\nexport async function simulateAndSaveSimBranchTick(\n  record: SimBranchRecord,\n  dt = 1,\n): Promise<SimBranchTickCommitResult> {\n  return simulateAndSaveSimBranchTickWithEngine(record, indexedDbStorageEngine, dt);\n}\n\nexport async function deleteSimBranchRecord(id: string): Promise<void> {\n",
+          )
+
+          # Simulation contract tests.
+          replace_once(
+              'test/worldSimDeterminism.spec.ts',
+              "import { createEmptyLegacyCausalScaffold } from '../src/core/causalWorld/schema';\n",
+              "import { createEmptyLegacyCausalScaffold } from '../src/core/causalWorld/schema';\nimport { resolveWorldFeatureFlags } from '../src/core/worldFeatureFlags/resolve';\n",
+          )
+          replace_once(
+              'test/worldSimDeterminism.spec.ts',
+              "  it('keeps canonical Create state unchanged when ticking a cloned branch', () => {\n",
+              "  it('rejects fractional time and non-integer years before any mutation', () => {\n    const world = worldFixture();\n    const before = cloneWorldDocument(world);\n    const context = createSimRandomContext(world.metadata.seed, 'branch-salt-a', 5);\n    expect(() => simulateTick(world, { branchId: 'branch-a', year: 10, randomContext: context, dt: 0.5 })).toThrow(/safe integer/);\n    expect(() => simulateTick(world, { branchId: 'branch-a', year: 10.5, randomContext: context })).toThrow(/safe integer/);\n    expect(world).toEqual(before);\n    expect(context.tickIndex).toBe(5);\n  });\n\n  it('fails closed when the deterministic simulation flag is disabled', () => {\n    const world = worldFixture();\n    const context = createSimRandomContext(world.metadata.seed, 'branch-salt-a', 1);\n    const flags = resolveWorldFeatureFlags('LEGACY', { 'simulation.deterministic-rng.enabled': false });\n    expect(() => simulateTick(world, { branchId: 'branch-a', year: 10, randomContext: context, flags })).toThrow(/disabled/);\n  });\n\n  it('keeps canonical Create state unchanged when ticking a cloned branch', () => {\n",
+          )
+
+          # Storage/replay tests and adjusted corruption expectation.
+          replace_once(
+              'src/core/worldStorage/simBranchRecords.test.ts',
+              "  computeWorldContentHash,\n  createSimBranchRecordFromWorld,\n  saveSimBranchRecordWithEngine,\n",
+              "  computeWorldContentHash,\n  createSimBranchRecordFromWorld,\n  saveSimBranchRecordWithEngine,\n  simulateAndSaveSimBranchTickWithEngine,\n",
+          )
+          replace_once(
+              'src/core/worldStorage/simBranchRecords.test.ts',
+              "    await expect(saveSimBranchRecordWithEngine(branch, engine)).rejects.toThrow(/base content hash mismatch/);\n",
+              "    await expect(saveSimBranchRecordWithEngine(branch, engine)).rejects.toThrow(/replay state hash mismatch|base content hash mismatch/);\n",
+          )
+          replace_once(
+              'src/core/worldStorage/simBranchRecords.test.ts',
+              "  it('persists tick-style currentYear updates through storage roundtrip', async () => {\n",
+              "  it('fails closed when a schema-2 readback has corrupted random state', async () => {\n    const engine = new MemoryWorldStorageEngine();\n    const savedWorld = await saveWorldWithEngine(makeWorld('branch-corrupt-rng-base'), engine);\n    const branch = createSimBranchRecordFromWorld(savedWorld, 'Corrupt RNG branch');\n    engine.getSimBranchRecord = async () => {\n      const tampered = structuredClone(branch);\n      tampered.randomContext = tampered.randomContext\n        ? { ...tampered.randomContext, tickIndex: tampered.randomContext.tickIndex + 1 }\n        : undefined;\n      return tampered;\n    };\n\n    await expect(saveSimBranchRecordWithEngine(branch, engine)).rejects.toThrow(/replay state hash mismatch/);\n  });\n\n  it('rejects unsupported future Sim branch record schemas', async () => {\n    const engine = new MemoryWorldStorageEngine();\n    const savedWorld = await saveWorldWithEngine(makeWorld('branch-future-schema-base'), engine);\n    const branch = createSimBranchRecordFromWorld(savedWorld, 'Future schema branch');\n    const unsupported = { ...branch, recordSchemaVersion: 99 as never };\n    await expect(saveSimBranchRecordWithEngine(unsupported, engine)).rejects.toThrow(/unsupported record schema/);\n  });\n\n  it('round-trips and replays a persisted tick with snapshot, year, and random context together', async () => {\n    const firstEngine = new MemoryWorldStorageEngine();\n    const replayEngine = new MemoryWorldStorageEngine();\n    const savedWorld = await saveWorldWithEngine(makeWorld('branch-replay-base'), firstEngine);\n    const starting = await saveSimBranchRecordWithEngine(\n      createSimBranchRecordFromWorld(savedWorld, 'Replay branch', 12),\n      firstEngine,\n    );\n    await replayEngine.putSimBranchRecord(structuredClone(starting));\n\n    const first = await simulateAndSaveSimBranchTickWithEngine(starting, firstEngine, 1);\n    const replay = await simulateAndSaveSimBranchTickWithEngine(structuredClone(starting), replayEngine, 1);\n    expect(replay.record.worldSnapshot).toEqual(first.record.worldSnapshot);\n    expect(replay.record.currentYear).toBe(first.record.currentYear);\n    expect(replay.record.randomContext).toEqual(first.record.randomContext);\n    expect(replay.record.replayStateHash).toBe(first.record.replayStateHash);\n    expect(replay.events.map((event) => event.id)).toEqual(first.events.map((event) => event.id));\n\n    const loadedFirst = await firstEngine.getSimBranchRecord(starting.id);\n    const loadedReplay = await replayEngine.getSimBranchRecord(starting.id);\n    const firstNext = await simulateAndSaveSimBranchTickWithEngine(loadedFirst!, firstEngine, 1);\n    const replayNext = await simulateAndSaveSimBranchTickWithEngine(loadedReplay!, replayEngine, 1);\n    expect(replayNext.record.worldSnapshot).toEqual(firstNext.record.worldSnapshot);\n    expect(replayNext.record.randomContext).toEqual(firstNext.record.randomContext);\n    expect(replayNext.record.replayStateHash).toBe(firstNext.record.replayStateHash);\n  });\n\n  it('does not advance the caller record when a tick save fails', async () => {\n    const engine = new MemoryWorldStorageEngine();\n    const savedWorld = await saveWorldWithEngine(makeWorld('branch-failed-save-base'), engine);\n    const branch = createSimBranchRecordFromWorld(savedWorld, 'Failed save branch');\n    const before = structuredClone(branch);\n    engine.putSimBranchRecord = async () => { throw new Error('simulated persistence failure'); };\n    await expect(simulateAndSaveSimBranchTickWithEngine(branch, engine, 1)).rejects.toThrow(/persistence failure/);\n    expect(branch).toEqual(before);\n  });\n\n  it('persists tick-style currentYear updates through storage roundtrip', async () => {\n",
+          )
+          replace_once(
+              'src/core/worldStorage/simBranchRecords.test.ts',
+              "    await saveSimBranchRecordWithEngine({ ...branch, currentYear: branch.currentYear + 1 }, engine);\n",
+              "    await saveSimBranchRecordWithEngine({\n      ...branch,\n      currentYear: branch.currentYear + 1,\n      randomContext: branch.randomContext\n        ? { ...branch.randomContext, tickIndex: branch.randomContext.tickIndex + 1 }\n        : undefined,\n    }, engine);\n",
+          )
+
+          # Nested provenance regression tests.
+          replace_once(
+              'test/worldProvenance.spec.ts',
+              "  it('records stage hashes with declared streams and flags', () => {\n",
+              "  it('rejects malformed nested provenance rather than preserving it as valid', () => {\n    const manifest = createC02ProvenanceManifest({\n      seed: '1040037',\n      worldSchemaVersion: 4,\n      generatorVersion: 'v1.5.1',\n      pipelineVersion: 'legacy-v1',\n      observedLegacyGeneration: true,\n    });\n    const badAlgorithm = structuredClone(manifest) as unknown as { randomSystem: { causalAlgorithm: string } };\n    badAlgorithm.randomSystem.causalAlgorithm = 'not-philox';\n    expect(isCausalProvenanceManifestV1(badAlgorithm)).toBe(false);\n\n    const badStream = structuredClone(manifest) as unknown as { streams: Array<{ version: number }> };\n    badStream.streams[0].version = 0;\n    expect(isCausalProvenanceManifestV1(badStream)).toBe(false);\n  });\n\n  it('records stage hashes with declared streams and flags', () => {\n",
+          )
+
+          # Keep the implementation record honest without baking in a future run number.
+          replace_once(
+              'docs/implementation/C02_IMPLEMENTATION_STATUS.md',
+              "- Run #384: exact source through deterministic Sim/session/storage integration — all configured jobs passed.\n- Final complete-head CI and artifact evidence must be recorded before merge review.\n",
+              "- Run #384: exact source through deterministic Sim/session/storage integration — all configured jobs passed.\n- Run #410: pre-audit complete head — build, tests, snapshot canary, and full-globe review passed.\n- Post-audit corrections add atomic persisted tick/save, replay-state hashing, strict schema-2 validation, integer simulation time, and nested provenance validation.\n- The final corrected-head run ID and artifact evidence are recorded in the PR conversation after GitHub assigns them.\n",
+          )
+
+          # Remove both one-time operational workflows before publishing the correction.
+          Path('.github/workflows/c02-audit-source-export.yml').unlink(missing_ok=True)
+          Path('.github/workflows/c02-audit-fix.yml').unlink(missing_ok=True)
+          PY
+      - name: Run focused and complete validation
+        run: |
+          set -euo pipefail
+          npm run test:run
+          npm run build
+      - name: Commit audited corrections
+        run: |
+          set -euo pipefail
+          git config user.name 'WorldWright C02 Audit'
+          git config user.email 'actions@github.com'
+          git add src/core/worldSim/index.ts \
+                  src/core/worldStorage/index.ts \
+                  src/core/worldStorage/simBranchRecords.test.ts \
+                  src/core/worldProvenance/schema.ts \
+                  test/worldSimDeterminism.spec.ts \
+                  test/worldProvenance.spec.ts \
+                  docs/implementation/C02_IMPLEMENTATION_STATUS.md \
+                  .github/workflows/c02-audit-source-export.yml \
+                  .github/workflows/c02-audit-fix.yml
+          git commit -m 'Fix C02 persisted replay audit blockers'
+          git push origin HEAD:agent/c02-deterministic-seeds-flags-provenance
