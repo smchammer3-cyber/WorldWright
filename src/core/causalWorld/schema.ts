@@ -19,14 +19,21 @@ export interface CausalWorldScaffoldV1 {
   interior?: InteriorStateV1;
   regimeHistory?: TectonicRegimeHistoryV1;
   geologicSpine?: GeologicSpineV1;
-  eventGraph?: Record<string, unknown>;
-  processRegistry?: Record<string, unknown>;
-  physicalSurface?: Record<string, unknown>;
-  ledgers?: Record<string, unknown>;
-  scaleRegistry?: Record<string, unknown>;
   provenance?: CausalProvenanceManifestV1;
   confidence?: CausalConfidenceLedgerV1;
 }
+
+const SCAFFOLD_KEYS = new Set<keyof CausalWorldScaffoldV1>([
+  'schemaVersion',
+  'authorityMode',
+  'status',
+  'premise',
+  'interior',
+  'regimeHistory',
+  'geologicSpine',
+  'provenance',
+  'confidence',
+]);
 
 export function createEmptyLegacyCausalScaffold(): CausalWorldScaffoldV1 {
   return {
@@ -37,8 +44,9 @@ export function createEmptyLegacyCausalScaffold(): CausalWorldScaffoldV1 {
 }
 
 export function isCausalWorldScaffoldV1(value: unknown): value is CausalWorldScaffoldV1 {
-  if (!value || typeof value !== 'object') return false;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const candidate = value as Partial<CausalWorldScaffoldV1>;
+  if (Object.keys(candidate).some((key) => !SCAFFOLD_KEYS.has(key as keyof CausalWorldScaffoldV1))) return false;
   if (candidate.schemaVersion !== 1
     || !['LEGACY', 'CAUSAL_SHADOW', 'CAUSAL_ACTIVE'].includes(candidate.authorityMode as string)
     || !['EMPTY', 'SHADOW', 'ACTIVE'].includes(candidate.status as string)
