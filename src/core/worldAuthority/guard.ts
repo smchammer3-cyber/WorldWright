@@ -9,7 +9,7 @@ import {
 } from './types';
 
 const CELL_FIELDS: Readonly<Record<AuthorityFieldGroup, readonly string[]>> = Object.freeze({
-  metadata: [], planetInput: [],
+  metadata: [], planetInput: [], planetInitialConditions: [],
   terrain: ['baseHeight', 'editHeightDelta', 'simHeightDelta'],
   derivedSurface: ['isWater', 'oceanDepthClass', 'surfaceType'],
   plateCause: ['plateId', 'plateType', 'boundaryType'],
@@ -20,7 +20,10 @@ const CELL_FIELDS: Readonly<Record<AuthorityFieldGroup, readonly string[]>> = Ob
   biomeDerived: ['baseBiomeId', 'editBiomeId'],
   hydrologyDerived: ['flowDirection', 'flowAccumulation', 'basinId'],
   worldCollections: [], worldbuilding: ['countryId', 'cultureId', 'cultureMix'],
-  causalRecord: [], diagnostics: [], presentation: [],
+  causalRecord: [], processFieldAuthority: [], structuralRoleAuthority: [],
+  structureMaterialCause: [], landformPotentialAuthority: [], baseTerrain: [],
+  provisionalSurfaceBoundary: [], surfaceEvolutionDelta: [], finalTerrain: [],
+  terrainCauseLedger: [], diagnostics: [], presentation: [],
 });
 
 interface AuthoritySnapshot {
