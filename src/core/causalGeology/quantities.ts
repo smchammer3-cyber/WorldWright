@@ -27,15 +27,10 @@ export const CAUSAL_QUANTITY_SCALES: readonly ScientificScaleDefinitionV1[] = Ob
 const SCALE_BY_ID = new Map(CAUSAL_QUANTITY_SCALES.map((definition) => [definition.scaleId, definition]));
 if (SCALE_BY_ID.size !== CAUSAL_QUANTITY_SCALES.length) throw new Error('Duplicate causal quantity scale ID.');
 
-export function createScientificQuantity(
-  value: number,
-  unit: string,
-  scaleId: string,
-  derivationId?: string,
-): ScientificQuantityV1 {
+export function createScientificQuantity(value: number, unit: string, scaleId: string, derivationId?: string): ScientificQuantityV1 {
   const quantity: ScientificQuantityV1 = {
     schemaVersion: 1,
-    value,
+    value: canonicalNumber(value),
     unit,
     scaleId,
     ...(derivationId ? { derivationId } : {}),
@@ -44,14 +39,15 @@ export function createScientificQuantity(
   return cloneAndDeepFreeze(quantity);
 }
 
-export function createScientificRange(
-  min: number,
-  max: number,
-  unit: string,
-  scaleId: string,
-  confidenceSubject: string,
-): ScientificRangeV1 {
-  const range: ScientificRangeV1 = { schemaVersion: 1, min, max, unit, scaleId, confidenceSubject };
+export function createScientificRange(min: number, max: number, unit: string, scaleId: string, confidenceSubject: string): ScientificRangeV1 {
+  const range: ScientificRangeV1 = {
+    schemaVersion: 1,
+    min: canonicalNumber(min),
+    max: canonicalNumber(max),
+    unit,
+    scaleId,
+    confidenceSubject,
+  };
   validateScientificRange(range);
   return cloneAndDeepFreeze(range);
 }
@@ -59,7 +55,7 @@ export function createScientificRange(
 export function validateScientificQuantity(value: unknown): asserts value is ScientificQuantityV1 {
   if (!value || typeof value !== 'object') throw new Error('Scientific quantity must be an object.');
   const quantity = value as Partial<ScientificQuantityV1>;
-  if (quantity.schemaVersion !== 1 || !Number.isFinite(quantity.value)) throw new Error('Scientific quantity value is invalid.');
+  if (quantity.schemaVersion !== 1 || !Number.isFinite(quantity.value) || Object.is(quantity.value, -0)) throw new Error('Scientific quantity value is invalid or non-canonical.');
   const scale = getScientificScale(quantity.scaleId);
   if (quantity.unit !== scale.unit) throw new Error(`Quantity unit ${String(quantity.unit)} does not match scale ${scale.scaleId}.`);
   enforceScaleBounds(quantity.value as number, scale, 'Scientific quantity');
@@ -69,8 +65,8 @@ export function validateScientificQuantity(value: unknown): asserts value is Sci
 export function validateScientificRange(value: unknown): asserts value is ScientificRangeV1 {
   if (!value || typeof value !== 'object') throw new Error('Scientific range must be an object.');
   const range = value as Partial<ScientificRangeV1>;
-  if (range.schemaVersion !== 1 || !Number.isFinite(range.min) || !Number.isFinite(range.max) || (range.min as number) > (range.max as number)) {
-    throw new Error('Scientific range bounds are invalid.');
+  if (range.schemaVersion !== 1 || !Number.isFinite(range.min) || !Number.isFinite(range.max) || Object.is(range.min, -0) || Object.is(range.max, -0) || (range.min as number) > (range.max as number)) {
+    throw new Error('Scientific range bounds are invalid or non-canonical.');
   }
   const scale = getScientificScale(range.scaleId);
   if (range.unit !== scale.unit) throw new Error(`Range unit ${String(range.unit)} does not match scale ${scale.scaleId}.`);
@@ -90,6 +86,11 @@ export function assertCompatibleQuantities(a: ScientificQuantityV1, b: Scientifi
   validateScientificQuantity(a);
   validateScientificQuantity(b);
   if (a.unit !== b.unit || a.scaleId !== b.scaleId) throw new Error(`Incompatible scientific quantities: ${a.scaleId} versus ${b.scaleId}.`);
+}
+
+function canonicalNumber(value: number): number {
+  if (!Number.isFinite(value)) return value;
+  return Object.is(value, -0) ? 0 : value;
 }
 
 function enforceScaleBounds(value: number, scale: ScientificScaleDefinitionV1, label: string): void {

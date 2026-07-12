@@ -1,6 +1,7 @@
 export * from './types';
 export * from './immutable';
 export * from './hashes';
+export * from './limits';
 export * from './quantities';
 export * from './inputAuthority';
 export * from './stageResult';

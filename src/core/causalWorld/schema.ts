@@ -1,8 +1,8 @@
 import type { GeologicSpineV1, InteriorStateV1, PlanetaryPremiseV1, TectonicRegimeHistoryV1 } from '../causalGeology/types';
-import { validateGeologicSpine, validateInteriorState, validatePlanetaryPremise, validateTectonicRegimeHistory } from '../causalGeology/validation';
+import { validateCausalDomainReferences, validateGeologicSpine, validateInteriorState, validatePlanetaryPremise, validateTectonicRegimeHistory } from '../causalGeology/validation';
 import { isCausalConfidenceLedgerV1 } from '../worldConfidence/confidence';
 import type { CausalConfidenceLedgerV1 } from '../worldConfidence/types';
-import type { CausalProvenanceManifestV1 } from '../worldProvenance/schema';
+import { isCausalProvenanceManifestV1, type CausalProvenanceManifestV1 } from '../worldProvenance/schema';
 
 export type GeneratorAuthorityMode =
   | 'LEGACY'
@@ -42,14 +42,31 @@ export function isCausalWorldScaffoldV1(value: unknown): value is CausalWorldSca
   if (candidate.schemaVersion !== 1
     || !['LEGACY', 'CAUSAL_SHADOW', 'CAUSAL_ACTIVE'].includes(candidate.authorityMode as string)
     || !['EMPTY', 'SHADOW', 'ACTIVE'].includes(candidate.status as string)
-    || (candidate.confidence !== undefined && !isCausalConfidenceLedgerV1(candidate.confidence))) return false;
+    || !authorityStatusMatch(candidate.authorityMode, candidate.status)
+    || (candidate.confidence !== undefined && !isCausalConfidenceLedgerV1(candidate.confidence))
+    || (candidate.provenance !== undefined && !isCausalProvenanceManifestV1(candidate.provenance))
+    || (candidate.provenance !== undefined && candidate.provenance.authorityMode !== candidate.authorityMode)) return false;
   try {
     if (candidate.premise !== undefined) validatePlanetaryPremise(candidate.premise);
     if (candidate.interior !== undefined) validateInteriorState(candidate.interior);
     if (candidate.regimeHistory !== undefined) validateTectonicRegimeHistory(candidate.regimeHistory);
     if (candidate.geologicSpine !== undefined) validateGeologicSpine(candidate.geologicSpine);
+    if (candidate.authorityMode === 'LEGACY' && [candidate.premise, candidate.interior, candidate.regimeHistory, candidate.geologicSpine].some((entry) => entry !== undefined)) return false;
+    if (candidate.interior !== undefined && candidate.premise === undefined) return false;
+    if (candidate.regimeHistory !== undefined && candidate.interior === undefined) return false;
+    if (candidate.geologicSpine !== undefined && candidate.regimeHistory === undefined) return false;
+    if ([candidate.premise, candidate.interior, candidate.regimeHistory, candidate.geologicSpine].some((entry) => entry !== undefined)) {
+      if (!candidate.confidence) return false;
+      validateCausalDomainReferences({ premise: candidate.premise, interior: candidate.interior, regimeHistory: candidate.regimeHistory, geologicSpine: candidate.geologicSpine }, candidate.confidence);
+    }
     return true;
   } catch {
     return false;
   }
+}
+
+function authorityStatusMatch(authorityMode: GeneratorAuthorityMode | undefined, status: CausalWorldStatus | undefined): boolean {
+  return (authorityMode === 'LEGACY' && status === 'EMPTY')
+    || (authorityMode === 'CAUSAL_SHADOW' && status === 'SHADOW')
+    || (authorityMode === 'CAUSAL_ACTIVE' && status === 'ACTIVE');
 }

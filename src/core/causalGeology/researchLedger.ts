@@ -1,6 +1,9 @@
+import { CAUSAL_INPUT_AUTHORITY_REGISTRY } from './inputAuthority';
 import { cloneAndDeepFreeze } from './immutable';
 import { assertDeterministicHash, deterministicHashEquals, hashCausalPayload } from './hashes';
 import type { ScientificClaimRuleV1, ScientificResearchBundleV1, ScientificSourceV1 } from './types';
+
+const APPROVED_INPUT_IDS = new Set(CAUSAL_INPUT_AUTHORITY_REGISTRY.map((entry) => entry.inputId));
 
 export function createScientificResearchBundle(input: Omit<ScientificResearchBundleV1, 'schemaVersion' | 'contentHash'>): ScientificResearchBundleV1 {
   const payload = {
@@ -29,9 +32,12 @@ export function validateScientificResearchBundle(value: unknown): asserts value 
   const sources = bundle.sources as readonly ScientificSourceV1[];
   const rules = bundle.claimRules as readonly ScientificClaimRuleV1[];
   const sourceIds: string[] = [];
+  const fingerprints = new Set<string>();
   for (const source of sources) {
     validateScientificSource(source);
     sourceIds.push(source.sourceId);
+    if (fingerprints.has(source.contentFingerprint)) throw new Error(`Duplicate scientific source fingerprint: ${source.contentFingerprint}`);
+    fingerprints.add(source.contentFingerprint);
     if (!groups.includes(source.correlationGroupId)) throw new Error(`Source ${source.sourceId} references unknown correlation group ${source.correlationGroupId}.`);
   }
   assertCanonicalUniqueIds(sourceIds, 'Scientific source IDs');
@@ -42,9 +48,8 @@ export function validateScientificResearchBundle(value: unknown): asserts value 
     ruleIds.push(rule.ruleId);
     for (const sourceId of rule.sourceIds) if (!sourceSet.has(sourceId)) throw new Error(`Rule ${rule.ruleId} references missing source ${sourceId}.`);
     if (!groups.includes(rule.correlationGroupId)) throw new Error(`Rule ${rule.ruleId} references unknown correlation group ${rule.correlationGroupId}.`);
-    if (rule.evidenceStatus === 'REVIEWED' && (!isNonEmptyText(rule.reviewer) || !isIsoDate(rule.reviewDate))) {
-      throw new Error(`Reviewed rule ${rule.ruleId} requires reviewer and review date.`);
-    }
+    if (rule.evidenceStatus === 'REVIEWED' && (!isNonEmptyText(rule.reviewer) || !isIsoDate(rule.reviewDate))) throw new Error(`Reviewed rule ${rule.ruleId} requires reviewer and review date.`);
+    if (rule.reviewDate !== undefined && !isIsoDate(rule.reviewDate)) throw new Error(`Rule ${rule.ruleId} review date is invalid.`);
   }
   assertCanonicalUniqueIds(ruleIds, 'Scientific rule IDs');
   assertDeterministicHash(bundle.contentHash, 'Scientific research bundle');
@@ -68,10 +73,8 @@ export function validateScientificSource(value: unknown): asserts value is Scien
     ['authors/institution', source.authorsOrInstitution], ['domain', source.domain], ['correlation group', source.correlationGroupId],
     ['license/usage note', source.licenseOrUsageNote], ['content fingerprint', source.contentFingerprint],
   ] as const) if (!isNonEmptyText(field)) throw new Error(`Scientific source ${label} is invalid.`);
-  if (!['PRIMARY_PEER_REVIEWED', 'AUTHORITATIVE_DATA_OR_MODEL', 'REVIEW_OR_SYNTHESIS', 'INTERNAL_CONTROLLED_ARCHETYPE', 'INTERNAL_HYPOTHESIS'].includes(source.qualityClass as string)) {
-    throw new Error(`Scientific source ${source.sourceId} quality class is invalid.`);
-  }
-  if (source.publicationYear !== undefined && (!Number.isSafeInteger(source.publicationYear) || source.publicationYear < 0)) throw new Error(`Scientific source ${source.sourceId} publication year is invalid.`);
+  if (!['PRIMARY_PEER_REVIEWED', 'AUTHORITATIVE_DATA_OR_MODEL', 'REVIEW_OR_SYNTHESIS', 'INTERNAL_CONTROLLED_ARCHETYPE', 'INTERNAL_HYPOTHESIS'].includes(source.qualityClass as string)) throw new Error(`Scientific source ${source.sourceId} quality class is invalid.`);
+  if (source.publicationYear !== undefined && (!Number.isSafeInteger(source.publicationYear) || source.publicationYear < 0 || source.publicationYear > 9999)) throw new Error(`Scientific source ${source.sourceId} publication year is invalid.`);
   if (source.revisionOrAccessDate !== undefined && !isIsoDate(source.revisionOrAccessDate)) throw new Error(`Scientific source ${source.sourceId} access date is invalid.`);
   validateSortedUniqueText(source.limitations, `Scientific source ${source.sourceId} limitations`);
 }
@@ -79,14 +82,14 @@ export function validateScientificSource(value: unknown): asserts value is Scien
 export function validateScientificClaimRule(value: unknown): asserts value is ScientificClaimRuleV1 {
   if (!value || typeof value !== 'object') throw new Error('Scientific claim rule must be an object.');
   const rule = value as Partial<ScientificClaimRuleV1>;
-  if (rule.schemaVersion !== 1 || !isNonEmptyText(rule.ruleId) || !isNonEmptyText(rule.domain) || !Number.isSafeInteger(rule.version) || (rule.version as number) < 1) {
-    throw new Error('Scientific claim rule identity is invalid.');
-  }
-  validateSortedUniqueText(rule.sourceIds, `Rule ${rule.ruleId} source IDs`);
-  validateSortedUniqueText(rule.applicableInputIds, `Rule ${rule.ruleId} input IDs`);
+  if (rule.schemaVersion !== 1 || !isNonEmptyText(rule.ruleId) || !isNonEmptyText(rule.domain) || !Number.isSafeInteger(rule.version) || (rule.version as number) < 1) throw new Error('Scientific claim rule identity is invalid.');
+  const sourceIds = validateSortedUniqueText(rule.sourceIds, `Rule ${rule.ruleId} source IDs`);
+  const inputIds = validateSortedUniqueText(rule.applicableInputIds, `Rule ${rule.ruleId} input IDs`);
+  for (const inputId of inputIds) if (!APPROVED_INPUT_IDS.has(inputId as never)) throw new Error(`Rule ${rule.ruleId} references unapproved input ${inputId}.`);
   if (!isNonEmptyText(rule.expectedRelation) || !isNonEmptyText(rule.weightRationale) || !isNonEmptyText(rule.correlationGroupId)) throw new Error(`Rule ${rule.ruleId} explanatory fields are invalid.`);
   validateSortedUniqueText(rule.exceptions, `Rule ${rule.ruleId} exceptions`);
   if (!['RESEARCH_REQUIRED', 'PROVISIONAL', 'REVIEWED'].includes(rule.evidenceStatus as string)) throw new Error(`Rule ${rule.ruleId} evidence status is invalid.`);
+  if (rule.evidenceStatus !== 'RESEARCH_REQUIRED' && sourceIds.length === 0) throw new Error(`Rule ${rule.ruleId} requires at least one source.`);
 }
 
 function sortedUniqueText<T extends string>(values: readonly T[], label: string): readonly T[] {
@@ -112,7 +115,10 @@ function assertCanonicalUniqueIds(values: readonly string[], label: string): voi
 }
 
 function isIsoDate(value: unknown): value is string {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00Z`));
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
 function isNonEmptyText(value: unknown): value is string {

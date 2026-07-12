@@ -1,6 +1,7 @@
 import type { CausalConfidenceLedgerV1 } from '../worldConfidence/types';
 import type { CausalProvenanceManifestV1 } from '../worldProvenance/schema';
 import type { DeterministicHash } from '../worldProvenance/hash';
+import type { RootSeedIdentity } from '../worldRandom/types';
 
 export type CausalGeologyStageId =
   | 'CAUSAL_INPUT_SANITIZATION'
@@ -11,6 +12,7 @@ export type CausalGeologyStageId =
   | 'CAUSAL_SHADOW_AUDIT';
 
 export type CausalStageStatus = 'COMPLETE' | 'PARTIAL' | 'BLOCKED' | 'FAILED';
+export type CausalDomainStatus = 'COMPLETE' | 'PARTIAL';
 export type CausalInputSourceClass = 'DIRECT_DECLARATION' | 'APPROVED_PHYSICAL_DERIVATION';
 export type CausalShadowLoadStatus = 'LOADED' | 'UNSUPPORTED_NEWER' | 'QUARANTINED';
 
@@ -57,13 +59,14 @@ export interface CausalInputDeclarationV1 {
   readonly sourceClass: CausalInputSourceClass;
   readonly sourceRecordId: string;
   readonly formulaVersion?: string;
+  readonly confidenceSubject: string;
   readonly evidenceIds: readonly string[];
 }
 
 export interface CausalGeologyInputV1 {
   readonly schemaVersion: 1;
   readonly inputContractVersion: 1;
-  readonly rootSeed: string;
+  readonly rootSeed: RootSeedIdentity;
   readonly sourceDeclarations: readonly CausalInputDeclarationV1[];
   readonly physicalInputs: Readonly<Record<string, ScientificQuantityV1>>;
   readonly approvedDerivations: Readonly<Record<string, ScientificQuantityV1>>;
@@ -82,6 +85,8 @@ export interface CausalStageResultV1<TRecord = unknown> {
   readonly outputHash?: DeterministicHash;
   readonly record?: TRecord;
   readonly limitations: readonly string[];
+  readonly missingDomains: readonly string[];
+  readonly downstreamCompatibleStageIds: readonly CausalGeologyStageId[];
   readonly blockingReasons: readonly string[];
   readonly validationIssues: readonly string[];
   readonly evidenceIds: readonly string[];
@@ -155,7 +160,7 @@ export interface SphericalExtentV1 {
 
 export interface CausalDomainRecordBaseV1 {
   readonly schemaVersion: 1;
-  readonly status: Exclude<CausalStageStatus, 'FAILED'>;
+  readonly status: CausalDomainStatus;
   readonly evidenceIds: readonly string[];
   readonly contradictionIds: readonly string[];
   readonly limitations: readonly string[];
@@ -170,17 +175,31 @@ export interface PlanetaryPremiseV1 extends CausalDomainRecordBaseV1 {
   readonly surfaceWaterCandidates: readonly string[];
   readonly layerStackCandidates: readonly string[];
   readonly resolvedLayerStack?: readonly string[];
+  readonly assumptions: readonly string[];
   readonly branchResolutionIds: readonly string[];
   readonly confidenceAssessmentSubject: string;
+}
+
+export type InteriorHeatSourceId = 'PRIMORDIAL' | 'RADIOGENIC' | 'TIDAL';
+
+export interface InteriorHeatSourceFractionV1 {
+  readonly sourceId: InteriorHeatSourceId;
+  readonly fractionRange: ScientificRangeV1;
 }
 
 export interface InteriorStateV1 extends CausalDomainRecordBaseV1 {
   readonly interiorVersion: number;
   readonly thermalBudgetRange: ScientificRangeV1;
+  readonly heatSourceFractions: readonly InteriorHeatSourceFractionV1[];
   readonly mantleConvectionRange: ScientificRangeV1;
   readonly rheologyCandidates: readonly string[];
+  readonly lithosphereBehaviorCandidates: readonly string[];
   readonly lidRegimeCandidates: readonly string[];
   readonly resolvedLidRegime?: string;
+  readonly meltAndVolcanismRange: ScientificRangeV1;
+  readonly riftTendencyRange: ScientificRangeV1;
+  readonly hotspotTendencyRange: ScientificRangeV1;
+  readonly assumptions: readonly string[];
   readonly branchResolutionIds: readonly string[];
   readonly confidenceAssessmentSubject: string;
 }
@@ -191,6 +210,12 @@ export interface TectonicEpochV1 {
   readonly startTime: number;
   readonly endTime: number;
   readonly regimeFamily: string;
+  readonly mobilityRange: ScientificRangeV1;
+  readonly extensionRange: ScientificRangeV1;
+  readonly convergenceRange: ScientificRangeV1;
+  readonly transformRange: ScientificRangeV1;
+  readonly plumeRange: ScientificRangeV1;
+  readonly crustProductionRange: ScientificRangeV1;
   readonly confidenceSubject: string;
   readonly evidenceIds: readonly string[];
 }

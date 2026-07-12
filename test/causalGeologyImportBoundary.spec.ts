@@ -1,19 +1,35 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { basename, extname, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const futureResolverFiles = ['premise.ts', 'interior.ts', 'regimeHistory.ts', 'geologicSpine.ts'];
-const forbiddenImports = ['worldSchema', 'worldGenerator', 'worldGeography', 'worldWrightAdapter'];
+const forbiddenImports = [
+  'worldSchema',
+  'worldGenerator',
+  'worldPlanetFoundation',
+  'worldGeologic',
+  'worldGeography',
+  'geologyAudit',
+  'worldWrightAdapter',
+];
+
+function collectTypeScriptFiles(directory: string): string[] {
+  const output: string[] = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) output.push(...collectTypeScriptFiles(path));
+    else if (extname(entry.name) === '.ts') output.push(path);
+  }
+  return output;
+}
 
 describe('W1-01 causal read firewall', () => {
-  it('forbids future causal resolvers from importing the legacy world or audit adapter', () => {
+  it('recursively forbids every causal resolver module from importing the legacy world', () => {
     const root = resolve(process.cwd(), 'src/core/causalGeology');
-    for (const file of futureResolverFiles) {
-      const path = resolve(root, file);
-      if (!existsSync(path)) continue;
+    for (const path of collectTypeScriptFiles(root)) {
+      if (basename(path) === 'diagnostics.ts') continue;
       const source = readFileSync(path, 'utf8');
-      for (const forbidden of forbiddenImports) expect(source, `${file} imports ${forbidden}`).not.toContain(forbidden);
-      expect(source, `${file} accepts WorldBrain`).not.toContain('WorldBrain');
+      for (const forbidden of forbiddenImports) expect(source, `${path} imports ${forbidden}`).not.toMatch(new RegExp(`(?:from|import\\()\\s*['\"][^'\"]*${forbidden}`));
+      expect(source, `${path} exposes WorldBrain`).not.toMatch(/\bWorldBrain\b/);
     }
   });
 });

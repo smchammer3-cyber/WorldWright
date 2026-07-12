@@ -1,5 +1,6 @@
 import type { GeneratorAuthorityMode } from '../causalWorld/schema';
 import type { ResolvedWorldFeatureFlagSnapshot, WorldFeatureFlagKey } from '../worldFeatureFlags/types';
+import { createRootSeedIdentity } from '../worldRandom/seedMixer';
 import type { CausalRandomStreamName, RootSeedIdentity } from '../worldRandom/types';
 import type { DeterministicHash } from './hash';
 
@@ -30,7 +31,7 @@ export interface RandomStreamProvenance {
 export interface StageProvenanceRecord {
   readonly stageId: string;
   readonly stageVersion: number;
-  readonly status: 'NOT_RUN' | 'RECORDED' | 'FAILED';
+  readonly status: 'NOT_RUN' | 'RECORDED' | 'PARTIAL' | 'BLOCKED' | 'FAILED';
   readonly streamsUsed: ReadonlyArray<{ readonly name: CausalRandomStreamName; readonly version: number }>;
   readonly flagsUsed: readonly WorldFeatureFlagKey[];
   readonly inputHash?: DeterministicHash;
@@ -45,6 +46,14 @@ export interface LegacyCompatibilityProvenance {
   readonly stageHistoryObserved: boolean;
 }
 
+export interface CausalGeologyProvenanceV1 {
+  readonly schemaVersion: 1;
+  readonly inputContractVersion: 1;
+  readonly stageResultContractVersion: 1;
+  readonly inputHash: DeterministicHash;
+  readonly sourceBundleVersion: string;
+}
+
 export interface CausalProvenanceManifestV1 {
   readonly schemaVersion: 1;
   readonly completeness: 'COMPLETE' | 'PARTIAL';
@@ -56,6 +65,7 @@ export interface CausalProvenanceManifestV1 {
   readonly streams: readonly RandomStreamProvenance[];
   readonly stages: readonly StageProvenanceRecord[];
   readonly legacyCompatibility?: LegacyCompatibilityProvenance;
+  readonly causalGeology?: CausalGeologyProvenanceV1;
   readonly limitations: readonly string[];
 }
 
@@ -65,11 +75,8 @@ export function isCausalProvenanceManifestV1(value: unknown): value is CausalPro
   if (!isAuthorityMode(value.authorityMode)) return false;
 
   const rootSeed = value.rootSeed;
-  if (!isRecord(rootSeed)
-    || typeof rootSeed.exactText !== 'string'
-    || rootSeed.encoding !== 'utf8-v1'
-    || typeof rootSeed.fingerprint !== 'string'
-    || rootSeed.fingerprint.length === 0) return false;
+  if (!isRecord(rootSeed) || typeof rootSeed.exactText !== 'string' || rootSeed.encoding !== 'utf8-v1' || typeof rootSeed.fingerprint !== 'string') return false;
+  if (rootSeed.fingerprint !== createRootSeedIdentity(rootSeed.exactText).fingerprint) return false;
 
   const randomSystem = value.randomSystem;
   if (!isRecord(randomSystem)
@@ -117,6 +124,18 @@ export function isCausalProvenanceManifestV1(value: unknown): value is CausalPro
       || typeof legacy.stageHistoryObserved !== 'boolean') return false;
   }
 
+  if (value.causalGeology !== undefined) {
+    const geology = value.causalGeology;
+    if (!isRecord(geology)
+      || geology.schemaVersion !== 1
+      || geology.inputContractVersion !== 1
+      || geology.stageResultContractVersion !== 1
+      || !isOptionalDeterministicHash(geology.inputHash)
+      || geology.inputHash === undefined
+      || typeof geology.sourceBundleVersion !== 'string'
+      || geology.sourceBundleVersion.trim().length === 0) return false;
+  }
+
   return true;
 }
 
@@ -148,7 +167,7 @@ function isStageProvenance(value: unknown): boolean {
     || value.stageId.length === 0
     || !Number.isSafeInteger(value.stageVersion)
     || (value.stageVersion as number) < 1
-    || (value.status !== 'NOT_RUN' && value.status !== 'RECORDED' && value.status !== 'FAILED')
+    || !['NOT_RUN', 'RECORDED', 'PARTIAL', 'BLOCKED', 'FAILED'].includes(value.status as string)
     || !Array.isArray(value.streamsUsed)
     || !Array.isArray(value.flagsUsed)
     || !Array.isArray(value.warnings)) return false;

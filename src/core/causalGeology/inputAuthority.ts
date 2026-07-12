@@ -1,3 +1,6 @@
+import { canonicalJsonStringify } from '../worldProvenance/canonicalJson';
+import { createRootSeedIdentity } from '../worldRandom/seedMixer';
+import type { RootSeedIdentity } from '../worldRandom/types';
 import { cloneAndDeepFreeze } from './immutable';
 import { hashCausalPayload, deterministicHashEquals, assertDeterministicHash } from './hashes';
 import { validateScientificQuantity } from './quantities';
@@ -8,6 +11,14 @@ export interface CausalInputAuthorityDefinitionV1 {
   readonly requiredUnit: string;
   readonly requiredScaleId: string;
   readonly allowedSourceClasses: readonly CausalInputSourceClass[];
+}
+
+export interface CausalDerivationDefinitionV1 {
+  readonly inputId: CausalGeologyInputId;
+  readonly derivationId: string;
+  readonly formulaVersion: string;
+  readonly dependencyInputIds: readonly CausalGeologyInputId[];
+  readonly status: 'RESERVED' | 'ACTIVE';
 }
 
 const DIRECT: readonly CausalInputSourceClass[] = ['DIRECT_DECLARATION'];
@@ -31,6 +42,14 @@ export const CAUSAL_INPUT_AUTHORITY_REGISTRY: readonly CausalInputAuthorityDefin
   define('derived.escape-velocity', 'earth-escape-velocity', 'earth-escape-velocity-v1', DERIVED),
   define('derived.stellar-flux', 'earth-stellar-flux', 'earth-stellar-flux-v1', DERIVED),
   define('derived.total-heat', 'normalized-0-1', 'normalized-0-1-v1', DERIVED),
+]);
+
+export const CAUSAL_DERIVATION_REGISTRY: readonly CausalDerivationDefinitionV1[] = Object.freeze([
+  reserveDerivation('derived.mass', 'mass-from-radius-density-v1', ['planet.radius', 'planet.density']),
+  reserveDerivation('derived.surface-gravity', 'surface-gravity-from-mass-radius-v1', ['derived.mass', 'planet.radius']),
+  reserveDerivation('derived.escape-velocity', 'escape-velocity-from-mass-radius-v1', ['derived.mass', 'planet.radius']),
+  reserveDerivation('derived.stellar-flux', 'stellar-flux-from-luminosity-distance-v1', ['star.luminosity', 'orbit.distance']),
+  reserveDerivation('derived.total-heat', 'total-heat-from-declared-sources-v1', ['thermal.primordial-heat', 'thermal.radiogenic-heat', 'thermal.tidal-heating']),
 ]);
 
 export const FORBIDDEN_LEGACY_CAUSAL_INPUT_FIELDS: readonly string[] = Object.freeze([
@@ -60,14 +79,16 @@ export const FORBIDDEN_LEGACY_CAUSAL_INPUT_FIELDS: readonly string[] = Object.fr
 ]);
 
 const AUTHORITY_BY_ID = new Map(CAUSAL_INPUT_AUTHORITY_REGISTRY.map((entry) => [entry.inputId, entry]));
+const DERIVATION_BY_INPUT_ID = new Map(CAUSAL_DERIVATION_REGISTRY.map((entry) => [entry.inputId, entry]));
 if (AUTHORITY_BY_ID.size !== CAUSAL_INPUT_AUTHORITY_REGISTRY.length) throw new Error('Duplicate causal input authority ID.');
+if (DERIVATION_BY_INPUT_ID.size !== CAUSAL_DERIVATION_REGISTRY.length) throw new Error('Duplicate causal derivation input ID.');
 
 export function createCausalGeologyInput(
-  rootSeed: string,
+  rootSeed: string | number | RootSeedIdentity,
   declarations: readonly CausalInputDeclarationV1[],
   options: Readonly<{ contradictionIds?: readonly string[]; limitations?: readonly string[] }> = {},
 ): CausalGeologyInputV1 {
-  if (!isNonEmptyText(rootSeed)) throw new Error('Causal root seed must be non-empty text.');
+  const normalizedRootSeed = normalizeRootSeedIdentity(rootSeed);
   if (!Array.isArray(declarations) || declarations.length === 0) throw new Error('At least one causal input declaration is required.');
 
   const sorted = [...declarations].sort((a, b) => compareStableText(a.inputId, b.inputId));
@@ -85,7 +106,7 @@ export function createCausalGeologyInput(
   const payload = {
     schemaVersion: 1 as const,
     inputContractVersion: 1 as const,
-    rootSeed,
+    rootSeed: normalizedRootSeed,
     sourceDeclarations: sorted.map((entry) => cloneAndDeepFreeze(entry)),
     physicalInputs,
     approvedDerivations,
@@ -103,9 +124,8 @@ export function createCausalGeologyInput(
 export function validateCausalGeologyInput(value: unknown): asserts value is CausalGeologyInputV1 {
   if (!value || typeof value !== 'object') throw new Error('Causal geology input must be an object.');
   const input = value as Partial<CausalGeologyInputV1>;
-  if (input.schemaVersion !== 1 || input.inputContractVersion !== 1 || !isNonEmptyText(input.rootSeed)) {
-    throw new Error('Unsupported causal geology input contract.');
-  }
+  if (input.schemaVersion !== 1 || input.inputContractVersion !== 1) throw new Error('Unsupported causal geology input contract.');
+  const rootSeed = normalizeRootSeedIdentity(input.rootSeed as RootSeedIdentity);
   if (!Array.isArray(input.sourceDeclarations) || input.sourceDeclarations.length === 0) throw new Error('Causal input declarations are missing.');
   if (!isRecord(input.physicalInputs) || !isRecord(input.approvedDerivations)) throw new Error('Causal input maps are invalid.');
   const seen = new Set<string>();
@@ -119,20 +139,18 @@ export function validateCausalGeologyInput(value: unknown): asserts value is Cau
     const otherMap = declaration.sourceClass === 'DIRECT_DECLARATION' ? input.approvedDerivations : input.physicalInputs;
     if (!(declaration.inputId in expectedMap) || declaration.inputId in otherMap) throw new Error(`Causal input ${declaration.inputId} is in the wrong authority map.`);
     validateScientificQuantity(expectedMap[declaration.inputId]);
-    if (JSON.stringify(expectedMap[declaration.inputId]) !== JSON.stringify(declaration.quantity)) throw new Error(`Causal input ${declaration.inputId} map value does not match its declaration.`);
+    if (canonicalJsonStringify(expectedMap[declaration.inputId]) !== canonicalJsonStringify(declaration.quantity)) throw new Error(`Causal input ${declaration.inputId} map value does not match its declaration.`);
   }
   if (!arraysEqual(ids, [...ids].sort(compareStableText))) throw new Error('Causal input declarations are not canonically ordered.');
   if (Object.keys(input.physicalInputs).length + Object.keys(input.approvedDerivations).length !== seen.size) throw new Error('Causal input maps contain undeclared values.');
-  if (!Array.isArray(input.excludedLegacyFields) || !arraysEqual(input.excludedLegacyFields, FORBIDDEN_LEGACY_CAUSAL_INPUT_FIELDS)) {
-    throw new Error('Causal input legacy exclusion contract is incomplete.');
-  }
+  if (!Array.isArray(input.excludedLegacyFields) || !arraysEqual(input.excludedLegacyFields, FORBIDDEN_LEGACY_CAUSAL_INPUT_FIELDS)) throw new Error('Causal input legacy exclusion contract is incomplete.');
   const contradictionIds = validateSortedUniqueText(input.contradictionIds, 'Causal input contradiction IDs');
   const limitations = validateSortedUniqueText(input.limitations, 'Causal input limitations');
   assertDeterministicHash(input.contentHash, 'Causal input');
   const expected = hashCausalPayload('WorldWright/causal-geology-input/v1', {
     schemaVersion: 1,
     inputContractVersion: 1,
-    rootSeed: input.rootSeed,
+    rootSeed,
     sourceDeclarations: input.sourceDeclarations,
     physicalInputs: input.physicalInputs,
     approvedDerivations: input.approvedDerivations,
@@ -149,25 +167,35 @@ export function validateCausalInputDeclaration(value: unknown): asserts value is
   if (declaration.schemaVersion !== 1 || !isNonEmptyText(declaration.inputId)) throw new Error('Causal input declaration identity is invalid.');
   const authority = AUTHORITY_BY_ID.get(declaration.inputId as CausalGeologyInputId);
   if (!authority) throw new Error(`Unapproved causal input: ${declaration.inputId}`);
-  if (!authority.allowedSourceClasses.includes(declaration.sourceClass as CausalInputSourceClass)) {
-    throw new Error(`Causal input ${declaration.inputId} cannot use source class ${String(declaration.sourceClass)}.`);
-  }
+  if (!authority.allowedSourceClasses.includes(declaration.sourceClass as CausalInputSourceClass)) throw new Error(`Causal input ${declaration.inputId} cannot use source class ${String(declaration.sourceClass)}.`);
   validateScientificQuantity(declaration.quantity);
-  if (declaration.quantity.unit !== authority.requiredUnit || declaration.quantity.scaleId !== authority.requiredScaleId) {
-    throw new Error(`Causal input ${declaration.inputId} uses the wrong quantity scale.`);
-  }
+  if (declaration.quantity.unit !== authority.requiredUnit || declaration.quantity.scaleId !== authority.requiredScaleId) throw new Error(`Causal input ${declaration.inputId} uses the wrong quantity scale.`);
   if (!isNonEmptyText(declaration.sourceRecordId)) throw new Error(`Causal input ${declaration.inputId} source record is invalid.`);
-  if (declaration.sourceClass === 'APPROVED_PHYSICAL_DERIVATION' && !isNonEmptyText(declaration.formulaVersion)) {
-    throw new Error(`Derived causal input ${declaration.inputId} requires a formula version.`);
-  }
-  if (declaration.sourceClass === 'DIRECT_DECLARATION' && declaration.formulaVersion !== undefined) {
-    throw new Error(`Direct causal input ${declaration.inputId} cannot declare a formula version.`);
+  if (!isNonEmptyText(declaration.confidenceSubject)) throw new Error(`Causal input ${declaration.inputId} confidence subject is invalid.`);
+  if (declaration.sourceClass === 'DIRECT_DECLARATION') {
+    if (declaration.formulaVersion !== undefined || declaration.quantity.derivationId !== undefined) throw new Error(`Direct causal input ${declaration.inputId} cannot declare derivation metadata.`);
+  } else {
+    const derivation = DERIVATION_BY_INPUT_ID.get(declaration.inputId as CausalGeologyInputId);
+    if (!derivation || derivation.status !== 'ACTIVE') throw new Error(`Derived causal input ${declaration.inputId} is reserved and not yet approved for execution.`);
+    if (declaration.formulaVersion !== derivation.formulaVersion || declaration.quantity.derivationId !== derivation.derivationId) throw new Error(`Derived causal input ${declaration.inputId} does not match its approved derivation contract.`);
   }
   validateSortedUniqueText(declaration.evidenceIds, `Causal input ${declaration.inputId} evidence IDs`);
 }
 
+export function normalizeRootSeedIdentity(seed: string | number | RootSeedIdentity): RootSeedIdentity {
+  const candidate = typeof seed === 'string' || typeof seed === 'number' ? createRootSeedIdentity(seed) : seed;
+  if (!candidate || typeof candidate !== 'object' || typeof candidate.exactText !== 'string' || candidate.encoding !== 'utf8-v1' || typeof candidate.fingerprint !== 'string') throw new Error('Causal root seed identity is invalid.');
+  const expected = createRootSeedIdentity(candidate.exactText);
+  if (candidate.fingerprint !== expected.fingerprint) throw new Error('Causal root seed fingerprint mismatch.');
+  return cloneAndDeepFreeze(expected);
+}
+
 function define(inputId: CausalGeologyInputId, requiredUnit: string, requiredScaleId: string, allowedSourceClasses: readonly CausalInputSourceClass[]): CausalInputAuthorityDefinitionV1 {
   return Object.freeze({ inputId, requiredUnit, requiredScaleId, allowedSourceClasses: Object.freeze([...allowedSourceClasses]) });
+}
+
+function reserveDerivation(inputId: CausalGeologyInputId, formulaVersion: string, dependencyInputIds: readonly CausalGeologyInputId[]): CausalDerivationDefinitionV1 {
+  return Object.freeze({ inputId, derivationId: formulaVersion, formulaVersion, dependencyInputIds: Object.freeze([...dependencyInputIds]), status: 'RESERVED' });
 }
 
 function sortedUniqueText(values: readonly string[], label: string): readonly string[] {

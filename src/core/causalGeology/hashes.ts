@@ -1,3 +1,4 @@
+import { canonicalizeJson } from '../worldProvenance/canonicalJson';
 import { hashCanonicalJson, type DeterministicHash } from '../worldProvenance/hash';
 
 export function hashCausalPayload(contract: string, value: unknown): DeterministicHash {
@@ -5,11 +6,10 @@ export function hashCausalPayload(contract: string, value: unknown): Determinist
   return hashCanonicalJson({ contract, value });
 }
 
-export function hashRecordWithoutContentHash(
-  contract: string,
-  record: object,
-): DeterministicHash {
+export function hashRecordWithoutContentHash(contract: string, record: object): DeterministicHash {
+  assertPlainRecord(record, 'Causal record');
   const { contentHash: _contentHash, ...payload } = record as Readonly<Record<string, unknown>>;
+  canonicalizeJson(payload);
   return hashCausalPayload(contract, payload);
 }
 
@@ -23,4 +23,10 @@ export function assertDeterministicHash(value: unknown, label: string): asserts 
   if (candidate.algorithm !== 'fnv1a64-canonical-json-v1' || typeof candidate.value !== 'string' || !/^[0-9a-f]{16}$/.test(candidate.value)) {
     throw new Error(`${label} hash is invalid.`);
   }
+}
+
+export function assertPlainRecord(value: unknown, label: string): asserts value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be a plain object.`);
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) throw new Error(`${label} must be a plain object.`);
 }
