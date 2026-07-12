@@ -4,6 +4,13 @@
 // ========================================================
 
 import type { GeneratorAuthorityMode } from '../causalWorld/schema';
+import { createRandomIdentity, type EntropySource } from '../worldEntropy';
+import {
+  createSimRandomContext,
+  deriveLegacySimBranchSalt,
+  validateSimRandomContext,
+  type SimRandomContextV1,
+} from '../worldSim/randomContext';
 import { cloneWorldDocument } from '../worldCloning';
 import { migrateWorldDocument } from '../worldMigrations/migrateWorldDocument';
 import type { WorldBrain } from '../worldSchema';
@@ -51,8 +58,14 @@ export type StoredSimEventDecision = {
   resolvedAt: string;
 };
 
+export type SimRandomContextProvenance = {
+  source: 'CREATED_C02' | 'COMPAT_DERIVED';
+  derivation: 'WEB_CRYPTO_BRANCH_SALT' | 'PERSISTED_IMMUTABLE_FIELDS_V1';
+  assumption?: string;
+};
+
 export type SimBranchRecord = {
-  recordSchemaVersion?: 1;
+  recordSchemaVersion?: 1 | 2;
   id: string;
   worldId: string;
   name: string;
@@ -66,6 +79,8 @@ export type SimBranchRecord = {
   status: SimBranchRecordStatus;
   worldSnapshot: WorldBrain;
   eventHistory: StoredSimEventDecision[];
+  randomContext?: SimRandomContextV1;
+  randomContextProvenance?: SimRandomContextProvenance;
 };
 
 export interface WorldStorageEngine {
@@ -286,13 +301,42 @@ function normalizeSimBranchRecord(record: SimBranchRecord): SimBranchRecord {
     throw new Error(`Sim branch ${record.id} snapshot cannot be loaded: ${migration.reason}`);
   }
 
+  let randomContext: SimRandomContextV1;
+  let randomContextProvenance: SimRandomContextProvenance;
+  try {
+    validateSimRandomContext(record.randomContext);
+    randomContext = record.randomContext;
+    randomContextProvenance = record.randomContextProvenance ?? {
+      source: 'CREATED_C02',
+      derivation: 'WEB_CRYPTO_BRANCH_SALT',
+    };
+  } catch {
+    randomContext = createSimRandomContext(
+      migration.world.metadata.seed,
+      deriveLegacySimBranchSalt({
+        baseWorldId: record.baseWorldId,
+        baseRevisionId: record.baseRevisionId || '',
+        branchId: record.id,
+        createdAt: record.createdAt,
+      }),
+      Math.max(0, Math.floor(record.currentYear - record.startYear)),
+    );
+    randomContextProvenance = {
+      source: 'COMPAT_DERIVED',
+      derivation: 'PERSISTED_IMMUTABLE_FIELDS_V1',
+      assumption: 'Pre-C02 branch randomness begins from persisted currentYear relative to startYear.',
+    };
+  }
+
   return {
     ...record,
-    recordSchemaVersion: 1,
+    recordSchemaVersion: 2,
     baseRevisionId: record.baseRevisionId || '',
     baseContentHash: record.baseContentHash || '',
     status: record.status || 'ACTIVE',
     eventHistory: Array.isArray(record.eventHistory) ? record.eventHistory : [],
+    randomContext,
+    randomContextProvenance,
     worldSnapshot: cloneWorldDocument(migration.world),
   };
 }
@@ -403,12 +447,19 @@ function verifySimBranchReadback(expected: SimBranchRecord, actual: SimBranchRec
   if (actual.baseContentHash !== expected.baseContentHash) {
     throw new Error(`Sim branch readback verification failed: base content hash mismatch for ${expected.id}.`);
   }
+  if (expected.randomContext && (
+    actual.randomContext?.branchSalt !== expected.randomContext.branchSalt ||
+    actual.randomContext?.tickIndex !== expected.randomContext.tickIndex
+  )) {
+    throw new Error(`Sim branch readback verification failed: random context mismatch for ${expected.id}.`);
+  }
 }
 
 export function createSimBranchRecordFromWorld(
   baseWorld: WorldBrain,
   name: string = `Branch ${new Date().toISOString()}`,
-  startYear: number = 0
+  startYear: number = 0,
+  entropy?: EntropySource,
 ): SimBranchRecord {
   const currentWorld = readCurrentWorld(baseWorld, 'Cannot create Sim branch');
   const now = new Date().toISOString();
@@ -416,8 +467,8 @@ export function createSimBranchRecordFromWorld(
   const baseRevisionId = currentWorld.metadata.revisionId || createRevisionId(currentWorld, baseContentHash);
 
   return {
-    recordSchemaVersion: 1,
-    id: `simbranch_${currentWorld.metadata.id}_${Date.now()}`,
+    recordSchemaVersion: 2,
+    id: `simbranch_${createRandomIdentity(entropy)}`,
     worldId: currentWorld.metadata.id,
     name,
     baseWorldId: currentWorld.metadata.id,
@@ -430,6 +481,11 @@ export function createSimBranchRecordFromWorld(
     status: 'ACTIVE',
     worldSnapshot: cloneWorldDocument(currentWorld),
     eventHistory: [],
+    randomContext: createSimRandomContext(currentWorld.metadata.seed, `sim-${createRandomIdentity(entropy)}`),
+    randomContextProvenance: {
+      source: 'CREATED_C02',
+      derivation: 'WEB_CRYPTO_BRANCH_SALT',
+    },
   };
 }
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { createDefaultGeneratorParams, type GeneratorParams } from "../../core/worldGenerator";
+import { createRandomNumericSeed } from "../../core/worldEntropy";
 
 type Props = {
   onGenerate: (params: GeneratorParams) => void;
@@ -136,7 +137,7 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
             inputMode="numeric"
           />
           <button
-            onClick={() => set("seed", Math.floor(Math.random() * 1_000_000_000))}
+            onClick={() => set("seed", createRandomNumericSeed())}
             style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)" }}
           >
             Random

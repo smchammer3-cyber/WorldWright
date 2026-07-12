@@ -18,6 +18,7 @@ import { applyGeneratedGeographyPipeline } from '../worldGeographyPipeline';
 import { cloneStructuredValue, cloneWorldDocument } from '../worldCloning';
 import { migrateWorldDocument } from '../worldMigrations/migrateWorldDocument';
 import type { WorldMigrationReport } from '../worldMigrations/types';
+import { ensureC02Provenance } from '../worldProvenance/ensureManifest';
 
 interface PreparedWorld {
   world: WorldBrain;
@@ -110,7 +111,7 @@ export class WorldSession {
       throw new Error(`${result.status}: ${result.reason}`);
     }
 
-    const world = result.world;
+    const world = ensureC02Provenance(result.world, { observedLegacyGeneration: false });
     ensureContinentSkeletonFields(world);
     ensureCrustFields(world);
     return {

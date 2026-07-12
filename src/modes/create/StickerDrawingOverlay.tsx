@@ -7,6 +7,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { WorldBrain } from '../../core/worldSchema';
+import { createRandomIdentity } from '../../core/worldEntropy';
 import {
   applyStickerToWorld,
   createPrimitive,
@@ -354,7 +355,7 @@ export default function StickerDrawingOverlay({
   const handleApply = () => {
     if (!world || !activeStickerTool || polygon.length < 3) return;
 
-    const stickerId = `sticker_${Date.now()}`;
+    const stickerId = `sticker_${createRandomIdentity()}`;
     let payload: any = {};
 
     if (activeStickerTool === 'BIOME') {

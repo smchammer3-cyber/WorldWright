@@ -107,7 +107,9 @@ describe('Sim branch record storage', () => {
     expect(branch.baseContentHash).toBe(savedWorld.metadata.contentHash);
     expect(branch.currentYear).toBe(12);
     expect(branch.status).toBe('ACTIVE');
-    expect(branch.recordSchemaVersion).toBe(1);
+    expect(branch.recordSchemaVersion).toBe(2);
+    expect(branch.randomContext).toMatchObject({ schemaVersion: 1, rootWorldSeed: savedWorld.metadata.seed, tickIndex: 0 });
+    expect(branch.randomContextProvenance?.source).toBe('CREATED_C02');
 
     branch.worldSnapshot.cells[0].editHeightDelta = 0.75;
     expect(savedWorld.cells[0].editHeightDelta).toBe(0);

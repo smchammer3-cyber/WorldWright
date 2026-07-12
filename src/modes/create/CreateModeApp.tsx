@@ -22,6 +22,7 @@ import StickerDrawingOverlay from "./StickerDrawingOverlay";
 import { recomputeWorld } from "../../core/worldRecompute";
 import { generateCountries } from "../../core/countryGenerator";
 import type { WorldBrain } from "../../core/worldSchema";
+import { createRandomIdentity, createRandomNumericSeed } from "../../core/worldEntropy";
 
 type TerrainTool = "RAISE" | "LOWER" | "FLATTEN" | "SMOOTH";
 type StickerTool = "BIOME" | "CULTURE" | "HEIGHT";
@@ -131,7 +132,7 @@ export default function CreateModeApp() {
     if (!world) return;
 
     try {
-      const countryCount = Math.floor(Math.random() * 4) + 5;
+      const countryCount = createRandomNumericSeed(undefined, 4) + 5;
       const workingWorld: WorldBrain = structuredCloneSafe(world);
 
       const generatedCountries = generateCountries(workingWorld, countryCount);
@@ -162,9 +163,9 @@ export default function CreateModeApp() {
     const gridWidth = world.gridWidth;
     const gridHeight = world.gridHeight;
     const cells = world.cells;
-    const randomCell = landCells[Math.floor(Math.random() * landCells.length)];
+    const randomCell = landCells[createRandomNumericSeed(undefined, landCells.length)];
     const newCity: any = {
-      id: `city_${Date.now()}`,
+      id: `city_${createRandomIdentity()}`,
       name: "City",
       cellIndex: randomCell.index,
       population: 1000,
