@@ -8,7 +8,14 @@ export * from './initialConditionTypes';
 export * from './initialConditionRequest';
 export * from './initialConditionPriors';
 export * from './initialConditionMigration';
-export * from './initialConditionResolver';
+export {
+  INITIAL_CONDITION_PERFORMANCE_BUDGET_V1,
+  createCausalGeologyInputFromInitialConditionBundle,
+  measureInitialConditionBundle,
+  validatePlanetInitialConditionBundle,
+} from './initialConditionResolver';
+export type { ResolvePlanetInitialConditionOptionsV1 } from './initialConditionResolver';
+export { resolvePlanetInitialConditionBundle } from './initialConditionAuthorityResolver';
 export * from './stageResult';
 export * from './spatial';
 export * from './researchLedger';
