@@ -20,6 +20,15 @@ describe('W1-02A generation request contract', () => {
     expect(() => validateGenerationRequest(a)).not.toThrow();
   });
 
+  it('preserves distinct source declarations while rejecting duplicate source identities', () => {
+    const user = createQuantityGenerationControl('planet.radius', createScientificQuantity(1.1, 'earth-radius', 'earth-radius-v1'), 'SOFT_PREFERENCE', 'USER');
+    const template = createQuantityGenerationControl('planet.radius', createScientificQuantity(0.9, 'earth-radius', 'earth-radius-v1'), 'SOFT_PREFERENCE', 'TEMPLATE');
+    const request = createGenerationRequest('seed', [template, user]);
+    expect(request.controls.map((control) => control.source)).toEqual(['USER', 'TEMPLATE']);
+    expect(() => createGenerationRequest('seed', [user, user])).toThrow(/Duplicate generation request control source/);
+    expect(() => createQuantityGenerationControl('planet.radius', createScientificQuantity(1, 'earth-radius', 'earth-radius-v1'), 'HARD_CONSTRAINT', 'SEEDED_DEFAULT_REQUEST')).toThrow(/must be unspecified/);
+  });
+
   it('rejects unowned fields, wrong quantity scales, and hard compound hints', () => {
     const request = createGenerationRequest('seed', []);
     expect(() => validateGenerationRequest({ ...request, displayName: 'operational metadata' })).toThrow(/unowned fields/);
@@ -38,12 +47,13 @@ describe('W1-02A generation request contract', () => {
     })).toThrow(/Only direct quantity controls/);
   });
 
-  it('activates a shadow-only initial-condition random stream without enabling active authority', () => {
+  it('activates only the W1-02A shadow stream and fails closed on active or reserved streams', () => {
     const definition = getRandomStreamDefinition('causal.initial-conditions');
     expect(definition.status).toBe('ACTIVE');
     expect(definition.allowedAuthorityModes).toEqual(['CAUSAL_SHADOW']);
     const shadow = createWorldRandomOracle('seed', { authorityMode: 'CAUSAL_SHADOW' });
     expect(() => shadow.uint32({ stream: 'causal.initial-conditions', scope: ['test'], draw: 0 })).not.toThrow();
+    expect(() => shadow.uint32({ stream: 'causal.premise', scope: ['test'], draw: 0 })).toThrow(/reserved and not active/);
     const active = createWorldRandomOracle('seed', { authorityMode: 'CAUSAL_ACTIVE' });
     expect(() => active.uint32({ stream: 'causal.initial-conditions', scope: ['test'], draw: 0 })).toThrow(/not allowed/);
   });
