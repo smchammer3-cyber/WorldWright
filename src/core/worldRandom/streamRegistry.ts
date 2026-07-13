@@ -43,9 +43,6 @@ export function assertRandomStreamAllowed(name: CausalRandomStreamName, mode: Ge
   if (!definition.allowedAuthorityModes.includes(mode)) {
     throw new Error(`Random stream ${name} is not allowed in authority mode ${mode}.`);
   }
-  if (definition.status === 'RESERVED') {
-    throw new Error(`Random stream ${name} is reserved and not active.`);
-  }
   if (definition.status === 'DEPRECATED') {
     throw new Error(`Random stream ${name} is deprecated.`);
   }
