@@ -1,7 +1,24 @@
 {
   "schemaVersion": 1,
-  "bundleVersion": "w1-01-format-v1",
-  "status": "CONTRACT_FORMAT_REVIEWED",
-  "reviewDate": "2026-07-12",
-  "scope": "Architecture and validation contracts only; no scientific relation approved."
+  "bundleVersion": "w1-02b-premise-research-v1",
+  "status": "PREMISE_RESEARCH_PACKAGE_REVIEWED",
+  "reviewDate": "2026-07-13",
+  "reviewer": "WorldWright W1-02B evidence audit",
+  "scope": "Broad body-class, layer-stack, surface-medium, ambiguity, and supported-route relations only; no resolver or downstream geology.",
+  "completeEligibleRuleIds": [
+    "premise/artificial-explicit-exception-v1",
+    "premise/differentiated-rocky-stack-supported-v1",
+    "premise/high-pressure-ice-alternative-v1",
+    "premise/ice-shell-liquid-rocky-alternative-v1",
+    "premise/mass-radius-broad-solid-family-v1",
+    "premise/mass-radius-water-atmosphere-degeneracy-v1",
+    "premise/no-downstream-geology-v1",
+    "premise/rock-ice-mixed-alternative-v1",
+    "premise/solid-route-unsupported-fluids-and-gas-v1",
+    "premise/steam-or-volatile-pressure-alternative-v1"
+  ],
+  "partialOnlyRuleIds": [
+    "premise/partial-differentiation-remains-provisional-v1"
+  ],
+  "implementationAuthorized": false
 }
