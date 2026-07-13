@@ -1,1 +1,246 @@
-[]
+[
+  {
+    "schemaVersion": 1,
+    "ruleId": "premise/artificial-explicit-exception-v1",
+    "domain": "planetary-premise",
+    "version": 1,
+    "sourceIds": ["worldwright-premise-scope-v1"],
+    "applicableInputIds": [],
+    "expectedRelation": "ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL, DECLARED_ARTIFICIAL_SOLID_SURFACE, and DECLARED_ARTIFICIAL_LAYER_STACK are eligible only when an explicit artificial-solid-shell exception permission and declared structure are both present.",
+    "weightRationale": "This is a hard product-scope gate, not probabilistic scientific evidence.",
+    "correlationGroupId": "worldwright-scope-rules",
+    "exceptions": ["Explicit permission alone does not invent an unprovided artificial layer stack."],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-02B evidence audit",
+    "reviewDate": "2026-07-13"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "premise/differentiated-rocky-stack-supported-v1",
+    "domain": "planetary-premise",
+    "version": 1,
+    "sourceIds": [
+      "rubie-et-al-2015-terrestrial-differentiation",
+      "zeng-sasselov-jacobsen-2016-rocky-prem"
+    ],
+    "applicableInputIds": ["planet.density", "planet.radius"],
+    "expectedRelation": "Radius-density combinations compatible with rocky solid-planet models may support ROCKY_TERRESTRIAL or ROCKY_SUPER_EARTH candidates and a DIFFERENTIATED_METAL_SILICATE layer-stack candidate.",
+    "weightRationale": "Independent rocky-interior and differentiation models support the broad stack while not fixing detailed composition.",
+    "correlationGroupId": "rocky-differentiation-models",
+    "exceptions": [
+      "Low-density or volatile-rich cases retain non-rocky alternatives.",
+      "Mass and radius alone do not prove a unique core fraction."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-02B evidence audit",
+    "reviewDate": "2026-07-13"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "premise/high-pressure-ice-alternative-v1",
+    "domain": "planetary-premise",
+    "version": 1,
+    "sourceIds": [
+      "marounina-rogers-2019-water-world-interiors",
+      "ueta-sasaki-2013-high-pressure-ice"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.density",
+      "planet.radius",
+      "thermal.age",
+      "thermal.radiogenic-heat"
+    ],
+    "expectedRelation": "Water-rich solid bodies may preserve high-pressure-ice-bearing alternatives rather than assuming direct liquid-water contact with rock.",
+    "weightRationale": "Multiple water-world structure models predict pressure-dependent water phases, but exact phase boundaries remain downstream.",
+    "correlationGroupId": "ocean-world-interior-models",
+    "exceptions": [
+      "Exact phase boundaries require later thermodynamic modeling.",
+      "Low water inventory may remove the high-pressure-ice alternative."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-02B evidence audit",
+    "reviewDate": "2026-07-13"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "premise/ice-shell-liquid-rocky-alternative-v1",
+    "domain": "planetary-premise",
+    "version": 1,
+    "sourceIds": [
+      "ueta-sasaki-2013-high-pressure-ice",
+      "vance-et-al-2018-ocean-world-interiors"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.density",
+      "planet.radius",
+      "thermal.age",
+      "thermal.radiogenic-heat",
+      "thermal.tidal-heating"
+    ],
+    "expectedRelation": "Water-rich, sufficiently cold solid bodies with compatible internal heat may support ICE_SHELL_OCEAN_BODY, ICE_SHELL_SURFACE, and ICE_SHELL_LIQUID_LAYER_ROCKY_INTERIOR candidates.",
+    "weightRationale": "Independent ice-covered ocean-world models support the broad candidate architecture while retaining uncertainty in layer thickness and chemistry.",
+    "correlationGroupId": "ocean-world-interior-models",
+    "exceptions": [
+      "An ice shell does not guarantee a liquid layer.",
+      "Exact shell and ocean thickness remain unresolved."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-02B evidence audit",
+    "reviewDate": "2026-07-13"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "premise/mass-radius-broad-solid-family-v1",
+    "domain": "planetary-premise",
+    "version": 1,
+    "sourceIds": [
+      "seager-et-al-2007-solid-mass-radius",
+      "zeng-sasselov-jacobsen-2016-rocky-prem"
+    ],
+    "applicableInputIds": ["planet.density", "planet.radius"],
+    "expectedRelation": "Radius and density can support broad solid-body family candidates such as rocky, rock-ice, or water-rich solids, but are not sufficient to resolve detailed composition.",
+    "weightRationale": "Mass-radius models provide broad physical compatibility bounds and explicit composition degeneracy.",
+    "correlationGroupId": "exoplanet-mass-radius-models",
+    "exceptions": [
+      "Atmospheric envelopes can mimic lower-density solid compositions.",
+      "Detailed composition remains non-unique."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-02B evidence audit",
+    "reviewDate": "2026-07-13"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "premise/mass-radius-water-atmosphere-degeneracy-v1",
+    "domain": "planetary-premise",
+    "version": 1,
+    "sourceIds": [
+      "adams-seager-elkins-tanton-2008-mass-radius-degeneracy",
+      "seager-et-al-2007-solid-mass-radius"
+    ],
+    "applicableInputIds": [
+      "climate.declared-greenhouse",
+      "inventory.volatiles",
+      "inventory.water",
+      "planet.density",
+      "planet.radius"
+    ],
+    "expectedRelation": "When atmospheric-envelope state is not independently constrained, water-rich solid and rocky-plus-envelope explanations remain degenerate and the premise must preserve alternatives or remain PARTIAL.",
+    "weightRationale": "The rule prevents false uniqueness from bulk density and radius alone.",
+    "correlationGroupId": "exoplanet-mass-radius-models",
+    "exceptions": ["Independent atmospheric constraints may reduce ambiguity."],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-02B evidence audit",
+    "reviewDate": "2026-07-13"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "premise/no-downstream-geology-v1",
+    "domain": "planetary-premise",
+    "version": 1,
+    "sourceIds": ["worldwright-premise-scope-v1"],
+    "applicableInputIds": [],
+    "expectedRelation": "Premise rules may resolve only body class, broad layer stack, and broad surface medium; they may not infer tectonic regime, impacts, plates, continents, basins, landforms, terrain, climate results, hydrology, biomes, materials, or rendering.",
+    "weightRationale": "This is a hard causal-scope firewall.",
+    "correlationGroupId": "worldwright-scope-rules",
+    "exceptions": [],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-02B evidence audit",
+    "reviewDate": "2026-07-13"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "premise/partial-differentiation-remains-provisional-v1",
+    "domain": "planetary-premise",
+    "version": 1,
+    "sourceIds": [
+      "rubie-et-al-2015-terrestrial-differentiation",
+      "vazan-sari-kessel-2020-ice-rock-mixture"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.density",
+      "planet.radius",
+      "thermal.age"
+    ],
+    "expectedRelation": "PARTIALLY_DIFFERENTIATED_ROCKY may be preserved as an alternative when broad inputs do not justify a fully differentiated or fully mixed stack, but this rule cannot support COMPLETE resolution.",
+    "weightRationale": "The available W1-02A inputs do not encode formation and thermal history with enough fidelity for a unique partial-differentiation decision.",
+    "correlationGroupId": "rocky-differentiation-models",
+    "exceptions": [
+      "No COMPLETE result may rely on this rule.",
+      "Thermal history is underconstrained at premise stage."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "premise/rock-ice-mixed-alternative-v1",
+    "domain": "planetary-premise",
+    "version": 1,
+    "sourceIds": [
+      "seager-et-al-2007-solid-mass-radius",
+      "vazan-sari-kessel-2020-ice-rock-mixture"
+    ],
+    "applicableInputIds": [
+      "inventory.volatiles",
+      "inventory.water",
+      "planet.density",
+      "planet.radius"
+    ],
+    "expectedRelation": "Low-density, volatile-rich solid inputs may support ROCK_ICE_MIXED_SOLID_BODY with UNDIFFERENTIATED_ROCK_ICE_MIXTURE and DIFFERENTIATED_ROCK_ICE alternatives rather than forcing a clean shell-over-core model.",
+    "weightRationale": "Solid mass-radius models and high-pressure ice-rock interaction models independently support broad rock-ice alternatives.",
+    "correlationGroupId": "rock-ice-interior-models",
+    "exceptions": [
+      "High-pressure miscibility results do not apply uniformly across all masses.",
+      "Mass-radius degeneracy requires multiple candidates when envelopes are unconstrained."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-02B evidence audit",
+    "reviewDate": "2026-07-13"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "premise/solid-route-unsupported-fluids-and-gas-v1",
+    "domain": "planetary-premise",
+    "version": 1,
+    "sourceIds": ["worldwright-premise-scope-v1"],
+    "applicableInputIds": ["planet.density", "planet.radius"],
+    "expectedRelation": "Stars, stellar remnants, brown dwarfs, gas giants without a coherent artificial shell, and fluid-only bodies without a coherent shell are BLOCKED from the WorldWright solid-surface route.",
+    "weightRationale": "This is a hard supported-route boundary rather than a claim that such bodies are scientifically impossible.",
+    "correlationGroupId": "worldwright-scope-rules",
+    "exceptions": ["A declared artificial solid shell is handled by the separate exception rule."],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-02B evidence audit",
+    "reviewDate": "2026-07-13"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "premise/steam-or-volatile-pressure-alternative-v1",
+    "domain": "planetary-premise",
+    "version": 1,
+    "sourceIds": [
+      "marounina-rogers-2019-water-world-interiors",
+      "turbet-et-al-2020-steam-water-rich"
+    ],
+    "applicableInputIds": [
+      "climate.declared-albedo",
+      "climate.declared-greenhouse",
+      "inventory.volatiles",
+      "inventory.water",
+      "orbit.distance",
+      "star.luminosity"
+    ],
+    "expectedRelation": "Water- or volatile-rich solid bodies under sufficiently strong irradiation or declared greenhouse constraints may preserve VOLATILE_PRESSURE_SOLID_BODY, VOLATILE_MODIFIED_SOLID_SURFACE, and VOLATILE_PRESSURE_OVER_SOLID_INTERIOR alternatives.",
+    "weightRationale": "Water-world and irradiated-water-rich models support a pressure-dominated volatile layer while exact climate thresholds remain unresolved.",
+    "correlationGroupId": "volatile-pressure-models",
+    "exceptions": [
+      "Declared albedo and greenhouse values are constraints, not a completed climate model.",
+      "Exact runaway-greenhouse thresholds remain provisional."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-02B evidence audit",
+    "reviewDate": "2026-07-13"
+  }
+]

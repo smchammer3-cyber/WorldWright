@@ -1,0 +1,603 @@
+{
+  "schemaVersion": 1,
+  "fixtureSetVersion": "W1_02B_PREMISE_FIXTURES_V1",
+  "fixtures": [
+    {
+      "schemaVersion": 1,
+      "fixtureId": "contradiction/incompatible-body-layer-v1",
+      "kind": "CONTRADICTION",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 1.1, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 1, "unit": "earth-radius", "scaleId": "earth-radius-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["REQUIRE_ICE_SHELL_LAYER_STACK", "REQUIRE_ROCKY_TERRESTRIAL_BODY"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "BLOCKED",
+        "bodyClassCandidates": [],
+        "surfaceMediumCandidates": [],
+        "layerStackCandidates": [],
+        "blockingCodes": ["INCOMPATIBLE_PREMISE_HARD_CONSTRAINTS"],
+        "requiredRuleIds": [
+          "premise/differentiated-rocky-stack-supported-v1",
+          "premise/ice-shell-liquid-rocky-alternative-v1"
+        ]
+      },
+      "notes": ["The resolver must not silently discard either hard premise constraint."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "exception/artificial-permitted-v1",
+      "kind": "EXCEPTION",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [],
+        "exceptionPermissions": ["ALLOW_ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL"],
+        "scenarioTags": ["DECLARED_ARTIFICIAL_LAYER_STACK", "DECLARED_ARTIFICIAL_SOLID_SHELL", "DECLARED_ARTIFICIAL_SOLID_SURFACE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "bodyClassCandidates": ["ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL"],
+        "surfaceMediumCandidates": ["DECLARED_ARTIFICIAL_SOLID_SURFACE"],
+        "layerStackCandidates": ["DECLARED_ARTIFICIAL_LAYER_STACK"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/artificial-explicit-exception-v1",
+          "premise/no-downstream-geology-v1"
+        ]
+      },
+      "notes": ["This is a declared product exception, not a natural scientific inference."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "exception/artificial-without-permission-v1",
+      "kind": "EXCEPTION",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_ARTIFICIAL_LAYER_STACK", "DECLARED_ARTIFICIAL_SOLID_SHELL", "DECLARED_ARTIFICIAL_SOLID_SURFACE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "BLOCKED",
+        "bodyClassCandidates": [],
+        "surfaceMediumCandidates": [],
+        "layerStackCandidates": [],
+        "blockingCodes": ["ARTIFICIAL_PREMISE_PERMISSION_REQUIRED"],
+        "requiredRuleIds": ["premise/artificial-explicit-exception-v1"]
+      },
+      "notes": ["A fantasy style or declared structure cannot grant its own exception permission."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/ice-shell-ocean-v1",
+      "kind": "HOLDOUT",
+      "withheldFromRuleAuthoring": true,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "inventory.water", "value": 3.2, "unit": "earth-water-inventory", "scaleId": "earth-water-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 0.58, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 0.62, "unit": "earth-radius", "scaleId": "earth-radius-v1"},
+          {"schemaVersion": 1, "inputId": "thermal.tidal-heating", "value": 0.46, "unit": "normalized-0-1", "scaleId": "normalized-0-1-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_COLD_SOLID_SURFACE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["ICE_SHELL_OCEAN_BODY"],
+        "surfaceMediumCandidates": ["ICE_SHELL_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_ROCK_ICE", "ICE_SHELL_LIQUID_LAYER_ROCKY_INTERIOR"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/high-pressure-ice-alternative-v1",
+          "premise/ice-shell-liquid-rocky-alternative-v1"
+        ]
+      },
+      "notes": ["Held out from rule authoring; exact liquid and high-pressure-ice layers remain alternatives."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/rock-ice-mixed-v1",
+      "kind": "HOLDOUT",
+      "withheldFromRuleAuthoring": true,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "inventory.volatiles", "value": 2.4, "unit": "earth-volatile-inventory", "scaleId": "earth-volatile-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "inventory.water", "value": 2.8, "unit": "earth-water-inventory", "scaleId": "earth-water-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 0.72, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 0.82, "unit": "earth-radius", "scaleId": "earth-radius-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_NO_SUBSTANTIAL_GAS_ENVELOPE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["ROCK_ICE_MIXED_SOLID_BODY"],
+        "surfaceMediumCandidates": ["ICE_OVER_ROCK_SURFACE", "ICE_SHELL_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_ROCK_ICE", "UNDIFFERENTIATED_ROCK_ICE_MIXTURE"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/mass-radius-broad-solid-family-v1",
+          "premise/rock-ice-mixed-alternative-v1"
+        ]
+      },
+      "notes": ["Held out from rule authoring; mixed and differentiated rock-ice structures remain plausible."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/rocky-dwarf-v1",
+      "kind": "HOLDOUT",
+      "withheldFromRuleAuthoring": true,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 0.88, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 0.44, "unit": "earth-radius", "scaleId": "earth-radius-v1"},
+          {"schemaVersion": 1, "inputId": "thermal.age", "value": 7.4, "unit": "gigaannum", "scaleId": "gigaannum-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_NO_SUBSTANTIAL_GAS_ENVELOPE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["ROCKY_DWARF_OR_SMALL_BODY"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE", "PARTIALLY_DIFFERENTIATED_ROCKY"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/differentiated-rocky-stack-supported-v1",
+          "premise/partial-differentiation-remains-provisional-v1"
+        ]
+      },
+      "notes": ["Held out from rule authoring; partial differentiation prevents a COMPLETE stack resolution."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/rocky-super-earth-v1",
+      "kind": "HOLDOUT",
+      "withheldFromRuleAuthoring": true,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 1.18, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 1.62, "unit": "earth-radius", "scaleId": "earth-radius-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_NO_SUBSTANTIAL_GAS_ENVELOPE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "bodyClassCandidates": ["ROCKY_SUPER_EARTH"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE", "SEDIMENT_BEARING_SOLID_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/differentiated-rocky-stack-supported-v1",
+          "premise/mass-radius-broad-solid-family-v1"
+        ]
+      },
+      "notes": ["Held out from rule authoring; COMPLETE applies only to the broad premise categories."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/rocky-terrestrial-v1",
+      "kind": "HOLDOUT",
+      "withheldFromRuleAuthoring": true,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "inventory.water", "value": 0.35, "unit": "earth-water-inventory", "scaleId": "earth-water-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 1.03, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 0.93, "unit": "earth-radius", "scaleId": "earth-radius-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_DIFFERENTIATED_ROCKY", "DECLARED_NO_SUBSTANTIAL_GAS_ENVELOPE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "bodyClassCandidates": ["ROCKY_TERRESTRIAL"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE", "SEDIMENT_BEARING_SOLID_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/differentiated-rocky-stack-supported-v1",
+          "premise/mass-radius-broad-solid-family-v1"
+        ]
+      },
+      "notes": ["Held out from rule authoring; no tectonic or terrain conclusion follows from the COMPLETE premise."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/volatile-pressure-v1",
+      "kind": "HOLDOUT",
+      "withheldFromRuleAuthoring": true,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "climate.declared-greenhouse", "value": 0.78, "unit": "normalized-0-1", "scaleId": "normalized-0-1-v1"},
+          {"schemaVersion": 1, "inputId": "inventory.volatiles", "value": 1.6, "unit": "earth-volatile-inventory", "scaleId": "earth-volatile-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "inventory.water", "value": 1.4, "unit": "earth-water-inventory", "scaleId": "earth-water-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "orbit.distance", "value": 0.72, "unit": "astronomical-unit", "scaleId": "astronomical-unit-v1"},
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 0.92, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 1.08, "unit": "earth-radius", "scaleId": "earth-radius-v1"},
+          {"schemaVersion": 1, "inputId": "star.luminosity", "value": 1.15, "unit": "solar-luminosity", "scaleId": "solar-luminosity-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_NO_H_HE_ENVELOPE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["VOLATILE_PRESSURE_SOLID_BODY"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE", "VOLATILE_PRESSURE_OVER_SOLID_INTERIOR"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/mass-radius-water-atmosphere-degeneracy-v1",
+          "premise/steam-or-volatile-pressure-alternative-v1"
+        ]
+      },
+      "notes": ["Held out from rule authoring; exact climate state remains downstream and therefore PARTIAL."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "missing-evidence/partial-differentiation-v1",
+      "kind": "MISSING_EVIDENCE",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 0.9, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 0.52, "unit": "earth-radius", "scaleId": "earth-radius-v1"},
+          {"schemaVersion": 1, "inputId": "thermal.age", "value": 6.8, "unit": "gigaannum", "scaleId": "gigaannum-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["ROCKY_DWARF_OR_SMALL_BODY"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE", "PARTIALLY_DIFFERENTIATED_ROCKY"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/differentiated-rocky-stack-supported-v1",
+          "premise/partial-differentiation-remains-provisional-v1"
+        ]
+      },
+      "notes": ["The provisional partial-differentiation rule cannot produce COMPLETE status."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "negative/fluid-only-v1",
+      "kind": "NEGATIVE",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "inventory.water", "value": 10, "unit": "earth-water-inventory", "scaleId": "earth-water-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 0.45, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 1, "unit": "earth-radius", "scaleId": "earth-radius-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_FLUID_ONLY_NO_COHERENT_SHELL"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "BLOCKED",
+        "bodyClassCandidates": [],
+        "surfaceMediumCandidates": [],
+        "layerStackCandidates": [],
+        "blockingCodes": ["UNSUPPORTED_FLUID_ONLY_SOLID_ROUTE"],
+        "requiredRuleIds": ["premise/solid-route-unsupported-fluids-and-gas-v1"]
+      },
+      "notes": ["A fluid-only body is outside the approved geological surface route."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "negative/gas-giant-v1",
+      "kind": "NEGATIVE",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 0.22, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 10, "unit": "earth-radius", "scaleId": "earth-radius-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_GAS_GIANT_NO_COHERENT_SHELL"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "BLOCKED",
+        "bodyClassCandidates": [],
+        "surfaceMediumCandidates": [],
+        "layerStackCandidates": [],
+        "blockingCodes": ["UNSUPPORTED_GAS_GIANT_SOLID_ROUTE"],
+        "requiredRuleIds": ["premise/solid-route-unsupported-fluids-and-gas-v1"]
+      },
+      "notes": ["The body is not coerced into a terrain-bearing planet."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "negative/solved-tectonic-hint-v1",
+      "kind": "NEGATIVE",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 1, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 1, "unit": "earth-radius", "scaleId": "earth-radius-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["ATTEMPTED_SOLVED_TECTONIC_CONCLUSION"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "BLOCKED",
+        "bodyClassCandidates": [],
+        "surfaceMediumCandidates": [],
+        "layerStackCandidates": [],
+        "blockingCodes": ["FORBIDDEN_DOWNSTREAM_CONCLUSION_IN_PREMISE_INPUT"],
+        "requiredRuleIds": ["premise/no-downstream-geology-v1"]
+      },
+      "notes": ["A tectonic or terrain conclusion cannot be smuggled through a premise hint."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "negative/star-like-v1",
+      "kind": "NEGATIVE",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 0.25, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 100, "unit": "earth-radius", "scaleId": "earth-radius-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_STAR_OR_STELLAR_REMNANT"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "BLOCKED",
+        "bodyClassCandidates": [],
+        "surfaceMediumCandidates": [],
+        "layerStackCandidates": [],
+        "blockingCodes": ["UNSUPPORTED_STELLAR_SOLID_ROUTE"],
+        "requiredRuleIds": ["premise/solid-route-unsupported-fluids-and-gas-v1"]
+      },
+      "notes": ["Stellar objects are outside the approved solid-surface route."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/earth-scale-rocky-v1",
+      "kind": "POSITIVE",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "inventory.water", "value": 0.5, "unit": "earth-water-inventory", "scaleId": "earth-water-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 1, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 1, "unit": "earth-radius", "scaleId": "earth-radius-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_DIFFERENTIATED_ROCKY", "DECLARED_NO_SUBSTANTIAL_GAS_ENVELOPE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "bodyClassCandidates": ["ROCKY_TERRESTRIAL"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE", "SEDIMENT_BEARING_SOLID_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/differentiated-rocky-stack-supported-v1",
+          "premise/mass-radius-broad-solid-family-v1"
+        ]
+      },
+      "notes": ["COMPLETE applies only to broad premise categories and not to tectonic or surface evolution."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/ice-shell-ocean-v1",
+      "kind": "POSITIVE",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "inventory.water", "value": 4, "unit": "earth-water-inventory", "scaleId": "earth-water-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 0.6, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 0.55, "unit": "earth-radius", "scaleId": "earth-radius-v1"},
+          {"schemaVersion": 1, "inputId": "thermal.tidal-heating", "value": 0.5, "unit": "normalized-0-1", "scaleId": "normalized-0-1-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_COLD_SOLID_SURFACE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["ICE_SHELL_OCEAN_BODY"],
+        "surfaceMediumCandidates": ["ICE_SHELL_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_ROCK_ICE", "ICE_SHELL_LIQUID_LAYER_ROCKY_INTERIOR"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/high-pressure-ice-alternative-v1",
+          "premise/ice-shell-liquid-rocky-alternative-v1"
+        ]
+      },
+      "notes": ["The fixture preserves layer alternatives rather than asserting a unique ocean geometry."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/rock-ice-mixed-v1",
+      "kind": "POSITIVE",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "inventory.volatiles", "value": 2, "unit": "earth-volatile-inventory", "scaleId": "earth-volatile-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "inventory.water", "value": 2, "unit": "earth-water-inventory", "scaleId": "earth-water-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 0.7, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 0.75, "unit": "earth-radius", "scaleId": "earth-radius-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_NO_SUBSTANTIAL_GAS_ENVELOPE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["ROCK_ICE_MIXED_SOLID_BODY"],
+        "surfaceMediumCandidates": ["ICE_OVER_ROCK_SURFACE", "ICE_SHELL_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_ROCK_ICE", "UNDIFFERENTIATED_ROCK_ICE_MIXTURE"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/mass-radius-broad-solid-family-v1",
+          "premise/rock-ice-mixed-alternative-v1"
+        ]
+      },
+      "notes": ["The fixture preserves mixed and differentiated rock-ice alternatives."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/super-earth-rocky-v1",
+      "kind": "POSITIVE",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 1.12, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 1.5, "unit": "earth-radius", "scaleId": "earth-radius-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_NO_SUBSTANTIAL_GAS_ENVELOPE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "bodyClassCandidates": ["ROCKY_SUPER_EARTH"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE", "SEDIMENT_BEARING_SOLID_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/differentiated-rocky-stack-supported-v1",
+          "premise/mass-radius-broad-solid-family-v1"
+        ]
+      },
+      "notes": ["The rocky super-Earth category does not imply plate tectonics or habitability."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/volatile-pressure-solid-v1",
+      "kind": "POSITIVE",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "climate.declared-greenhouse", "value": 0.82, "unit": "normalized-0-1", "scaleId": "normalized-0-1-v1"},
+          {"schemaVersion": 1, "inputId": "inventory.volatiles", "value": 1.8, "unit": "earth-volatile-inventory", "scaleId": "earth-volatile-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "inventory.water", "value": 1.6, "unit": "earth-water-inventory", "scaleId": "earth-water-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "orbit.distance", "value": 0.7, "unit": "astronomical-unit", "scaleId": "astronomical-unit-v1"},
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 0.9, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 1.1, "unit": "earth-radius", "scaleId": "earth-radius-v1"},
+          {"schemaVersion": 1, "inputId": "star.luminosity", "value": 1.2, "unit": "solar-luminosity", "scaleId": "solar-luminosity-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_NO_H_HE_ENVELOPE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["VOLATILE_PRESSURE_SOLID_BODY"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE", "VOLATILE_PRESSURE_OVER_SOLID_INTERIOR"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/mass-radius-water-atmosphere-degeneracy-v1",
+          "premise/steam-or-volatile-pressure-alternative-v1"
+        ]
+      },
+      "notes": ["The exact steam or volatile-pressure threshold remains provisional."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/rock-ice-ambiguity-v1",
+      "kind": "THRESHOLD",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "inventory.volatiles", "value": 1, "unit": "earth-volatile-inventory", "scaleId": "earth-volatile-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "inventory.water", "value": 1, "unit": "earth-water-inventory", "scaleId": "earth-water-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 0.84, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 0.88, "unit": "earth-radius", "scaleId": "earth-radius-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["ROCKY_TERRESTRIAL", "ROCK_ICE_MIXED_SOLID_BODY"],
+        "surfaceMediumCandidates": ["ICE_OVER_ROCK_SURFACE", "ROCK_OR_REGOLITH_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE", "DIFFERENTIATED_ROCK_ICE", "UNDIFFERENTIATED_ROCK_ICE_MIXTURE"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/mass-radius-broad-solid-family-v1",
+          "premise/mass-radius-water-atmosphere-degeneracy-v1",
+          "premise/rock-ice-mixed-alternative-v1"
+        ]
+      },
+      "notes": ["The threshold fixture requires candidate preservation rather than a hard numeric class cut."]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/steam-boundary-v1",
+      "kind": "THRESHOLD",
+      "withheldFromRuleAuthoring": false,
+      "input": {
+        "schemaVersion": 1,
+        "quantities": [
+          {"schemaVersion": 1, "inputId": "climate.declared-greenhouse", "value": 0.55, "unit": "normalized-0-1", "scaleId": "normalized-0-1-v1"},
+          {"schemaVersion": 1, "inputId": "inventory.water", "value": 1.2, "unit": "earth-water-inventory", "scaleId": "earth-water-inventory-v1"},
+          {"schemaVersion": 1, "inputId": "orbit.distance", "value": 0.88, "unit": "astronomical-unit", "scaleId": "astronomical-unit-v1"},
+          {"schemaVersion": 1, "inputId": "planet.density", "value": 0.96, "unit": "earth-density", "scaleId": "earth-density-v1"},
+          {"schemaVersion": 1, "inputId": "planet.radius", "value": 1, "unit": "earth-radius", "scaleId": "earth-radius-v1"},
+          {"schemaVersion": 1, "inputId": "star.luminosity", "value": 1.05, "unit": "solar-luminosity", "scaleId": "solar-luminosity-v1"}
+        ],
+        "exceptionPermissions": [],
+        "scenarioTags": ["DECLARED_NO_H_HE_ENVELOPE"]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["ROCKY_TERRESTRIAL", "VOLATILE_PRESSURE_SOLID_BODY"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE", "VOLATILE_PRESSURE_OVER_SOLID_INTERIOR"],
+        "blockingCodes": [],
+        "requiredRuleIds": [
+          "premise/mass-radius-water-atmosphere-degeneracy-v1",
+          "premise/steam-or-volatile-pressure-alternative-v1"
+        ]
+      },
+      "notes": ["The fixture forbids treating a climate threshold as a universal premise boundary."]
+    }
+  ]
+}
