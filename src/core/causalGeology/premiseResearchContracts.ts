@@ -236,7 +236,7 @@ export function validatePremiseFixture(value: unknown, knownRuleIds: ReadonlySet
 }
 
 export function measurePremiseResearchArtifacts(...values: readonly unknown[]) {
-  const bytes = values.reduce((sum, value) => sum + new TextEncoder().encode(JSON.stringify(value)).byteLength, 0);
+  const bytes = values.reduce<number>((sum, value) => sum + new TextEncoder().encode(JSON.stringify(value)).byteLength, 0);
   if (bytes > PREMISE_RESEARCH_PERFORMANCE_BUDGET_V1.maxSerializedResearchBytes) throw new Error('Premise research artifacts exceed the frozen serialized-size budget.');
   return Object.freeze({ schemaVersion: 1 as const, serializedResearchBytes: bytes });
 }
