@@ -47,13 +47,13 @@ describe('W1-02A generation request contract', () => {
     })).toThrow(/Only direct quantity controls/);
   });
 
-  it('activates only the W1-02A shadow stream and fails closed on active or reserved streams', () => {
+  it('activates only the W1-02A shadow stream and leaves premise reserved', () => {
     const definition = getRandomStreamDefinition('causal.initial-conditions');
     expect(definition.status).toBe('ACTIVE');
     expect(definition.allowedAuthorityModes).toEqual(['CAUSAL_SHADOW']);
+    expect(getRandomStreamDefinition('causal.premise').status).toBe('RESERVED');
     const shadow = createWorldRandomOracle('seed', { authorityMode: 'CAUSAL_SHADOW' });
     expect(() => shadow.uint32({ stream: 'causal.initial-conditions', scope: ['test'], draw: 0 })).not.toThrow();
-    expect(() => shadow.uint32({ stream: 'causal.premise', scope: ['test'], draw: 0 })).toThrow(/reserved and not active/);
     const active = createWorldRandomOracle('seed', { authorityMode: 'CAUSAL_ACTIVE' });
     expect(() => active.uint32({ stream: 'causal.initial-conditions', scope: ['test'], draw: 0 })).toThrow(/not allowed/);
   });
