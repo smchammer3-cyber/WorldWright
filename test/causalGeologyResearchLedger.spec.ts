@@ -52,7 +52,7 @@ describe('W1-01 scientific research ledger', () => {
     })).toThrow(/unapproved input/);
   });
 
-  it('loads the actual committed research fixture set instead of testing only synthetic data', () => {
+  it('loads the actual committed W1-02B premise research package instead of testing only synthetic data', () => {
     const root = resolve(process.cwd(), 'src/core/causalGeology/research');
     const sources = JSON.parse(readFileSync(resolve(root, 'source-registry.json'), 'utf8'));
     const claimRules = JSON.parse(readFileSync(resolve(root, 'claim-rules.json'), 'utf8'));
@@ -61,6 +61,9 @@ describe('W1-01 scientific research ledger', () => {
     const review = JSON.parse(readFileSync(resolve(root, 'review-record.json'), 'utf8'));
     const bundle = createScientificResearchBundle({ bundleVersion: review.bundleVersion, sources, claimRules, correlationGroups, knownLimitations });
     expect(() => validateScientificResearchBundle(bundle)).not.toThrow();
-    expect(review.status).toBe('CONTRACT_FORMAT_REVIEWED');
+    expect(review.status).toBe('PREMISE_RESEARCH_PACKAGE_REVIEWED');
+    expect(review.implementationAuthorized).toBe(false);
+    expect(bundle.claimRules.some((rule) => rule.evidenceStatus === 'REVIEWED')).toBe(true);
+    expect(bundle.claimRules.some((rule) => rule.evidenceStatus === 'PROVISIONAL')).toBe(true);
   });
 });
