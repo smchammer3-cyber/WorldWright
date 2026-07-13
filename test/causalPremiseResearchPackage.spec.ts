@@ -7,7 +7,7 @@ import {
   createScientificResearchBundle,
   measurePremiseResearchArtifacts,
   validatePremiseCompatibilityMatrix,
-  validatePremiseFixtureSet,
+  validatePremiseResearchFixtureSet,
   validateScientificResearchBundle,
   type ScientificClaimRuleV1,
   type ScientificSourceV1,
@@ -69,7 +69,7 @@ describe('W1-02B planetary-premise research package', () => {
   it('validates complete vocabulary, compatibility, blocked-route, archetype, and holdout coverage', () => {
     const ruleIds = new Set(claimRules.map((rule) => rule.ruleId));
     expect(() => validatePremiseCompatibilityMatrix(compatibility, ruleIds)).not.toThrow();
-    expect(() => validatePremiseFixtureSet(fixtures, ruleIds)).not.toThrow();
+    expect(() => validatePremiseResearchFixtureSet(fixtures, ruleIds)).not.toThrow();
     const holdoutBodyClasses = new Set(
       (fixtures as any).fixtures
         .filter((fixture: any) => fixture.kind === 'HOLDOUT')
@@ -99,7 +99,7 @@ describe('W1-02B planetary-premise research package', () => {
       const bundle = buildBundle();
       const ruleIds = new Set(bundle.claimRules.map((rule) => rule.ruleId));
       validatePremiseCompatibilityMatrix(compatibility, ruleIds);
-      validatePremiseFixtureSet(fixtures, ruleIds);
+      validatePremiseResearchFixtureSet(fixtures, ruleIds);
       measurePremiseResearchArtifacts(bundle, compatibility, fixtures, review);
     }
     const averageMilliseconds = (performance.now() - start) / 16;
@@ -108,12 +108,28 @@ describe('W1-02B planetary-premise research package', () => {
     expect(heapDelta).toBeLessThan(PREMISE_RESEARCH_PERFORMANCE_BUDGET_V1.maxHeapDeltaBytes);
   });
 
-  it('rejects fixture and matrix tampering instead of normalizing hostile records silently', () => {
+  it('rejects matrix, fixture, input-authority, and candidate tampering instead of normalizing hostile records silently', () => {
     const ruleIds = new Set(claimRules.map((rule) => rule.ruleId));
     expect(() => validatePremiseCompatibilityMatrix({ ...(compatibility as object), terrainPolicy: 'invented' }, ruleIds)).toThrow(/unowned fields/);
-    const tampered = structuredClone(fixtures as any);
-    tampered.fixtures[0].expected.bodyClassCandidates = ['ROCKY_TERRESTRIAL'];
-    expect(() => validatePremiseFixtureSet(tampered, ruleIds)).toThrow(/Blocked fixture/);
+
+    const blockedWithCandidates = structuredClone(fixtures as any);
+    blockedWithCandidates.fixtures[0].expected.bodyClassCandidates = ['ROCKY_TERRESTRIAL'];
+    expect(() => validatePremiseResearchFixtureSet(blockedWithCandidates, ruleIds)).toThrow(/Blocked fixture/);
+
+    const legacyInput = structuredClone(fixtures as any);
+    legacyInput.fixtures[0].input.quantities.push({
+      schemaVersion: 1,
+      inputId: 'legacy.tectonic-vigor',
+      value: 1,
+      unit: 'normalized-0-1',
+      scaleId: 'normalized-0-1-v1',
+    });
+    legacyInput.fixtures[0].input.quantities.sort((a: any, b: any) => String(a.inputId).localeCompare(String(b.inputId)));
+    expect(() => validatePremiseResearchFixtureSet(legacyInput, ruleIds)).toThrow(/non-W1-02A input/);
+
+    const wrongScale = structuredClone(fixtures as any);
+    wrongScale.fixtures.find((fixture: any) => fixture.input.quantities.length > 0).input.quantities[0].scaleId = 'invented-scale-v1';
+    expect(() => validatePremiseResearchFixtureSet(wrongScale, ruleIds)).toThrow(/wrong quantity contract/);
   });
 });
 
