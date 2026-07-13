@@ -1,1 +1,8 @@
-["worldwright-controlled-fixtures"]
+[
+  "exoplanet-mass-radius-models",
+  "ocean-world-interior-models",
+  "rock-ice-interior-models",
+  "rocky-differentiation-models",
+  "volatile-pressure-models",
+  "worldwright-scope-rules"
+]
