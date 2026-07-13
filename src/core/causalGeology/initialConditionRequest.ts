@@ -74,6 +74,12 @@ const CONTROL_SCOPE_BY_ID: Readonly<Record<InitialConditionControlId, InitialCon
   'thermal.tidal-heating': 'THERMAL_INITIAL_CONDITIONS',
 });
 
+const SOURCE_PRIORITY: Readonly<Record<InitialConditionControlSource, number>> = Object.freeze({
+  USER: 0,
+  TEMPLATE: 1,
+  SEEDED_DEFAULT_REQUEST: 2,
+});
+
 const REQUEST_KEYS = [
   'schemaVersion',
   'requestContractVersion',
@@ -107,13 +113,8 @@ export function createGenerationRequest(
 ): GenerationRequestV1 {
   const normalizedRootSeed = normalizeRootSeedIdentity(rootSeed);
   if (!Array.isArray(controls) || controls.length > 64) throw new Error('Generation request controls exceed the supported limit.');
-  const normalizedControls = controls.map((entry) => cloneAndDeepFreeze(entry)).sort((a, b) => compareStableText(a.controlId, b.controlId));
-  const seen = new Set<string>();
-  for (const control of normalizedControls) {
-    validateGenerationRequestControl(control);
-    if (seen.has(control.controlId)) throw new Error(`Duplicate generation request control: ${control.controlId}`);
-    seen.add(control.controlId);
-  }
+  const normalizedControls = controls.map((entry) => cloneAndDeepFreeze(entry)).sort(compareGenerationRequestControls);
+  validateControlCollection(normalizedControls);
   const exceptionPermissions = sortedUniqueEnum(options.exceptionPermissions ?? [], INITIAL_CONDITION_EXCEPTION_PERMISSIONS, 'Initial-condition exception permissions');
   const rerollScopes = sortedUniqueEnum(options.rerollScopes ?? [], INITIAL_CONDITION_REROLL_SCOPES, 'Initial-condition reroll scopes');
   const rerollOrdinal = options.rerollOrdinal ?? 0;
@@ -203,15 +204,8 @@ export function validateGenerationRequest(value: unknown): asserts value is Gene
   if (request.schemaVersion !== 1 || request.requestContractVersion !== 1) throw new Error('Unsupported generation request contract.');
   const rootSeed = normalizeRootSeedIdentity(request.rootSeed as RootSeedIdentity);
   if (!Array.isArray(request.controls) || request.controls.length > 64) throw new Error('Generation request controls are invalid.');
-  const ids: string[] = [];
-  const seen = new Set<string>();
-  for (const control of request.controls) {
-    validateGenerationRequestControl(control);
-    if (seen.has(control.controlId)) throw new Error(`Duplicate generation request control: ${control.controlId}`);
-    seen.add(control.controlId);
-    ids.push(control.controlId);
-  }
-  if (!arraysEqual(ids, [...ids].sort(compareStableText))) throw new Error('Generation request controls are not canonically ordered.');
+  validateControlCollection(request.controls);
+  if (!arraysEqual(request.controls, [...request.controls].sort(compareGenerationRequestControls))) throw new Error('Generation request controls are not canonically ordered.');
   const exceptionPermissions = validateSortedUniqueEnum(request.exceptionPermissions, INITIAL_CONDITION_EXCEPTION_PERMISSIONS, 'Initial-condition exception permissions');
   const rerollScopes = validateSortedUniqueEnum(request.rerollScopes, INITIAL_CONDITION_REROLL_SCOPES, 'Initial-condition reroll scopes');
   if (!Number.isSafeInteger(request.rerollOrdinal) || (request.rerollOrdinal as number) < 0 || (request.rerollOrdinal as number) > 1_000_000) throw new Error('Initial-condition reroll ordinal is invalid.');
@@ -243,6 +237,7 @@ export function validateGenerationRequestControl(value: unknown): asserts value 
   if (!['USER', 'TEMPLATE', 'SEEDED_DEFAULT_REQUEST'].includes(String(control.source))) throw new Error(`Generation request control ${control.controlId} source is invalid.`);
   if (!['LOCKED', 'UNLOCKED'].includes(String(control.lockState))) throw new Error(`Generation request control ${control.controlId} lock state is invalid.`);
   if (control.scope !== getInitialConditionControlScope(control.controlId)) throw new Error(`Generation request control ${control.controlId} uses the wrong scope.`);
+  if (control.source === 'SEEDED_DEFAULT_REQUEST' && control.intent !== 'UNSPECIFIED') throw new Error(`Seeded-default generation request control ${control.controlId} must be unspecified.`);
   if (control.intent === 'UNSPECIFIED') {
     if (control.value !== undefined || control.lockState !== 'UNLOCKED') throw new Error(`Unspecified generation request control ${control.controlId} cannot carry a value or lock.`);
     return;
@@ -289,11 +284,33 @@ export function getInitialConditionControlScope(controlId: InitialConditionContr
   return scope;
 }
 
+export function getEffectiveGenerationRequestControls(request: GenerationRequestV1): readonly GenerationRequestControlV1[] {
+  validateGenerationRequest(request);
+  const grouped = new Map<InitialConditionControlId, GenerationRequestControlV1[]>();
+  for (const control of request.controls) {
+    const group = grouped.get(control.controlId) ?? [];
+    group.push(control);
+    grouped.set(control.controlId, group);
+  }
+  const effective: GenerationRequestControlV1[] = [];
+  for (const controlId of [...grouped.keys()].sort(compareStableText)) {
+    const group = grouped.get(controlId) as GenerationRequestControlV1[];
+    const hard = group.filter((control) => control.intent === 'HARD_CONSTRAINT').sort(compareGenerationRequestControls);
+    if (hard.length > 0) {
+      effective.push(hard[0]);
+      continue;
+    }
+    const soft = group.filter((control) => control.intent === 'SOFT_PREFERENCE').sort(compareGenerationRequestControls);
+    if (soft.length > 0) effective.push(soft[0]);
+  }
+  return cloneAndDeepFreeze(effective.sort(compareGenerationRequestControls));
+}
+
 export function getGenerationRequestResolutionBasisHash(request: GenerationRequestV1) {
   validateGenerationRequest(request);
   return hashCausalPayload('WorldWright/generation-request-resolution-basis/v1', {
     rootSeed: request.rootSeed,
-    controls: request.controls,
+    controls: getEffectiveGenerationRequestControls(request),
     exceptionPermissions: request.exceptionPermissions,
   });
 }
@@ -302,6 +319,12 @@ export function generationRequestsEqual(a: GenerationRequestV1, b: GenerationReq
   validateGenerationRequest(a);
   validateGenerationRequest(b);
   return canonicalJsonStringify(a) === canonicalJsonStringify(b);
+}
+
+export function getInitialConditionControlSourcePriority(source: InitialConditionControlSource): number {
+  const priority = SOURCE_PRIORITY[source];
+  if (priority === undefined) throw new Error(`Unsupported initial-condition control source: ${source}`);
+  return priority;
 }
 
 export function isInitialConditionDirectInputId(value: unknown): value is InitialConditionDirectInputId {
@@ -314,6 +337,24 @@ export function isInitialConditionHintControlId(value: unknown): value is Initia
 
 export function isInitialConditionControlId(value: unknown): value is InitialConditionControlId {
   return isInitialConditionDirectInputId(value) || isInitialConditionHintControlId(value);
+}
+
+function validateControlCollection(controls: readonly GenerationRequestControlV1[]): void {
+  const seen = new Set<string>();
+  for (const control of controls) {
+    validateGenerationRequestControl(control);
+    const identity = `${control.controlId}|${control.source}`;
+    if (seen.has(identity)) throw new Error(`Duplicate generation request control source: ${identity}`);
+    seen.add(identity);
+  }
+}
+
+function compareGenerationRequestControls(a: GenerationRequestControlV1, b: GenerationRequestControlV1): number {
+  const byId = compareStableText(a.controlId, b.controlId);
+  if (byId !== 0) return byId;
+  const byPriority = getInitialConditionControlSourcePriority(a.source) - getInitialConditionControlSourcePriority(b.source);
+  if (byPriority !== 0) return byPriority;
+  return compareStableText(a.intent, b.intent);
 }
 
 function sortedUniqueEnum<T extends string>(values: readonly T[], allowed: readonly T[], label: string): readonly T[] {
