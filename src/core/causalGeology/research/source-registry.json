@@ -1,16 +1,191 @@
 [
   {
     "schemaVersion": 1,
-    "sourceId": "controlled-archetype-format-v1",
-    "sourceType": "internal-controlled-fixture",
-    "citation": "WorldWright Wave 1 controlled archetype fixture format",
-    "title": "Controlled Archetype Fixture Contract",
+    "sourceId": "adams-seager-elkins-tanton-2008-mass-radius-degeneracy",
+    "sourceType": "peer-reviewed journal article; author manuscript at arXiv",
+    "citation": "Adams, E. R.; Seager, S.; Elkins-Tanton, L. Ocean Planet or Thick Atmosphere: On the Mass-Radius Relationship for Solid Exoplanets with Massive Atmospheres. arXiv:0710.4941; journal publication 2008.",
+    "title": "Ocean Planet or Thick Atmosphere: On the Mass-Radius Relationship for Solid Exoplanets with Massive Atmospheres",
+    "authorsOrInstitution": "E. R. Adams, S. Seager, and L. Elkins-Tanton",
+    "publicationYear": 2008,
+    "revisionOrAccessDate": "2026-07-13",
+    "domain": "solid-planet-composition-degeneracy",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "exoplanet-mass-radius-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Bulk composition remains degenerate without atmospheric constraints.",
+      "The modeled atmosphere range is broader than the W1-02B premise scope."
+    ],
+    "contentFingerprint": "arxiv:0710.4941"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "marounina-rogers-2019-water-world-interiors",
+    "sourceType": "planetary interior model; author manuscript at arXiv",
+    "citation": "Marounina, N.; Rogers, L. A. Internal Structure and CO2 Reservoirs of Habitable Water-Worlds. arXiv:1904.10458 (2019).",
+    "title": "Internal Structure and CO2 Reservoirs of Habitable Water-Worlds",
+    "authorsOrInstitution": "Nadejda Marounina and Leslie A. Rogers",
+    "publicationYear": 2019,
+    "revisionOrAccessDate": "2026-07-13",
+    "domain": "water-world-layering-and-volatile-reservoirs",
+    "qualityClass": "AUTHORITATIVE_DATA_OR_MODEL",
+    "correlationGroupId": "volatile-pressure-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Applies to water-rich planets rather than all volatile-rich solids.",
+      "Carbon-dioxide partitioning details remain downstream of premise scope."
+    ],
+    "contentFingerprint": "arxiv:1904.10458"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "rubie-et-al-2015-terrestrial-differentiation",
+    "sourceType": "peer-reviewed accretion and core-mantle differentiation model; author manuscript at arXiv",
+    "citation": "Rubie, D. C. et al. Accretion and differentiation of the terrestrial planets with implications for early Solar System bodies and accretion of water. Icarus 248 (2015); arXiv:1410.3509.",
+    "title": "Accretion and differentiation of the terrestrial planets with implications for the compositions of early-formed Solar System bodies and accretion of water",
+    "authorsOrInstitution": "David C. Rubie et al.",
+    "publicationYear": 2015,
+    "revisionOrAccessDate": "2026-07-13",
+    "domain": "rocky-planet-differentiation",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "rocky-differentiation-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Accretion-history details are downstream of premise scope.",
+      "Earth and Mars calibration does not uniquely determine exoplanet interiors."
+    ],
+    "contentFingerprint": "arxiv:1410.3509"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "seager-et-al-2007-solid-mass-radius",
+    "sourceType": "peer-reviewed solid-planet interior model; author manuscript at arXiv",
+    "citation": "Seager, S.; Kuchner, M.; Hier-Majumder, C. A.; Militzer, B. Mass-Radius Relationships for Solid Exoplanets. The Astrophysical Journal 669 (2007); arXiv:0707.2895.",
+    "title": "Mass-Radius Relationships for Solid Exoplanets",
+    "authorsOrInstitution": "Sara Seager, Marc Kuchner, C. A. Hier-Majumder, and Burkhard Militzer",
+    "publicationYear": 2007,
+    "revisionOrAccessDate": "2026-07-13",
+    "domain": "solid-exoplanet-mass-radius",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "exoplanet-mass-radius-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Assumes cold solid planets and no substantial gas envelope.",
+      "Mass and radius do not uniquely recover detailed composition."
+    ],
+    "contentFingerprint": "arxiv:0707.2895"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "turbet-et-al-2020-steam-water-rich",
+    "sourceType": "peer-reviewed coupled climate and mass-radius model; author manuscript at arXiv",
+    "citation": "Turbet, M. et al. Revised mass-radius relationships for water-rich rocky planets more irradiated than the runaway greenhouse limit. Astronomy & Astrophysics 638 (2020); arXiv:1911.08878.",
+    "title": "Revised mass-radius relationships for water-rich rocky planets more irradiated than the runaway greenhouse limit",
+    "authorsOrInstitution": "Martin Turbet et al.",
+    "publicationYear": 2020,
+    "revisionOrAccessDate": "2026-07-13",
+    "domain": "irradiated-water-rich-solid-planets",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "volatile-pressure-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Applies to irradiated water-rich rocky planets.",
+      "Climate-state thresholds are not treated as universal premise cutoffs."
+    ],
+    "contentFingerprint": "arxiv:1911.08878"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "ueta-sasaki-2013-high-pressure-ice",
+    "sourceType": "peer-reviewed thermal and water-layer structure model; author manuscript at arXiv",
+    "citation": "Ueta, S.; Sasaki, T. Structure of Surface-H2O Layers of Ice-covered Planets with High-pressure Ice. arXiv:1308.0562 (2013).",
+    "title": "Structure of Surface-H2O Layers of Ice-covered Planets with High-pressure Ice",
+    "authorsOrInstitution": "S. Ueta and T. Sasaki",
+    "publicationYear": 2013,
+    "revisionOrAccessDate": "2026-07-13",
+    "domain": "ice-shell-ocean-and-high-pressure-ice",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "ocean-world-interior-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Habitability implications are outside premise scope.",
+      "High-pressure ice occurrence depends on water abundance, mass, and thermal assumptions."
+    ],
+    "contentFingerprint": "arxiv:1308.0562"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "vance-et-al-2018-ocean-world-interiors",
+    "sourceType": "peer-reviewed geophysical interior-model framework; author manuscript at arXiv",
+    "citation": "Vance, S. D. et al. Geophysical tests for habitability in ice-covered ocean worlds. arXiv:1705.03999; journal publication 2018.",
+    "title": "Geophysical tests for habitability in ice-covered ocean worlds",
+    "authorsOrInstitution": "Steven D. Vance et al.",
+    "publicationYear": 2018,
+    "revisionOrAccessDate": "2026-07-13",
+    "domain": "ice-covered-ocean-world-interiors",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "ocean-world-interior-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Interior solutions are non-unique and thermodynamic data are incomplete.",
+      "Specific ocean chemistry is outside premise scope."
+    ],
+    "contentFingerprint": "arxiv:1705.03999"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "vazan-sari-kessel-2020-ice-rock-mixture",
+    "sourceType": "planetary thermal-evolution and interior model; author manuscript at arXiv",
+    "citation": "Vazan, A.; Sari, R.; Kessel, R. A new perspective on interiors of ice-rich planets: Ice-rock mixture instead of ice on top of rock. arXiv:2011.00602 (2020).",
+    "title": "A new perspective on interiors of ice-rich planets: Ice-rock mixture instead of ice on top of rock",
+    "authorsOrInstitution": "Allona Vazan, Re'em Sari, and Ronit Kessel",
+    "publicationYear": 2020,
+    "revisionOrAccessDate": "2026-07-13",
+    "domain": "rock-ice-mixed-interiors",
+    "qualityClass": "AUTHORITATIVE_DATA_OR_MODEL",
+    "correlationGroupId": "rock-ice-interior-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Focused on ice-rich planets of roughly five to fifteen Earth masses.",
+      "Mixed interiors are an alternative, not a universal outcome."
+    ],
+    "contentFingerprint": "arxiv:2011.00602"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "worldwright-premise-scope-v1",
+    "sourceType": "internal controlled scope and exception contract",
+    "citation": "WorldWright W1-02B premise research contract and approved vocabulary.",
+    "title": "WorldWright Planetary-Premise Scope and Exception Contract",
     "authorsOrInstitution": "WorldWright",
-    "domain": "causal-geology-contracts",
+    "publicationYear": 2026,
+    "revisionOrAccessDate": "2026-07-13",
+    "domain": "premise-scope-and-exceptions",
     "qualityClass": "INTERNAL_CONTROLLED_ARCHETYPE",
-    "correlationGroupId": "worldwright-controlled-fixtures",
-    "licenseOrUsageNote": "Internal contract fixture; not external scientific evidence.",
-    "limitations": ["format-only"],
-    "contentFingerprint": "w1-01-controlled-archetype-format-v1"
+    "correlationGroupId": "worldwright-scope-rules",
+    "licenseOrUsageNote": "Internal product and architecture rule; not external scientific evidence.",
+    "limitations": [
+      "Product-scope rule rather than external scientific evidence."
+    ],
+    "contentFingerprint": "worldwright:w1-02b-premise-scope-v1"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "zeng-sasselov-jacobsen-2016-rocky-prem",
+    "sourceType": "peer-reviewed rocky-planet mass-radius model; author manuscript at arXiv",
+    "citation": "Zeng, L.; Sasselov, D.; Jacobsen, S. B. Mass-Radius Relation for Rocky Planets based on PREM. The Astrophysical Journal 819 (2016); arXiv:1512.08827.",
+    "title": "Mass-Radius Relation for Rocky Planets based on PREM",
+    "authorsOrInstitution": "Li Zeng, Dimitar Sasselov, and Stein B. Jacobsen",
+    "publicationYear": 2016,
+    "revisionOrAccessDate": "2026-07-13",
+    "domain": "differentiated-rocky-interiors",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "rocky-differentiation-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Applies to differentiated rocky planets within the stated mass and core-fraction domain.",
+      "Does not identify atmospheres or water-rich alternatives."
+    ],
+    "contentFingerprint": "arxiv:1512.08827"
   }
 ]
