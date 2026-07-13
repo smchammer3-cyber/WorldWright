@@ -3,8 +3,10 @@ import type { CausalRandomStreamName, RandomStreamDefinition } from './types';
 
 const ALL_MODES: readonly GeneratorAuthorityMode[] = ['LEGACY', 'CAUSAL_SHADOW', 'CAUSAL_ACTIVE'];
 const CAUSAL_MODES: readonly GeneratorAuthorityMode[] = ['CAUSAL_SHADOW', 'CAUSAL_ACTIVE'];
+const SHADOW_ONLY_MODES: readonly GeneratorAuthorityMode[] = ['CAUSAL_SHADOW'];
 
 const DEFINITIONS: readonly RandomStreamDefinition[] = [
+  define('causal.initial-conditions', 1, 'planet-initial-conditions', 'Resolve constraint-aware initial-condition bundles without solved geology.', ['purpose', 'family', 'scope', 'ordinal', 'input'], SHADOW_ONLY_MODES, 'ACTIVE'),
   define('causal.premise', 1, 'planetary-premise', 'Resolve future planetary premise branches.', ['purpose'], CAUSAL_MODES, 'RESERVED'),
   define('causal.interior', 1, 'interior-rheology', 'Resolve future interior and rheology branches.', ['purpose'], CAUSAL_MODES, 'RESERVED'),
   define('causal.regime-history', 1, 'regime-history', 'Resolve future regime epochs and transitions.', ['epoch', 'purpose'], CAUSAL_MODES, 'RESERVED'),
