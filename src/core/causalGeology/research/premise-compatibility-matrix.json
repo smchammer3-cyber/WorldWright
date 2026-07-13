@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "matrixVersion": "W1_02B_PREMISE_COMPATIBILITY_V1",
+  "rows": [
+    {
+      "schemaVersion": 1,
+      "bodyClass": "ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL",
+      "policy": "EXPLICIT_EXCEPTION_ONLY",
+      "allowedSurfaceMedia": ["DECLARED_ARTIFICIAL_SOLID_SURFACE"],
+      "allowedLayerStacks": ["DECLARED_ARTIFICIAL_LAYER_STACK"],
+      "requiredRuleIds": [
+        "premise/artificial-explicit-exception-v1",
+        "premise/no-downstream-geology-v1"
+      ],
+      "limitations": ["Requires explicit exception permission and a declared mechanically coherent structure."]
+    },
+    {
+      "schemaVersion": 1,
+      "bodyClass": "ICE_SHELL_OCEAN_BODY",
+      "policy": "NATURAL_PARTIAL_CAPABLE",
+      "allowedSurfaceMedia": ["ICE_SHELL_SURFACE"],
+      "allowedLayerStacks": [
+        "DIFFERENTIATED_ROCK_ICE",
+        "ICE_SHELL_LIQUID_LAYER_ROCKY_INTERIOR"
+      ],
+      "requiredRuleIds": [
+        "premise/high-pressure-ice-alternative-v1",
+        "premise/ice-shell-liquid-rocky-alternative-v1",
+        "premise/mass-radius-water-atmosphere-degeneracy-v1",
+        "premise/no-downstream-geology-v1"
+      ],
+      "limitations": ["A liquid layer and its thickness cannot be assumed from ice-shell evidence alone."]
+    },
+    {
+      "schemaVersion": 1,
+      "bodyClass": "ROCK_ICE_MIXED_SOLID_BODY",
+      "policy": "NATURAL_PARTIAL_CAPABLE",
+      "allowedSurfaceMedia": [
+        "ICE_OVER_ROCK_SURFACE",
+        "ICE_SHELL_SURFACE",
+        "VOLATILE_MODIFIED_SOLID_SURFACE"
+      ],
+      "allowedLayerStacks": [
+        "DIFFERENTIATED_ROCK_ICE",
+        "UNDIFFERENTIATED_ROCK_ICE_MIXTURE"
+      ],
+      "requiredRuleIds": [
+        "premise/mass-radius-broad-solid-family-v1",
+        "premise/mass-radius-water-atmosphere-degeneracy-v1",
+        "premise/no-downstream-geology-v1",
+        "premise/rock-ice-mixed-alternative-v1"
+      ],
+      "limitations": ["Mixed and cleanly differentiated rock-ice interiors may remain simultaneously plausible."]
+    },
+    {
+      "schemaVersion": 1,
+      "bodyClass": "ROCKY_DWARF_OR_SMALL_BODY",
+      "policy": "NATURAL_PARTIAL_CAPABLE",
+      "allowedSurfaceMedia": [
+        "ICE_OVER_ROCK_SURFACE",
+        "ROCK_OR_REGOLITH_SURFACE",
+        "VOLATILE_MODIFIED_SOLID_SURFACE"
+      ],
+      "allowedLayerStacks": [
+        "DIFFERENTIATED_METAL_SILICATE",
+        "PARTIALLY_DIFFERENTIATED_ROCKY"
+      ],
+      "requiredRuleIds": [
+        "premise/differentiated-rocky-stack-supported-v1",
+        "premise/mass-radius-broad-solid-family-v1",
+        "premise/no-downstream-geology-v1",
+        "premise/partial-differentiation-remains-provisional-v1"
+      ],
+      "limitations": ["Partial differentiation remains a PARTIAL-only alternative with current inputs."]
+    },
+    {
+      "schemaVersion": 1,
+      "bodyClass": "ROCKY_SUPER_EARTH",
+      "policy": "NATURAL_REVIEWED",
+      "allowedSurfaceMedia": [
+        "ROCK_OR_REGOLITH_SURFACE",
+        "SEDIMENT_BEARING_SOLID_SURFACE",
+        "VOLATILE_MODIFIED_SOLID_SURFACE"
+      ],
+      "allowedLayerStacks": ["DIFFERENTIATED_METAL_SILICATE"],
+      "requiredRuleIds": [
+        "premise/differentiated-rocky-stack-supported-v1",
+        "premise/mass-radius-broad-solid-family-v1",
+        "premise/mass-radius-water-atmosphere-degeneracy-v1",
+        "premise/no-downstream-geology-v1"
+      ],
+      "limitations": ["A rocky classification does not establish atmosphere, tectonic regime, or surface habitability."]
+    },
+    {
+      "schemaVersion": 1,
+      "bodyClass": "ROCKY_TERRESTRIAL",
+      "policy": "NATURAL_PARTIAL_CAPABLE",
+      "allowedSurfaceMedia": [
+        "ROCK_OR_REGOLITH_SURFACE",
+        "SEDIMENT_BEARING_SOLID_SURFACE",
+        "VOLATILE_MODIFIED_SOLID_SURFACE"
+      ],
+      "allowedLayerStacks": [
+        "DIFFERENTIATED_METAL_SILICATE",
+        "PARTIALLY_DIFFERENTIATED_ROCKY"
+      ],
+      "requiredRuleIds": [
+        "premise/differentiated-rocky-stack-supported-v1",
+        "premise/mass-radius-broad-solid-family-v1",
+        "premise/no-downstream-geology-v1",
+        "premise/partial-differentiation-remains-provisional-v1"
+      ],
+      "limitations": ["The partially differentiated alternative prevents false uniqueness when thermal history is underconstrained."]
+    },
+    {
+      "schemaVersion": 1,
+      "bodyClass": "VOLATILE_PRESSURE_SOLID_BODY",
+      "policy": "NATURAL_PARTIAL_CAPABLE",
+      "allowedSurfaceMedia": [
+        "ROCK_OR_REGOLITH_SURFACE",
+        "VOLATILE_MODIFIED_SOLID_SURFACE"
+      ],
+      "allowedLayerStacks": [
+        "DIFFERENTIATED_METAL_SILICATE",
+        "DIFFERENTIATED_ROCK_ICE",
+        "VOLATILE_PRESSURE_OVER_SOLID_INTERIOR"
+      ],
+      "requiredRuleIds": [
+        "premise/mass-radius-water-atmosphere-degeneracy-v1",
+        "premise/no-downstream-geology-v1",
+        "premise/steam-or-volatile-pressure-alternative-v1"
+      ],
+      "limitations": ["The pressure-dominated volatile state remains an alternative until climate and atmospheric constraints are resolved downstream."]
+    }
+  ],
+  "blockedCategories": [
+    {
+      "schemaVersion": 1,
+      "categoryId": "BROWN_DWARF",
+      "blockingCode": "UNSUPPORTED_BROWN_DWARF_SOLID_ROUTE",
+      "requiredRuleIds": ["premise/solid-route-unsupported-fluids-and-gas-v1"],
+      "limitations": ["Outside the approved WorldWright solid-surface route."]
+    },
+    {
+      "schemaVersion": 1,
+      "categoryId": "FLUID_ONLY_NO_COHERENT_SHELL",
+      "blockingCode": "UNSUPPORTED_FLUID_ONLY_SOLID_ROUTE",
+      "requiredRuleIds": ["premise/solid-route-unsupported-fluids-and-gas-v1"],
+      "limitations": ["No mechanically coherent surface is available for later geological modeling."]
+    },
+    {
+      "schemaVersion": 1,
+      "categoryId": "GAS_GIANT_NO_COHERENT_SHELL",
+      "blockingCode": "UNSUPPORTED_GAS_GIANT_SOLID_ROUTE",
+      "requiredRuleIds": ["premise/solid-route-unsupported-fluids-and-gas-v1"],
+      "limitations": ["A gas giant may proceed only through a separately declared artificial solid-shell exception."]
+    },
+    {
+      "schemaVersion": 1,
+      "categoryId": "STAR_OR_STELLAR_REMNANT",
+      "blockingCode": "UNSUPPORTED_STELLAR_SOLID_ROUTE",
+      "requiredRuleIds": ["premise/solid-route-unsupported-fluids-and-gas-v1"],
+      "limitations": ["Outside the approved WorldWright solid-surface route."]
+    }
+  ]
+}
