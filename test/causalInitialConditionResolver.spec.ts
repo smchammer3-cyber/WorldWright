@@ -32,17 +32,43 @@ describe('W1-02A initial-condition resolver', () => {
     expect(quantityValues(compatible)['planet.radius']).toBe(1.8);
 
     const density = createQuantityGenerationControl('planet.density', createScientificQuantity(0.5, 'earth-density', 'earth-density-v1'), 'HARD_CONSTRAINT');
-    const blockedRequest = createGenerationRequest('seed', [radius, density]);
+    const irrelevant = createQuantityGenerationControl('star.luminosity', createScientificQuantity(1, 'solar-luminosity', 'solar-luminosity-v1'), 'HARD_CONSTRAINT');
+    const blockedRequest = createGenerationRequest('seed', [radius, density, irrelevant]);
     const blocked = resolvePlanetInitialConditionBundle(blockedRequest, { authorityMode: 'CAUSAL_SHADOW' });
     expect(blocked.status).toBe('BLOCKED');
     expect(blocked.resolvedDeclarations).toEqual([]);
     expect(blocked.conflicts[0].detailCode).toBe('NO_PRIOR_FAMILY_SATISFIES_HARD_CONSTRAINTS');
+    expect(blocked.conflicts[0].controlIds).toEqual(['planet.density', 'planet.radius']);
     expect(() => createCausalGeologyInputFromInitialConditionBundle(blocked)).toThrow(/Blocked/);
   });
 
-  it('rerolls only the requested unlocked scope while preserving all other quantities', () => {
-    const baseRequest = createGenerationRequest('reroll-seed', []);
-    const rerollRequest = createGenerationRequest('reroll-seed', [], {
+  it('blocks conflicting declarations of the same hard control instead of selecting a source silently', () => {
+    const user = createQuantityGenerationControl('planet.radius', createScientificQuantity(1, 'earth-radius', 'earth-radius-v1'), 'HARD_CONSTRAINT', 'USER');
+    const template = createQuantityGenerationControl('planet.radius', createScientificQuantity(1.1, 'earth-radius', 'earth-radius-v1'), 'HARD_CONSTRAINT', 'TEMPLATE');
+    const blocked = resolvePlanetInitialConditionBundle(createGenerationRequest('seed', [template, user]), { authorityMode: 'CAUSAL_SHADOW' });
+    expect(blocked.status).toBe('BLOCKED');
+    expect(blocked.conflicts[0]).toMatchObject({
+      controlIds: ['planet.radius'],
+      detailCode: 'INCOMPATIBLE_HARD_DECLARATIONS',
+    });
+  });
+
+  it('lets higher-priority soft controls determine physics while retaining lower-priority request provenance', () => {
+    const user = createQuantityGenerationControl('planet.radius', createScientificQuantity(1.1, 'earth-radius', 'earth-radius-v1'), 'SOFT_PREFERENCE', 'USER');
+    const template = createQuantityGenerationControl('planet.radius', createScientificQuantity(0.4, 'earth-radius', 'earth-radius-v1'), 'SOFT_PREFERENCE', 'TEMPLATE');
+    const userOnly = resolvePlanetInitialConditionBundle(createGenerationRequest('precedence-seed', [user]), { authorityMode: 'CAUSAL_SHADOW' });
+    const combinedRequest = createGenerationRequest('precedence-seed', [template, user]);
+    const combined = resolvePlanetInitialConditionBundle(combinedRequest, { authorityMode: 'CAUSAL_SHADOW' });
+    expect(combined.requestHash).toEqual(combinedRequest.contentHash);
+    expect(combined.resolvedCorrelatedSelections).toEqual(userOnly.resolvedCorrelatedSelections);
+    expect(combined.resolvedDeclarations).toEqual(userOnly.resolvedDeclarations);
+    expect(combined.softPreferences).toEqual(['planet.radius']);
+  });
+
+  it('rerolls only the requested unlocked scope while preserving all other quantities and locks', () => {
+    const ageLock = createQuantityGenerationControl('thermal.age', createScientificQuantity(4.5, 'gigaannum', 'gigaannum-v1'), 'HARD_CONSTRAINT');
+    const baseRequest = createGenerationRequest('reroll-seed', [ageLock]);
+    const rerollRequest = createGenerationRequest('reroll-seed', [ageLock], {
       rerollScopes: ['THERMAL_INITIAL_CONDITIONS'],
       rerollOrdinal: 1,
     });
@@ -51,11 +77,13 @@ describe('W1-02A initial-condition resolver', () => {
     expect(base.resolvedCorrelatedSelections[0].familyId).toBe(rerolled.resolvedCorrelatedSelections[0].familyId);
     const before = quantityValues(base);
     const after = quantityValues(rerolled);
+    expect(before['thermal.age']).toBe(4.5);
+    expect(after['thermal.age']).toBe(4.5);
     for (const inputId of Object.keys(before)) {
       if (inputId.startsWith('thermal.')) continue;
       expect(after[inputId]).toBe(before[inputId]);
     }
-    expect(Object.keys(before).filter((inputId) => inputId.startsWith('thermal.')).some((inputId) => before[inputId] !== after[inputId])).toBe(true);
+    expect(Object.keys(before).filter((inputId) => inputId.startsWith('thermal.') && inputId !== 'thermal.age').some((inputId) => before[inputId] !== after[inputId])).toBe(true);
   });
 
   it('keeps artificial branches blocked without silently granting or inventing support', () => {
