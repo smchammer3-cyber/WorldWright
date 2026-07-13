@@ -8,6 +8,7 @@ export const RANDOM_DERIVATION_VERSION = 1 as const;
 export type RandomScopePart = string | number;
 
 export type CausalRandomStreamName =
+  | 'causal.initial-conditions'
   | 'causal.premise'
   | 'causal.interior'
   | 'causal.regime-history'
