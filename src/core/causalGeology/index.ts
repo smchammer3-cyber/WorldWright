@@ -17,6 +17,7 @@ export {
 export type { ResolvePlanetInitialConditionOptionsV1 } from './initialConditionResolver';
 export { resolvePlanetInitialConditionBundle } from './initialConditionAuthorityResolver';
 export * from './premiseResearchContracts';
+export * from './premiseResearchFirewall';
 export * from './stageResult';
 export * from './spatial';
 export * from './researchLedger';
