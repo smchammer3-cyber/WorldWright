@@ -24,6 +24,8 @@ export * from './interiorResearchContracts';
 export * from './interiorResolver';
 export * from './regimeHistoryResearchContracts';
 export * from './regimeHistoryResolver';
+export * from './geologicSpineResearchContracts';
+export * from './geologicSpineResolver';
 export * from './stageResult';
 export * from './spatial';
 export * from './researchLedger';
