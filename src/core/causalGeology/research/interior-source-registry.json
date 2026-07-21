@@ -13,8 +13,8 @@
     "correlationGroupId": "planetary-convection-models",
     "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
     "limitations": [
-      "Scaling relations are model-dependent and do not uniquely determine a whole-planet lid regime.",
-      "Europa application does not transfer numerically to every rocky or icy body."
+      "Europa application does not transfer numerically to every rocky or icy body.",
+      "Scaling relations are model-dependent and do not uniquely determine a whole-planet lid regime."
     ],
     "contentFingerprint": "doi:10.1029/2021JE006963"
   },
@@ -70,8 +70,8 @@
     "correlationGroupId": "planetary-convection-models",
     "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
     "limitations": [
-      "Two-dimensional model classifications do not uniquely diagnose an unknown planet.",
-      "Effective yield strength and intrusion ratios are not direct W1-03 inputs."
+      "Effective yield strength and intrusion ratios are not direct W1-03 inputs.",
+      "Two-dimensional model classifications do not uniquely diagnose an unknown planet."
     ],
     "contentFingerprint": "doi:10.1038/s41467-025-65943-1"
   },
@@ -89,8 +89,8 @@
     "correlationGroupId": "rocky-thermal-evolution-models",
     "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
     "limitations": [
-      "The model is Earth-size and parameterized rather than a universal three-dimensional solution.",
-      "Radiogenic abundance does not uniquely determine lid regime or tectonic history."
+      "Radiogenic abundance does not uniquely determine lid regime or tectonic history.",
+      "The model is Earth-size and parameterized rather than a universal three-dimensional solution."
     ],
     "contentFingerprint": "arxiv:2011.04791"
   },
