@@ -649,7 +649,7 @@ function createEpoch(input: {
   const exposureCenter = duration * profile.exposure;
   const exposureMin = clamp(exposureCenter * 0.65, 0, persistenceMax);
   const exposureMax = clamp(exposureCenter * 1.15, exposureMin, persistenceMax);
-  const epochId = `epoch-${String(input.index).padStart(2, '0')}-${input.regime.toLowerCase().replaceAll('_', '-')}`;
+  const epochId = `epoch-${String(input.index).padStart(2, '0')}-${input.regime.toLowerCase().split('_').join('-')}`;
   return cloneAndDeepFreeze({
     epochId,
     sequenceIndex: input.index,
@@ -677,7 +677,7 @@ function createTransition(input: {
   readonly templateEvidenceIds: readonly string[];
 }): TectonicTransitionV1 {
   return cloneAndDeepFreeze({
-    transitionId: `transition-${String(input.index).padStart(2, '0')}-${input.triggerFamily.toLowerCase().replaceAll('_', '-')}`,
+    transitionId: `transition-${String(input.index).padStart(2, '0')}-${input.triggerFamily.toLowerCase().split('_').join('-')}`,
     fromEpochId: input.fromEpochId,
     toEpochId: input.toEpochId,
     triggerFamily: input.triggerFamily,
@@ -689,7 +689,7 @@ function createTransition(input: {
 function assertCurrentRegimeCompatibility(interior: InteriorStateV1, epochs: readonly TectonicEpochV1[]): void {
   const current = interior.resolvedLidRegime;
   if (!current || !REGIME_HISTORY_FAMILIES.includes(current as RegimeHistoryFamilyV1)) return;
-  if (epochs.at(-1)?.regimeFamily !== current) throw new Error('Regime-history final epoch does not match the resolved current interior lid hypothesis.');
+  if (epochs[epochs.length - 1]?.regimeFamily !== current) throw new Error('Regime-history final epoch does not match the resolved current interior lid hypothesis.');
 }
 
 function regimeProfile(regime: RegimeHistoryFamilyV1) {
