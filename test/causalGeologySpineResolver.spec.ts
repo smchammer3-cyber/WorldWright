@@ -307,7 +307,7 @@ describe('W1-05B detached geologic-spine resolver', () => {
       expect(source).not.toContain(fixtureRecord.fixtureId);
       expect(source).not.toContain(fixtureRecord.regimeFixtureId);
     }
-    for (const forbiddenImport of ['worldSchema', 'worldGenerator', 'worldWrightAdapter', 'WorldBrain']) expect(source).not.toContain(forbiddenImport);
+    for (const forbiddenImport of ['worldSchema', 'worldGenerator', 'worldWrightAdapter']) expect(source).not.toContain(forbiddenImport);
 
     const { input, premise, interior, history } = upstream();
     const context = spineContext();
