@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "fixtureSetVersion": "W1_05_GEOLOGIC_SPINE_FIXTURES_V1",
+  "fixtures": [
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/cold-rocky-dwarf-spine-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "regimeFixtureId": "positive/cold-rocky-dwarf-single-lid-v1",
+      "expected": {
+        "status": "PARTIAL",
+        "minimumNodeCount": 2,
+        "maximumNodeCount": 8,
+        "minimumEdgeCount": 1,
+        "maximumEdgeCount": 16,
+        "minimumEventCount": 2,
+        "maximumEventCount": 8,
+        "requiredFamilies": [
+          "CONTINENTAL_KERNEL",
+          "PLUME_SYSTEM"
+        ],
+        "allowedFamilies": [
+          "CONTINENTAL_KERNEL",
+          "PLUME_SYSTEM",
+          "RIFT_SYSTEM"
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/earthlike-mixed-spine-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "regimeFixtureId": "positive/earthlike-mixed-evolution-v1",
+      "expected": {
+        "status": "PARTIAL",
+        "minimumNodeCount": 7,
+        "maximumNodeCount": 24,
+        "minimumEdgeCount": 6,
+        "maximumEdgeCount": 48,
+        "minimumEventCount": 7,
+        "maximumEventCount": 24,
+        "requiredFamilies": [
+          "ACCRETION_SYSTEM",
+          "CONTINENTAL_KERNEL",
+          "CONVERGENCE_SYSTEM",
+          "OCEAN_BASIN",
+          "PLUME_SYSTEM",
+          "RIFT_SYSTEM",
+          "TRANSFORM_SYSTEM"
+        ],
+        "allowedFamilies": [
+          "ACCRETION_SYSTEM",
+          "CONTINENTAL_KERNEL",
+          "CONVERGENCE_SYSTEM",
+          "OCEAN_BASIN",
+          "PLUME_SYSTEM",
+          "RIFT_SYSTEM",
+          "TRANSFORM_SYSTEM"
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/hot-super-earth-spine-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "regimeFixtureId": "positive/hot-super-earth-magmatic-v1",
+      "expected": {
+        "status": "PARTIAL",
+        "minimumNodeCount": 5,
+        "maximumNodeCount": 24,
+        "minimumEdgeCount": 4,
+        "maximumEdgeCount": 48,
+        "minimumEventCount": 5,
+        "maximumEventCount": 24,
+        "requiredFamilies": [
+          "CONTINENTAL_KERNEL",
+          "PLUME_SYSTEM",
+          "RIFT_SYSTEM"
+        ],
+        "allowedFamilies": [
+          "ACCRETION_SYSTEM",
+          "CONTINENTAL_KERNEL",
+          "CONVERGENCE_SYSTEM",
+          "OCEAN_BASIN",
+          "PLUME_SYSTEM",
+          "RIFT_SYSTEM",
+          "TRANSFORM_SYSTEM"
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/tidally-heated-rocky-spine-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "regimeFixtureId": "threshold/tidally-heated-rocky-v1",
+      "expected": {
+        "status": "PARTIAL",
+        "minimumNodeCount": 5,
+        "maximumNodeCount": 24,
+        "minimumEdgeCount": 4,
+        "maximumEdgeCount": 48,
+        "minimumEventCount": 5,
+        "maximumEventCount": 24,
+        "requiredFamilies": [
+          "CONTINENTAL_KERNEL",
+          "CONVERGENCE_SYSTEM",
+          "PLUME_SYSTEM",
+          "RIFT_SYSTEM"
+        ],
+        "allowedFamilies": [
+          "ACCRETION_SYSTEM",
+          "CONTINENTAL_KERNEL",
+          "CONVERGENCE_SYSTEM",
+          "OCEAN_BASIN",
+          "PLUME_SYSTEM",
+          "RIFT_SYSTEM",
+          "TRANSFORM_SYSTEM"
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/tidal-ice-shell-spine-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "regimeFixtureId": "positive/tidal-ice-shell-history-v1",
+      "expected": {
+        "status": "PARTIAL",
+        "minimumNodeCount": 2,
+        "maximumNodeCount": 10,
+        "minimumEdgeCount": 1,
+        "maximumEdgeCount": 20,
+        "minimumEventCount": 2,
+        "maximumEventCount": 10,
+        "requiredFamilies": [
+          "PLUME_SYSTEM",
+          "RIFT_SYSTEM"
+        ],
+        "allowedFamilies": [
+          "PLUME_SYSTEM",
+          "RIFT_SYSTEM"
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/rock-ice-mixed-spine-v1",
+      "kind": "HOLDOUT",
+      "withheldFromCalibration": true,
+      "regimeFixtureId": "holdout/rock-ice-mixed-history-v1",
+      "expected": {
+        "status": "PARTIAL",
+        "minimumNodeCount": 4,
+        "maximumNodeCount": 20,
+        "minimumEdgeCount": 3,
+        "maximumEdgeCount": 40,
+        "minimumEventCount": 4,
+        "maximumEventCount": 20,
+        "requiredFamilies": [
+          "CONTINENTAL_KERNEL",
+          "PLUME_SYSTEM",
+          "RIFT_SYSTEM"
+        ],
+        "allowedFamilies": [
+          "ACCRETION_SYSTEM",
+          "CONTINENTAL_KERNEL",
+          "CONVERGENCE_SYSTEM",
+          "OCEAN_BASIN",
+          "PLUME_SYSTEM",
+          "RIFT_SYSTEM",
+          "TRANSFORM_SYSTEM"
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/volatile-pressure-spine-v1",
+      "kind": "HOLDOUT",
+      "withheldFromCalibration": true,
+      "regimeFixtureId": "holdout/volatile-pressure-history-v1",
+      "expected": {
+        "status": "PARTIAL",
+        "minimumNodeCount": 5,
+        "maximumNodeCount": 22,
+        "minimumEdgeCount": 4,
+        "maximumEdgeCount": 44,
+        "minimumEventCount": 5,
+        "maximumEventCount": 22,
+        "requiredFamilies": [
+          "CONTINENTAL_KERNEL",
+          "CONVERGENCE_SYSTEM",
+          "PLUME_SYSTEM",
+          "RIFT_SYSTEM"
+        ],
+        "allowedFamilies": [
+          "ACCRETION_SYSTEM",
+          "CONTINENTAL_KERNEL",
+          "CONVERGENCE_SYSTEM",
+          "OCEAN_BASIN",
+          "PLUME_SYSTEM",
+          "RIFT_SYSTEM",
+          "TRANSFORM_SYSTEM"
+        ]
+      }
+    }
+  ]
+}
