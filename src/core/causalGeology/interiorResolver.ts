@@ -22,7 +22,6 @@ import {
 import { validateCausalGeologyInput } from './inputAuthority';
 import { createScientificRange } from './quantities';
 import { validateScientificResearchBundle } from './researchLedger';
-import { validateInteriorState, validatePlanetaryPremise, validateCausalStageResult } from './validation';
 import { canProceedFromStage, createCausalStageResult } from './stageResult';
 import type {
   CausalGeologyInputId,
@@ -33,6 +32,7 @@ import type {
   PlanetaryPremiseV1,
   ScientificResearchBundleV1,
 } from './types';
+import { validateCausalStageResult, validateInteriorState, validatePlanetaryPremise } from './validation';
 
 export const INTERIOR_RESOLVER_PERFORMANCE_BUDGET_V1 = Object.freeze({
   maxResearchSources: 16,
@@ -118,7 +118,6 @@ const REQUIRED_INPUT_IDS: readonly CausalGeologyInputId[] = [
   'thermal.radiogenic-heat',
   'thermal.tidal-heating',
 ];
-const ARTIFICIAL_BODY_CLASS = 'ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL';
 
 export function createInteriorResearchContext(input: {
   readonly researchBundle: ScientificResearchBundleV1;
@@ -154,7 +153,7 @@ export function resolveInteriorState(
   validateInteriorResearchContext(context);
   if (!deterministicHashEquals(premise.inputSnapshotHash, inputSnapshot.contentHash)) throw new Error('Interior premise is not bound to the supplied sanitized input snapshot.');
 
-  if (premise.bodyClassCandidates.includes(ARTIFICIAL_BODY_CLASS)) {
+  if (premise.bodyClassCandidates.includes('ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL')) {
     return finalizeResolution({
       status: 'BLOCKED',
       inputSnapshot,
@@ -164,61 +163,49 @@ export function resolveInteriorState(
       blockingReasons: ['ARTIFICIAL_INTERIOR_MODEL_NOT_IMPLEMENTED'],
       missingDomains: [],
       evidenceIds: ['interior/no-downstream-geology-v1'],
-      contradictionIds: premise.contradictionIds,
+      contradictionIds: uniqueText(premise.contradictionIds),
     });
   }
 
-  const quantities = requiredQuantities(inputSnapshot);
-  const water = quantities['inventory.water'];
-  const density = quantities['planet.density'];
-  const radius = quantities['planet.radius'];
-  const age = quantities['thermal.age'];
-  const primordial = quantities['thermal.primordial-heat'];
-  const radiogenic = quantities['thermal.radiogenic-heat'];
-  const tidal = quantities['thermal.tidal-heating'];
+  const values = requiredQuantities(inputSnapshot);
+  const water = values['inventory.water'];
+  const density = values['planet.density'];
+  const radius = values['planet.radius'];
+  const age = values['thermal.age'];
+  const primordial = values['thermal.primordial-heat'];
+  const radiogenic = values['thermal.radiogenic-heat'];
+  const tidal = values['thermal.tidal-heating'];
 
-  const ageRetention = clamp(1 - (age / 14) * 0.55, 0.25, 1);
-  const retainedPrimordial = primordial * ageRetention;
+  const retainedPrimordial = primordial * clamp(1 - (age / 14) * 0.55, 0.25, 1);
   const sizeFactor = clamp(0.75 + 0.25 * Math.sqrt(radius), 0.75, 1.15);
   const thermalCenter = clamp((0.32 * retainedPrimordial + 0.45 * radiogenic + 0.38 * tidal) * sizeFactor, 0, 1);
-  const bodyAdjustment = bodyConvectionAdjustment(premise);
   const convectionCenter = clamp(
-    0.08
-      + thermalCenter * 0.78
-      + clamp(radius - 1, -1, 1) * 0.08
-      + tidal * 0.12
-      - clamp(age / 10, 0, 1) * 0.12
-      + bodyAdjustment,
+    0.08 + thermalCenter * 0.78 + clamp(radius - 1, -1, 1) * 0.08 + tidal * 0.12 - clamp(age / 10, 0, 1) * 0.12 + bodyConvectionAdjustment(premise),
     0,
     1,
   );
   const pressurePenalty = Math.max(0, density - 1.1) * 0.2;
-  const meltCenter = clamp(
-    0.02 + thermalCenter * 0.72 + tidal * 0.22 + primordial * 0.08 + bodyMeltAdjustment(premise) - pressurePenalty,
-    0,
-    1,
-  );
+  const meltCenter = clamp(0.02 + thermalCenter * 0.72 + tidal * 0.22 + primordial * 0.08 + bodyMeltAdjustment(premise) - pressurePenalty, 0, 1);
   const waterFactor = clamp(water / 2, 0, 1);
   const riftCenter = clamp(0.05 + convectionCenter * 0.5 + waterFactor * 0.15 + tidal * 0.12, 0, 1);
   const hotspotCenter = clamp(0.08 + convectionCenter * 0.55 + tidal * 0.2 + thermalCenter * 0.1, 0, 1);
 
   const rheologyCandidates = resolveRheologyCandidates(premise, meltCenter, tidal);
-  const lithosphereCandidates = resolveLithosphereCandidates(premise, convectionCenter, meltCenter, tidal);
-  const lidCandidates = resolveLidCandidates(premise, thermalCenter, convectionCenter, meltCenter, tidal, waterFactor);
+  const lithosphereBehaviorCandidates = resolveLithosphereCandidates(premise, convectionCenter, meltCenter, tidal);
+  const lidRegimeCandidates = resolveLidCandidates(premise, thermalCenter, convectionCenter, meltCenter, tidal, waterFactor);
   const evidenceIds = resolveEvidenceIds(premise, radiogenic, tidal, thermalCenter);
-  const oracle = createWorldRandomOracle(inputSnapshot.rootSeed, { authorityMode: 'CAUSAL_SHADOW' });
   const lidBranch = resolveWeightedBranch<string>({
     branchId: 'interior/lid-regime/v1',
     stream: 'causal.interior',
     scope: ['lid-regime', inputSnapshot.contentHash.value, premise.contentHash.value, context.contentHash.value],
-    options: lidCandidates.map((candidate) => ({
+    options: lidRegimeCandidates.map((candidate) => ({
       id: candidate,
       value: candidate,
       weight: lidWeight(candidate, thermalCenter, convectionCenter, meltCenter, tidal, waterFactor),
       evidenceIds,
       rationale: 'Replayable W1-03 working hypothesis among reviewed broad lid alternatives; not a tectonic-history conclusion.',
     })),
-    oracle,
+    oracle: createWorldRandomOracle(inputSnapshot.rootSeed, { authorityMode: 'CAUSAL_SHADOW' }),
   });
 
   const limitations = canonicalText([
@@ -238,18 +225,18 @@ export function resolveInteriorState(
     'Normalized ranges are deliberately broad comparative indices rather than SI-unit predictions.',
     'The selected lid regime is a deterministic working hypothesis while the interior record remains PARTIAL.',
   ], 'Interior assumptions');
+  const contradictionIds = uniqueText([...inputSnapshot.contradictionIds, ...premise.contradictionIds]);
 
-  const heatSourceFractions = createHeatSourceFractions(retainedPrimordial, radiogenic, tidal);
   const interiorPayload = {
     schemaVersion: 1 as const,
     status: 'PARTIAL' as const,
     interiorVersion: 1,
     thermalBudgetRange: normalizedRange(thermalCenter, 0.16, 'interior.thermal-budget'),
-    heatSourceFractions,
+    heatSourceFractions: createHeatSourceFractions(retainedPrimordial, radiogenic, tidal),
     mantleConvectionRange: normalizedRange(convectionCenter, 0.18, 'interior.mantle-convection'),
     rheologyCandidates,
-    lithosphereBehaviorCandidates: lithosphereCandidates,
-    lidRegimeCandidates: lidCandidates,
+    lithosphereBehaviorCandidates,
+    lidRegimeCandidates,
     resolvedLidRegime: lidBranch.chosenValue,
     meltAndVolcanismRange: normalizedRange(meltCenter, 0.2, 'interior.melt-and-volcanism'),
     riftTendencyRange: normalizedRange(riftCenter, 0.2, 'interior.rift-tendency'),
@@ -258,7 +245,7 @@ export function resolveInteriorState(
     branchResolutionIds: [lidBranch.branchId],
     confidenceAssessmentSubject: 'interior.broad-state',
     evidenceIds,
-    contradictionIds: canonicalText([...inputSnapshot.contradictionIds, ...premise.contradictionIds], 'Interior contradiction IDs'),
+    contradictionIds,
     limitations,
   };
   const interior = cloneAndDeepFreeze({
@@ -277,7 +264,7 @@ export function resolveInteriorState(
     blockingReasons: [],
     missingDomains,
     evidenceIds,
-    contradictionIds: interior.contradictionIds,
+    contradictionIds,
   });
 }
 
@@ -363,8 +350,7 @@ export function validateInteriorResolution(value: unknown): asserts value is Int
   assertDeterministicHash(resolution.premiseHash, 'Interior resolution premise');
   assertDeterministicHash(resolution.researchContextHash, 'Interior resolution research context');
   assertDeterministicHash(resolution.contentHash, 'Interior resolution');
-  const hasInterior = resolution.interior !== undefined;
-  if (hasInterior !== (resolution.status === 'PARTIAL')) throw new Error('Interior resolution has invalid record presence.');
+  if ((resolution.interior !== undefined) !== (resolution.status === 'PARTIAL')) throw new Error('Interior resolution has invalid record presence.');
   if (resolution.interior) validateInteriorState(resolution.interior);
   canonicalText(resolution.blockingReasons, 'Interior blocking reasons');
   canonicalText(resolution.missingDomains, 'Interior missing domains');
@@ -386,10 +372,9 @@ export function validateInteriorResolution(value: unknown): asserts value is Int
     if (!arraysEqual(branchIds, resolution.interior.branchResolutionIds)) throw new Error('Interior branch records do not match the interior record.');
     if (!arraysEqual(resolution.evidenceIds, resolution.interior.evidenceIds)) throw new Error('Interior evidence does not match the interior record.');
     if (!arraysEqual(resolution.contradictionIds, resolution.interior.contradictionIds)) throw new Error('Interior contradictions do not match the interior record.');
-    const chosen = resolution.branchResolutions[0]?.chosenValue;
-    if (chosen !== resolution.interior.resolvedLidRegime) throw new Error('Interior resolved lid does not match its deterministic branch.');
+    if (resolution.branchResolutions[0]?.chosenValue !== resolution.interior.resolvedLidRegime) throw new Error('Interior resolved lid does not match its deterministic branch.');
   }
-  const measuredBytes = measureResolutionBytes({
+  const payloadWithoutMetrics: Omit<InteriorResolutionV1, 'metrics' | 'contentHash'> = {
     schemaVersion: resolution.schemaVersion,
     resolverVersion: resolution.resolverVersion,
     status: resolution.status,
@@ -402,22 +387,12 @@ export function validateInteriorResolution(value: unknown): asserts value is Int
     missingDomains: resolution.missingDomains,
     evidenceIds: resolution.evidenceIds,
     contradictionIds: resolution.contradictionIds,
-  }, resolution.metrics);
+  };
+  const measuredBytes = measureResolutionBytes(payloadWithoutMetrics, resolution.metrics);
   if (measuredBytes !== resolution.metrics.serializedResultBytes) throw new Error('Interior serialized-size metric is inconsistent.');
   if (measuredBytes > INTERIOR_RESOLVER_PERFORMANCE_BUDGET_V1.maxSerializedResultBytes) throw new Error('Interior resolution exceeds the frozen artifact-size budget.');
   const expected = hashCausalPayload('WorldWright/interior-resolution/v1', {
-    schemaVersion: resolution.schemaVersion,
-    resolverVersion: resolution.resolverVersion,
-    status: resolution.status,
-    inputSnapshotHash: resolution.inputSnapshotHash,
-    premiseHash: resolution.premiseHash,
-    researchContextHash: resolution.researchContextHash,
-    ...(resolution.interior ? { interior: resolution.interior } : {}),
-    branchResolutions: resolution.branchResolutions,
-    blockingReasons: resolution.blockingReasons,
-    missingDomains: resolution.missingDomains,
-    evidenceIds: resolution.evidenceIds,
-    contradictionIds: resolution.contradictionIds,
+    ...payloadWithoutMetrics,
     metrics: resolution.metrics,
   });
   if (!deterministicHashEquals(resolution.contentHash, expected)) throw new Error('Interior resolution hash mismatch.');
@@ -466,20 +441,19 @@ function validateInteriorReview(review: InteriorResearchReviewV1, bundle: Scient
   if (!partial.includes('interior/normalized-range-calibration-provisional-v1')) throw new Error('Interior provisional calibration rule must remain PARTIAL-only.');
 }
 
-function requiredQuantities(input: CausalGeologyInputV1): Readonly<Record<(typeof REQUIRED_INPUT_IDS)[number], number>> {
-  const values = {} as Record<(typeof REQUIRED_INPUT_IDS)[number], number>;
+function requiredQuantities(input: CausalGeologyInputV1): Readonly<Record<CausalGeologyInputId, number>> {
+  const values: Partial<Record<CausalGeologyInputId, number>> = {};
   for (const inputId of REQUIRED_INPUT_IDS) {
     const quantity = input.physicalInputs[inputId];
     if (!quantity) throw new Error(`Interior resolution requires sanitized input ${inputId}.`);
     values[inputId] = quantity.value;
   }
-  return values;
+  return values as Readonly<Record<CausalGeologyInputId, number>>;
 }
 
 function resolveRheologyCandidates(premise: PlanetaryPremiseV1, melt: number, tidal: number): readonly InteriorRheologyCandidateV1[] {
   const values = new Set<InteriorRheologyCandidateV1>();
-  if (isIcePremise(premise)) values.add('ICE_SHELL_TEMPERATURE_DEPENDENT');
-  else values.add('TEMPERATURE_DEPENDENT_SOLID_STATE');
+  values.add(isIcePremise(premise) ? 'ICE_SHELL_TEMPERATURE_DEPENDENT' : 'TEMPERATURE_DEPENDENT_SOLID_STATE');
   if (premise.bodyClassCandidates.includes('ROCK_ICE_MIXED_SOLID_BODY')) values.add('MIXED_ROCK_ICE_RHEOLOGY');
   if (premise.bodyClassCandidates.includes('VOLATILE_PRESSURE_SOLID_BODY')) values.add('VOLATILE_MODIFIED_RHEOLOGY');
   if (melt >= 0.5 && !isIcePremise(premise)) values.add('PARTIALLY_MOLTEN_ROCKY');
@@ -487,12 +461,7 @@ function resolveRheologyCandidates(premise: PlanetaryPremiseV1, melt: number, ti
   return canonicalVocabulary(values, INTERIOR_RHEOLOGY_CANDIDATES, 'Interior rheology candidates');
 }
 
-function resolveLithosphereCandidates(
-  premise: PlanetaryPremiseV1,
-  convection: number,
-  melt: number,
-  tidal: number,
-): readonly InteriorLithosphereBehaviorCandidateV1[] {
+function resolveLithosphereCandidates(premise: PlanetaryPremiseV1, convection: number, melt: number, tidal: number): readonly InteriorLithosphereBehaviorCandidateV1[] {
   const values = new Set<InteriorLithosphereBehaviorCandidateV1>();
   if (isIcePremise(premise)) {
     values.add('RIGID_ICE_SHELL');
@@ -506,14 +475,7 @@ function resolveLithosphereCandidates(
   return canonicalVocabulary(values, INTERIOR_LITHOSPHERE_BEHAVIOR_CANDIDATES, 'Interior lithosphere candidates');
 }
 
-function resolveLidCandidates(
-  premise: PlanetaryPremiseV1,
-  thermal: number,
-  convection: number,
-  melt: number,
-  tidal: number,
-  water: number,
-): readonly InteriorLidRegimeCandidateV1[] {
+function resolveLidCandidates(premise: PlanetaryPremiseV1, thermal: number, convection: number, melt: number, tidal: number, water: number): readonly InteriorLidRegimeCandidateV1[] {
   const values = new Set<InteriorLidRegimeCandidateV1>();
   if (isIcePremise(premise)) {
     values.add('ICE_SHELL_STAGNANT_LID');
@@ -552,10 +514,7 @@ function createHeatSourceFractions(primordial: number, radiogenic: number, tidal
     ['RADIOGENIC', radiogenic / denominator, 'interior.heat-fraction.radiogenic'],
     ['TIDAL', tidal / denominator, 'interior.heat-fraction.tidal'],
   ];
-  return cloneAndDeepFreeze(values.map(([sourceId, center, subject]) => ({
-    sourceId,
-    fractionRange: normalizedRange(center, 0.1, subject),
-  })));
+  return cloneAndDeepFreeze(values.map(([sourceId, center, subject]) => ({ sourceId, fractionRange: normalizedRange(center, 0.1, subject) })));
 }
 
 function normalizedRange(center: number, uncertainty: number, subject: string) {
@@ -571,22 +530,14 @@ function bodyConvectionAdjustment(premise: PlanetaryPremiseV1): number {
 }
 
 function bodyMeltAdjustment(premise: PlanetaryPremiseV1): number {
-  if (premise.bodyClassCandidates.includes('ROCKY_DWARF_OR_SMALL_BODY')) return -0.08;
-  return 0;
+  return premise.bodyClassCandidates.includes('ROCKY_DWARF_OR_SMALL_BODY') ? -0.08 : 0;
 }
 
 function isIcePremise(premise: PlanetaryPremiseV1): boolean {
   return premise.bodyClassCandidates.includes('ICE_SHELL_OCEAN_BODY');
 }
 
-function lidWeight(
-  candidate: string,
-  thermal: number,
-  convection: number,
-  melt: number,
-  tidal: number,
-  water: number,
-): number {
+function lidWeight(candidate: string, thermal: number, convection: number, melt: number, tidal: number, water: number): number {
   if (candidate === 'STAGNANT_LID') return Math.max(0.1, 1 - thermal * 0.8 - convection * 0.3);
   if (candidate === 'SLUGGISH_LID') return 0.2 + convection * 0.8;
   if (candidate === 'EPISODIC_LID') return 0.2 + thermal * 0.5 + tidal * 0.3;
@@ -610,9 +561,9 @@ function finalizeResolution(input: {
   readonly evidenceIds: readonly string[];
   readonly contradictionIds: readonly string[];
 }): InteriorResolutionV1 {
-  const payloadWithoutMetrics = {
-    schemaVersion: 1 as const,
-    resolverVersion: 1 as const,
+  const payloadWithoutMetrics: Omit<InteriorResolutionV1, 'metrics' | 'contentHash'> = {
+    schemaVersion: 1,
+    resolverVersion: 1,
     status: input.status,
     inputSnapshotHash: input.inputSnapshot.contentHash,
     premiseHash: input.premise.contentHash,
@@ -622,7 +573,7 @@ function finalizeResolution(input: {
     blockingReasons: canonicalText(input.blockingReasons, 'Interior blocking reasons'),
     missingDomains: canonicalText(input.missingDomains, 'Interior missing domains'),
     evidenceIds: canonicalText(input.evidenceIds, 'Interior evidence IDs'),
-    contradictionIds: canonicalText(input.contradictionIds, 'Interior contradiction IDs'),
+    contradictionIds: uniqueText(input.contradictionIds),
   };
   const metricsWithoutSize = {
     schemaVersion: 1 as const,
@@ -648,37 +599,32 @@ function finalizeResolution(input: {
 function validateInteriorMetrics(value: InteriorResolutionMetricsV1): void {
   assertExactKeys(value, METRICS_KEYS, 'Interior metrics');
   if (value.schemaVersion !== 1) throw new Error('Unsupported interior metrics.');
-  for (const [label, count] of [
-    ['rule evaluations', value.ruleEvaluations],
-    ['rheology candidates', value.rheologyCandidateCount],
-    ['lithosphere candidates', value.lithosphereCandidateCount],
-    ['lid candidates', value.lidCandidateCount],
-    ['branch resolutions', value.branchResolutionCount],
-    ['serialized bytes', value.serializedResultBytes],
-  ] as const) if (!Number.isSafeInteger(count) || count < 0) throw new Error(`Interior ${label} metric is invalid.`);
+  const counts = [value.ruleEvaluations, value.rheologyCandidateCount, value.lithosphereCandidateCount, value.lidCandidateCount, value.branchResolutionCount, value.serializedResultBytes];
+  if (counts.some((count) => !Number.isSafeInteger(count) || count < 0)) throw new Error('Interior metrics contain invalid counts.');
   if (value.rheologyCandidateCount > INTERIOR_RESOLVER_PERFORMANCE_BUDGET_V1.maxRheologyCandidates
     || value.lithosphereCandidateCount > INTERIOR_RESOLVER_PERFORMANCE_BUDGET_V1.maxLithosphereCandidates
     || value.lidCandidateCount > INTERIOR_RESOLVER_PERFORMANCE_BUDGET_V1.maxLidCandidates
     || value.branchResolutionCount > INTERIOR_RESOLVER_PERFORMANCE_BUDGET_V1.maxBranchResolutions) throw new Error('Interior metrics exceed frozen candidate or branch budgets.');
 }
 
-function measureResolutionBytes(
-  payload: Omit<InteriorResolutionV1, 'metrics' | 'contentHash'>,
-  metrics: InteriorResolutionMetricsV1,
-): number {
+function measureResolutionBytes(payload: Omit<InteriorResolutionV1, 'metrics' | 'contentHash'>, metrics: InteriorResolutionMetricsV1): number {
   return new TextEncoder().encode(canonicalJsonStringify({ ...payload, metrics: { ...metrics, serializedResultBytes: 0 } })).byteLength;
 }
 
 function canonicalVocabulary<T extends string>(values: ReadonlySet<T>, vocabulary: readonly T[], label: string): readonly T[] {
-  const output = [...values].sort(compareStableText);
+  const output = [...values].sort((a, b) => compareStableText(a, b));
   if (output.length === 0 || output.some((value) => !vocabulary.includes(value))) throw new Error(`${label} are invalid.`);
   return Object.freeze(output);
 }
 
-function canonicalText<T extends string>(values: readonly T[], label: string): readonly T[] {
+function canonicalText(values: readonly string[], label: string): readonly string[] {
   if (!Array.isArray(values) || !values.every(isText)) throw new Error(`${label} are invalid.`);
   if (new Set(values).size !== values.length) throw new Error(`${label} contain duplicates.`);
   return Object.freeze([...values].sort(compareStableText));
+}
+
+function uniqueText(values: readonly string[]): readonly string[] {
+  return canonicalText([...new Set(values)], 'Canonical unique text');
 }
 
 function assertExactKeys(value: unknown, allowed: readonly string[], label: string): void {
