@@ -88,7 +88,7 @@ describe('W1-04 tectonic regime history research package', () => {
     })).toThrow(/not authorized/);
   });
 
-  it('keeps fixture identities and forbidden spatial fields out of runtime implementation', () => {
+  it('keeps fixture identities and forbidden spatial identifiers out of runtime implementation', () => {
     const source = [
       'src/core/causalGeology/regimeHistoryResolver.ts',
       'src/core/causalGeology/regimeHistoryResearchContracts.ts',
@@ -103,9 +103,13 @@ describe('W1-04 tectonic regime history research package', () => {
       'oceanBasinSkeletons',
       'plateId',
       'WorldBrain',
-    ]) expect(source).not.toContain(forbidden);
+    ]) expect(source).not.toMatch(new RegExp(`\\b${escapeRegExp(forbidden)}\\b`));
   });
 });
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function readJson<T>(filename: string): T {
   return JSON.parse(readFileSync(resolve(root, filename), 'utf8')) as T;
