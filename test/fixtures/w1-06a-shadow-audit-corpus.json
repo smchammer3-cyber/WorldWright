@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "corpusVersion": "W1_06A_SHADOW_AUDIT_CORPUS_V1",
+  "authorityMode": "CAUSAL_SHADOW",
+  "upstreamMode": "CONTROLLED_VALIDATED_W1_04_FIXTURES",
+  "cases": [
+    {
+      "caseId": "cold-rocky-dwarf-s1",
+      "rootSeed": "2100008",
+      "regimeFixtureId": "positive/cold-rocky-dwarf-single-lid-v1",
+      "archetypeFamily": "STAGNANT_LID_ROCKY",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "cold-rocky-dwarf-s2",
+      "rootSeed": "2100109",
+      "regimeFixtureId": "positive/cold-rocky-dwarf-single-lid-v1",
+      "archetypeFamily": "STAGNANT_LID_ROCKY",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "cold-rocky-dwarf-s3",
+      "rootSeed": "2100210",
+      "regimeFixtureId": "positive/cold-rocky-dwarf-single-lid-v1",
+      "archetypeFamily": "STAGNANT_LID_ROCKY",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "cold-rocky-dwarf-s4",
+      "rootSeed": "2100311",
+      "regimeFixtureId": "positive/cold-rocky-dwarf-single-lid-v1",
+      "archetypeFamily": "STAGNANT_LID_ROCKY",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "earthlike-mixed-history-s1",
+      "rootSeed": "3100015",
+      "regimeFixtureId": "positive/earthlike-mixed-evolution-v1",
+      "archetypeFamily": "MOBILE_OR_EPISODIC_ROCKY",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "earthlike-mixed-history-s2",
+      "rootSeed": "3100116",
+      "regimeFixtureId": "positive/earthlike-mixed-evolution-v1",
+      "archetypeFamily": "MOBILE_OR_EPISODIC_ROCKY",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "earthlike-mixed-history-s3",
+      "rootSeed": "3100217",
+      "regimeFixtureId": "positive/earthlike-mixed-evolution-v1",
+      "archetypeFamily": "MOBILE_OR_EPISODIC_ROCKY",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "earthlike-mixed-history-s4",
+      "rootSeed": "3100318",
+      "regimeFixtureId": "positive/earthlike-mixed-evolution-v1",
+      "archetypeFamily": "MOBILE_OR_EPISODIC_ROCKY",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "hot-super-earth-magmatic-s1",
+      "rootSeed": "4100022",
+      "regimeFixtureId": "positive/hot-super-earth-magmatic-v1",
+      "archetypeFamily": "HIGH_HEAT_YOUNG_SUPER_EARTH",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "hot-super-earth-magmatic-s2",
+      "rootSeed": "4100123",
+      "regimeFixtureId": "positive/hot-super-earth-magmatic-v1",
+      "archetypeFamily": "HIGH_HEAT_YOUNG_SUPER_EARTH",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "hot-super-earth-magmatic-s3",
+      "rootSeed": "4100224",
+      "regimeFixtureId": "positive/hot-super-earth-magmatic-v1",
+      "archetypeFamily": "HIGH_HEAT_YOUNG_SUPER_EARTH",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "hot-super-earth-magmatic-s4",
+      "rootSeed": "4100325",
+      "regimeFixtureId": "positive/hot-super-earth-magmatic-v1",
+      "archetypeFamily": "HIGH_HEAT_YOUNG_SUPER_EARTH",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "tidally-heated-rocky-s1",
+      "rootSeed": "5100029",
+      "regimeFixtureId": "threshold/tidally-heated-rocky-v1",
+      "archetypeFamily": "TIDALLY_HEATED_ROCKY",
+      "variationKind": "THRESHOLD",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "tidally-heated-rocky-s2",
+      "rootSeed": "5100130",
+      "regimeFixtureId": "threshold/tidally-heated-rocky-v1",
+      "archetypeFamily": "TIDALLY_HEATED_ROCKY",
+      "variationKind": "THRESHOLD",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "tidally-heated-rocky-s3",
+      "rootSeed": "5100231",
+      "regimeFixtureId": "threshold/tidally-heated-rocky-v1",
+      "archetypeFamily": "TIDALLY_HEATED_ROCKY",
+      "variationKind": "THRESHOLD",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "tidally-heated-rocky-s4",
+      "rootSeed": "5100332",
+      "regimeFixtureId": "threshold/tidally-heated-rocky-v1",
+      "archetypeFamily": "TIDALLY_HEATED_ROCKY",
+      "variationKind": "THRESHOLD",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "tidal-ice-shell-s1",
+      "rootSeed": "6100036",
+      "regimeFixtureId": "positive/tidal-ice-shell-history-v1",
+      "archetypeFamily": "TIDAL_ICE_SHELL",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "tidal-ice-shell-s2",
+      "rootSeed": "6100137",
+      "regimeFixtureId": "positive/tidal-ice-shell-history-v1",
+      "archetypeFamily": "TIDAL_ICE_SHELL",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "tidal-ice-shell-s3",
+      "rootSeed": "6100238",
+      "regimeFixtureId": "positive/tidal-ice-shell-history-v1",
+      "archetypeFamily": "TIDAL_ICE_SHELL",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "tidal-ice-shell-s4",
+      "rootSeed": "6100339",
+      "regimeFixtureId": "positive/tidal-ice-shell-history-v1",
+      "archetypeFamily": "TIDAL_ICE_SHELL",
+      "variationKind": "POSITIVE",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "rock-ice-mixed-s1",
+      "rootSeed": "7100043",
+      "regimeFixtureId": "holdout/rock-ice-mixed-history-v1",
+      "archetypeFamily": "ROCK_ICE_MIXED",
+      "variationKind": "HOLDOUT",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "rock-ice-mixed-s2",
+      "rootSeed": "7100144",
+      "regimeFixtureId": "holdout/rock-ice-mixed-history-v1",
+      "archetypeFamily": "ROCK_ICE_MIXED",
+      "variationKind": "HOLDOUT",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "rock-ice-mixed-s3",
+      "rootSeed": "7100245",
+      "regimeFixtureId": "holdout/rock-ice-mixed-history-v1",
+      "archetypeFamily": "ROCK_ICE_MIXED",
+      "variationKind": "HOLDOUT",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "rock-ice-mixed-s4",
+      "rootSeed": "7100346",
+      "regimeFixtureId": "holdout/rock-ice-mixed-history-v1",
+      "archetypeFamily": "ROCK_ICE_MIXED",
+      "variationKind": "HOLDOUT",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "volatile-pressure-s1",
+      "rootSeed": "8100050",
+      "regimeFixtureId": "holdout/volatile-pressure-history-v1",
+      "archetypeFamily": "VOLATILE_PRESSURE_SOLID",
+      "variationKind": "HOLDOUT",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "volatile-pressure-s2",
+      "rootSeed": "8100151",
+      "regimeFixtureId": "holdout/volatile-pressure-history-v1",
+      "archetypeFamily": "VOLATILE_PRESSURE_SOLID",
+      "variationKind": "HOLDOUT",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "volatile-pressure-s3",
+      "rootSeed": "8100252",
+      "regimeFixtureId": "holdout/volatile-pressure-history-v1",
+      "archetypeFamily": "VOLATILE_PRESSURE_SOLID",
+      "variationKind": "HOLDOUT",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    },
+    {
+      "caseId": "volatile-pressure-s4",
+      "rootSeed": "8100353",
+      "regimeFixtureId": "holdout/volatile-pressure-history-v1",
+      "archetypeFamily": "VOLATILE_PRESSURE_SOLID",
+      "variationKind": "HOLDOUT",
+      "directInputAxes": ["inventory.water", "thermal.age"]
+    }
+  ]
+}
