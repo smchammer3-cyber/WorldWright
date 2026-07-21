@@ -206,8 +206,12 @@ export function resolvePlanetaryPremise(
   if (modelFixtures.length === 0 || modelFixtures.length > PLANETARY_PREMISE_RESOLVER_PERFORMANCE_BUDGET_V1.maxModelArchetypes) {
     throw new Error('Planetary-premise model archetype count is outside the frozen budget.');
   }
+  const tagMatchedFixtures = input.declarationTags.length === 0
+    ? modelFixtures
+    : modelFixtures.filter((fixture) => input.declarationTags.every((tag) => fixture.input.scenarioTags.includes(tag)));
+  const modelPool = tagMatchedFixtures.length > 0 ? tagMatchedFixtures : modelFixtures;
   const scales = buildQuantityScales(modelFixtures);
-  const ranked = modelFixtures
+  const ranked = modelPool
     .map((fixture) => ({ fixture, distance: archetypeDistance(input, fixture, scales) }))
     .sort((a, b) => a.distance - b.distance || compareStableText(fixtureFingerprint(a.fixture).value, fixtureFingerprint(b.fixture).value));
   const selected = ranked[0]?.fixture;
@@ -770,7 +774,7 @@ function serializedBytes(value: unknown): number {
   return new TextEncoder().encode(canonicalJsonStringify(value)).byteLength;
 }
 
-function assertExactKeys(value: unknown, allowedKeys: readonly string[], label: string): asserts value is Record<string, unknown> {
+function assertExactKeys(value: unknown, allowedKeys: readonly string[], label: string): void {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object.`);
   const unknown = Object.keys(value).filter((key) => !allowedKeys.includes(key)).sort(compareStableText);
   if (unknown.length > 0) throw new Error(`${label} contains unowned fields: ${unknown.join(', ')}`);
