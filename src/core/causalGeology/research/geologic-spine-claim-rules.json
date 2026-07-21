@@ -1,0 +1,170 @@
+[
+  {
+    "schemaVersion": 1,
+    "ruleId": "spine/boundary-network-family-association-v1",
+    "domain": "interconnected-tectonic-boundary-families",
+    "version": 1,
+    "sourceIds": [
+      "bird-2003-digital-plate-boundaries",
+      "huang-et-al-2022-coexisting-boundaries",
+      "muller-et-al-2018-gplates"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.density",
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat",
+      "thermal.tidal-heating"
+    ],
+    "expectedRelation": "Mobile, episodic, or otherwise laterally organized regimes may preserve an interconnected structural network containing divergent, convergent, transform, basin, and accretionary families, while stagnant regimes may preserve only a sparse subset.",
+    "weightRationale": "Global boundary models, evolving spherical topologies, and preserved coexisting boundary assemblages support family association without providing a unique generated-world reconstruction.",
+    "correlationGroupId": "plate-boundary-topology-models",
+    "exceptions": [
+      "A family association does not establish final plate polygons or boundary lines.",
+      "Low-activity or non-rocky cases may omit several families while remaining scientifically honest."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-05 evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "spine/cratonic-kernel-persistence-v1",
+    "domain": "durable-continental-kernel-identity",
+    "version": 1,
+    "sourceIds": [
+      "kaban-et-al-2015-cratonic-root-drag",
+      "perchuk-et-al-2020-cratonic-keels"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.density",
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat"
+    ],
+    "expectedRelation": "Long-lived buoyant or mechanically resistant lithospheric kernels may persist through later tectonic history while retaining evidence of mantle interaction, displacement, accretion, or reworking.",
+    "weightRationale": "The cited observation-model and thermomechanical studies support durable but evolving cratonic identities and ancestry.",
+    "correlationGroupId": "cratonic-kernel-evolution-models",
+    "exceptions": [
+      "A continental kernel is a deep structural hypothesis and does not assert exposed land.",
+      "Ice-shell bodies do not receive continental-kernel identities from this rule."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-05 evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "spine/event-ancestry-and-inheritance-v1",
+    "domain": "structural-event-ancestry-and-overprinting",
+    "version": 1,
+    "sourceIds": [
+      "huang-et-al-2022-coexisting-boundaries",
+      "kaban-et-al-2015-cratonic-root-drag",
+      "perchuk-et-al-2020-cratonic-keels",
+      "worldwright-geologic-spine-scope-v1"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.density",
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat",
+      "thermal.tidal-heating"
+    ],
+    "expectedRelation": "Later basin, accretionary, transform, convergence, or reworking events may inherit from earlier kernel, rift, plume, or boundary-system events, and every ancestry link must remain acyclic and epoch-bound.",
+    "weightRationale": "Observed juxtaposition, accretion, persistence, and reworking support explicit ancestry, while the internal contract prevents invented detailed chronologies.",
+    "correlationGroupId": "worldwright-geologic-spine-scope",
+    "exceptions": [
+      "An ancestry edge records a causal hypothesis rather than a uniquely dated geological reconstruction."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-05 evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "spine/no-physical-surface-output-v1",
+    "domain": "geologic-spine-authority-firewall",
+    "version": 1,
+    "sourceIds": [
+      "worldwright-geologic-spine-scope-v1"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.density",
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat",
+      "thermal.tidal-heating"
+    ],
+    "expectedRelation": "W1-05 may create only stable spherical feature identities, broad extents, relationships, epoch-bound events, ancestry, temporal context, preservation state, evidence, contradictions, and limitations. It may not create terrain, land-water, sea level, climate, hydrology, biomes, materials, resources, rendering, or final plate polygons.",
+    "weightRationale": "This is the controlling authority boundary between the geologic spine and later spatial process, structural-role, material, landform, and terrain stages.",
+    "correlationGroupId": "worldwright-geologic-spine-scope",
+    "exceptions": [],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-05 evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "spine/plume-rift-interaction-v1",
+    "domain": "plume-rift-and-hotspot-structural-association",
+    "version": 1,
+    "sourceIds": [
+      "gassmoller-et-al-2016-plume-ridge-interaction",
+      "sleep-1990-hotspot-phenomenology"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.density",
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat",
+      "thermal.tidal-heating"
+    ],
+    "expectedRelation": "Higher plume, melt, hotspot, or extension tendencies may support plume and rift-system identities that interact spatially, but the surface expression may be broad, displaced, multi-branched, or absent.",
+    "weightRationale": "The cited global and three-dimensional studies support plume and lithosphere interaction without a fixed hotspot assumption or universal geometry.",
+    "correlationGroupId": "plume-and-rift-models",
+    "exceptions": [
+      "Plume identities are hypotheses and do not assert volcanoes, elevation, crustal thickness, or eruption products.",
+      "Very low thermal and extension activity may preserve only a relict plume hypothesis or no rift system."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-05 evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "spine/provisional-resolution-independent-placement-v1",
+    "domain": "deterministic-spherical-placement-and-count-calibration",
+    "version": 1,
+    "sourceIds": [
+      "muller-et-al-2018-gplates",
+      "worldwright-geologic-spine-scope-v1"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.density",
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat",
+      "thermal.tidal-heating"
+    ],
+    "expectedRelation": "WorldWright places stable feature identities directly in spherical coordinates using deterministic hash-addressed random draws, so changing a later raster or render resolution cannot change node, edge, event, or ancestry identity.",
+    "weightRationale": "Spherical topological reconstruction supports resolution-independent identity, while the exact generated-world counts, extents, and coordinates remain a provisional product model.",
+    "correlationGroupId": "worldwright-geologic-spine-scope",
+    "exceptions": [
+      "Every natural W1-05 result remains PARTIAL because placement and count calibration are not uniquely constrained."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  }
+]
