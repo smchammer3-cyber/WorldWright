@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "corpusVersion": "W1_05A_SKELETON_CI_CORPUS_V1",
-  "expectedSpineDisposition": "ABSENT_RESERVED",
+  "corpusVersion": "W1_05B_SKELETON_CI_CORPUS_V1",
+  "expectedSpineDisposition": "PRESENT_SHADOW",
   "cases": [
     {
       "caseId": "cold-rocky-dwarf",
