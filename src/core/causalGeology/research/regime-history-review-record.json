@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "bundleVersion": "w1-04-regime-history-research-v1",
+  "status": "REGIME_HISTORY_RESEARCH_PACKAGE_REVIEWED",
+  "reviewDate": "2026-07-21",
+  "reviewer": "WorldWright W1-04 evidence audit",
+  "scope": "Contiguous normalized tectonic-regime epochs, adjacent broad transition-trigger families, activity ranges, persistence, and exposure summaries only; no plate identities, spatial geology, events, geography, terrain, climate outcomes, or rendering.",
+  "completeEligibleRuleIds": [
+    "history/damage-assisted-mobile-lid-initiation-v1",
+    "history/ice-shell-episodic-evolution-v1",
+    "history/lid-regime-family-alternatives-v1",
+    "history/no-spatial-geology-v1",
+    "history/path-dependence-and-hysteresis-v1",
+    "history/secular-cooling-regime-window-v1",
+    "history/thermal-and-magmatic-transition-v1",
+    "history/transition-trigger-families-only-v1"
+  ],
+  "partialOnlyRuleIds": [
+    "history/normalized-epoch-calibration-provisional-v1"
+  ],
+  "implementationAuthorized": true,
+  "implementationAuthorizationDate": "2026-07-21",
+  "implementationAuthorizationBasis": "The user explicitly authorized beginning W1-04 after merge of PR #139 while preserving the separate merge gate and all shadow-only authority boundaries."
+}

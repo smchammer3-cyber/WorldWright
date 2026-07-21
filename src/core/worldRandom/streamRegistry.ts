@@ -9,7 +9,7 @@ const DEFINITIONS: readonly RandomStreamDefinition[] = [
   define('causal.initial-conditions', 1, 'planet-initial-conditions', 'Resolve constraint-aware initial-condition bundles without solved geology.', ['purpose', 'family', 'scope', 'ordinal', 'input'], SHADOW_ONLY_MODES, 'ACTIVE'),
   define('causal.premise', 1, 'planetary-premise', 'Resolve reviewed broad planetary-premise branches without downstream geology.', ['purpose', 'input-hash', 'research-context'], SHADOW_ONLY_MODES, 'ACTIVE'),
   define('causal.interior', 1, 'interior-rheology', 'Resolve reviewed thermal, rheology, and broad lid hypotheses without tectonic history.', ['purpose', 'input-hash', 'premise-hash', 'research-context'], SHADOW_ONLY_MODES, 'ACTIVE'),
-  define('causal.regime-history', 1, 'regime-history', 'Resolve future regime epochs and transitions.', ['epoch', 'purpose'], CAUSAL_MODES, 'RESERVED'),
+  define('causal.regime-history', 1, 'regime-history', 'Resolve reviewed contiguous regime epochs and adjacent broad transitions without spatial geology.', ['purpose', 'input-hash', 'premise-hash', 'interior-hash', 'research-context'], SHADOW_ONLY_MODES, 'ACTIVE'),
   define('causal.geologic-spine', 1, 'geologic-spine', 'Resolve future large-scale feature identity.', ['feature', 'purpose'], CAUSAL_MODES, 'RESERVED'),
   define('causal.event-graph', 1, 'event-graph', 'Resolve future geological event branches.', ['epoch', 'event-family', 'purpose'], CAUSAL_MODES, 'RESERVED'),
   define('causal.physical-surface', 1, 'physical-surface', 'Resolve future bounded physical-surface variation.', ['feature', 'purpose'], CAUSAL_MODES, 'RESERVED'),

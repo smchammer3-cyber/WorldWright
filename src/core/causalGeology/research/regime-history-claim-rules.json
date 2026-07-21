@@ -1,0 +1,232 @@
+[
+  {
+    "schemaVersion": 1,
+    "ruleId": "history/damage-assisted-mobile-lid-initiation-v1",
+    "domain": "lithosphere-damage-initiation",
+    "version": 1,
+    "sourceIds": [
+      "foley-bercovici-elkins-tanton-2014-initiation"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat"
+    ],
+    "expectedRelation": "Accumulated lithospheric damage or inherited weak zones can support a transition from stagnant or sluggish behavior toward episodic or mobile-lid behavior, but the mechanism and timing are not uniquely determined by W1-04 inputs.",
+    "weightRationale": "The source directly models delayed initiation and persistence of proto-subduction through grain-damage and weak-zone memory.",
+    "correlationGroupId": "lithosphere-damage-initiation-models",
+    "exceptions": [
+      "W1-04 records only a broad trigger family and never asserts a specific subduction zone."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-04 evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "history/ice-shell-episodic-evolution-v1",
+    "domain": "ice-shell-regime-history",
+    "version": 1,
+    "sourceIds": [
+      "deschamps-vilella-2021-mixed-heated-stagnant-lid-w1-04",
+      "tobie-choblet-sotin-2003-tidal-ice-convection"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.radius",
+      "thermal.age",
+      "thermal.radiogenic-heat",
+      "thermal.tidal-heating"
+    ],
+    "expectedRelation": "Ice-shell bodies may retain long stagnant-lid intervals and, under sufficient internal or tidal heating, episodic convective or partially molten upwelling intervals without developing rocky-planet plate identities.",
+    "weightRationale": "Independent mixed-heating and tidally heated ice-shell models support stagnant and episodic alternatives while leaving detailed orbital and shell histories unresolved.",
+    "correlationGroupId": "icy-shell-and-stagnant-lid-models",
+    "exceptions": [
+      "The history cannot infer shell thickness, surface features, or a unique forcing cycle."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-04 evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "history/lid-regime-family-alternatives-v1",
+    "domain": "lid-regime-alternatives",
+    "version": 1,
+    "sourceIds": [
+      "lourenco-et-al-2018-intrusive-magmatism-w1-04",
+      "lyu-et-al-2025-lid-regimes-w1-04"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat",
+      "thermal.tidal-heating"
+    ],
+    "expectedRelation": "Rocky planets may occupy stagnant, sluggish, episodic, mobile, plutonic-squishy, or episodic-squishy regimes, and cooling or changing magmatic efficiency can alter which histories are plausible.",
+    "weightRationale": "The cited thermochemical and magmatic models support several broad regime families and transitions without yielding a universal sequence.",
+    "correlationGroupId": "planetary-convection-evolution-models",
+    "exceptions": [
+      "A selected deterministic sequence remains a working hypothesis rather than a unique reconstruction."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-04 evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "history/no-spatial-geology-v1",
+    "domain": "regime-history-scope-firewall",
+    "version": 1,
+    "sourceIds": [
+      "worldwright-regime-history-scope-v1"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.density",
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat",
+      "thermal.tidal-heating"
+    ],
+    "expectedRelation": "W1-04 may create only normalized contiguous regime epochs and adjacent broad trigger families. It may not create plate identities, events, spatial features, continents, basins, rifts, transforms, hotspots, terrain, climate outcomes, hydrology, biomes, materials, resources, or rendering state.",
+    "weightRationale": "This is the controlling product-scope boundary between temporal regime history and the later geologic-spine stage.",
+    "correlationGroupId": "worldwright-regime-history-scope",
+    "exceptions": [],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-04 evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "history/normalized-epoch-calibration-provisional-v1",
+    "domain": "normalized-epoch-calibration",
+    "version": 1,
+    "sourceIds": [
+      "worldwright-regime-history-scope-v1"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.density",
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat",
+      "thermal.tidal-heating"
+    ],
+    "expectedRelation": "WorldWright maps declared age, the reviewed planetary premise, and the W1-03 interior ranges into deliberately broad normalized epoch intervals and comparative activity ranges. These are not absolute geochronologic predictions.",
+    "weightRationale": "A deterministic product calibration is needed for replayable histories but has not been externally validated as a quantitative planetary chronology model.",
+    "correlationGroupId": "worldwright-regime-history-scope",
+    "exceptions": [
+      "Every natural W1-04 history remains PARTIAL."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "history/path-dependence-and-hysteresis-v1",
+    "domain": "tectonic-path-dependence",
+    "version": 1,
+    "sourceIds": [
+      "weller-lenardic-2012-hysteresis"
+    ],
+    "applicableInputIds": [
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat",
+      "thermal.tidal-heating"
+    ],
+    "expectedRelation": "Equivalent present-day forcing and lithosphere parameters may retain different tectonic regimes because prior evolutionary path and hysteresis matter.",
+    "weightRationale": "The source directly demonstrates multiple stable tectonic outcomes for equivalent final parameter values.",
+    "correlationGroupId": "planetary-convection-evolution-models",
+    "exceptions": [
+      "The deterministic branch may choose one replayable history while preserving PARTIAL status and explicit non-uniqueness."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-04 evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "history/secular-cooling-regime-window-v1",
+    "domain": "time-dependent-regime-evolution",
+    "version": 1,
+    "sourceIds": [
+      "oneill-et-al-2016-tectonic-window"
+    ],
+    "applicableInputIds": [
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat"
+    ],
+    "expectedRelation": "Secular cooling and radiogenic decline can permit histories that pass among hot stagnant, episodic, mobile, and late cold stagnant regimes, with initial thermal state strongly affecting the path.",
+    "weightRationale": "The source directly models time-dependent regime sequences under evolving basal and internal heating.",
+    "correlationGroupId": "planetary-convection-evolution-models",
+    "exceptions": [
+      "The sequence is an available family of histories rather than a mandatory universal order."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-04 evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "history/thermal-and-magmatic-transition-v1",
+    "domain": "magmatic-regime-transition",
+    "version": 1,
+    "sourceIds": [
+      "lourenco-et-al-2018-intrusive-magmatism-w1-04",
+      "moore-webb-2013-heat-pipe-earth"
+    ],
+    "applicableInputIds": [
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat",
+      "thermal.tidal-heating"
+    ],
+    "expectedRelation": "High melt and volcanic or intrusive heat transport can support early heat-pipe or magmatically weakened regimes, while declining heat sources can support transitions toward episodic, mobile, sluggish, or stagnant behavior.",
+    "weightRationale": "The cited models directly couple magmatism to long-term lithosphere and heat-transport evolution.",
+    "correlationGroupId": "magmatic-heat-transport-models",
+    "exceptions": [
+      "W1-04 cannot infer eruption locations, crustal architecture, or exact intrusion fractions."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-04 evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "history/transition-trigger-families-only-v1",
+    "domain": "transition-trigger-scope",
+    "version": 1,
+    "sourceIds": [
+      "foley-bercovici-elkins-tanton-2014-initiation",
+      "oneill-et-al-2016-tectonic-window",
+      "tobie-choblet-sotin-2003-tidal-ice-convection",
+      "worldwright-regime-history-scope-v1"
+    ],
+    "applicableInputIds": [
+      "inventory.water",
+      "planet.radius",
+      "thermal.age",
+      "thermal.primordial-heat",
+      "thermal.radiogenic-heat",
+      "thermal.tidal-heating"
+    ],
+    "expectedRelation": "Transitions may be labeled only with broad reviewed trigger families such as secular cooling, heat-source decline, damage accumulation, magmatic reorganization, tidal destabilization, or shell relaxation; W1-04 may not assert a specific event or spatial cause.",
+    "weightRationale": "The scientific sources support broad mechanisms, while the internal scope contract prevents them from becoming invented event histories.",
+    "correlationGroupId": "worldwright-regime-history-scope",
+    "exceptions": [],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright W1-04 evidence audit",
+    "reviewDate": "2026-07-21"
+  }
+]
