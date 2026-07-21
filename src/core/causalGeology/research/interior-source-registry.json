@@ -1,0 +1,154 @@
+[
+  {
+    "schemaVersion": 1,
+    "sourceId": "deschamps-vilella-2021-mixed-heated-stagnant-lid",
+    "sourceType": "peer-reviewed numerical convection study",
+    "citation": "Deschamps, F.; Vilella, K. Scaling Laws for Mixed-Heated Stagnant-Lid Convection and Application to Europa. Journal of Geophysical Research: Planets 126 (2021), e2021JE006963.",
+    "title": "Scaling Laws for Mixed-Heated Stagnant-Lid Convection and Application to Europa",
+    "authorsOrInstitution": "Frédéric Deschamps and Kévin Vilella",
+    "publicationYear": 2021,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "mixed-heated-stagnant-lid-convection",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "planetary-convection-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Scaling relations are model-dependent and do not uniquely determine a whole-planet lid regime.",
+      "Europa application does not transfer numerically to every rocky or icy body."
+    ],
+    "contentFingerprint": "doi:10.1029/2021JE006963"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "driscoll-barnes-2015-tidal-thermal-evolution",
+    "sourceType": "peer-reviewed coupled thermal-orbital model; author manuscript at arXiv",
+    "citation": "Driscoll, P.; Barnes, R. Tidal heating of Earth-like exoplanets around M stars: Thermal, magnetic, and orbital evolutions. Astrobiology 15 (2015); arXiv:1509.07452.",
+    "title": "Tidal heating of Earth-like exoplanets around M stars: Thermal, magnetic, and orbital evolutions",
+    "authorsOrInstitution": "Peter Driscoll and Rory Barnes",
+    "publicationYear": 2015,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "tidal-heating-and-viscoelastic-rheology",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "tidal-thermal-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Earth-mass and M-star calibration is not universal.",
+      "Orbital evolution details remain outside W1-03 input authority."
+    ],
+    "contentFingerprint": "arxiv:1509.07452"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "lourenco-et-al-2018-intrusive-magmatism",
+    "sourceType": "peer-reviewed numerical magmatic-thermo-mechanical study",
+    "citation": "Lourenço, D. L.; Rozel, A. B.; Gerya, T.; Tackley, P. J. Efficient cooling of rocky planets by intrusive magmatism. Nature Geoscience 11 (2018), 322–327.",
+    "title": "Efficient cooling of rocky planets by intrusive magmatism",
+    "authorsOrInstitution": "Diogo L. Lourenço, Antoine B. Rozel, Taras Gerya, and Paul J. Tackley",
+    "publicationYear": 2018,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "magmatism-lithosphere-thermal-coupling",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "planetary-convection-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Intrusion-to-extrusion partitioning is not a declared W1-03 input.",
+      "The study supports coupling and alternatives rather than a universal threshold."
+    ],
+    "contentFingerprint": "doi:10.1038/s41561-018-0094-8"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "lyu-et-al-2025-tectonic-lid-regimes",
+    "sourceType": "peer-reviewed thermochemical mantle-convection parameter study",
+    "citation": "Lyu, T.; Ballmer, M. D.; Li, Z.-H.; Lee, M. H.; Yan, J.; Wu, B.; Zhao, G. Dissecting the puzzle of tectonic lid regimes in terrestrial planets. Nature Communications 16, 10037 (2025).",
+    "title": "Dissecting the puzzle of tectonic lid regimes in terrestrial planets",
+    "authorsOrInstitution": "Tianyang Lyu et al.",
+    "publicationYear": 2025,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "terrestrial-lid-regime-alternatives",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "planetary-convection-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Two-dimensional model classifications do not uniquely diagnose an unknown planet.",
+      "Effective yield strength and intrusion ratios are not direct W1-03 inputs."
+    ],
+    "contentFingerprint": "doi:10.1038/s41467-025-65943-1"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "nimmo-et-al-2020-radiogenic-heating",
+    "sourceType": "peer-reviewed parameterized rocky-planet thermal-evolution model; author manuscript at arXiv",
+    "citation": "Nimmo, F.; Primack, J.; Faber, S. M.; Ramirez-Ruiz, E.; Safarzadeh, M. Radiogenic Heating and its Influence on Rocky Planet Dynamos and Habitability. The Astrophysical Journal 903 (2020); arXiv:2011.04791.",
+    "title": "Radiogenic Heating and its Influence on Rocky Planet Dynamos and Habitability",
+    "authorsOrInstitution": "Francis Nimmo, Joel Primack, Sandra M. Faber, Enrico Ramirez-Ruiz, and Mohammadtaher Safarzadeh",
+    "publicationYear": 2020,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "radiogenic-heating-and-rocky-planet-evolution",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "rocky-thermal-evolution-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "The model is Earth-size and parameterized rather than a universal three-dimensional solution.",
+      "Radiogenic abundance does not uniquely determine lid regime or tectonic history."
+    ],
+    "contentFingerprint": "arxiv:2011.04791"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "reese-solomatov-moresi-1998-stagnant-lid",
+    "sourceType": "peer-reviewed stagnant-lid convection analysis and numerical study",
+    "citation": "Reese, C. C.; Solomatov, V. S.; Moresi, L.-N. Heat transport efficiency for stagnant lid convection with dislocation viscosity: Application to Mars and Venus. Journal of Geophysical Research: Planets 103 (1998).",
+    "title": "Heat transport efficiency for stagnant lid convection with dislocation viscosity: Application to Mars and Venus",
+    "authorsOrInstitution": "C. C. Reese, V. S. Solomatov, and L.-N. Moresi",
+    "publicationYear": 1998,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "stagnant-lid-heat-transport",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "planetary-convection-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Mars and Venus applications do not define a universal exoplanet threshold.",
+      "Material rheology and melting assumptions strongly affect quantitative outcomes."
+    ],
+    "contentFingerprint": "doi:10.1029/98JE01047"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "vance-et-al-2018-ocean-world-interiors-w1-03",
+    "sourceType": "peer-reviewed geophysical ocean-world interior-model framework; author manuscript at arXiv",
+    "citation": "Vance, S. D. et al. Geophysical tests for habitability in ice-covered ocean worlds. Journal of Geophysical Research: Planets (2018); arXiv:1705.03999.",
+    "title": "Geophysical tests for habitability in ice-covered ocean worlds",
+    "authorsOrInstitution": "Steven D. Vance et al.",
+    "publicationYear": 2018,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "ice-shell-and-ocean-world-interiors",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "ocean-world-interior-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Interior solutions are non-unique and thermodynamic data remain incomplete.",
+      "Ocean chemistry and habitability are outside W1-03 scope."
+    ],
+    "contentFingerprint": "arxiv:1705.03999#w1-03"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "worldwright-interior-scope-v1",
+    "sourceType": "internal controlled scope and calibration contract",
+    "citation": "WorldWright W1-03 interior and rheology implementation contract.",
+    "title": "WorldWright Interior and Rheology Scope Contract",
+    "authorsOrInstitution": "WorldWright",
+    "publicationYear": 2026,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "interior-scope-and-calibration",
+    "qualityClass": "INTERNAL_CONTROLLED_ARCHETYPE",
+    "correlationGroupId": "worldwright-interior-scope",
+    "licenseOrUsageNote": "Internal product and architecture rule; not external scientific evidence.",
+    "limitations": [
+      "Normalized range calibration is a product model and remains provisional.",
+      "The contract forbids tectonic history, plates, geography, terrain, climate outcomes, and rendering conclusions."
+    ],
+    "contentFingerprint": "worldwright:w1-03-interior-scope-v1"
+  }
+]
