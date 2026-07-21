@@ -18,6 +18,8 @@ export type { ResolvePlanetInitialConditionOptionsV1 } from './initialConditionR
 export { resolvePlanetInitialConditionBundle } from './initialConditionAuthorityResolver';
 export * from './premiseResearchContracts';
 export * from './premiseResearchFirewall';
+export * from './premiseResolver';
+export { resolvePlanetaryPremise, runPlanetaryPremiseShadow } from './premiseResolverPolicy';
 export * from './stageResult';
 export * from './spatial';
 export * from './researchLedger';

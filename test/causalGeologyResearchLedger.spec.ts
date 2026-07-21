@@ -62,7 +62,9 @@ describe('W1-01 scientific research ledger', () => {
     const bundle = createScientificResearchBundle({ bundleVersion: review.bundleVersion, sources, claimRules, correlationGroups, knownLimitations });
     expect(() => validateScientificResearchBundle(bundle)).not.toThrow();
     expect(review.status).toBe('PREMISE_RESEARCH_PACKAGE_REVIEWED');
-    expect(review.implementationAuthorized).toBe(false);
+    expect(review.implementationAuthorized).toBe(true);
+    expect(review.implementationAuthorizationDate).toBe('2026-07-21');
+    expect(review.implementationAuthorizationBasis).toMatch(/user explicitly authorized/i);
     expect(bundle.claimRules.some((rule) => rule.evidenceStatus === 'REVIEWED')).toBe(true);
     expect(bundle.claimRules.some((rule) => rule.evidenceStatus === 'PROVISIONAL')).toBe(true);
   });
