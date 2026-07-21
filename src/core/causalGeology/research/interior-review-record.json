@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "bundleVersion": "w1-03-interior-research-v1",
+  "status": "INTERIOR_RESEARCH_PACKAGE_REVIEWED",
+  "reviewDate": "2026-07-21",
+  "reviewer": "WorldWright W1-03 evidence audit",
+  "scope": "Declared heat-source fractions, broad thermal and convection ranges, rheology and lithosphere alternatives, lid hypotheses, and normalized melt/rift/hotspot tendencies only; no tectonic history or physical geography.",
+  "completeEligibleRuleIds": [
+    "interior/declared-heat-sources-only-v1",
+    "interior/ice-shell-convection-alternatives-v1",
+    "interior/lid-regime-nonuniqueness-v1",
+    "interior/magmatism-thermal-coupling-v1",
+    "interior/mixed-heating-convection-v1",
+    "interior/no-downstream-geology-v1",
+    "interior/radiogenic-long-term-driver-v1",
+    "interior/tidal-viscoelastic-coupling-v1"
+  ],
+  "partialOnlyRuleIds": [
+    "interior/normalized-range-calibration-provisional-v1"
+  ],
+  "implementationAuthorized": true,
+  "implementationAuthorizationDate": "2026-07-21",
+  "implementationAuthorizationBasis": "The user explicitly authorized beginning W1-03 after merge of PR #138 while preserving the separate merge gate and all shadow-only authority boundaries."
+}
