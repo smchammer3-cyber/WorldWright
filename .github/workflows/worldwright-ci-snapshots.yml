@@ -89,6 +89,93 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  diagnostics:
+    name: Required diagnostics
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run required diagnostics
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          (
+            set -e
+            npm run diagnostics:generate
+            npm run diagnostics:geology-audit
+            npm run diagnostics:world-audit-export
+          ) 2>&1 | tee artifacts/ci-logs/diagnostics.log
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-diagnostic-logs
+          path: artifacts/ci-logs/diagnostics.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  causal-skeleton-gate:
+    name: Causal skeleton gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CAUSAL_SKELETON_CI_OUT: artifacts/causal-skeleton-gate
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run seven-seed causal skeleton harness
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npm run ci:causal-skeleton 2>&1 | tee artifacts/ci-logs/causal-skeleton.log
+
+      - name: Summarize causal skeleton gate
+        if: always()
+        run: |
+          {
+            echo "## Causal skeleton gate"
+            echo "- Fixed cases: \`7\`"
+            echo "- Required unique seeds: \`>=6\`"
+            echo "- Current expected spine disposition: \`ABSENT_RESERVED\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Artifact: \`causal-skeleton-gate\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload causal skeleton artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: causal-skeleton-gate
+          path: |
+            artifacts/causal-skeleton-gate/
+            artifacts/ci-logs/causal-skeleton.log
+          if-no-files-found: warn
+          retention-days: 14
+
   jarvis-snapshot-canary:
     name: Jarvis snapshot canary
     runs-on: ubuntu-latest
@@ -228,9 +315,8 @@ jobs:
             echo "- Diagnostic files: \`manifest.json\`, \`preflight.txt\`, \`snapshot-exit-code.txt\`, \`seed-1040037/snapshot-state.json\`, \`seed-1040037/browser-console.json\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-          # Full-quality visuals are review artifacts for phone-first inspection.
-          # Do not let this optional review job block the PR forever; upload whatever was produced.
-          exit 0
+          # Capture success is a blocking software gate. Human visual quality review remains separate.
+          exit "$STATUS"
 
       - name: Upload full-quality Jarvis globe review
         if: always()
