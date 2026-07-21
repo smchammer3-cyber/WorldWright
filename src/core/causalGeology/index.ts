@@ -19,7 +19,7 @@ export { resolvePlanetInitialConditionBundle } from './initialConditionAuthority
 export * from './premiseResearchContracts';
 export * from './premiseResearchFirewall';
 export * from './premiseResolver';
-export { resolvePlanetaryPremise } from './premiseResolverPolicy';
+export { resolvePlanetaryPremise, runPlanetaryPremiseShadow } from './premiseResolverPolicy';
 export * from './stageResult';
 export * from './spatial';
 export * from './researchLedger';
