@@ -47,15 +47,19 @@ describe('W1-02A generation request contract', () => {
     })).toThrow(/Only direct quantity controls/);
   });
 
-  it('activates only the W1-02A shadow stream and leaves premise reserved', () => {
-    const definition = getRandomStreamDefinition('causal.initial-conditions');
-    expect(definition.status).toBe('ACTIVE');
-    expect(definition.allowedAuthorityModes).toEqual(['CAUSAL_SHADOW']);
-    expect(getRandomStreamDefinition('causal.premise').status).toBe('RESERVED');
+  it('keeps the W1-02A and W1-02B streams active only in shadow mode', () => {
+    const initialConditions = getRandomStreamDefinition('causal.initial-conditions');
+    expect(initialConditions.status).toBe('ACTIVE');
+    expect(initialConditions.allowedAuthorityModes).toEqual(['CAUSAL_SHADOW']);
+    const premise = getRandomStreamDefinition('causal.premise');
+    expect(premise.status).toBe('ACTIVE');
+    expect(premise.allowedAuthorityModes).toEqual(['CAUSAL_SHADOW']);
     const shadow = createWorldRandomOracle('seed', { authorityMode: 'CAUSAL_SHADOW' });
     expect(() => shadow.uint32({ stream: 'causal.initial-conditions', scope: ['test'], draw: 0 })).not.toThrow();
+    expect(() => shadow.uint32({ stream: 'causal.premise', scope: ['test'], draw: 0 })).not.toThrow();
     const active = createWorldRandomOracle('seed', { authorityMode: 'CAUSAL_ACTIVE' });
     expect(() => active.uint32({ stream: 'causal.initial-conditions', scope: ['test'], draw: 0 })).toThrow(/not allowed/);
+    expect(() => active.uint32({ stream: 'causal.premise', scope: ['test'], draw: 0 })).toThrow(/not allowed/);
   });
 
   it('requires scoped reroll ordinals to be explicit and bounded', () => {
