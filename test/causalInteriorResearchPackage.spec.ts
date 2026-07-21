@@ -65,20 +65,21 @@ describe('W1-03 interior and rheology research package', () => {
     const holdouts = fixtureSet.fixtures.filter((fixture) => fixture.kind === 'HOLDOUT');
     expect(holdouts.length).toBeGreaterThanOrEqual(2);
     expect(holdouts.every((fixture) => fixture.withheldFromCalibration)).toBe(true);
-    expect(new Set(fixtureSet.fixtures.flatMap((fixture) => fixture.premise.bodyClassCandidates))).toEqual(expect.objectContaining(new Set([
+    const coveredBodyClasses = new Set(fixtureSet.fixtures.flatMap((fixture) => fixture.premise.bodyClassCandidates));
+    for (const bodyClass of [
       'ICE_SHELL_OCEAN_BODY',
       'ROCK_ICE_MIXED_SOLID_BODY',
       'ROCKY_DWARF_OR_SMALL_BODY',
       'ROCKY_SUPER_EARTH',
       'ROCKY_TERRESTRIAL',
       'VOLATILE_PRESSURE_SOLID_BODY',
-    ])));
+    ]) expect(coveredBodyClasses.has(bodyClass as never), `missing W1-03 fixture coverage for ${bodyClass}`).toBe(true);
   });
 
   it('fails closed on hostile fields, malformed holdout state, and revoked authorization', () => {
     expect(() => validateInteriorFixtureSet({ ...fixtureSet, terrainPolicy: 'invented' })).toThrow(/invalid fields/);
-    const badHoldout = structuredClone(fixtureSet) as InteriorFixtureSetV1;
-    (badHoldout.fixtures[0] as { withheldFromCalibration: boolean }).withheldFromCalibration = true;
+    const badHoldout = structuredClone(fixtureSet) as any;
+    badHoldout.fixtures[0].withheldFromCalibration = true;
     expect(() => validateInteriorFixtureSet(badHoldout)).toThrow(/holdout state/);
     expect(() => createInteriorResearchContext({
       researchBundle: bundle(),
