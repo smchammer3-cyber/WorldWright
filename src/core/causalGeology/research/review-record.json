@@ -20,5 +20,7 @@
   "partialOnlyRuleIds": [
     "premise/partial-differentiation-remains-provisional-v1"
   ],
-  "implementationAuthorized": false
+  "implementationAuthorized": true,
+  "implementationAuthorizationDate": "2026-07-21",
+  "implementationAuthorizationBasis": "The user explicitly authorized moving forward from the merged W1-02B research checkpoint while preserving the separate merge gate."
 }
