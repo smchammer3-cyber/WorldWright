@@ -1,0 +1,365 @@
+{
+  "schemaVersion": 1,
+  "fixtureSetVersion": "W1_04_REGIME_HISTORY_FIXTURES_V1",
+  "fixtures": [
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/cold-rocky-dwarf-single-lid-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "rootSeed": "1040037",
+      "ageGyr": 7.4,
+      "waterInventory": 0.1,
+      "premiseBodyClassCandidates": [
+        "ROCKY_DWARF_OR_SMALL_BODY"
+      ],
+      "interior": {
+        "thermalBudgetCenter": 0.15,
+        "convectionCenter": 0.08,
+        "meltCenter": 0.1,
+        "riftCenter": 0.08,
+        "hotspotCenter": 0.12,
+        "heatSourceFractions": {
+          "primordial": 0.25,
+          "radiogenic": 0.7,
+          "tidal": 0.05
+        },
+        "lidRegimeCandidates": [
+          "STAGNANT_LID"
+        ],
+        "resolvedLidRegime": "STAGNANT_LID"
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "epochCountRange": [
+          1,
+          1
+        ],
+        "allowedRegimeFamilies": [
+          "STAGNANT_LID"
+        ],
+        "requiredAnyRegimeFamilies": [
+          "STAGNANT_LID"
+        ],
+        "allowedTransitionFamilies": []
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/earthlike-mixed-evolution-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "rootSeed": "1040037",
+      "ageGyr": 4.5,
+      "waterInventory": 0.5,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "interior": {
+        "thermalBudgetCenter": 0.38,
+        "convectionCenter": 0.48,
+        "meltCenter": 0.38,
+        "riftCenter": 0.4,
+        "hotspotCenter": 0.35,
+        "heatSourceFractions": {
+          "primordial": 0.25,
+          "radiogenic": 0.65,
+          "tidal": 0.1
+        },
+        "lidRegimeCandidates": [
+          "EPISODIC_LID",
+          "MOBILE_LID_HYPOTHESIS",
+          "SLUGGISH_LID",
+          "STAGNANT_LID"
+        ],
+        "resolvedLidRegime": "EPISODIC_LID"
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "epochCountRange": [
+          2,
+          4
+        ],
+        "allowedRegimeFamilies": [
+          "EPISODIC_LID",
+          "HOT_STAGNANT_LID",
+          "MOBILE_LID_HYPOTHESIS",
+          "SLUGGISH_LID",
+          "STAGNANT_LID"
+        ],
+        "requiredAnyRegimeFamilies": [
+          "EPISODIC_LID",
+          "MOBILE_LID_HYPOTHESIS",
+          "SLUGGISH_LID"
+        ],
+        "allowedTransitionFamilies": [
+          "LITHOSPHERE_DAMAGE_ACCUMULATION",
+          "RHEOLOGIC_HYSTERESIS",
+          "SECULAR_COOLING",
+          "SECULAR_COOLING_AND_WEAK_ZONE_MEMORY"
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/hot-super-earth-magmatic-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "rootSeed": "9011",
+      "ageGyr": 2,
+      "waterInventory": 0.3,
+      "premiseBodyClassCandidates": [
+        "ROCKY_SUPER_EARTH"
+      ],
+      "interior": {
+        "thermalBudgetCenter": 0.8,
+        "convectionCenter": 0.75,
+        "meltCenter": 0.82,
+        "riftCenter": 0.65,
+        "hotspotCenter": 0.72,
+        "heatSourceFractions": {
+          "primordial": 0.45,
+          "radiogenic": 0.45,
+          "tidal": 0.1
+        },
+        "lidRegimeCandidates": [
+          "EPISODIC_LID",
+          "EPISODIC_SQUISHY_LID",
+          "MOBILE_LID_HYPOTHESIS",
+          "PLUTONIC_SQUISHY_LID",
+          "STAGNANT_LID"
+        ],
+        "resolvedLidRegime": "PLUTONIC_SQUISHY_LID"
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "epochCountRange": [
+          2,
+          4
+        ],
+        "allowedRegimeFamilies": [
+          "EPISODIC_LID",
+          "EPISODIC_SQUISHY_LID",
+          "HEAT_PIPE_LID",
+          "HOT_STAGNANT_LID",
+          "MOBILE_LID_HYPOTHESIS",
+          "PLUTONIC_SQUISHY_LID"
+        ],
+        "requiredAnyRegimeFamilies": [
+          "EPISODIC_SQUISHY_LID",
+          "HEAT_PIPE_LID",
+          "PLUTONIC_SQUISHY_LID"
+        ],
+        "allowedTransitionFamilies": [
+          "LITHOSPHERE_DAMAGE_ACCUMULATION",
+          "MAGMATIC_RHEOLOGY_REORGANIZATION",
+          "SECULAR_COOLING_AND_WEAK_ZONE_MEMORY",
+          "VOLCANIC_HEAT_TRANSPORT_DECLINE"
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/tidally-heated-rocky-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "rootSeed": "3301",
+      "ageGyr": 3,
+      "waterInventory": 0.5,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "interior": {
+        "thermalBudgetCenter": 0.7,
+        "convectionCenter": 0.65,
+        "meltCenter": 0.78,
+        "riftCenter": 0.6,
+        "hotspotCenter": 0.8,
+        "heatSourceFractions": {
+          "primordial": 0.15,
+          "radiogenic": 0.25,
+          "tidal": 0.6
+        },
+        "lidRegimeCandidates": [
+          "EPISODIC_LID",
+          "EPISODIC_SQUISHY_LID",
+          "PLUTONIC_SQUISHY_LID",
+          "STAGNANT_LID"
+        ],
+        "resolvedLidRegime": "EPISODIC_SQUISHY_LID"
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "epochCountRange": [
+          2,
+          4
+        ],
+        "allowedRegimeFamilies": [
+          "EPISODIC_LID",
+          "EPISODIC_SQUISHY_LID",
+          "PLUTONIC_SQUISHY_LID",
+          "STAGNANT_LID"
+        ],
+        "requiredAnyRegimeFamilies": [
+          "EPISODIC_SQUISHY_LID",
+          "PLUTONIC_SQUISHY_LID"
+        ],
+        "allowedTransitionFamilies": [
+          "MAGMATIC_RHEOLOGY_REORGANIZATION",
+          "RHEOLOGIC_HYSTERESIS",
+          "TIDAL_FORCING_VARIATION"
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/tidal-ice-shell-history-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "rootSeed": "1040037",
+      "ageGyr": 4,
+      "waterInventory": 4,
+      "premiseBodyClassCandidates": [
+        "ICE_SHELL_OCEAN_BODY"
+      ],
+      "interior": {
+        "thermalBudgetCenter": 0.55,
+        "convectionCenter": 0.5,
+        "meltCenter": 0.45,
+        "riftCenter": 0.3,
+        "hotspotCenter": 0.6,
+        "heatSourceFractions": {
+          "primordial": 0.15,
+          "radiogenic": 0.2,
+          "tidal": 0.65
+        },
+        "lidRegimeCandidates": [
+          "ICE_SHELL_EPISODIC_LID",
+          "ICE_SHELL_STAGNANT_LID"
+        ],
+        "resolvedLidRegime": "ICE_SHELL_EPISODIC_LID"
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "epochCountRange": [
+          1,
+          3
+        ],
+        "allowedRegimeFamilies": [
+          "ICE_SHELL_EPISODIC_LID",
+          "ICE_SHELL_STAGNANT_LID"
+        ],
+        "requiredAnyRegimeFamilies": [
+          "ICE_SHELL_EPISODIC_LID"
+        ],
+        "allowedTransitionFamilies": [
+          "SHELL_THERMAL_RELAXATION",
+          "TIDAL_THERMAL_DESTABILIZATION"
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/rock-ice-mixed-history-v1",
+      "kind": "HOLDOUT",
+      "withheldFromCalibration": true,
+      "rootSeed": "7205",
+      "ageGyr": 5,
+      "waterInventory": 2.5,
+      "premiseBodyClassCandidates": [
+        "ROCK_ICE_MIXED_SOLID_BODY"
+      ],
+      "interior": {
+        "thermalBudgetCenter": 0.4,
+        "convectionCenter": 0.38,
+        "meltCenter": 0.3,
+        "riftCenter": 0.35,
+        "hotspotCenter": 0.4,
+        "heatSourceFractions": {
+          "primordial": 0.25,
+          "radiogenic": 0.5,
+          "tidal": 0.25
+        },
+        "lidRegimeCandidates": [
+          "EPISODIC_LID",
+          "SLUGGISH_LID",
+          "STAGNANT_LID"
+        ],
+        "resolvedLidRegime": "SLUGGISH_LID"
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "epochCountRange": [
+          1,
+          3
+        ],
+        "allowedRegimeFamilies": [
+          "EPISODIC_LID",
+          "SLUGGISH_LID",
+          "STAGNANT_LID"
+        ],
+        "requiredAnyRegimeFamilies": [
+          "EPISODIC_LID",
+          "SLUGGISH_LID",
+          "STAGNANT_LID"
+        ],
+        "allowedTransitionFamilies": [
+          "RHEOLOGIC_HYSTERESIS",
+          "SECULAR_COOLING"
+        ]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/volatile-pressure-history-v1",
+      "kind": "HOLDOUT",
+      "withheldFromCalibration": true,
+      "rootSeed": "8808",
+      "ageGyr": 3.5,
+      "waterInventory": 1.6,
+      "premiseBodyClassCandidates": [
+        "VOLATILE_PRESSURE_SOLID_BODY"
+      ],
+      "interior": {
+        "thermalBudgetCenter": 0.48,
+        "convectionCenter": 0.5,
+        "meltCenter": 0.45,
+        "riftCenter": 0.42,
+        "hotspotCenter": 0.45,
+        "heatSourceFractions": {
+          "primordial": 0.3,
+          "radiogenic": 0.6,
+          "tidal": 0.1
+        },
+        "lidRegimeCandidates": [
+          "EPISODIC_LID",
+          "SLUGGISH_LID",
+          "STAGNANT_LID"
+        ],
+        "resolvedLidRegime": "EPISODIC_LID"
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "epochCountRange": [
+          2,
+          3
+        ],
+        "allowedRegimeFamilies": [
+          "EPISODIC_LID",
+          "HOT_STAGNANT_LID",
+          "SLUGGISH_LID",
+          "STAGNANT_LID"
+        ],
+        "requiredAnyRegimeFamilies": [
+          "EPISODIC_LID",
+          "SLUGGISH_LID"
+        ],
+        "allowedTransitionFamilies": [
+          "LITHOSPHERE_DAMAGE_ACCUMULATION",
+          "RHEOLOGIC_HYSTERESIS",
+          "SECULAR_COOLING"
+        ]
+      }
+    }
+  ]
+}
