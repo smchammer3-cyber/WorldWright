@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "bundleVersion": "W1_05_GEOLOGIC_SPINE_RESEARCH_V1",
+  "status": "GEOLOGIC_SPINE_RESEARCH_PACKAGE_REVIEWED",
+  "reviewDate": "2026-07-21",
+  "reviewer": "WorldWright W1-05 evidence audit",
+  "scope": "Detached resolution-independent spherical geologic identities, broad extents, relationships, epoch-bound events, ancestry, preservation, deterministic replay, controlled fixtures, and hard physical-output isolation.",
+  "completeEligibleRuleIds": [
+    "spine/boundary-network-family-association-v1",
+    "spine/cratonic-kernel-persistence-v1",
+    "spine/event-ancestry-and-inheritance-v1",
+    "spine/no-physical-surface-output-v1",
+    "spine/plume-rift-interaction-v1"
+  ],
+  "partialOnlyRuleIds": [
+    "spine/provisional-resolution-independent-placement-v1"
+  ],
+  "implementationAuthorized": true,
+  "implementationAuthorizationDate": "2026-07-21",
+  "implementationAuthorizationBasis": "The user explicitly directed Jarvis to begin W1-05B after approving and merging the W1-05A skeleton test-and-CI foundation."
+}

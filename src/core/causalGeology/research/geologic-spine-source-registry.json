@@ -1,0 +1,154 @@
+[
+  {
+    "schemaVersion": 1,
+    "sourceId": "bird-2003-digital-plate-boundaries",
+    "sourceType": "peer-reviewed global digital plate-boundary model",
+    "citation": "Bird, P. An updated digital model of plate boundaries. Geochemistry, Geophysics, Geosystems 4 (2003), 1027.",
+    "title": "An updated digital model of plate boundaries",
+    "authorsOrInstitution": "Peter Bird",
+    "publicationYear": 2003,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "global-plate-boundary-families-and-network-structure",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "plate-boundary-topology-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level boundary-family relation only; no copied data, text, or figures.",
+    "limitations": [
+      "Earth's present-day boundary inventory is not a universal count model for arbitrary planets.",
+      "The digital model does not determine deep-time boundaries for an unknown world."
+    ],
+    "contentFingerprint": "doi:10.1029/2001GC000252#w1-05"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "gassmoller-et-al-2016-plume-ridge-interaction",
+    "sourceType": "peer-reviewed three-dimensional geodynamic plume and ridge interaction study",
+    "citation": "Gassmöller, R.; Dannberg, J.; Bredow, E.; Steinberger, B.; Torsvik, T. H. Major influence of plume-ridge interaction, lithosphere thickness variations, and global mantle flow on hotspot volcanism—the example of Tristan. Geochemistry, Geophysics, Geosystems 17 (2016), 1454–1479.",
+    "title": "Major influence of plume-ridge interaction, lithosphere thickness variations, and global mantle flow on hotspot volcanism—the example of Tristan",
+    "authorsOrInstitution": "Rene Gassmöller, Juliane Dannberg, Eva Bredow, Bernhard Steinberger, and Trond H. Torsvik",
+    "publicationYear": 2016,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "plume-ridge-interaction-and-spatial-distribution",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "plume-and-rift-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text, figures, or numerical calibration.",
+    "limitations": [
+      "A Tristan-specific model cannot prescribe plume locations on arbitrary planets.",
+      "Plume-ridge interaction permits broad or multiple surface expressions rather than a unique point feature."
+    ],
+    "contentFingerprint": "doi:10.1002/2015GC006177#w1-05"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "huang-et-al-2022-coexisting-boundaries",
+    "sourceType": "peer-reviewed petrologic, geochemical, geochronologic, and thermodynamic study",
+    "citation": "Huang, B.; Johnson, T. E.; Wilde, S. A.; Polat, A.; Fu, D.; et al. Coexisting divergent and convergent plate boundary assemblages indicate plate tectonics in the Neoarchean. Nature Communications 13, 6450 (2022).",
+    "title": "Coexisting divergent and convergent plate boundary assemblages indicate plate tectonics in the Neoarchean",
+    "authorsOrInstitution": "Bo Huang et al.",
+    "publicationYear": 2022,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "coexisting-divergent-convergent-and-accretionary-systems",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "plate-boundary-observational-assemblages",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level association only; no copied text, figures, or locality templates.",
+    "limitations": [
+      "A preserved Earth rock assemblage does not define a universal planetary geometry.",
+      "The study establishes association of boundary processes, not deterministic feature counts."
+    ],
+    "contentFingerprint": "doi:10.1038/s41467-022-34214-8#w1-05"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "kaban-et-al-2015-cratonic-root-drag",
+    "sourceType": "peer-reviewed integrated geophysical observation and numerical modeling study",
+    "citation": "Kaban, M. K.; Mooney, W. D.; Petrunin, A. G. Cratonic root beneath North America shifted by basal drag from the convecting mantle. Nature Geoscience 8 (2015), 797–800.",
+    "title": "Cratonic root beneath North America shifted by basal drag from the convecting mantle",
+    "authorsOrInstitution": "Mikhail K. Kaban, Walter D. Mooney, and Alexey G. Petrunin",
+    "publicationYear": 2015,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "cratonic-persistence-and-mantle-interaction",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "cratonic-kernel-evolution-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level persistence/interaction relation only; no copied text or figures.",
+    "limitations": [
+      "A North American observation cannot prescribe kernel geometry on arbitrary planets.",
+      "Cratonic longevity does not imply complete immobility or immunity to later reworking."
+    ],
+    "contentFingerprint": "doi:10.1038/ngeo2525#w1-05"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "muller-et-al-2018-gplates",
+    "sourceType": "peer-reviewed plate-reconstruction system and topological model paper",
+    "citation": "Müller, R. D.; Cannon, J.; Qin, X.; Watson, R. J.; Gurnis, M.; et al. GPlates: Building a Virtual Earth Through Deep Time. Geochemistry, Geophysics, Geosystems 19 (2018), 2243–2261.",
+    "title": "GPlates: Building a Virtual Earth Through Deep Time",
+    "authorsOrInstitution": "R. Dietmar Müller et al.",
+    "publicationYear": 2018,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "evolving-spherical-topological-plate-networks",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "plate-boundary-topology-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level topological modeling relation only; no copied software, data, text, or figures.",
+    "limitations": [
+      "A reconstruction framework does not scientifically validate WorldWright's provisional feature-count calibration.",
+      "Earth reconstruction inputs are unavailable for a newly generated world."
+    ],
+    "contentFingerprint": "doi:10.1029/2018GC007584#w1-05"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "perchuk-et-al-2020-cratonic-keels",
+    "sourceType": "peer-reviewed three-dimensional thermomechanical numerical study",
+    "citation": "Perchuk, A. L.; Gerya, T. V.; Zakharov, V. S.; Griffin, W. L.; et al. Building cratonic keels in Precambrian plate tectonics. Nature 586 (2020), 395–401.",
+    "title": "Building cratonic keels in Precambrian plate tectonics",
+    "authorsOrInstitution": "A. L. Perchuk et al.",
+    "publicationYear": 2020,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "cratonic-kernel-formation-and-accretion",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "cratonic-kernel-evolution-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level formation relation only; no copied text, figures, or numerical calibration.",
+    "limitations": [
+      "Precambrian Earth model conditions do not transfer quantitatively to every rocky planet.",
+      "The study supports durable kernel hypotheses without fixing their number or spherical placement."
+    ],
+    "contentFingerprint": "doi:10.1038/s41586-020-2806-7#w1-05"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "sleep-1990-hotspot-phenomenology",
+    "sourceType": "peer-reviewed global observational and physical hotspot analysis",
+    "citation": "Sleep, N. H. Hotspots and mantle plumes: Some phenomenology. Journal of Geophysical Research: Solid Earth 95 (1990), 6715–6736.",
+    "title": "Hotspots and mantle plumes: Some phenomenology",
+    "authorsOrInstitution": "Norman H. Sleep",
+    "publicationYear": 1990,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "hotspot-and-plume-spatial-tendencies",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "plume-and-rift-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level hotspot relation only; no copied text, figures, or source dataset.",
+    "limitations": [
+      "Hotspot observables do not prove a unique deep source or universal plume count.",
+      "Terrestrial hotspot fluxes are not used as direct arbitrary-planet calibration."
+    ],
+    "contentFingerprint": "doi:10.1029/JB095iB05p06715#w1-05"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "worldwright-geologic-spine-scope-v1",
+    "sourceType": "internal controlled scope, identity, and calibration contract",
+    "citation": "WorldWright W1-05 geologic-spine implementation contract.",
+    "title": "WorldWright Geologic Spine Scope Contract",
+    "authorsOrInstitution": "WorldWright",
+    "publicationYear": 2026,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "geologic-spine-scope-identity-and-provisional-calibration",
+    "qualityClass": "INTERNAL_CONTROLLED_ARCHETYPE",
+    "correlationGroupId": "worldwright-geologic-spine-scope",
+    "licenseOrUsageNote": "Internal product and architecture rule; not external scientific evidence.",
+    "limitations": [
+      "Deterministic node counts, extents, and spherical placements are provisional product hypotheses.",
+      "The contract forbids terrain, land-water, climate, hydrology, biome, material, resource, and rendering conclusions."
+    ],
+    "contentFingerprint": "worldwright:w1-05-geologic-spine-scope-v1"
+  }
+]

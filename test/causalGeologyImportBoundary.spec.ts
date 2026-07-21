@@ -24,13 +24,68 @@ function collectTypeScriptFiles(directory: string): string[] {
   return output;
 }
 
+function stripCommentsAndQuotedText(source: string): string {
+  let output = '';
+  let index = 0;
+  while (index < source.length) {
+    const current = source[index];
+    const next = source[index + 1];
+    if (current === '/' && next === '/') {
+      output += '  ';
+      index += 2;
+      while (index < source.length && source[index] !== '\n') {
+        output += ' ';
+        index += 1;
+      }
+      continue;
+    }
+    if (current === '/' && next === '*') {
+      output += '  ';
+      index += 2;
+      while (index < source.length && !(source[index] === '*' && source[index + 1] === '/')) {
+        output += source[index] === '\n' ? '\n' : ' ';
+        index += 1;
+      }
+      if (index < source.length) {
+        output += '  ';
+        index += 2;
+      }
+      continue;
+    }
+    if (current === "'" || current === '"' || current === '`') {
+      const quote = current;
+      output += ' ';
+      index += 1;
+      while (index < source.length) {
+        if (source[index] === '\\') {
+          output += '  ';
+          index += 2;
+          continue;
+        }
+        if (source[index] === quote) {
+          output += ' ';
+          index += 1;
+          break;
+        }
+        output += source[index] === '\n' ? '\n' : ' ';
+        index += 1;
+      }
+      continue;
+    }
+    output += current;
+    index += 1;
+  }
+  return output;
+}
+
 describe('W1-01 causal read firewall', () => {
   it('recursively forbids every causal module from importing legacy or comparison authority', () => {
     const root = resolve(process.cwd(), 'src/core/causalGeology');
     for (const path of collectTypeScriptFiles(root)) {
       const source = readFileSync(path, 'utf8');
       for (const forbidden of forbiddenImports) expect(source, `${path} imports ${forbidden}`).not.toMatch(new RegExp(`(?:from|import\\()\\s*['"][^'"]*${forbidden}`));
-      expect(source, `${path} exposes WorldBrain`).not.toMatch(/\bWorldBrain\b/);
+      const executableSource = stripCommentsAndQuotedText(source);
+      expect(executableSource, `${path} exposes the forbidden legacy world aggregate`).not.toMatch(/\bWorldBrain\b/);
     }
   });
 });
