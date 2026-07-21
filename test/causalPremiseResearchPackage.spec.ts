@@ -24,6 +24,8 @@ const review = readJson<{
   readonly completeEligibleRuleIds: readonly string[];
   readonly partialOnlyRuleIds: readonly string[];
   readonly implementationAuthorized: boolean;
+  readonly implementationAuthorizationDate?: string;
+  readonly implementationAuthorizationBasis?: string;
 }>('review-record.json');
 const compatibility = readJson<unknown>('premise-compatibility-matrix.json');
 const fixtures = readJson<unknown>('premise-fixtures.json');
@@ -39,11 +41,13 @@ function buildBundle() {
 }
 
 describe('W1-02B planetary-premise research package', () => {
-  it('loads a reviewed and traceable scientific bundle without authorizing implementation', () => {
+  it('loads a reviewed and traceable scientific bundle with explicit implementation authorization', () => {
     const bundle = buildBundle();
     expect(() => validateScientificResearchBundle(bundle)).not.toThrow();
     expect(review.status).toBe('PREMISE_RESEARCH_PACKAGE_REVIEWED');
-    expect(review.implementationAuthorized).toBe(false);
+    expect(review.implementationAuthorized).toBe(true);
+    expect(review.implementationAuthorizationDate).toBe('2026-07-21');
+    expect(review.implementationAuthorizationBasis).toMatch(/user explicitly authorized/i);
     expect(bundle.sources.length).toBeLessThanOrEqual(PREMISE_RESEARCH_PERFORMANCE_BUDGET_V1.maxResearchSources);
     expect(bundle.claimRules.length).toBeLessThanOrEqual(PREMISE_RESEARCH_PERFORMANCE_BUDGET_V1.maxClaimRules);
   });
