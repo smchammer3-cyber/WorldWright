@@ -31,8 +31,8 @@ export const W1_06_REQUIRED_DIRECT_INPUT_AXES = Object.freeze([
 export const W1_06_REQUIRED_REFERENCE_KINDS = Object.freeze([
   'POSITIVE',
   'THRESHOLD',
-  'NEGATIVE',
   'EXCEPTION',
+  'NEGATIVE',
 ] as const);
 
 export type CausalShadowAuditVariationKindV1 =
