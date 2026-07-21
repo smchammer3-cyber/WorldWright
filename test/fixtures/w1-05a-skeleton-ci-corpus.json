@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "corpusVersion": "W1_05A_SKELETON_CI_CORPUS_V1",
+  "expectedSpineDisposition": "ABSENT_RESERVED",
+  "cases": [
+    {
+      "caseId": "cold-rocky-dwarf",
+      "rootSeed": "2040037",
+      "regimeFixtureId": "positive/cold-rocky-dwarf-single-lid-v1"
+    },
+    {
+      "caseId": "earthlike-mixed-history",
+      "rootSeed": "1040037",
+      "regimeFixtureId": "positive/earthlike-mixed-evolution-v1"
+    },
+    {
+      "caseId": "hot-super-earth-magmatic",
+      "rootSeed": "9011",
+      "regimeFixtureId": "positive/hot-super-earth-magmatic-v1"
+    },
+    {
+      "caseId": "tidally-heated-rocky",
+      "rootSeed": "3301",
+      "regimeFixtureId": "threshold/tidally-heated-rocky-v1"
+    },
+    {
+      "caseId": "tidal-ice-shell",
+      "rootSeed": "4404",
+      "regimeFixtureId": "positive/tidal-ice-shell-history-v1"
+    },
+    {
+      "caseId": "rock-ice-mixed-holdout",
+      "rootSeed": "7205",
+      "regimeFixtureId": "holdout/rock-ice-mixed-history-v1"
+    },
+    {
+      "caseId": "volatile-pressure-holdout",
+      "rootSeed": "8808",
+      "regimeFixtureId": "holdout/volatile-pressure-history-v1"
+    }
+  ]
+}
