@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "fixtureSetVersion": "W1_03_INTERIOR_FIXTURES_V1",
+  "fixtures": [
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/cold-rocky-dwarf-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "premise": {
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["ROCKY_DWARF_OR_SMALL_BODY"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE", "PARTIALLY_DIFFERENTIATED_ROCKY"]
+      },
+      "quantities": {
+        "inventory.water": 0.1,
+        "planet.density": 0.88,
+        "planet.radius": 0.44,
+        "thermal.age": 7.4,
+        "thermal.primordial-heat": 0.12,
+        "thermal.radiogenic-heat": 0.2,
+        "thermal.tidal-heating": 0.01
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRheologyCandidates": ["TEMPERATURE_DEPENDENT_SOLID_STATE"],
+        "requiredLidRegimeCandidates": ["STAGNANT_LID"],
+        "thermalBudgetEnvelope": [0, 0.5],
+        "convectionEnvelope": [0, 0.55],
+        "meltEnvelope": [0, 0.5]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/earthlike-mixed-heating-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "premise": {
+        "status": "COMPLETE",
+        "bodyClassCandidates": ["ROCKY_TERRESTRIAL"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE", "SEDIMENT_BEARING_SOLID_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE"]
+      },
+      "quantities": {
+        "inventory.water": 0.5,
+        "planet.density": 1,
+        "planet.radius": 1,
+        "thermal.age": 4.5,
+        "thermal.primordial-heat": 0.35,
+        "thermal.radiogenic-heat": 0.5,
+        "thermal.tidal-heating": 0.05
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRheologyCandidates": ["TEMPERATURE_DEPENDENT_SOLID_STATE"],
+        "requiredLidRegimeCandidates": ["EPISODIC_LID", "SLUGGISH_LID", "STAGNANT_LID"],
+        "thermalBudgetEnvelope": [0.1, 0.8],
+        "convectionEnvelope": [0.1, 0.85],
+        "meltEnvelope": [0, 0.8]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/high-radiogenic-super-earth-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "premise": {
+        "status": "COMPLETE",
+        "bodyClassCandidates": ["ROCKY_SUPER_EARTH"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE", "SEDIMENT_BEARING_SOLID_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE"]
+      },
+      "quantities": {
+        "inventory.water": 0.3,
+        "planet.density": 1.12,
+        "planet.radius": 1.5,
+        "thermal.age": 2,
+        "thermal.primordial-heat": 0.7,
+        "thermal.radiogenic-heat": 0.85,
+        "thermal.tidal-heating": 0.15
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRheologyCandidates": ["PARTIALLY_MOLTEN_ROCKY", "TEMPERATURE_DEPENDENT_SOLID_STATE"],
+        "requiredLidRegimeCandidates": ["EPISODIC_LID", "MOBILE_LID_HYPOTHESIS", "PLUTONIC_SQUISHY_LID"],
+        "thermalBudgetEnvelope": [0.4, 1],
+        "convectionEnvelope": [0.35, 1],
+        "meltEnvelope": [0.35, 1]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/tidally-heated-rocky-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "premise": {
+        "status": "COMPLETE",
+        "bodyClassCandidates": ["ROCKY_TERRESTRIAL"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE"]
+      },
+      "quantities": {
+        "inventory.water": 0.5,
+        "planet.density": 1,
+        "planet.radius": 1,
+        "thermal.age": 3,
+        "thermal.primordial-heat": 0.3,
+        "thermal.radiogenic-heat": 0.4,
+        "thermal.tidal-heating": 0.8
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRheologyCandidates": ["TEMPERATURE_DEPENDENT_SOLID_STATE", "VISCOELASTIC_TIDAL"],
+        "requiredLidRegimeCandidates": ["EPISODIC_LID", "EPISODIC_SQUISHY_LID", "PLUTONIC_SQUISHY_LID"],
+        "thermalBudgetEnvelope": [0.4, 1],
+        "convectionEnvelope": [0.3, 1],
+        "meltEnvelope": [0.4, 1]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/tidal-ice-shell-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "premise": {
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["ICE_SHELL_OCEAN_BODY"],
+        "surfaceMediumCandidates": ["ICE_SHELL_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_ROCK_ICE", "ICE_SHELL_LIQUID_LAYER_ROCKY_INTERIOR"]
+      },
+      "quantities": {
+        "inventory.water": 4,
+        "planet.density": 0.6,
+        "planet.radius": 0.55,
+        "thermal.age": 4,
+        "thermal.primordial-heat": 0.2,
+        "thermal.radiogenic-heat": 0.2,
+        "thermal.tidal-heating": 0.6
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRheologyCandidates": ["ICE_SHELL_TEMPERATURE_DEPENDENT", "VISCOELASTIC_TIDAL"],
+        "requiredLidRegimeCandidates": ["ICE_SHELL_EPISODIC_LID", "ICE_SHELL_STAGNANT_LID"],
+        "thermalBudgetEnvelope": [0.25, 0.9],
+        "convectionEnvelope": [0.2, 1],
+        "meltEnvelope": [0.15, 0.95]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/rock-ice-mixed-v1",
+      "kind": "HOLDOUT",
+      "withheldFromCalibration": true,
+      "premise": {
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["ROCK_ICE_MIXED_SOLID_BODY"],
+        "surfaceMediumCandidates": ["ICE_OVER_ROCK_SURFACE", "ICE_SHELL_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_ROCK_ICE", "UNDIFFERENTIATED_ROCK_ICE_MIXTURE"]
+      },
+      "quantities": {
+        "inventory.water": 2.5,
+        "planet.density": 0.72,
+        "planet.radius": 0.82,
+        "thermal.age": 5,
+        "thermal.primordial-heat": 0.25,
+        "thermal.radiogenic-heat": 0.3,
+        "thermal.tidal-heating": 0.25
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRheologyCandidates": ["MIXED_ROCK_ICE_RHEOLOGY", "TEMPERATURE_DEPENDENT_SOLID_STATE"],
+        "requiredLidRegimeCandidates": ["EPISODIC_LID", "STAGNANT_LID"],
+        "thermalBudgetEnvelope": [0.1, 0.8],
+        "convectionEnvelope": [0.1, 0.85],
+        "meltEnvelope": [0.05, 0.8]
+      }
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/volatile-pressure-solid-v1",
+      "kind": "HOLDOUT",
+      "withheldFromCalibration": true,
+      "premise": {
+        "status": "PARTIAL",
+        "bodyClassCandidates": ["VOLATILE_PRESSURE_SOLID_BODY"],
+        "surfaceMediumCandidates": ["ROCK_OR_REGOLITH_SURFACE", "VOLATILE_MODIFIED_SOLID_SURFACE"],
+        "layerStackCandidates": ["DIFFERENTIATED_METAL_SILICATE", "VOLATILE_PRESSURE_OVER_SOLID_INTERIOR"]
+      },
+      "quantities": {
+        "inventory.water": 1.6,
+        "planet.density": 0.9,
+        "planet.radius": 1.1,
+        "thermal.age": 3.5,
+        "thermal.primordial-heat": 0.45,
+        "thermal.radiogenic-heat": 0.5,
+        "thermal.tidal-heating": 0.1
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRheologyCandidates": ["TEMPERATURE_DEPENDENT_SOLID_STATE", "VOLATILE_MODIFIED_RHEOLOGY"],
+        "requiredLidRegimeCandidates": ["EPISODIC_LID", "SLUGGISH_LID", "STAGNANT_LID"],
+        "thermalBudgetEnvelope": [0.15, 0.85],
+        "convectionEnvelope": [0.15, 0.9],
+        "meltEnvelope": [0.1, 0.9]
+      }
+    }
+  ]
+}

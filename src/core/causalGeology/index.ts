@@ -20,6 +20,8 @@ export * from './premiseResearchContracts';
 export * from './premiseResearchFirewall';
 export * from './premiseResolver';
 export { resolvePlanetaryPremise, runPlanetaryPremiseShadow } from './premiseResolverPolicy';
+export * from './interiorResearchContracts';
+export * from './interiorResolver';
 export * from './stageResult';
 export * from './spatial';
 export * from './researchLedger';
