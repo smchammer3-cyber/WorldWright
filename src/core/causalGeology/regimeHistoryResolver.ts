@@ -5,11 +5,12 @@ import { worldFeatureFlagValue } from '../worldFeatureFlags/resolve';
 import type { ResolvedWorldFeatureFlagSnapshot } from '../worldFeatureFlags/types';
 import { canonicalJsonStringify } from '../worldProvenance/canonicalJson';
 import type { DeterministicHash } from '../worldProvenance/hash';
-import { createWorldRandomOracle, type CreateWorldRandomOracleOptions } from '../worldRandom/oracle';
+import { createWorldRandomOracle } from '../worldRandom/oracle';
 import type { WorldRandomOracle } from '../worldRandom/types';
 import { cloneAndDeepFreeze } from './immutable';
 import { assertDeterministicHash, deterministicHashEquals, hashCausalPayload } from './hashes';
 import { validateCausalGeologyInput } from './inputAuthority';
+import { createScientificQuantity, createScientificRange } from './quantities';
 import {
   REGIME_HISTORY_FAMILIES,
   REGIME_HISTORY_TEMPLATE_IDS,
@@ -21,15 +22,8 @@ import {
   type RegimeHistoryTemplateIdV1,
   type RegimeHistoryTransitionFamilyV1,
 } from './regimeHistoryResearchContracts';
-import { createScientificQuantity, createScientificRange } from './quantities';
 import { validateScientificResearchBundle } from './researchLedger';
 import { canProceedFromStage, createCausalStageResult } from './stageResult';
-import {
-  validateCausalStageResult,
-  validateInteriorState,
-  validatePlanetaryPremise,
-  validateTectonicRegimeHistory,
-} from './validation';
 import type {
   CausalGeologyInputV1,
   CausalStageResultV1,
@@ -41,6 +35,12 @@ import type {
   TectonicRegimeHistoryV1,
   TectonicTransitionV1,
 } from './types';
+import {
+  validateCausalStageResult,
+  validateInteriorState,
+  validatePlanetaryPremise,
+  validateTectonicRegimeHistory,
+} from './validation';
 
 export const REGIME_HISTORY_RESOLVER_PERFORMANCE_BUDGET_V1 = Object.freeze({
   maxResearchSources: 16,
@@ -135,6 +135,11 @@ interface InteriorSummaryV1 {
   readonly tidalFraction: number;
 }
 
+interface TemplateWeightV1 {
+  readonly id: RegimeHistoryTemplateIdV1;
+  readonly weight: number;
+}
+
 const RESEARCH_CONTEXT_KEYS = ['schemaVersion', 'contextVersion', 'researchBundle', 'fixtureSet', 'review', 'contentHash'] as const;
 const REVIEW_KEYS = ['schemaVersion', 'bundleVersion', 'status', 'reviewDate', 'reviewer', 'scope', 'completeEligibleRuleIds', 'partialOnlyRuleIds', 'implementationAuthorized', 'implementationAuthorizationDate', 'implementationAuthorizationBasis'] as const;
 const RESOLUTION_KEYS = ['schemaVersion', 'resolverVersion', 'status', 'inputSnapshotHash', 'premiseHash', 'interiorHash', 'researchContextHash', 'history', 'templateCandidates', 'selectedTemplateId', 'branchResolutions', 'blockingReasons', 'missingDomains', 'evidenceIds', 'contradictionIds', 'metrics', 'contentHash'] as const;
@@ -144,8 +149,8 @@ const RUNNER_KEYS = ['schemaVersion', 'runnerVersion', 'authorityMode', 'inputSn
 const TEMPLATES: Readonly<Record<RegimeHistoryTemplateIdV1, HistoryTemplateV1>> = cloneAndDeepFreeze({
   ICE_SHELL_EPISODIC_CYCLE: {
     id: 'ICE_SHELL_EPISODIC_CYCLE',
-    regimes: ['ICE_SHELL_STAGNANT_LID', 'ICE_SHELL_EPISODIC_LID', 'ICE_SHELL_STAGNANT_LID'],
-    transitions: ['TIDAL_THERMAL_DESTABILIZATION', 'SHELL_THERMAL_RELAXATION'],
+    regimes: ['ICE_SHELL_STAGNANT_LID', 'ICE_SHELL_EPISODIC_LID'],
+    transitions: ['TIDAL_THERMAL_DESTABILIZATION'],
     evidenceIds: ['history/ice-shell-episodic-evolution-v1', 'history/transition-trigger-families-only-v1'],
   },
   ICE_SHELL_STAGNANT_ONLY: {
@@ -168,13 +173,13 @@ const TEMPLATES: Readonly<Record<RegimeHistoryTemplateIdV1, HistoryTemplateV1>> 
   },
   ROCKY_HOT_EPISODIC_SLUGGISH: {
     id: 'ROCKY_HOT_EPISODIC_SLUGGISH',
-    regimes: ['HOT_STAGNANT_LID', 'EPISODIC_LID', 'SLUGGISH_LID'],
-    transitions: ['LITHOSPHERE_DAMAGE_ACCUMULATION', 'SECULAR_COOLING'],
-    evidenceIds: ['history/damage-assisted-mobile-lid-initiation-v1', 'history/lid-regime-family-alternatives-v1', 'history/secular-cooling-regime-window-v1'],
+    regimes: ['HOT_STAGNANT_LID', 'SLUGGISH_LID', 'EPISODIC_LID'],
+    transitions: ['SECULAR_COOLING', 'RHEOLOGIC_HYSTERESIS'],
+    evidenceIds: ['history/lid-regime-family-alternatives-v1', 'history/path-dependence-and-hysteresis-v1', 'history/secular-cooling-regime-window-v1'],
   },
   ROCKY_MAGMATIC_SQUISHY: {
     id: 'ROCKY_MAGMATIC_SQUISHY',
-    regimes: ['HEAT_PIPE_LID', 'PLUTONIC_SQUISHY_LID', 'EPISODIC_SQUISHY_LID'],
+    regimes: ['HEAT_PIPE_LID', 'EPISODIC_SQUISHY_LID', 'PLUTONIC_SQUISHY_LID'],
     transitions: ['VOLCANIC_HEAT_TRANSPORT_DECLINE', 'MAGMATIC_RHEOLOGY_REORGANIZATION'],
     evidenceIds: ['history/lid-regime-family-alternatives-v1', 'history/thermal-and-magmatic-transition-v1'],
   },
@@ -186,15 +191,15 @@ const TEMPLATES: Readonly<Record<RegimeHistoryTemplateIdV1, HistoryTemplateV1>> 
   },
   ROCKY_TIDAL_EPISODIC: {
     id: 'ROCKY_TIDAL_EPISODIC',
-    regimes: ['STAGNANT_LID', 'EPISODIC_SQUISHY_LID', 'PLUTONIC_SQUISHY_LID', 'EPISODIC_LID'],
+    regimes: ['STAGNANT_LID', 'PLUTONIC_SQUISHY_LID', 'EPISODIC_LID', 'EPISODIC_SQUISHY_LID'],
     transitions: ['TIDAL_FORCING_VARIATION', 'MAGMATIC_RHEOLOGY_REORGANIZATION', 'RHEOLOGIC_HYSTERESIS'],
     evidenceIds: ['history/lid-regime-family-alternatives-v1', 'history/path-dependence-and-hysteresis-v1', 'history/thermal-and-magmatic-transition-v1'],
   },
   VOLATILE_SOLID_EPISODIC: {
     id: 'VOLATILE_SOLID_EPISODIC',
-    regimes: ['HOT_STAGNANT_LID', 'EPISODIC_LID', 'SLUGGISH_LID'],
-    transitions: ['LITHOSPHERE_DAMAGE_ACCUMULATION', 'SECULAR_COOLING'],
-    evidenceIds: ['history/lid-regime-family-alternatives-v1', 'history/secular-cooling-regime-window-v1'],
+    regimes: ['HOT_STAGNANT_LID', 'SLUGGISH_LID', 'EPISODIC_LID'],
+    transitions: ['SECULAR_COOLING', 'RHEOLOGIC_HYSTERESIS'],
+    evidenceIds: ['history/lid-regime-family-alternatives-v1', 'history/path-dependence-and-hysteresis-v1', 'history/secular-cooling-regime-window-v1'],
   },
 });
 
@@ -267,8 +272,7 @@ export function resolveTectonicRegimeHistory(
     'history/transition-trigger-families-only-v1',
     ...templateWeights.flatMap((entry) => TEMPLATES[entry.id].evidenceIds),
   ]);
-  const oracleOptions: CreateWorldRandomOracleOptions = { authorityMode: 'CAUSAL_SHADOW' };
-  const oracle = createWorldRandomOracle(inputSnapshot.rootSeed, oracleOptions);
+  const oracle = createWorldRandomOracle(inputSnapshot.rootSeed, { authorityMode: 'CAUSAL_SHADOW' });
   const branch = resolveWeightedBranch<string>({
     branchId: 'regime-history/template/v1',
     stream: 'causal.regime-history',
@@ -300,6 +304,7 @@ export function resolveTectonicRegimeHistory(
     summary,
     templateEvidenceIds: template.evidenceIds,
   }));
+  assertCurrentRegimeCompatibility(interior, epochs);
   const transitions = template.transitions.map((triggerFamily, index) => createTransition({
     triggerFamily,
     index,
@@ -378,7 +383,7 @@ export function runRegimeHistoryShadow(options: RunRegimeHistoryShadowOptionsV1)
   if (!deterministicHashEquals(options.interiorStageResult.inputHash, expectedInteriorInputHash)) throw new Error('Interior stage is not bound to the supplied input and premise.');
 
   const resolution = resolveTectonicRegimeHistory(options.inputSnapshot, options.premise, options.interior, options.researchContext);
-  const stageInput = { inputSnapshot: options.inputSnapshot, premise: options.premise, interior: options.interior };
+  const stageInput = { premise: options.premise, interior: options.interior };
   const stageResult = resolution.status === 'BLOCKED'
     ? createCausalStageResult<TectonicRegimeHistoryV1>({
       stageId: 'CAUSAL_REGIME_HISTORY',
@@ -551,44 +556,48 @@ function resolveTemplateWeights(
   interior: InteriorStateV1,
   summary: InteriorSummaryV1,
   waterInventory: number,
-): readonly { readonly id: RegimeHistoryTemplateIdV1; readonly weight: number }[] {
-  const candidates: { id: RegimeHistoryTemplateIdV1; weight: number }[] = [];
+): readonly TemplateWeightV1[] {
+  const current = interior.resolvedLidRegime;
   const has = (candidate: string) => interior.lidRegimeCandidates.includes(candidate);
+
   if (isIcePremise(premise)) {
-    candidates.push({ id: 'ICE_SHELL_STAGNANT_ONLY', weight: Math.max(0.1, 1 - summary.convection * 0.6 - summary.tidalFraction * 0.4) });
-    if (has('ICE_SHELL_EPISODIC_LID') || summary.convection >= 0.2 || summary.tidalFraction >= 0.2) {
-      candidates.push({ id: 'ICE_SHELL_EPISODIC_CYCLE', weight: 0.25 + summary.convection * 0.6 + summary.tidalFraction * 0.8 });
+    if (current === 'ICE_SHELL_EPISODIC_LID') {
+      return canonicalTemplateWeights([{ id: 'ICE_SHELL_EPISODIC_CYCLE', weight: 1 + summary.convection + summary.tidalFraction }]);
     }
-    return canonicalTemplateWeights(candidates);
+    return canonicalTemplateWeights([{ id: 'ICE_SHELL_STAGNANT_ONLY', weight: 1 }]);
   }
   if (premise.bodyClassCandidates.includes('ROCK_ICE_MIXED_SOLID_BODY')) {
-    candidates.push({ id: 'ROCKY_SINGLE_STAGNANT', weight: Math.max(0.15, 0.8 - summary.convection) });
-    if (summary.convection >= 0.2 || has('EPISODIC_LID') || has('SLUGGISH_LID')) candidates.push({ id: 'MIXED_SOLID_EPISODIC', weight: 0.35 + summary.convection + summary.melt * 0.3 });
-    return canonicalTemplateWeights(candidates);
-  }
-  if (premise.bodyClassCandidates.includes('VOLATILE_PRESSURE_SOLID_BODY')) {
-    return canonicalTemplateWeights([{ id: 'VOLATILE_SOLID_EPISODIC', weight: 1 + summary.convection * 0.5 }]);
-  }
-  if (summary.convection < 0.2 && summary.melt < 0.2 && interior.lidRegimeCandidates.length === 1 && has('STAGNANT_LID')) {
+    if (current === 'SLUGGISH_LID') return canonicalTemplateWeights([{ id: 'MIXED_SOLID_EPISODIC', weight: 1 + summary.convection }]);
     return canonicalTemplateWeights([{ id: 'ROCKY_SINGLE_STAGNANT', weight: 1 }]);
   }
-  if (summary.tidalFraction >= 0.45 && (has('EPISODIC_SQUISHY_LID') || has('PLUTONIC_SQUISHY_LID'))) {
-    return canonicalTemplateWeights([{ id: 'ROCKY_TIDAL_EPISODIC', weight: 1 + summary.tidalFraction + summary.melt * 0.5 }]);
+  if (premise.bodyClassCandidates.includes('VOLATILE_PRESSURE_SOLID_BODY')) {
+    if (current === 'EPISODIC_LID') return canonicalTemplateWeights([{ id: 'VOLATILE_SOLID_EPISODIC', weight: 1 + summary.convection }]);
+    return canonicalTemplateWeights([{ id: 'ROCKY_SINGLE_STAGNANT', weight: 1 }]);
   }
-  if (summary.melt >= 0.65 && (has('PLUTONIC_SQUISHY_LID') || has('EPISODIC_SQUISHY_LID'))) {
+  if (current === 'STAGNANT_LID' && summary.convection < 0.25 && summary.melt < 0.25) {
+    return canonicalTemplateWeights([{ id: 'ROCKY_SINGLE_STAGNANT', weight: 1 }]);
+  }
+  if (current === 'EPISODIC_SQUISHY_LID' && summary.tidalFraction >= 0.35) {
+    return canonicalTemplateWeights([{ id: 'ROCKY_TIDAL_EPISODIC', weight: 1 + summary.tidalFraction + summary.melt }]);
+  }
+  if (current === 'PLUTONIC_SQUISHY_LID' && summary.melt >= 0.5) {
     return canonicalTemplateWeights([{ id: 'ROCKY_MAGMATIC_SQUISHY', weight: 1 + summary.melt + summary.hotspot * 0.3 }]);
   }
-  if (has('MOBILE_LID_HYPOTHESIS') && waterInventory >= 0.2 && summary.convection >= 0.35) {
-    candidates.push({ id: 'ROCKY_HOT_EPISODIC_MOBILE', weight: 0.4 + summary.convection + clamp(waterInventory / 2, 0, 1) * 0.4 });
+  const candidates: TemplateWeightV1[] = [];
+  if (current === 'MOBILE_LID_HYPOTHESIS' && has('MOBILE_LID_HYPOTHESIS') && waterInventory >= 0.2) {
+    candidates.push({ id: 'ROCKY_HOT_EPISODIC_MOBILE', weight: 0.5 + summary.convection + clamp(waterInventory / 2, 0, 1) * 0.4 });
   }
-  if (has('SLUGGISH_LID') || has('EPISODIC_LID') || summary.convection >= 0.25) {
-    candidates.push({ id: 'ROCKY_HOT_EPISODIC_SLUGGISH', weight: 0.5 + summary.convection * 0.8 + summary.thermal * 0.2 });
+  if (current === 'EPISODIC_LID' && (has('SLUGGISH_LID') || has('EPISODIC_LID'))) {
+    candidates.push({ id: 'ROCKY_HOT_EPISODIC_SLUGGISH', weight: 0.6 + summary.convection * 0.8 + summary.thermal * 0.2 });
+  }
+  if (current === 'SLUGGISH_LID') {
+    candidates.push({ id: 'MIXED_SOLID_EPISODIC', weight: 0.5 + summary.convection });
   }
   if (candidates.length === 0) candidates.push({ id: 'ROCKY_SINGLE_STAGNANT', weight: 1 });
   return canonicalTemplateWeights(candidates);
 }
 
-function canonicalTemplateWeights(values: readonly { readonly id: RegimeHistoryTemplateIdV1; readonly weight: number }[]) {
+function canonicalTemplateWeights(values: readonly TemplateWeightV1[]): readonly TemplateWeightV1[] {
   const byId = new Map<RegimeHistoryTemplateIdV1, number>();
   for (const entry of values) {
     if (!REGIME_HISTORY_TEMPLATE_IDS.includes(entry.id) || !Number.isFinite(entry.weight) || entry.weight <= 0) throw new Error('Regime-history template weight is invalid.');
@@ -675,6 +684,12 @@ function createTransition(input: {
     triggerEvidenceIds: uniqueText([...input.templateEvidenceIds, ...transitionEvidenceIds(input.triggerFamily)]),
     confidenceSubject: `transition-${String(input.index).padStart(2, '0')}.broad-trigger`,
   });
+}
+
+function assertCurrentRegimeCompatibility(interior: InteriorStateV1, epochs: readonly TectonicEpochV1[]): void {
+  const current = interior.resolvedLidRegime;
+  if (!current || !REGIME_HISTORY_FAMILIES.includes(current as RegimeHistoryFamilyV1)) return;
+  if (epochs.at(-1)?.regimeFamily !== current) throw new Error('Regime-history final epoch does not match the resolved current interior lid hypothesis.');
 }
 
 function regimeProfile(regime: RegimeHistoryFamilyV1) {
