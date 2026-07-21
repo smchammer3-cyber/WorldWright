@@ -116,8 +116,11 @@ describe('W1-02B planetary-premise resolver', () => {
   });
 
   it('does not special-case committed fixture identities and stays within frozen budgets', () => {
-    const source = readFileSync(resolve(process.cwd(), 'src/core/causalGeology/premiseResolver.ts'), 'utf8');
-    for (const fixture of fixtureSet.fixtures) expect(source).not.toContain(fixture.fixtureId);
+    const implementationSources = [
+      'src/core/causalGeology/premiseResolver.ts',
+      'src/core/causalGeology/premiseResolverPolicy.ts',
+    ].map((path) => readFileSync(resolve(process.cwd(), path), 'utf8')).join('\n');
+    for (const fixture of fixtureSet.fixtures) expect(implementationSources).not.toContain(fixture.fixtureId);
     const context = researchContext();
     const startHeap = process.memoryUsage().heapUsed;
     const start = performance.now();
