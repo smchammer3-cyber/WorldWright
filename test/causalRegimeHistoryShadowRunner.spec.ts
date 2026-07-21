@@ -237,11 +237,12 @@ describe('W1-04 detached regime-history shadow runner', () => {
     })).toThrow(/does not permit/);
   });
 
-  it('activates causal.regime-history only for shadow mode while W1-05 remains reserved', () => {
-    const history = getRandomStreamDefinition('causal.regime-history');
-    expect(history.status).toBe('ACTIVE');
-    expect(history.allowedAuthorityModes).toEqual(['CAUSAL_SHADOW']);
-    expect(getRandomStreamDefinition('causal.geologic-spine').status).toBe('RESERVED');
+  it('activates causal.regime-history and causal.geologic-spine only for shadow mode', () => {
+    for (const streamName of ['causal.regime-history', 'causal.geologic-spine'] as const) {
+      const stream = getRandomStreamDefinition(streamName);
+      expect(stream.status).toBe('ACTIVE');
+      expect(stream.allowedAuthorityModes).toEqual(['CAUSAL_SHADOW']);
+    }
   });
 });
 
