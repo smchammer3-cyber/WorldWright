@@ -185,11 +185,12 @@ describe('W1-03 detached interior shadow runner', () => {
     })).toThrow(/does not permit/);
   });
 
-  it('activates causal.interior only for shadow mode while W1-04 and W1-05 streams remain reserved', () => {
-    const interior = getRandomStreamDefinition('causal.interior');
-    expect(interior.status).toBe('ACTIVE');
-    expect(interior.allowedAuthorityModes).toEqual(['CAUSAL_SHADOW']);
-    expect(getRandomStreamDefinition('causal.regime-history').status).toBe('RESERVED');
+  it('keeps interior and regime-history active only in shadow mode while geologic spine remains reserved', () => {
+    for (const stream of ['causal.interior', 'causal.regime-history'] as const) {
+      const definition = getRandomStreamDefinition(stream);
+      expect(definition.status).toBe('ACTIVE');
+      expect(definition.allowedAuthorityModes).toEqual(['CAUSAL_SHADOW']);
+    }
     expect(getRandomStreamDefinition('causal.geologic-spine').status).toBe('RESERVED');
   });
 });
