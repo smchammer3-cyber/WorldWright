@@ -1,0 +1,173 @@
+[
+  {
+    "schemaVersion": 1,
+    "sourceId": "deschamps-vilella-2021-mixed-heated-stagnant-lid-w1-04",
+    "sourceType": "peer-reviewed numerical convection study",
+    "citation": "Deschamps, F.; Vilella, K. Scaling Laws for Mixed-Heated Stagnant-Lid Convection and Application to Europa. Journal of Geophysical Research: Planets 126 (2021), e2021JE006963.",
+    "title": "Scaling Laws for Mixed-Heated Stagnant-Lid Convection and Application to Europa",
+    "authorsOrInstitution": "Frédéric Deschamps and Kévin Vilella",
+    "publicationYear": 2021,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "mixed-heated-stagnant-lid-evolution",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "icy-shell-and-stagnant-lid-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Europa calibration does not transfer numerically to every rocky or icy body.",
+      "Scaling relations do not determine a unique time sequence for an unknown planet."
+    ],
+    "contentFingerprint": "doi:10.1029/2021JE006963#w1-04"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "foley-bercovici-elkins-tanton-2014-initiation",
+    "sourceType": "peer-reviewed numerical grain-damage and thermochemical convection study",
+    "citation": "Foley, B. J.; Bercovici, D.; Elkins-Tanton, L. T. Initiation of plate tectonics from post-magma ocean thermochemical convection. Journal of Geophysical Research: Solid Earth 119 (2014), 8538–8561.",
+    "title": "Initiation of plate tectonics from post-magma ocean thermochemical convection",
+    "authorsOrInstitution": "Bradford J. Foley, David Bercovici, and Linda T. Elkins-Tanton",
+    "publicationYear": 2014,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "lithosphere-damage-and-mobile-lid-initiation",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "lithosphere-damage-initiation-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Grain-damage is one candidate weakening mechanism rather than a universal rule.",
+      "Hadean Earth calibration does not establish transition timing for arbitrary planets."
+    ],
+    "contentFingerprint": "doi:10.1002/2014JB011121"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "lourenco-et-al-2018-intrusive-magmatism-w1-04",
+    "sourceType": "peer-reviewed numerical magmatic-thermo-mechanical study",
+    "citation": "Lourenço, D. L.; Rozel, A. B.; Gerya, T.; Tackley, P. J. Efficient cooling of rocky planets by intrusive magmatism. Nature Geoscience 11 (2018), 322–327.",
+    "title": "Efficient cooling of rocky planets by intrusive magmatism",
+    "authorsOrInstitution": "Diogo L. Lourenço, Antoine B. Rozel, Taras Gerya, and Paul J. Tackley",
+    "publicationYear": 2018,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "magmatism-and-lid-regime-evolution",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "magmatic-heat-transport-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Intrusion-to-extrusion partitioning is not a declared W1-04 input.",
+      "The study supports broad regime coupling rather than a universal transition clock."
+    ],
+    "contentFingerprint": "doi:10.1038/s41561-018-0094-8#w1-04"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "lyu-et-al-2025-lid-regimes-w1-04",
+    "sourceType": "peer-reviewed thermochemical mantle-convection parameter study",
+    "citation": "Lyu, T.; Ballmer, M. D.; Li, Z.-H.; Lee, M. H.; Yan, J.; Wu, B.; Zhao, G. Dissecting the puzzle of tectonic lid regimes in terrestrial planets. Nature Communications 16, 10037 (2025).",
+    "title": "Dissecting the puzzle of tectonic lid regimes in terrestrial planets",
+    "authorsOrInstitution": "Tianyang Lyu et al.",
+    "publicationYear": 2025,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "terrestrial-lid-regime-alternatives-and-transitions",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "planetary-convection-evolution-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Effective yield strength and intrusion ratios are not direct W1-04 inputs.",
+      "Two-dimensional steady-state classifications do not uniquely reconstruct planetary history."
+    ],
+    "contentFingerprint": "doi:10.1038/s41467-025-65943-1#w1-04"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "moore-webb-2013-heat-pipe-earth",
+    "sourceType": "peer-reviewed numerical heat-pipe evolution study with geological comparison",
+    "citation": "Moore, W. B.; Webb, A. A. G. Heat-pipe Earth. Nature 501 (2013), 501–505.",
+    "title": "Heat-pipe Earth",
+    "authorsOrInstitution": "William B. Moore and A. Alexander G. Webb",
+    "publicationYear": 2013,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "volcanic-heat-transport-and-regime-transition",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "magmatic-heat-transport-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Early-Earth comparison does not make heat-pipe evolution universal.",
+      "The model does not determine spatial volcanic systems for W1-04."
+    ],
+    "contentFingerprint": "doi:10.1038/nature12473"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "oneill-et-al-2016-tectonic-window",
+    "sourceType": "peer-reviewed time-dependent viscoplastic mantle-convection study",
+    "citation": "O’Neill, C.; Lenardic, A.; Weller, M.; Moresi, L.; Quenette, S.; Zhang, S. A window for plate tectonics in terrestrial planet evolution? Physics of the Earth and Planetary Interiors 255 (2016), 80–92.",
+    "title": "A window for plate tectonics in terrestrial planet evolution?",
+    "authorsOrInstitution": "Craig O’Neill, Adrian Lenardic, Matthew Weller, Louis Moresi, Steve Quenette, and Siqi Zhang",
+    "publicationYear": 2016,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "time-dependent-tectonic-regime-evolution",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "planetary-convection-evolution-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Model transitions are sensitive to initial thermal state and parameter choices.",
+      "Simulated Earth-like paths are alternatives rather than a universal ordered sequence."
+    ],
+    "contentFingerprint": "doi:10.1016/j.pepi.2016.04.002"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "tobie-choblet-sotin-2003-tidal-ice-convection",
+    "sourceType": "peer-reviewed numerical ice-shell convection and tidal-heating study",
+    "citation": "Tobie, G.; Choblet, G.; Sotin, C. Tidally heated convection: Constraints on Europa's ice shell thickness. Journal of Geophysical Research: Planets 108 (2003), 5124.",
+    "title": "Tidally heated convection: Constraints on Europa's ice shell thickness",
+    "authorsOrInstitution": "Gabriel Tobie, Gaël Choblet, and Christophe Sotin",
+    "publicationYear": 2003,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "tidal-ice-shell-episodicity",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "icy-shell-and-stagnant-lid-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Europa-specific shell thickness and forcing do not transfer numerically to every icy body.",
+      "The model supports episodic thermal activity without defining global plate identities."
+    ],
+    "contentFingerprint": "doi:10.1029/2003JE002099"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "weller-lenardic-2012-hysteresis",
+    "sourceType": "peer-reviewed numerical surface-yielding mantle-convection study",
+    "citation": "Weller, M. B.; Lenardic, A. Hysteresis in mantle convection: Plate tectonics systems. Geophysical Research Letters 39 (2012), L10202.",
+    "title": "Hysteresis in mantle convection: Plate tectonics systems",
+    "authorsOrInstitution": "Matthew B. Weller and Adrian Lenardic",
+    "publicationYear": 2012,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "tectonic-path-dependence-and-hysteresis",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "planetary-convection-evolution-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level scientific relation only; no copied text or figures.",
+    "limitations": [
+      "Equivalent final parameters can retain different histories and regimes.",
+      "The numerical hysteresis window depends on rheological parameterization."
+    ],
+    "contentFingerprint": "doi:10.1029/2012GL051232"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "worldwright-regime-history-scope-v1",
+    "sourceType": "internal controlled scope and calibration contract",
+    "citation": "WorldWright W1-04 tectonic regime history implementation contract.",
+    "title": "WorldWright Tectonic Regime History Scope Contract",
+    "authorsOrInstitution": "WorldWright",
+    "publicationYear": 2026,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "regime-history-scope-and-calibration",
+    "qualityClass": "INTERNAL_CONTROLLED_ARCHETYPE",
+    "correlationGroupId": "worldwright-regime-history-scope",
+    "licenseOrUsageNote": "Internal product and architecture rule; not external scientific evidence.",
+    "limitations": [
+      "Normalized epoch timing and range calibration remain provisional product models.",
+      "The contract forbids plate identities, spatial features, geography, terrain, climate outcomes, and rendering conclusions."
+    ],
+    "contentFingerprint": "worldwright:w1-04-regime-history-scope-v1"
+  }
+]
