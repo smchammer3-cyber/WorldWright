@@ -94,11 +94,13 @@ describe('W1-02B detached premise shadow runner', () => {
     })).toThrow(/bundle|hash|bound/i);
   });
 
-  it('activates causal.premise for shadow mode only without touching later causal streams', () => {
+  it('keeps premise and interior active only in shadow mode while later causal streams remain reserved', () => {
     const premise = getRandomStreamDefinition('causal.premise');
     expect(premise.status).toBe('ACTIVE');
     expect(premise.allowedAuthorityModes).toEqual(['CAUSAL_SHADOW']);
-    expect(getRandomStreamDefinition('causal.interior').status).toBe('RESERVED');
+    const interior = getRandomStreamDefinition('causal.interior');
+    expect(interior.status).toBe('ACTIVE');
+    expect(interior.allowedAuthorityModes).toEqual(['CAUSAL_SHADOW']);
     expect(getRandomStreamDefinition('causal.regime-history').status).toBe('RESERVED');
     expect(getRandomStreamDefinition('causal.geologic-spine').status).toBe('RESERVED');
   });
