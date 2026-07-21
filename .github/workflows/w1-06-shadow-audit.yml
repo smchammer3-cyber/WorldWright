@@ -1,0 +1,65 @@
+name: W1-06 Shadow Aggregate Audit
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w1-06-shadow-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shadow-aggregate-audit:
+    name: Shadow aggregate audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CAUSAL_SHADOW_AUDIT_CI_OUT: artifacts/causal-shadow-audit-gate
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run 28-case aggregate shadow audit
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npx vitest run test/causalGeologyShadowAggregateCiHarness.spec.ts 2>&1 | tee artifacts/ci-logs/causal-shadow-audit.log
+
+      - name: Summarize shadow aggregate gate
+        if: always()
+        run: |
+          {
+            echo "## W1-06A shadow aggregate audit"
+            echo "- Fixed cases: \`28\`"
+            echo "- Required minimum: \`24\`"
+            echo "- Authority: \`CAUSAL_SHADOW only\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Expected scientific status: \`PARTIAL\` until archetype, threshold, negative, and exception coverage is complete"
+            echo "- Artifact: \`causal-shadow-audit-gate\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload aggregate audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: causal-shadow-audit-gate
+          path: |
+            artifacts/causal-shadow-audit-gate/
+            artifacts/ci-logs/causal-shadow-audit.log
+          if-no-files-found: warn
+          retention-days: 14
