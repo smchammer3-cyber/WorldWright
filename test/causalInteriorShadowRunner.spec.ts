@@ -122,9 +122,11 @@ describe('W1-03 detached interior shadow runner', () => {
     expect(a.stageResult.status).toBe('PARTIAL');
     expect(a.stageResult.downstreamCompatibleStageIds).toEqual(['CAUSAL_REGIME_HISTORY']);
     expect(a.resolution.interior?.resolvedLidRegime).toBeTruthy();
-    expect(JSON.stringify(a)).not.toContain('baseHeight');
-    expect(JSON.stringify(a)).not.toContain('WorldBrain');
-    expect(JSON.stringify(a)).not.toContain('tectonicVigor');
+    const keys = collectObjectKeys(a);
+    expect(keys).not.toContain('baseHeight');
+    expect(keys).not.toContain('WorldBrain');
+    expect(keys).not.toContain('tectonicVigor');
+    expect(keys).not.toContain('continentSkeletons');
     expect(Object.isFrozen(a)).toBe(true);
     expect(() => validateInteriorShadowRunnerResult(a)).not.toThrow();
   });
@@ -191,6 +193,19 @@ describe('W1-03 detached interior shadow runner', () => {
     expect(getRandomStreamDefinition('causal.geologic-spine').status).toBe('RESERVED');
   });
 });
+
+function collectObjectKeys(value: unknown, output = new Set<string>()): Set<string> {
+  if (!value || typeof value !== 'object') return output;
+  if (Array.isArray(value)) {
+    for (const entry of value) collectObjectKeys(entry, output);
+    return output;
+  }
+  for (const [key, entry] of Object.entries(value)) {
+    output.add(key);
+    collectObjectKeys(entry, output);
+  }
+  return output;
+}
 
 function readJson<T>(filename: string): T {
   return JSON.parse(readFileSync(resolve(root, filename), 'utf8')) as T;
