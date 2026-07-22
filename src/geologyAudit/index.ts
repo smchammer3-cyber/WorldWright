@@ -4,3 +4,4 @@ export * from './registry';
 export * from './resolver';
 export * from './validation';
 export * from './worldWrightAdapter';
+export * from './causalShadowReferenceIntegration';
