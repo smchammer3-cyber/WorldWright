@@ -37,7 +37,7 @@ describe('C2A continent-ocean structural research package', () => {
     expect(bundle.sources).toHaveLength(8);
     expect(bundle.claimRules).toHaveLength(8);
     expect(bundle.sources.filter((entry) => entry.qualityClass === 'PRIMARY_PEER_REVIEWED')).toHaveLength(5);
-    expect(bundle.sources.filter((entry) => entry.qualityClass === 'AUTHORITATIVE_INSTITUTIONAL')).toHaveLength(2);
+    expect(bundle.sources.filter((entry) => entry.qualityClass === 'AUTHORITATIVE_DATA_OR_MODEL')).toHaveLength(2);
     expect(bundle.sources.filter((entry) => entry.qualityClass === 'INTERNAL_CONTROLLED_ARCHETYPE')).toHaveLength(1);
     expect(bundle.claimRules.every((entry) => entry.evidenceStatus === 'REVIEWED')).toBe(true);
     expect(bundle.claimRules.every((entry) => entry.reviewer?.length && entry.reviewDate === '2026-07-21')).toBe(true);
