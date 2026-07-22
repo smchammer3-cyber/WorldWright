@@ -10,9 +10,9 @@ import type { ScientificRangeV1, SphericalAnchorV1, SphericalExtentV1 } from './
 export type StructureMaterialProvinceClassV1 =
   | 'EXHUMED_MANTLE_TRANSITION'
   | 'JUVENILE_CONTINENTAL_OR_ARC_CRUST'
+  | 'MAGMATICALLY_THICKENED_MAFIC_PROVINCE'
   | 'MIXED_TRANSITIONAL_PROVINCE'
   | 'NORMAL_OCEANIC_CRUST'
-  | 'PLUME_THICKENED_MAFIC_PROVINCE'
   | 'RIFT_THINNED_CONTINENTAL_PROVINCE'
   | 'STABLE_CONTINENTAL_ROOT'
   | 'STRUCTURE_MATERIAL_UNRESOLVED'
@@ -22,9 +22,9 @@ export type DeepMaterialSubstrateAffinityV1 =
   | 'ARC_INTERMEDIATE_MAFIC_AFFINITY'
   | 'CONTINENTAL_FELSIC_INTERMEDIATE_AFFINITY'
   | 'EXHUMED_ULTRAMAFIC_MANTLE_AFFINITY'
+  | 'MAGMATICALLY_MODIFIED_MAFIC_AFFINITY'
   | 'MIXED_OR_TRANSITIONAL_AFFINITY'
   | 'OCEANIC_MAFIC_AFFINITY'
-  | 'PLUME_MODIFIED_MAFIC_AFFINITY'
   | 'SUBSTRATE_AFFINITY_UNRESOLVED';
 
 export type CrustalThicknessTendencyV1 =
@@ -182,6 +182,90 @@ export const M1A_STRUCTURE_MATERIAL_LIMITS_V1 = Object.freeze({
   maximumSerializedBytes: 12_582_912,
 });
 
+const STATE_KEYS = new Set([
+  'schemaVersion',
+  'stateVersion',
+  'authorityMode',
+  'physicalGeneratorAuthority',
+  'stateMode',
+  'scientificStatus',
+  'classification',
+  'sourcePremiseHash',
+  'sourceInteriorStateHash',
+  'sourceRegimeHistoryHash',
+  'sourceGeologicSpineHash',
+  'sourceProcessFieldProjectionHash',
+  'sourceContinentOceanStructureHash',
+  'provinceDefinitions',
+  'regions',
+  'structureMaterialCauseAuthority',
+  'landformPotentialAuthority',
+  'baseTerrainAuthority',
+  'surfaceMaterialAuthority',
+  'finalLandAuthority',
+  'finalWaterAuthority',
+  'bathymetryAuthority',
+  'terrainAuthority',
+  'evidenceIds',
+  'contradictionIds',
+  'limitations',
+  'contentHash',
+]);
+
+const DEFINITION_KEYS = new Set([
+  'schemaVersion',
+  'provinceClass',
+  'ownerDomain',
+  'classification',
+  'researchStatus',
+  'expectedStructuralRoles',
+  'compatibleSubstrateAffinities',
+  'compatibleThicknessTendencies',
+  'compatibleBuoyancyTendencies',
+  'compatibleResistanceTendencies',
+  'compatibleGrainTendencies',
+  'candidateTerrainTermPermissions',
+  'structureMaterialCauseAuthority',
+  'landformPotentialAuthority',
+  'baseTerrainAuthority',
+  'surfaceMaterialAuthority',
+  'terrainAuthority',
+  'description',
+]);
+
+const REGION_KEYS = new Set([
+  'schemaVersion',
+  'regionId',
+  'sourceStructuralRegionId',
+  'anchor',
+  'extent',
+  'resolutionStatus',
+  'leadingProvinceClass',
+  'provinceCandidates',
+  'unresolvedReasonIds',
+  'confidenceAssessmentSubject',
+  'evidenceIds',
+  'contradictionIds',
+  'limitations',
+]);
+
+const CANDIDATE_KEYS = new Set([
+  'schemaVersion',
+  'provinceClass',
+  'substrateAffinity',
+  'thicknessTendency',
+  'buoyancyTendency',
+  'resistanceTendencies',
+  'grainTendencies',
+  'terrainTermPermissionCandidates',
+  'supportRange',
+  'sourceStructuralRoles',
+  'sourceFieldIds',
+  'sourceNodeIds',
+  'rationaleIds',
+  'evidenceIds',
+]);
+
 const ALL_STRUCTURAL_ROLES: readonly ContinentOceanStructuralRoleV1[] = Object.freeze([
   'CONTINENTAL_INTERIOR',
   'CONTINENTAL_MARGIN',
@@ -215,9 +299,9 @@ const SUBSTRATE_AFFINITY_SET = new Set<string>([
   'ARC_INTERMEDIATE_MAFIC_AFFINITY',
   'CONTINENTAL_FELSIC_INTERMEDIATE_AFFINITY',
   'EXHUMED_ULTRAMAFIC_MANTLE_AFFINITY',
+  'MAGMATICALLY_MODIFIED_MAFIC_AFFINITY',
   'MIXED_OR_TRANSITIONAL_AFFINITY',
   'OCEANIC_MAFIC_AFFINITY',
-  'PLUME_MODIFIED_MAFIC_AFFINITY',
   'SUBSTRATE_AFFINITY_UNRESOLVED',
 ]);
 const THICKNESS_TENDENCY_SET = new Set<string>([
@@ -285,6 +369,18 @@ export const M1A_STRUCTURE_MATERIAL_PROVINCE_DEFINITIONS_V1: readonly StructureM
     description: 'Candidate arc-built or juvenile continental-affinity crust whose composition and density may remain intermediate between oceanic and mature continental endmembers.',
   }),
   provinceDefinition({
+    provinceClass: 'MAGMATICALLY_THICKENED_MAFIC_PROVINCE',
+    researchStatus: 'SUPPORTED_CANDIDATE_CLASS',
+    expectedStructuralRoles: ['DEEP_OCEAN_BASIN', 'OCEANIC_RIDGE_SYSTEM', 'TRANSITIONAL_CRUST'],
+    compatibleSubstrateAffinities: ['MAGMATICALLY_MODIFIED_MAFIC_AFFINITY'],
+    compatibleThicknessTendencies: ['STRONGLY_THICKENED', 'THICK'],
+    compatibleBuoyancyTendencies: ['CONTEXT_DEPENDENT'],
+    compatibleResistanceTendencies: ['INTERMEDIATE_RESISTANCE', 'THERMALLY_WEAKENED'],
+    compatibleGrainTendencies: ['EXTENSION_ASSOCIATED_ORIENTATION_UNRESOLVED', 'NO_DIRECTIONAL_GRAIN_CLAIM'],
+    candidateTerrainTermPermissions: ['LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE', 'LATER_MAGMATIC_CONSTRUCTION_TERM_CANDIDATE', 'LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE'],
+    description: 'Candidate anomalously thick mafic crust associated with elevated melt production, volcanic-margin construction, or oceanic plateau construction; no unique plume origin, geometry, or elevation follows.',
+  }),
+  provinceDefinition({
     provinceClass: 'MIXED_TRANSITIONAL_PROVINCE',
     researchStatus: 'RESEARCH_REQUIRED',
     expectedStructuralRoles: ['CONTINENTAL_MARGIN', 'DROWNED_CONTINENTAL_FRAGMENT', 'TRANSITIONAL_CRUST'],
@@ -307,18 +403,6 @@ export const M1A_STRUCTURE_MATERIAL_PROVINCE_DEFINITIONS_V1: readonly StructureM
     compatibleGrainTendencies: ['EXTENSION_ASSOCIATED_ORIENTATION_UNRESOLVED', 'NO_DIRECTIONAL_GRAIN_CLAIM'],
     candidateTerrainTermPermissions: ['LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE', 'LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE', 'LATER_MAGMATIC_CONSTRUCTION_TERM_CANDIDATE', 'LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE'],
     description: 'Candidate mafic oceanic crustal substrate with relatively thin igneous crust compared with typical continental crust; never a water or depth claim.',
-  }),
-  provinceDefinition({
-    provinceClass: 'PLUME_THICKENED_MAFIC_PROVINCE',
-    researchStatus: 'SUPPORTED_CANDIDATE_CLASS',
-    expectedStructuralRoles: ['DEEP_OCEAN_BASIN', 'OCEANIC_RIDGE_SYSTEM', 'TRANSITIONAL_CRUST'],
-    compatibleSubstrateAffinities: ['PLUME_MODIFIED_MAFIC_AFFINITY'],
-    compatibleThicknessTendencies: ['STRONGLY_THICKENED', 'THICK'],
-    compatibleBuoyancyTendencies: ['CONTEXT_DEPENDENT'],
-    compatibleResistanceTendencies: ['INTERMEDIATE_RESISTANCE', 'THERMALLY_WEAKENED'],
-    compatibleGrainTendencies: ['EXTENSION_ASSOCIATED_ORIENTATION_UNRESOLVED', 'NO_DIRECTIONAL_GRAIN_CLAIM'],
-    candidateTerrainTermPermissions: ['LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE', 'LATER_MAGMATIC_CONSTRUCTION_TERM_CANDIDATE', 'LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE'],
-    description: 'Candidate anomalously thick mafic crust associated with elevated melt production or oceanic plateau construction; no universal plume geometry or elevation follows.',
   }),
   provinceDefinition({
     provinceClass: 'RIFT_THINNED_CONTINENTAL_PROVINCE',
@@ -418,7 +502,8 @@ export function createStructureMaterialState(options: CreateStructureMaterialSta
 }
 
 export function validateStructureMaterialState(value: unknown): asserts value is StructureMaterialStateV1 {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Structure/material state must be an object.');
+  assertRecord(value, 'Structure/material state');
+  assertExactKeys(value, STATE_KEYS, 'Structure/material state');
   const state = value as Partial<StructureMaterialStateV1>;
   if (
     state.schemaVersion !== 1
@@ -441,6 +526,7 @@ export function validateStructureMaterialState(value: unknown): asserts value is
   if (JSON.stringify(state.provinceDefinitions) !== JSON.stringify(M1A_STRUCTURE_MATERIAL_PROVINCE_DEFINITIONS_V1)) {
     throw new Error('Structure/material province definitions do not match the M1A contract.');
   }
+  for (const definition of state.provinceDefinitions ?? []) validateProvinceDefinition(definition);
   canonicalRegions(state.regions ?? []);
   canonicalText(state.evidenceIds, 'Structure/material state evidence IDs');
   canonicalText(state.contradictionIds, 'Structure/material state contradiction IDs');
@@ -457,7 +543,8 @@ export function validateStructureMaterialState(value: unknown): asserts value is
 }
 
 export function validateStructureMaterialRegion(value: unknown): asserts value is StructureMaterialRegionV1 {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Structure/material region must be an object.');
+  assertRecord(value, 'Structure/material region');
+  assertExactKeys(value, REGION_KEYS, 'Structure/material region');
   const region = value as Partial<StructureMaterialRegionV1>;
   if (
     region.schemaVersion !== 1
@@ -470,9 +557,17 @@ export function validateStructureMaterialRegion(value: unknown): asserts value i
   if (!['AMBIGUOUS_CANDIDATES', 'SINGLE_LEADING_CANDIDATE', 'UNRESOLVED'].includes(String(region.resolutionStatus))) {
     throw new Error(`Structure/material region ${region.regionId} resolution status is invalid.`);
   }
+
   const candidates = canonicalProvinceCandidates(region.provinceCandidates ?? [], region.regionId as string);
   if (candidates.length === 0) throw new Error(`Structure/material region ${region.regionId} requires province candidates.`);
   const candidateClasses = new Set(candidates.map((entry) => entry.provinceClass));
+  const affirmativeCandidates = candidates.filter((entry) => entry.provinceClass !== 'STRUCTURE_MATERIAL_UNRESOLVED');
+  const unresolvedReasonIds = canonicalText(
+    region.unresolvedReasonIds,
+    `Structure/material region ${region.regionId} unresolved reason IDs`,
+    region.resolutionStatus === 'UNRESOLVED' ? 1 : 0,
+  );
+
   if (region.resolutionStatus === 'SINGLE_LEADING_CANDIDATE') {
     if (!region.leadingProvinceClass || !candidateClasses.has(region.leadingProvinceClass)) {
       throw new Error(`Structure/material region ${region.regionId} leading province is invalid.`);
@@ -480,13 +575,26 @@ export function validateStructureMaterialRegion(value: unknown): asserts value i
     if (region.leadingProvinceClass === 'STRUCTURE_MATERIAL_UNRESOLVED') {
       throw new Error(`Structure/material region ${region.regionId} cannot lead with the unresolved province.`);
     }
+    if (unresolvedReasonIds.length !== 0) {
+      throw new Error(`Structure/material region ${region.regionId} cannot carry unresolved reasons while a leading province exists.`);
+    }
   } else if (region.leadingProvinceClass !== undefined) {
     throw new Error(`Structure/material region ${region.regionId} cannot declare a leading province while ambiguous or unresolved.`);
   }
+
+  if (region.resolutionStatus === 'AMBIGUOUS_CANDIDATES') {
+    if (affirmativeCandidates.length < 2) {
+      throw new Error(`Ambiguous structure/material region ${region.regionId} requires at least two affirmative province candidates.`);
+    }
+    if (unresolvedReasonIds.length !== 0) {
+      throw new Error(`Ambiguous structure/material region ${region.regionId} cannot carry unresolved reasons.`);
+    }
+  }
+
   if (region.resolutionStatus === 'UNRESOLVED' && !candidateClasses.has('STRUCTURE_MATERIAL_UNRESOLVED')) {
     throw new Error(`Unresolved structure/material region ${region.regionId} must include STRUCTURE_MATERIAL_UNRESOLVED.`);
   }
-  canonicalText(region.unresolvedReasonIds, `Structure/material region ${region.regionId} unresolved reason IDs`, region.resolutionStatus === 'UNRESOLVED' ? 1 : 0);
+
   canonicalText(region.evidenceIds, `Structure/material region ${region.regionId} evidence IDs`);
   canonicalText(region.contradictionIds, `Structure/material region ${region.regionId} contradiction IDs`);
   canonicalText(region.limitations, `Structure/material region ${region.regionId} limitations`, 1);
@@ -502,15 +610,15 @@ function provinceDefinition(options: Omit<StructureMaterialProvinceDefinitionV1,
   | 'surfaceMaterialAuthority'
   | 'terrainAuthority'
 >): StructureMaterialProvinceDefinitionV1 {
-  return {
-    schemaVersion: 1,
-    ownerDomain: 'CAUSAL_STRUCTURE_MATERIAL_DIAGNOSTIC',
-    classification: 'DETACHED_STAGE_ARTIFACT',
-    structureMaterialCauseAuthority: false,
-    landformPotentialAuthority: false,
-    baseTerrainAuthority: false,
-    surfaceMaterialAuthority: false,
-    terrainAuthority: false,
+  const definition = {
+    schemaVersion: 1 as const,
+    ownerDomain: 'CAUSAL_STRUCTURE_MATERIAL_DIAGNOSTIC' as const,
+    classification: 'DETACHED_STAGE_ARTIFACT' as const,
+    structureMaterialCauseAuthority: false as const,
+    landformPotentialAuthority: false as const,
+    baseTerrainAuthority: false as const,
+    surfaceMaterialAuthority: false as const,
+    terrainAuthority: false as const,
     ...options,
     expectedStructuralRoles: canonicalEnumText(options.expectedStructuralRoles, STRUCTURAL_ROLE_SET, `${options.provinceClass} expected structural roles`, 1),
     compatibleSubstrateAffinities: canonicalEnumText(options.compatibleSubstrateAffinities, SUBSTRATE_AFFINITY_SET, `${options.provinceClass} compatible substrate affinities`, 1),
@@ -520,6 +628,26 @@ function provinceDefinition(options: Omit<StructureMaterialProvinceDefinitionV1,
     compatibleGrainTendencies: canonicalEnumText(options.compatibleGrainTendencies, GRAIN_TENDENCY_SET, `${options.provinceClass} compatible grain tendencies`, 1),
     candidateTerrainTermPermissions: canonicalEnumText(options.candidateTerrainTermPermissions, TERRAIN_PERMISSION_SET, `${options.provinceClass} candidate terrain-term permissions`, 1),
   };
+  validateProvinceDefinition(definition);
+  return definition;
+}
+
+function validateProvinceDefinition(value: unknown): asserts value is StructureMaterialProvinceDefinitionV1 {
+  assertRecord(value, 'Structure/material province definition');
+  assertExactKeys(value, DEFINITION_KEYS, 'Structure/material province definition');
+  const definition = value as Partial<StructureMaterialProvinceDefinitionV1>;
+  if (
+    definition.schemaVersion !== 1
+    || definition.ownerDomain !== 'CAUSAL_STRUCTURE_MATERIAL_DIAGNOSTIC'
+    || definition.classification !== 'DETACHED_STAGE_ARTIFACT'
+    || !['RESEARCH_REQUIRED', 'SUPPORTED_CANDIDATE_CLASS', 'UNRESOLVED'].includes(String(definition.researchStatus))
+    || definition.structureMaterialCauseAuthority !== false
+    || definition.landformPotentialAuthority !== false
+    || definition.baseTerrainAuthority !== false
+    || definition.surfaceMaterialAuthority !== false
+    || definition.terrainAuthority !== false
+    || !isText(definition.description)
+  ) throw new Error('Structure/material province definition contract is invalid.');
 }
 
 function assertSourceHashes(value: {
@@ -565,7 +693,9 @@ function canonicalProvinceCandidates(value: readonly StructureMaterialProvinceCa
   }
   const classes = new Set<string>();
   const canonical = [...value].map((candidate) => {
-    if (!candidate || typeof candidate !== 'object' || candidate.schemaVersion !== 1) {
+    assertRecord(candidate, `Structure/material region ${regionId} province candidate`);
+    assertExactKeys(candidate, CANDIDATE_KEYS, `Structure/material region ${regionId} province candidate`);
+    if (candidate.schemaVersion !== 1) {
       throw new Error(`Structure/material region ${regionId} contains an invalid province candidate.`);
     }
     const definition = PROVINCE_DEFINITION_BY_ID.get(candidate.provinceClass);
@@ -649,6 +779,16 @@ function canonicalEnumText<T extends string>(value: readonly T[], allowed: Reado
   const canonical = [...new Set(value)].sort(compareStableText) as T[];
   if (canonical.length < minimumLength || JSON.stringify(value) !== JSON.stringify(canonical)) throw new Error(`${label} must be sorted, unique, and complete.`);
   return Object.freeze(canonical);
+}
+
+function assertRecord(value: unknown, label: string): asserts value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object.`);
+}
+
+function assertExactKeys(value: Record<string, unknown>, allowedKeys: ReadonlySet<string>, label: string): void {
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) throw new Error(`${label} contains an unowned field: ${key}.`);
+  }
 }
 
 function isText(value: unknown): value is string {
