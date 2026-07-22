@@ -132,18 +132,27 @@ describe('D1 detached process-field projection contracts', () => {
     expect(() => validateCausalProcessFieldProjectionSet(forged)).toThrow(/content hash does not match/i);
   });
 
-  it('registers the Phase D process as shadow-only diagnostics with no physical writes', () => {
+  it('registers Phase D and C1 as shadow-only diagnostics with no physical writes', () => {
     expect(validateAuthorityProcessRegistry()).toEqual([]);
     expect(CAUSAL_SHADOW_DIAGNOSTIC_PROCESS_ORDER).toEqual([
       'CAUSAL_PROCESS_FIELD_PROJECTION',
+      'CAUSAL_CONTINENT_OCEAN_STRUCTURE',
       'CAUSAL_SHADOW_AUDIT',
     ]);
-    const process = getAuthorityProcess('CAUSAL_PROCESS_FIELD_PROJECTION');
-    expect(process.modes).toEqual(['CAUSAL_SHADOW']);
-    expect(process.reads).toEqual(['causalRecord']);
-    expect(process.writes).toEqual(['diagnostics']);
-    expect(process.writes).not.toContain('processFieldAuthority');
-    expect(process.writes).not.toContain('terrain');
-    expect(process.prerequisites).toEqual(['CAUSAL_GEOLOGIC_SPINE']);
+    const projection = getAuthorityProcess('CAUSAL_PROCESS_FIELD_PROJECTION');
+    expect(projection.modes).toEqual(['CAUSAL_SHADOW']);
+    expect(projection.reads).toEqual(['causalRecord']);
+    expect(projection.writes).toEqual(['diagnostics']);
+    expect(projection.writes).not.toContain('processFieldAuthority');
+    expect(projection.writes).not.toContain('terrain');
+    expect(projection.prerequisites).toEqual(['CAUSAL_GEOLOGIC_SPINE']);
+
+    const structure = getAuthorityProcess('CAUSAL_CONTINENT_OCEAN_STRUCTURE');
+    expect(structure.modes).toEqual(['CAUSAL_SHADOW']);
+    expect(structure.reads).toEqual(['causalRecord', 'diagnostics']);
+    expect(structure.writes).toEqual(['diagnostics']);
+    expect(structure.writes).not.toContain('structuralRoleAuthority');
+    expect(structure.writes).not.toContain('terrain');
+    expect(structure.prerequisites).toEqual(['CAUSAL_PROCESS_FIELD_PROJECTION']);
   });
 });
