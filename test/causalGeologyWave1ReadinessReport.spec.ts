@@ -129,7 +129,7 @@ describe('W1-07 Wave 1 completion and promotion-readiness report', () => {
       expect(milestone.physicalOutputChanged).toBe(false);
       expect(['PARTIAL', 'PLANNING_ONLY']).toContain(milestone.scientificStatus);
     }
-    expect(report.mergedWave1Milestones.at(-1)).toMatchObject({
+    expect(report.mergedWave1Milestones[report.mergedWave1Milestones.length - 1]).toMatchObject({
       milestoneId: 'W1-06B3',
       pullRequest: 146,
       validatedHead: '1f5bae7a15c1cce50ccc3c7165278531ca1f9bb8',
