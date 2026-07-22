@@ -71,7 +71,7 @@ export function resolveCausalShadowReferenceIntegration(
   const referencesByKind = W1_06B3_REQUIRED_REFERENCE_KINDS.map((kind): CausalShadowReferenceKindResultV1 => ({
     kind,
     matches: registry.searchReferences({
-      ruleIds: query.ruleIds,
+      ruleIds: [...query.ruleIds],
       parameters: query.parameters,
       kinds: [kind],
       statuses: ['approved'],
