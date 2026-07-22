@@ -229,9 +229,16 @@ describe('M1A source-backed research boundary', () => {
     };
     expect(() => validateStructureMaterialResearchReview(promoted, researchBundle)).toThrow(/authority boundary is invalid/i);
 
-    const directInputBypass = structuredClone(researchBundle);
-    const firstRule = directInputBypass.claimRules[0] as ScientificClaimRuleV1 & { applicableInputIds: string[] };
+    const bypassClaimRules = structuredClone(claimRules);
+    const firstRule = bypassClaimRules[0] as ScientificClaimRuleV1 & { applicableInputIds: string[] };
     firstRule.applicableInputIds = ['thermal.age'];
+    const directInputBypass = createScientificResearchBundle({
+      bundleVersion: review.bundleVersion,
+      sources,
+      claimRules: bypassClaimRules,
+      correlationGroups,
+      knownLimitations,
+    });
     expect(() => validateStructureMaterialResearchReview(review, directInputBypass)).toThrow(/cannot bypass the upstream causal records/i);
   });
 });
