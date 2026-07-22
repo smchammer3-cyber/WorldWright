@@ -5,7 +5,7 @@ import {
   CAUSAL_PROCESS_FIELD_PROJECTION_LIMITS_V1,
   D1_DETACHED_PROCESS_FIELD_DEFINITIONS_V1,
 } from '../src/core/causalGeology';
-import { getAuthorityProcess } from '../src/core/worldAuthority';
+import { getAuthorityProcess, type AuthorityFieldGroup } from '../src/core/worldAuthority';
 
 interface D1ContractArtifactV1 {
   readonly schemaVersion: 1;
@@ -70,7 +70,8 @@ describe('D1 machine-readable contract artifact', () => {
     expect(artifact.process.reads).toEqual(process.reads);
     expect(artifact.process.writes).toEqual(process.writes);
     expect(artifact.process.prerequisites).toEqual(process.prerequisites);
-    expect(artifact.process.forbiddenAuthorityWrites.every((group) => process.writes.includes(group as never) === false)).toBe(true);
+    expect(artifact.process.forbiddenAuthorityWrites.every((group) =>
+      process.writes.includes(group as AuthorityFieldGroup) === false)).toBe(true);
     expect(artifact.process.forbiddenAuthorityWrites).toContain('processFieldAuthority');
     expect(artifact.process.forbiddenAuthorityWrites).toContain('terrain');
     expect(artifact.explicitNonScope.length).toBeGreaterThan(0);
