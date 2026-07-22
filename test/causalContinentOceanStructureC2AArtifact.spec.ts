@@ -26,7 +26,7 @@ interface C2AArtifactV1 {
   readonly sources: {
     readonly total: number;
     readonly primaryPeerReviewed: number;
-    readonly authoritativeInstitutional: number;
+    readonly authoritativeDataOrModel: number;
     readonly internalControlledScope: number;
     readonly sourceIds: readonly string[];
   };
@@ -95,7 +95,7 @@ describe('C2A machine-readable research package artifact', () => {
     expect(artifact.sources).toMatchObject({
       total: sources.length,
       primaryPeerReviewed: sources.filter((entry) => entry.qualityClass === 'PRIMARY_PEER_REVIEWED').length,
-      authoritativeInstitutional: sources.filter((entry) => entry.qualityClass === 'AUTHORITATIVE_INSTITUTIONAL').length,
+      authoritativeDataOrModel: sources.filter((entry) => entry.qualityClass === 'AUTHORITATIVE_DATA_OR_MODEL').length,
       internalControlledScope: sources.filter((entry) => entry.qualityClass === 'INTERNAL_CONTROLLED_ARCHETYPE').length,
       sourceIds: sources.map((entry) => entry.sourceId),
     });
