@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "policyVersion": "C3_LIVE_ROUTE_ANTI_COLLAPSE_POLICY_V1",
+  "purpose": "Prevent the Phase C completion corpus from passing through an all-unresolved or all-leading collapse without prescribing a preferred geological role distribution.",
+  "minimumLiveCaseCount": 7,
+  "minimumUniqueInterpretationHashCount": 7,
+  "minimumAffirmativeFixtureCount": 2,
+  "minimumAffirmativeRoleClassCount": 1,
+  "minimumLeadingRegionCount": 1,
+  "minimumUnresolvedRegionCount": 1,
+  "requiredFixedStructuralFixtureCount": 16,
+  "requiredFixedStructuralHoldoutCount": 2,
+  "structuralHoldoutsUsedForRuntimeCalibration": false,
+  "specificRoleFrequencyTarget": "FORBIDDEN",
+  "specificGhostFrequencyTarget": "FORBIDDEN",
+  "thresholdRetuningFromLiveDistribution": "FORBIDDEN",
+  "physicalOrVisibleOutputTarget": "FORBIDDEN",
+  "interpretation": [
+    "At least two distinct reviewed live fixtures must produce one or more affirmative structural candidates so the production route is not merely a universal unresolved sink.",
+    "At least one live region must remain unresolved so the gate cannot reward universal forced classification.",
+    "No particular affirmative role, role percentage, ghost count, or visual result is required.",
+    "Observed live distributions remain diagnostic evidence and cannot tune C2A thresholds or fixture expectations."
+  ]
+}
