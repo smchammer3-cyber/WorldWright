@@ -1,0 +1,66 @@
+name: W1-07 Wave 1 Readiness Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w1-07-wave1-readiness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wave1-readiness:
+    name: Validate Wave 1 completion and promotion verdict
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate W1-07 readiness report
+        run: |
+          mkdir -p artifacts/ci-logs artifacts/w1-07-wave1-readiness
+          set -o pipefail
+          npx vitest run test/causalGeologyWave1ReadinessReport.spec.ts 2>&1 | tee artifacts/ci-logs/w1-07-wave1-readiness.log
+          cp docs/implementation/wave1/w1-07-promotion-readiness.json artifacts/w1-07-wave1-readiness/
+          cp docs/implementation/W1_07_WAVE1_COMPLETION_AND_PROMOTION_READINESS.md artifacts/w1-07-wave1-readiness/
+
+      - name: Summarize W1-07 verdict
+        if: always()
+        run: |
+          {
+            echo "## W1-07 Wave 1 readiness"
+            echo "- Milestone implementation: \`COMPLETE\`"
+            echo "- Scientific definition of done: \`NOT_MET\`"
+            echo "- Scientific status: \`PARTIAL\`"
+            echo "- Promotion readiness: \`NOT_READY\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Phase D: \`DETACHED_DIAGNOSTIC_ONLY\`"
+            echo "- CAUSAL_ACTIVE: \`UNIMPLEMENTED_AND_FORBIDDEN\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload W1-07 report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w1-07-wave1-readiness
+          path: |
+            artifacts/w1-07-wave1-readiness/
+            artifacts/ci-logs/w1-07-wave1-readiness.log
+          if-no-files-found: warn
+          retention-days: 30
