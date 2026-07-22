@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "reportVersion": "D2_SPHERICAL_PROCESS_FIELD_PROJECTION_V1",
+  "baseCommit": "b52f85fdea4c0f3b8afb395ec951f81829c556c9",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "projectionMode": "DETACHED_DIAGNOSTIC",
+  "scientificStatus": "PARTIAL",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "algorithm": {
+    "sourceRecords": [
+      "TectonicRegimeHistoryV1",
+      "GeologicSpineV1"
+    ],
+    "coordinateConvention": "SPHERICAL_LAT_LON_DEGREES_V1",
+    "distanceMetric": "GREAT_CIRCLE_ANGULAR_DISTANCE_V1",
+    "kernelFalloff": "COSINE_COMPACT_SUPPORT_V1",
+    "blendRule": "MAXIMUM_COMPACT_SUPPORT_V1",
+    "contributionRule": "PEAK_TIMES_TEMPORAL_TIMES_PRESERVATION_TIMES_COSINE_FALLOFF_V1",
+    "kernelRadiusSource": "GEologic spine node angular extent",
+    "kernelsPerSourceNode": 6,
+    "randomness": "NONE_DETERMINISTIC_FROM_SOURCE_RECORDS",
+    "diagnosticGridSampling": "EQUIRECTANGULAR_CELL_CENTER_QUERY_V1"
+  },
+  "kernelFamilies": {
+    "familyInfluence": [
+      "accretionInfluence",
+      "continentalKernelInfluence",
+      "convergenceInfluence",
+      "oceanBasinInfluence",
+      "plumeInfluence",
+      "riftInfluence",
+      "transformInfluence"
+    ],
+    "temporalAndDiagnostic": [
+      "formationAgeSummary",
+      "persistenceSummary",
+      "preservationSummary",
+      "projectionConfidence",
+      "surfaceExposureSummary"
+    ]
+  },
+  "preservationProjectionAssumptions": [
+    {
+      "state": "ACTIVE",
+      "weight": 1,
+      "physicallyCalibrated": false,
+      "rationale": "Active sources retain full detached diagnostic visibility."
+    },
+    {
+      "state": "BURIED",
+      "weight": 0.35,
+      "physicallyCalibrated": false,
+      "rationale": "Buried sources remain causally present but are intentionally less visible in a surface-oriented diagnostic projection."
+    },
+    {
+      "state": "ERODED_RELICT",
+      "weight": 0.25,
+      "physicallyCalibrated": false,
+      "rationale": "Eroded relicts retain lineage while receiving the lowest nonzero diagnostic visibility."
+    },
+    {
+      "state": "EXPOSED",
+      "weight": 0.9,
+      "physicallyCalibrated": false,
+      "rationale": "Exposed sources remain strongly visible without being equated to active deformation."
+    },
+    {
+      "state": "INHERITED",
+      "weight": 0.75,
+      "physicallyCalibrated": false,
+      "rationale": "Inherited sources remain substantial but explicitly secondary to active sources."
+    },
+    {
+      "state": "REWORKED",
+      "weight": 0.55,
+      "physicallyCalibrated": false,
+      "rationale": "Reworked sources preserve partial structural influence while acknowledging transformation."
+    }
+  ],
+  "budgets": {
+    "maximumKernelsPerSourceNode": 6,
+    "maximumDiagnosticGridCells": 131072,
+    "maximumDiagnosticGridSerializedBytes": 16777216,
+    "ciMaximumProjectionMillisecondsPerCase": 1500,
+    "ciMaximumQueryMilliseconds": 100,
+    "ciMaximumGridMilliseconds": 15000,
+    "ciMaximumProjectionBytes": 4194304,
+    "ciDiagnosticGridWidth": 36,
+    "ciDiagnosticGridHeight": 18
+  },
+  "validationCorpus": {
+    "controlledSeeds": [
+      "d2-controlled-01",
+      "d2-controlled-02",
+      "d2-controlled-03",
+      "d2-controlled-04",
+      "d2-controlled-05",
+      "d2-controlled-06"
+    ],
+    "holdoutSeeds": [
+      "d2-holdout-07"
+    ],
+    "requiredEvidence": [
+      "deterministic replay",
+      "unique source-linked hashes",
+      "six kernels per source node",
+      "source-node interpretability",
+      "seam-safe great-circle distance",
+      "pole stability",
+      "lineage rejection",
+      "resolution-independent coordinate queries",
+      "diagnostic grid budgets",
+      "forbidden-read and forbidden-write absence"
+    ]
+  },
+  "authorityBoundary": {
+    "writes": [
+      "diagnostics"
+    ],
+    "forbiddenWrites": [
+      "processFieldAuthority",
+      "terrain",
+      "derivedSurface",
+      "structuralRoleAuthority",
+      "baseTerrain",
+      "finalTerrain",
+      "presentation"
+    ],
+    "forbiddenInputs": [
+      "legacy terrain",
+      "legacy solved morphology",
+      "land mask",
+      "water mask",
+      "renderer color",
+      "UI label",
+      "province ID",
+      "debug identity"
+    ]
+  },
+  "explicitNonScope": [
+    "No continent or ocean structural-role interpretation.",
+    "No crust, material, buoyancy, thickness, resistance, or structural-grain genesis.",
+    "No landform potential, base terrain, hydrology, climate, erosion, final surface, rendering, Create, Sim, save, export, or migration change.",
+    "No use of legacy output as a causal source or calibration target.",
+    "No processFieldAuthority write before A2.",
+    "No claim that preservation weights are physically calibrated.",
+    "No physical promotion or CAUSAL_ACTIVE route."
+  ],
+  "nextScope": "D3 distribution, interpretability, resolution-independence, difficult-world, and Phase D completion evidence"
+}
