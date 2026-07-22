@@ -27,6 +27,7 @@ export * from './regimeHistoryResolver';
 export * from './geologicSpineResearchContracts';
 export * from './geologicSpineResolver';
 export * from './shadowAudit';
+export * from './shadowThresholdCoverage';
 export * from './stageResult';
 export * from './spatial';
 export * from './researchLedger';
