@@ -189,6 +189,7 @@ const SUPPRESSION_RECOMMENDATIONS: readonly ContinentOceanSuppressionRecommendat
   'SUPPRESS_UNSUPPORTED_SHELF_GHOST',
 ]);
 const SUPPRESSION_RECOMMENDATION_SET = new Set<string>(SUPPRESSION_RECOMMENDATIONS);
+
 const ROLE_RULE_KEYS = [
   'schemaVersion', 'ruleId', 'role', 'version', 'genericClaimRuleIds', 'requiredFieldSignals', 'requiredSourceSignals',
   'disqualifyingFieldSignals', 'allowedResolutionStatuses', 'geometryRequirement', 'evidenceStatus', 'exceptions', 'limitations',
@@ -218,6 +219,7 @@ export function validateContinentOceanStructureRuleSet(value: unknown): asserts 
   if (!Array.isArray(set.ghostRules) || set.ghostRules.length !== GHOST_RISKS.length) {
     throw new Error('Continent/ocean structure rule set must contain one rule per ghost-risk class.');
   }
+
   const ruleIds = new Set<string>();
   const roles = new Set<string>();
   for (const rule of set.roleRules) {
@@ -242,13 +244,17 @@ export function validateContinentOceanStructureRuleSet(value: unknown): asserts 
     canonicalText(rule.exceptions, `Rule ${rule.ruleId} exceptions`);
     canonicalText(rule.limitations, `Rule ${rule.ruleId} limitations`, 1);
   }
+  assertCanonicalRuleOrder(set.roleRules.map((rule) => rule.ruleId), 'Continent/ocean structural-role rules');
+
+  const risks = new Set<string>();
   for (const rule of set.ghostRules) {
     assertExactKeys(rule, GHOST_RULE_KEYS, 'Continent/ocean ghost-risk rule');
     if (rule.schemaVersion !== 1 || rule.version !== 1 || !isText(rule.ruleId) || !GHOST_RISK_SET.has(rule.risk)) {
       throw new Error('Continent/ocean ghost-risk rule identity is invalid.');
     }
-    if (ruleIds.has(rule.ruleId)) throw new Error(`Duplicate continent/ocean ghost-risk rule ${rule.ruleId}.`);
+    if (ruleIds.has(rule.ruleId) || risks.has(rule.risk)) throw new Error(`Duplicate continent/ocean ghost-risk rule ${rule.ruleId}.`);
     ruleIds.add(rule.ruleId);
+    risks.add(rule.risk);
     canonicalText(rule.genericClaimRuleIds, `Ghost rule ${rule.ruleId} generic claim IDs`, 1);
     validateFieldSignals(rule.triggerFieldSignals, `Ghost rule ${rule.ruleId} trigger field signals`);
     canonicalEnums(rule.missingSourceFamilies, SOURCE_FAMILY_SET, `Ghost rule ${rule.ruleId} missing source families`);
@@ -258,9 +264,7 @@ export function validateContinentOceanStructureRuleSet(value: unknown): asserts 
     }
     canonicalText(rule.limitations, `Ghost rule ${rule.ruleId} limitations`, 1);
   }
-  const sortedRuleIds = [...ruleIds].sort(compareStableText);
-  const sourceRuleIds = [...set.roleRules.map((rule) => rule.ruleId), ...set.ghostRules.map((rule) => rule.ruleId)];
-  if (!arraysEqual(sourceRuleIds, sortedRuleIds)) throw new Error('Continent/ocean structure rules must be canonically ordered by rule ID across role and ghost rules.');
+  assertCanonicalRuleOrder(set.ghostRules.map((rule) => rule.ruleId), 'Continent/ocean ghost-risk rules');
 }
 
 export function validateContinentOceanStructureFixtureSet(value: unknown): asserts value is ContinentOceanStructureFixtureSetV1 {
@@ -296,9 +300,7 @@ export function validateContinentOceanStructureFixtureSet(value: unknown): asser
       throw new Error(`Continent/ocean structure fixture set requires ${kind} coverage.`);
     }
   }
-  if (!arraysEqual(set.fixtures.map((fixture) => fixture.fixtureId), [...ids].sort(compareStableText))) {
-    throw new Error('Continent/ocean structure fixtures must be canonically ordered by fixture ID.');
-  }
+  assertCanonicalRuleOrder(set.fixtures.map((fixture) => fixture.fixtureId), 'Continent/ocean structure fixtures');
 }
 
 export function validateContinentOceanStructureResearchReview(
@@ -322,17 +324,24 @@ export function validateContinentOceanStructureResearchReview(
     || !isText(review.scope)
     || !isText(review.implementationAuthorizationBasis)
   ) throw new Error('Continent/ocean structure research review identity is invalid.');
+
   const complete = canonicalText(review.completeEligibleRuleIds, 'C2A complete-eligible rule IDs');
   if (complete.length !== 0) throw new Error('C2A cannot mark any structural-role rule COMPLETE-eligible.');
   const partial = canonicalText(review.partialOnlyRuleIds, 'C2A partial-only rule IDs');
   const required = canonicalText(review.researchRequiredRuleIds, 'C2A research-required rule IDs');
+  const partialSet = new Set(partial);
+  const requiredSet = new Set(required);
+  for (const id of partial) if (requiredSet.has(id)) throw new Error(`Research review classifies rule ${id} more than once.`);
+
   const allRules = [...ruleSet.roleRules, ...ruleSet.ghostRules];
   const knownRuleIds = new Set(allRules.map((rule) => rule.ruleId));
-  for (const id of [...partial, ...required]) if (!knownRuleIds.has(id)) throw new Error(`Research review references unknown rule ${id}.`);
-  if (new Set([...partial, ...required]).size !== knownRuleIds.size) throw new Error('Research review must classify every C2A rule exactly once.');
+  const classified = new Set([...partial, ...required]);
+  for (const id of classified) if (!knownRuleIds.has(id)) throw new Error(`Research review references unknown rule ${id}.`);
+  for (const id of knownRuleIds) if (!classified.has(id)) throw new Error(`Research review does not classify rule ${id}.`);
+  if (classified.size !== knownRuleIds.size) throw new Error('Research review must classify every C2A rule exactly once.');
   for (const rule of allRules) {
-    const expectedBucket = rule.evidenceStatus === 'RESEARCH_REQUIRED' ? required : partial;
-    if (!expectedBucket.includes(rule.ruleId)) throw new Error(`Research review misclassifies rule ${rule.ruleId}.`);
+    const expectedBucket = rule.evidenceStatus === 'RESEARCH_REQUIRED' ? requiredSet : partialSet;
+    if (!expectedBucket.has(rule.ruleId)) throw new Error(`Research review misclassifies rule ${rule.ruleId}.`);
   }
   if (review.implementationAuthorized !== true) throw new Error('C2A detached resolver implementation is not authorized by the review record.');
 }
@@ -351,8 +360,15 @@ function validateFieldSignals(value: readonly ContinentOceanStructureFieldSignal
   if (!Array.isArray(value) || value.length > FIELD_IDS.length) throw new Error(`${label} are invalid.`);
   const keys = new Set<string>();
   for (const signal of value) {
-    assertExactKeys(signal, ['schemaVersion', 'fieldId', 'relation', 'minimum', 'maximum', 'rationaleId'], label);
-    if (signal.schemaVersion !== 1 || !FIELD_ID_SET.has(signal.fieldId) || !isText(signal.rationaleId)) throw new Error(`${label} contain invalid identity.`);
+    assertAllowedAndRequiredKeys(
+      signal,
+      ['schemaVersion', 'fieldId', 'relation', 'minimum', 'maximum', 'rationaleId'],
+      ['schemaVersion', 'fieldId', 'relation', 'rationaleId'],
+      label,
+    );
+    if (signal.schemaVersion !== 1 || !FIELD_ID_SET.has(signal.fieldId) || !isText(signal.rationaleId)) {
+      throw new Error(`${label} contain invalid identity.`);
+    }
     const key = `${signal.fieldId}:${signal.relation}`;
     if (keys.has(key)) throw new Error(`${label} contain duplicate signal ${key}.`);
     keys.add(key);
@@ -396,10 +412,15 @@ function validateSourceSignals(value: readonly ContinentOceanStructureSourceSign
   if (!arraysEqual(value, canonical)) throw new Error(`${label} must be canonically ordered.`);
 }
 
-function validateFieldValues(value: Readonly<Partial<Record<CausalProcessFieldProjectionIdV1, number>>>, fixtureId: string): void {
+function validateFieldValues(
+  value: Readonly<Partial<Record<CausalProcessFieldProjectionIdV1, number>>>,
+  fixtureId: string,
+): void {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`Fixture ${fixtureId} field values are invalid.`);
   const keys = Object.keys(value);
-  if (keys.length === 0 || keys.some((key) => !FIELD_ID_SET.has(key))) throw new Error(`Fixture ${fixtureId} field values contain unsupported or missing fields.`);
+  if (keys.length === 0 || keys.some((key) => !FIELD_ID_SET.has(key))) {
+    throw new Error(`Fixture ${fixtureId} field values contain unsupported or missing fields.`);
+  }
   if (!arraysEqual(keys, [...keys].sort(compareStableText))) throw new Error(`Fixture ${fixtureId} field values must be canonically ordered.`);
   for (const [fieldId, number] of Object.entries(value)) assertNormalized(number, `Fixture ${fixtureId} field ${fieldId}`);
 }
@@ -417,10 +438,19 @@ function validateExpected(expected: ContinentOceanStructureFixtureExpectedV1, fi
 }
 
 function assertExactKeys(value: unknown, allowed: readonly string[], label: string): void {
+  assertAllowedAndRequiredKeys(value, allowed, allowed, label);
+}
+
+function assertAllowedAndRequiredKeys(
+  value: unknown,
+  allowed: readonly string[],
+  required: readonly string[],
+  label: string,
+): void {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object.`);
   const keys = Object.keys(value);
   const unknown = keys.filter((key) => !allowed.includes(key)).sort(compareStableText);
-  const missing = allowed.filter((key) => !(key in value));
+  const missing = required.filter((key) => !(key in value));
   if (unknown.length || missing.length) throw new Error(`${label} has invalid fields; unknown=${unknown.join(',')}; missing=${missing.join(',')}.`);
 }
 
@@ -432,12 +462,21 @@ function canonicalText(value: unknown, label: string, minimumLength = 0): readon
   return value;
 }
 
-function canonicalEnums<T extends string>(value: unknown, allowed: ReadonlySet<string>, label: string, minimumLength = 0): readonly T[] {
+function canonicalEnums<T extends string>(
+  value: unknown,
+  allowed: ReadonlySet<string>,
+  label: string,
+  minimumLength = 0,
+): readonly T[] {
   if (!Array.isArray(value) || value.some((entry) => !allowed.has(String(entry)))) throw new Error(`${label} are invalid.`);
   if (new Set(value).size !== value.length) throw new Error(`${label} contain duplicates.`);
   const canonical = [...value].sort(compareStableText) as T[];
   if (canonical.length < minimumLength || !arraysEqual(value, canonical)) throw new Error(`${label} must be canonically ordered.`);
   return value as readonly T[];
+}
+
+function assertCanonicalRuleOrder(values: readonly string[], label: string): void {
+  if (!arraysEqual(values, [...values].sort(compareStableText))) throw new Error(`${label} must be canonically ordered by ID.`);
 }
 
 function assertNormalized(value: unknown, label: string): asserts value is number {
