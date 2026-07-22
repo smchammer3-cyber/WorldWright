@@ -9,7 +9,7 @@
     "publicationYear": 2016,
     "revisionOrAccessDate": "2026-07-21",
     "domain": "magma-poor-rifted-margin-and-continent-ocean-transition",
-    "qualityClass": "AUTHORITATIVE_INSTITUTIONAL",
+    "qualityClass": "AUTHORITATIVE_DATA_OR_MODEL",
     "correlationGroupId": "rifted-margin-transition-observations",
     "licenseOrUsageNote": "Bibliographic metadata and high-level structural relations only; no copied figures, datasets, or numerical calibration.",
     "limitations": [
@@ -123,7 +123,7 @@
     "publicationYear": 2020,
     "revisionOrAccessDate": "2026-07-21",
     "domain": "subduction-convergence-trenches-melting-and-volcanic-arcs",
-    "qualityClass": "AUTHORITATIVE_INSTITUTIONAL",
+    "qualityClass": "AUTHORITATIVE_DATA_OR_MODEL",
     "correlationGroupId": "subduction-and-arc-syntheses",
     "licenseOrUsageNote": "Public-domain institutional synthesis used only for broad convergence, subduction, trench, melting, and volcanic-chain relations.",
     "limitations": [
