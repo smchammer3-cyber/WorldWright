@@ -19,7 +19,8 @@
     "kernelFalloff": "COSINE_COMPACT_SUPPORT_V1",
     "blendRule": "MAXIMUM_COMPACT_SUPPORT_V1",
     "contributionRule": "PEAK_TIMES_TEMPORAL_TIMES_PRESERVATION_TIMES_COSINE_FALLOFF_V1",
-    "kernelRadiusSource": "GEologic spine node angular extent",
+    "kernelRadiusSource": "Geologic spine node angular extent",
+    "lineageRule": "Each spine event must reference an existing history epoch and overlap that epoch; reviewed event windows may straddle epoch boundaries.",
     "kernelsPerSourceNode": 6,
     "randomness": "NONE_DETERMINISTIC_FROM_SOURCE_RECORDS",
     "diagnosticGridSampling": "EQUIRECTANGULAR_CELL_CENTER_QUERY_V1"
