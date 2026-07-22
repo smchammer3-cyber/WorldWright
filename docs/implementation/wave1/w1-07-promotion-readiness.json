@@ -1,0 +1,290 @@
+{
+  "schemaVersion": 1,
+  "reportVersion": "W1_07_WAVE1_PROMOTION_READINESS_V1",
+  "generatedFromBaseCommit": "0b97438776423f52b40fde55f1920f38c1a63e4f",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "scientificStatus": "PARTIAL",
+  "wave1MilestoneImplementation": "COMPLETE",
+  "wave1DefinitionOfDone": "NOT_MET",
+  "promotionReadiness": "NOT_READY",
+  "phaseDReadiness": "READY_FOR_DETACHED_PROTOTYPING_WITH_GATES",
+  "governingMilestones": [
+    {
+      "milestoneId": "WAVE1_PLAN",
+      "pullRequest": 132,
+      "validatedHead": "d99f6dce4813cf8e1190e560c65a61d19455b7e6",
+      "mergeCommit": "c1c7ef63962ca1b244aa700f5bb1cc97eadc87fd"
+    },
+    {
+      "milestoneId": "UNIFIED_CAUSAL_BLUEPRINT",
+      "pullRequest": 134,
+      "validatedHead": "5df37181da3b7a543ab4412b188ebee07de89a20",
+      "mergeCommit": "53f1fb8166adfcc5ff292afe90ff91b0dfa45a50"
+    }
+  ],
+  "mergedWave1Milestones": [
+    {
+      "milestoneId": "W1-01",
+      "pullRequest": 133,
+      "title": "Causal geology foundation contracts",
+      "validatedHead": "01f7a29a8562b9597231ad5793239748b533528e",
+      "mergeCommit": "df3b09efa9eef3d5828f6d870d66bd0adeb843e3",
+      "scientificStatus": "PARTIAL",
+      "physicalOutputChanged": false
+    },
+    {
+      "milestoneId": "W1-02-READINESS",
+      "pullRequest": 135,
+      "title": "Initial-condition and premise readiness contracts",
+      "validatedHead": "cf81ebb785c5a7ad34537df46fc5e372935ed285",
+      "mergeCommit": "7febf56742d1ba59b899477cfede575fef440dee",
+      "scientificStatus": "PLANNING_ONLY",
+      "physicalOutputChanged": false
+    },
+    {
+      "milestoneId": "W1-02A",
+      "pullRequest": 136,
+      "title": "Constraint-aware initial-condition bundle resolver",
+      "validatedHead": "19094c3f8cd9f80614749a7fd48af9a7eb9dd3d2",
+      "mergeCommit": "a10537eaf17f1bc6464f24e189ce9a43e37166c7",
+      "scientificStatus": "PARTIAL",
+      "physicalOutputChanged": false
+    },
+    {
+      "milestoneId": "W1-02B-RESEARCH",
+      "pullRequest": 137,
+      "title": "Planetary-premise research rules and fixtures",
+      "validatedHead": "158ea903cd39ce053222dca419659ad8280272ef",
+      "mergeCommit": "4dfb74076a6dd55451cecca12be20d0b16dedb33",
+      "scientificStatus": "PARTIAL",
+      "physicalOutputChanged": false
+    },
+    {
+      "milestoneId": "W1-02B",
+      "pullRequest": 138,
+      "title": "Detached planetary-premise shadow resolver",
+      "validatedHead": "68a0120d83eb3c27b41ba493053ec17cb9f468c0",
+      "mergeCommit": "64e77b1d2cc440ebe4bff5d09a019c23f7989c28",
+      "scientificStatus": "PARTIAL",
+      "physicalOutputChanged": false
+    },
+    {
+      "milestoneId": "W1-03",
+      "pullRequest": 139,
+      "title": "Detached interior and rheology shadow resolver",
+      "validatedHead": "d7daa8e64e711d4235632fc6807ab1d106fac91b",
+      "mergeCommit": "3b4fcf30c35306d75110eb3214c89ab210e496d5",
+      "scientificStatus": "PARTIAL",
+      "physicalOutputChanged": false
+    },
+    {
+      "milestoneId": "W1-04",
+      "pullRequest": 140,
+      "title": "Detached tectonic regime history shadow resolver",
+      "validatedHead": "5b0f8473b0ec42f8c3969b94a71a801feb752804",
+      "mergeCommit": "262af1d1258d4b0059785ec96d35960f14d34b89",
+      "scientificStatus": "PARTIAL",
+      "physicalOutputChanged": false
+    },
+    {
+      "milestoneId": "W1-05A",
+      "pullRequest": 141,
+      "title": "Geologic skeleton test and CI harness",
+      "validatedHead": "373171fbddbe2fb5632c772faff68b80952dc50e",
+      "mergeCommit": "ff37dc1d54172699c304115a5d5d00c69037c4d2",
+      "scientificStatus": "PARTIAL",
+      "physicalOutputChanged": false
+    },
+    {
+      "milestoneId": "W1-05B",
+      "pullRequest": 142,
+      "title": "Detached geologic-spine shadow resolver",
+      "validatedHead": "d63b4a6282b81419b454adcf895f691792d458f4",
+      "mergeCommit": "ff71a9fea348c95a442f1ccb8f34c60dd243314b",
+      "scientificStatus": "PARTIAL",
+      "physicalOutputChanged": false
+    },
+    {
+      "milestoneId": "W1-06A",
+      "pullRequest": 143,
+      "title": "Twenty-eight-case shadow aggregate audit gate",
+      "validatedHead": "45baed4d733e1df5fc4b2348e425350d06bbd4a5",
+      "mergeCommit": "43e7cc1bf1ac5e4436bf712dca33e488f9d1a061",
+      "scientificStatus": "PARTIAL",
+      "physicalOutputChanged": false
+    },
+    {
+      "milestoneId": "W1-06B1",
+      "pullRequest": 144,
+      "title": "Canonical direct-input threshold corpus",
+      "validatedHead": "6cf170d355d5234197b7c9a0e0f476855fed5796",
+      "mergeCommit": "fcc8c5670a03bfc01a72852732612b8dfc425cba",
+      "scientificStatus": "PARTIAL",
+      "physicalOutputChanged": false
+    },
+    {
+      "milestoneId": "W1-06B2",
+      "pullRequest": 145,
+      "title": "Complete controlled archetype coverage",
+      "validatedHead": "a8d36e816da7e4c023fd9ba8e7863a52d5b41864",
+      "mergeCommit": "ce68ad38c3533148dc4d1ba4df3732f40f02abc4",
+      "scientificStatus": "PARTIAL",
+      "physicalOutputChanged": false
+    },
+    {
+      "milestoneId": "W1-06B3",
+      "pullRequest": 146,
+      "title": "Four-class detached reference integration",
+      "validatedHead": "1f5bae7a15c1cce50ccc3c7165278531ca1f9bb8",
+      "mergeCommit": "0b97438776423f52b40fde55f1920f38c1a63e4f",
+      "scientificStatus": "PARTIAL",
+      "physicalOutputChanged": false
+    }
+  ],
+  "evidenceSummary": {
+    "fixedAggregateCases": 28,
+    "fixedAggregateUniqueSeeds": 28,
+    "canonicalDirectInputAxes": 12,
+    "reviewedDirectInputRelations": 0,
+    "researchRequiredDirectInputRelations": 12,
+    "controlledArchetypeFamilies": 10,
+    "controlledArchetypeCases": 30,
+    "referenceKindsSeparated": [
+      "positive",
+      "threshold",
+      "negative",
+      "exception"
+    ],
+    "legacyPhysicalEquivalence": "PASS",
+    "determinismAndReplay": "PASS_WITHIN_IMPLEMENTED_SHADOW_CONTRACTS",
+    "performanceBudgets": "PASS_WITHIN_COMMITTED_CORPORA",
+    "knownLegacyFailureVisible": true,
+    "knownLegacyFirstFailedAuthorityLayer": "RAW_GENERATOR"
+  },
+  "definitionOfDoneAssessment": [
+    {
+      "gateId": "DETERMINISTIC_PAYLOADS",
+      "status": "PASS",
+      "blockingPromotion": false,
+      "evidence": "Fixed-seed replay, canonical hashes, insertion-order tests, serialization contracts, and exact-head CI passed across implemented shadow stages."
+    },
+    {
+      "gateId": "EXPLICIT_UNITS_AND_SCALES",
+      "status": "PASS",
+      "blockingPromotion": false,
+      "evidence": "All twelve canonical direct-input axes validate against the causal input authority unit and scale registry."
+    },
+    {
+      "gateId": "FORBIDDEN_READ_AND_WRITE_ISOLATION",
+      "status": "PASS",
+      "blockingPromotion": false,
+      "evidence": "Causal resolvers remain detached from WorldBrain and physical fields; audit/reference adapters remain outside the causal package."
+    },
+    {
+      "gateId": "TRUTHFUL_STAGE_STATUS",
+      "status": "PASS",
+      "blockingPromotion": false,
+      "evidence": "Natural stage outputs and aggregate results remain PARTIAL; blocked and exception routes are not presented as completed natural geology."
+    },
+    {
+      "gateId": "SPHERICAL_RESOLUTION_INDEPENDENT_SPINE",
+      "status": "PASS_WITHIN_CURRENT_GRAPH_SCOPE",
+      "blockingPromotion": false,
+      "evidence": "The detached spine uses spherical identities and graph constraints without raster or terrain ownership."
+    },
+    {
+      "gateId": "REFERENCE_CLASS_SEPARATION",
+      "status": "PASS_FOR_ROUTING",
+      "blockingPromotion": false,
+      "evidence": "Approved positive, threshold, negative, and bounded-exception records are retrieved and reported separately with fail-closed authority checks."
+    },
+    {
+      "gateId": "REVIEWED_DIRECT_INPUT_SENSITIVITY",
+      "status": "FAIL_OPEN_RESEARCH",
+      "blockingPromotion": true,
+      "evidence": "All twelve canonical direct-input threshold relations remain UNKNOWN and RESEARCH_REQUIRED. W1-06B1 proves construction and isolation, not reviewed downstream sensitivity."
+    },
+    {
+      "gateId": "DEPENDENCY_MATRIX_SENSITIVITY",
+      "status": "INCOMPLETE",
+      "blockingPromotion": true,
+      "evidence": "The corpus does not yet prove reviewed downstream dependency behavior for every direct input across premise, interior, regime history, and spine."
+    },
+    {
+      "gateId": "NATURAL_ARCHETYPE_REACHABILITY",
+      "status": "INCOMPLETE",
+      "blockingPromotion": true,
+      "evidence": "W1-06B2 proves detached behavior from controlled validated upstream states; it does not prove that the complete initial-condition and premise route naturally reaches every archetype."
+    },
+    {
+      "gateId": "REFERENCE_CALIBRATION_AND_HOLDOUTS",
+      "status": "INCOMPLETE",
+      "blockingPromotion": true,
+      "evidence": "W1-06B3 validates evidence routing using bounded internal diagnostic references; it does not establish observational morphology calibration or family-specific scientific thresholds."
+    },
+    {
+      "gateId": "LEGACY_OUTPUT_EQUIVALENCE",
+      "status": "PASS",
+      "blockingPromotion": false,
+      "evidence": "Ordinary LEGACY generation, standard screenshots, diagnostics, Create, Sim, and rendering remained unchanged across the Wave 1 route."
+    },
+    {
+      "gateId": "CAUSAL_ACTIVE_DISABLED",
+      "status": "PASS",
+      "blockingPromotion": false,
+      "evidence": "CAUSAL_ACTIVE remains unimplemented and forbidden."
+    }
+  ],
+  "blockingPromotionGaps": [
+    {
+      "gapId": "REVIEWED_DIRECT_INPUT_RELATIONS",
+      "severity": "BLOCKING_PROMOTION",
+      "status": "OPEN",
+      "requiredClosure": "Commit source-backed expected downstream relations and approved exceptions for all twelve direct inputs, then validate low/reference/high behavior without tuning to one screenshot."
+    },
+    {
+      "gapId": "FULL_DEPENDENCY_MATRIX",
+      "severity": "BLOCKING_PROMOTION",
+      "status": "OPEN",
+      "requiredClosure": "Prove which causal records may change for each direct input and which records must remain byte-identical."
+    },
+    {
+      "gapId": "NATURAL_ROUTE_ARCHETYPE_REACHABILITY",
+      "severity": "BLOCKING_PROMOTION",
+      "status": "OPEN",
+      "requiredClosure": "Demonstrate archetype reachability through the complete direct-input to premise to interior to history to spine route, including holdouts and negative cases."
+    },
+    {
+      "gapId": "SCIENTIFIC_REFERENCE_CALIBRATION",
+      "severity": "BLOCKING_PROMOTION",
+      "status": "OPEN",
+      "requiredClosure": "Replace or supplement internal routing fixtures with reviewed family-specific scientific reference claims, thresholds, negatives, exceptions, and holdouts."
+    }
+  ],
+  "phaseDEntryConditions": {
+    "allowed": true,
+    "mode": "DETACHED_DIAGNOSTIC_ONLY",
+    "physicalAuthority": "NONE",
+    "candidateNamespace": "ISOLATED_CAUSAL_PROJECTION",
+    "legacyFeedbackIntoCausalResolution": "FORBIDDEN",
+    "ordinaryGenerateInvocation": "FORBIDDEN",
+    "requiredFirstScope": "Detached causal process-field contracts, projections, provenance, interpretability, resolution tests, and budgets without terrain or physical writes."
+  },
+  "rollback": {
+    "legacyRemainsDefault": true,
+    "causalActiveExists": false,
+    "wave1ChangesAreDetachedAndRevertible": true,
+    "ordinaryWorldMigrationRequired": false,
+    "legacyRetirementPermitted": false
+  },
+  "finalVerdict": {
+    "wave1Implementation": "MERGED_AND_SOFTWARE_VALIDATED",
+    "wave1ScientificCompletion": "NOT_COMPLETE",
+    "promotion": "BLOCKED",
+    "nextAction": "BEGIN_PHASE_D_AS_DETACHED_DIAGNOSTIC_PROJECTIONS_ONLY"
+  }
+}
