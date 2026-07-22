@@ -1,0 +1,69 @@
+name: D2 Spherical Process-Field Projection Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d2-spherical-process-field-projection-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spherical-projection:
+    name: Validate detached spherical process fields
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CAUSAL_PROCESS_FIELD_D2_CI_OUT: artifacts/d2-process-field-projection-gate
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run D2 resolver, geometry, artifact, and budget gates
+        run: |
+          mkdir -p artifacts/ci-logs artifacts/d2-process-field-projection-gate
+          set -o pipefail
+          npx vitest run test/causalProcessFieldProjectionResolverCiHarness.spec.ts test/causalProcessFieldProjectionD2Artifact.spec.ts 2>&1 | tee artifacts/ci-logs/d2-process-field-projection.log
+          cp docs/implementation/phase-d/d2-spherical-process-field-projection.json artifacts/d2-process-field-projection-gate/
+          cp docs/implementation/PHASE_D2_SPHERICAL_PROCESS_FIELD_PROJECTION_STATUS.md artifacts/d2-process-field-projection-gate/
+
+      - name: Summarize D2 gate
+        if: always()
+        run: |
+          {
+            echo "## Phase D2 spherical process-field projection"
+            echo "- Authority mode: \`CAUSAL_SHADOW\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Source: validated history + geologic spine"
+            echo "- Geometry: great-circle compact-support kernels"
+            echo "- Blend: maximum dominant-source contribution"
+            echo "- Controlled / holdout seeds: \`6 / 1\`"
+            echo "- Scientific status: \`PARTIAL\`"
+            echo "- Physical or visible output change: \`none\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload D2 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d2-process-field-projection-gate
+          path: |
+            artifacts/d2-process-field-projection-gate/
+            artifacts/ci-logs/d2-process-field-projection.log
+          if-no-files-found: warn
+          retention-days: 30
