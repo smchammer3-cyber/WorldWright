@@ -2,9 +2,12 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  createContinentOceanStructureResearchContext,
   freezeContinentOceanStructureResearchPackage,
   validateContinentOceanStructureResearchPackage,
+  validateContinentOceanStructureResearchPackageForImplementation,
   type ContinentOceanStructureFixtureSetV1,
+  type ContinentOceanStructureResearchFixtureV1,
   type ContinentOceanStructureResearchPackageV1,
   type ContinentOceanStructureResearchReviewV1,
   type ContinentOceanStructureResearchRuleV1,
@@ -33,7 +36,9 @@ const packageValue: ContinentOceanStructureResearchPackageV1 = {
 describe('C2A continent-ocean structural research package', () => {
   it('validates and freezes the primary-source package without granting structural authority', () => {
     validateContinentOceanStructureResearchPackage(packageValue);
+    validateContinentOceanStructureResearchPackageForImplementation(packageValue);
     const frozen = freezeContinentOceanStructureResearchPackage(packageValue);
+    const context = createContinentOceanStructureResearchContext(frozen);
 
     expect(frozen.sources).toHaveLength(9);
     expect(frozen.rules).toHaveLength(10);
@@ -44,6 +49,14 @@ describe('C2A continent-ocean structural research package', () => {
     expect(frozen.sources.filter((source) => source.sourceId !== 'worldwright-c2a-structure-scope')
       .every((source) => source.contentFingerprint.startsWith('doi:'))).toBe(true);
 
+    expect(context).toMatchObject({
+      schemaVersion: 1,
+      contextVersion: 'C2A_CONTINENT_OCEAN_STRUCTURE_RESEARCH_CONTEXT_V1',
+      scientificStatus: 'PARTIAL',
+      detachedResolverImplementationAuthorized: true,
+      structuralRoleAuthorityAuthorized: false,
+      physicalOutputAuthorized: false,
+    });
     expect(frozen.review.detachedResolverImplementationAuthorized).toBe(true);
     expect(frozen.review.structuralRoleAuthorityAuthorized).toBe(false);
     expect(frozen.review.physicalOutputAuthorized).toBe(false);
@@ -102,6 +115,7 @@ describe('C2A continent-ocean structural research package', () => {
     expect(Object.isFrozen(frozen)).toBe(true);
     expect(Object.isFrozen(frozen.sources)).toBe(true);
     expect(Object.isFrozen(frozen.fixtureSet.fixtures)).toBe(true);
+    expect(Object.isFrozen(context)).toBe(true);
   });
 
   it('fails closed on missing holdouts, duplicate source evidence, and threshold rules disguised as reviewed science', () => {
@@ -110,14 +124,14 @@ describe('C2A continent-ocean structural research package', () => {
       ...missingHoldout.fixtureSet,
       fixtures: missingHoldout.fixtureSet.fixtures.filter((fixture) => fixture.kind !== 'HOLDOUT'),
     };
-    expect(() => validateContinentOceanStructureResearchPackage(missingHoldout)).toThrow(/at least two withheld holdouts/i);
+    expect(() => validateContinentOceanStructureResearchPackageForImplementation(missingHoldout)).toThrow(/at least two withheld holdouts/i);
 
     const duplicateFingerprint = clonePackage();
     duplicateFingerprint.sources[1] = {
       ...duplicateFingerprint.sources[1],
       contentFingerprint: duplicateFingerprint.sources[0].contentFingerprint,
     };
-    expect(() => validateContinentOceanStructureResearchPackage(duplicateFingerprint)).toThrow(/duplicate continent\/ocean research fingerprint/i);
+    expect(() => validateContinentOceanStructureResearchPackageForImplementation(duplicateFingerprint)).toThrow(/duplicate continent\/ocean research fingerprint/i);
 
     const disguisedThreshold = clonePackage();
     const thresholdIndex = disguisedThreshold.rules.findIndex((rule) => rule.calibrationStatus === 'PROVISIONAL_THRESHOLD');
@@ -127,35 +141,41 @@ describe('C2A continent-ocean structural research package', () => {
       reviewer: 'Invalid reviewer',
       reviewDate: '2026-07-21',
     };
-    expect(() => validateContinentOceanStructureResearchPackage(disguisedThreshold)).toThrow(/wrong calibration status|provisional threshold/i);
+    expect(() => validateContinentOceanStructureResearchPackageForImplementation(disguisedThreshold)).toThrow(/cannot masquerade as reviewed science/i);
 
     const thresholdPolicyDrift = clonePackage();
     thresholdPolicyDrift.rules[thresholdIndex] = {
       ...thresholdPolicyDrift.rules[thresholdIndex],
       thresholdPolicy: 'NO_NUMERIC_THRESHOLD',
     };
-    expect(() => validateContinentOceanStructureResearchPackage(thresholdPolicyDrift)).toThrow(/must remain fixture-only/i);
+    expect(() => validateContinentOceanStructureResearchPackageForImplementation(thresholdPolicyDrift)).toThrow(/must remain fixture-only/i);
 
     const authorityDrift = clonePackage();
     authorityDrift.review = {
       ...authorityDrift.review,
       completeEligibleRuleIds: ['structure/continental-interior-association-v1'],
     };
-    expect(() => validateContinentOceanStructureResearchPackage(authorityDrift)).toThrow(/only authority firewalls may be complete-eligible/i);
+    expect(() => validateContinentOceanStructureResearchPackageForImplementation(authorityDrift)).toThrow(/only authority firewalls may be complete-eligible/i);
   });
 });
 
-function clonePackage(): {
+interface MutableResearchPackageV1 {
   schemaVersion: 1;
   packageVersion: 'C2A_CONTINENT_OCEAN_STRUCTURE_RESEARCH_PACKAGE_V1';
   sources: ScientificSourceV1[];
   rules: ContinentOceanStructureResearchRuleV1[];
   correlationGroups: string[];
   knownLimitations: string[];
-  fixtureSet: { schemaVersion: 1; fixtureSetVersion: 'C2A_CONTINENT_OCEAN_STRUCTURE_FIXTURES_V1'; fixtures: ContinentOceanStructureFixtureSetV1['fixtures'] extends readonly (infer T)[] ? T[] : never };
+  fixtureSet: {
+    schemaVersion: 1;
+    fixtureSetVersion: 'C2A_CONTINENT_OCEAN_STRUCTURE_FIXTURES_V1';
+    fixtures: ContinentOceanStructureResearchFixtureV1[];
+  };
   review: ContinentOceanStructureResearchReviewV1;
-} {
-  return JSON.parse(JSON.stringify(packageValue));
+}
+
+function clonePackage(): MutableResearchPackageV1 {
+  return JSON.parse(JSON.stringify(packageValue)) as MutableResearchPackageV1;
 }
 
 function readJson<T>(fileName: string): T {
