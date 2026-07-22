@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "reportVersion": "C2B_DETACHED_STRUCTURAL_ROLE_RESOLVER_V1",
+  "baseCommit": "e4e14ce0914c489964afe3a4ecea14097c4e07b5",
+  "c2aCompletion": {
+    "pullRequest": 153,
+    "validatedHead": "cc5227c03658d9e9d50bd303be1c0821a7078cdf",
+    "mergeCommit": "e4e14ce0914c489964afe3a4ecea14097c4e07b5"
+  },
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "interpretationMode": "DETACHED_DIAGNOSTIC",
+  "scientificStatus": "PARTIAL",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "resolver": {
+    "contextVersion": "C2B_CONTINENT_OCEAN_STRUCTURE_RESOLVER_CONTEXT_V1",
+    "sourceEvidence": [
+      "validated premise identity and body-class candidates",
+      "validated geologic-spine source hash",
+      "validated Phase D process-field projection",
+      "reviewed C2A generic claims",
+      "C2A role and ghost rules"
+    ],
+    "outputRecord": "ContinentOceanStructureInterpretationV1",
+    "outputStatus": "PARTIAL",
+    "randomness": "NONE",
+    "determinism": "SOURCE_HASHED_AND_CANONICALLY_ORDERED",
+    "writes": [
+      "diagnostics"
+    ]
+  },
+  "decisionPolicy": {
+    "roleCandidate": "all required field and source signals match and no disqualifier matches",
+    "ghostRisk": "all trigger fields match and every named missing source family is absent",
+    "singleLeadingCandidate": "exactly one candidate, no ghost risk, radial evidence sufficient, rule not RESEARCH_REQUIRED, and SINGLE_LEADING_CANDIDATE allowed",
+    "orientedRoleCompanion": "margin, ridge, or arc candidacy retains TRANSITIONAL_CRUST when oriented geometry is unavailable",
+    "materialContextSafeguard": "shelf and slope candidates are deferred when any active tectonic field contributes because C2A lacks material and surface authority",
+    "unresolvedFallback": "artificial premise, low-confidence rule, no supported role, or unsupported ghost evidence retains STRUCTURALLY_UNRESOLVED",
+    "suppressionMeaning": "diagnostic recommendation only; source records and physical output remain unchanged"
+  },
+  "fixtureGate": {
+    "fixtureSetVersion": "C2A_CONTINENT_OCEAN_STRUCTURE_FIXTURES_V1",
+    "totalCases": 16,
+    "positiveCases": 4,
+    "thresholdCases": 7,
+    "negativeCases": 2,
+    "approvedExceptionCases": 1,
+    "withheldHoldoutCases": 2,
+    "holdoutsUsedForCalibration": false,
+    "requiredChecks": [
+      "byte-identical replay",
+      "required roles present",
+      "all produced roles allowed",
+      "forbidden leading roles absent",
+      "allowed resolution status",
+      "required ghost risks present",
+      "required suppression recommendations present",
+      "negative and exception cases unresolved",
+      "threshold cases never leading",
+      "unique source-linked interpretation hashes",
+      "runtime and payload budgets",
+      "physical and visible output absence"
+    ]
+  },
+  "budgets": {
+    "maximumEvidenceRegions": 4096,
+    "maximumSourceNodesPerRegion": 4096,
+    "maximumResolverMillisecondsPerRegion": 250,
+    "maximumSerializedInterpretationBytes": 8388608
+  },
+  "authorityBoundary": {
+    "structuralRoleAuthority": false,
+    "physicalOutputAuthorized": false,
+    "landWaterAuthority": false,
+    "bathymetryAuthority": false,
+    "materialAuthority": false,
+    "terrainAuthority": false,
+    "rendererAuthority": false,
+    "legacyFeedbackIntoCausalResolution": "FORBIDDEN"
+  },
+  "blockingScientificLimitations": [
+    "Normalized C2A signal boundaries remain provisional software calibration rather than universal geophysical thresholds.",
+    "Radial process fields do not independently reconstruct oriented margins, ridges, arcs, trenches, sutures, transforms, or spreading direction.",
+    "Shelf, slope, and drowned-fragment alternatives require later material or surface evidence before leading interpretation.",
+    "Projection confidence measures validated source coverage rather than scientific certainty.",
+    "C2B does not establish generated-world structural-role frequencies, region geometry, or observational calibration."
+  ],
+  "explicitNonScope": [
+    "No structuralRoleAuthority or processFieldAuthority write.",
+    "No final continent, ocean, shelf, slope, ridge, arc, fragment, land, water, coastline, sea level, bathymetry, material, or terrain.",
+    "No legacy solved morphology, masks, renderer color, UI label, province ID, debug identity, or shadow-audit result as causal input.",
+    "No ordinary Generate, Create, Sim, rendering, storage, export, or migration change.",
+    "No Phase M implementation in C2B.",
+    "No CAUSAL_ACTIVE route, physical promotion, or legacy retirement."
+  ],
+  "nextScope": "C3 Phase C completion and Phase M readiness report"
+}
