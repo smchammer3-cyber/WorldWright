@@ -11,8 +11,8 @@ import {
 } from './processFieldProjection';
 import { createSphericalAnchor, validateSphericalAnchor } from './spatial';
 import type {
+  GeologicPreservationState,
   GeologicSpineNodeFamily,
-  GeologicSpinePreservationState,
   GeologicSpineV1,
   SphericalAnchorV1,
   TectonicRegimeHistoryV1,
@@ -59,7 +59,7 @@ export interface CausalProcessFieldProjectionDiagnosticGridV1 {
 }
 
 export interface PreservationProjectionAssumptionV1 {
-  readonly state: GeologicSpinePreservationState;
+  readonly state: GeologicPreservationState;
   readonly weight: number;
   readonly physicallyCalibrated: false;
   readonly rationale: string;
@@ -108,7 +108,7 @@ export function resolveCausalProcessFieldProjection(
   if (!Number.isFinite(totalDuration) || totalDuration <= 0) throw new Error('Process-field projection requires a positive resolved history duration.');
 
   const kernels = geologicSpine.nodes.flatMap((node): readonly CausalProcessFieldProjectionKernelV1[] => {
-    const temporalWeight = normalizeDuration(rangeCenter(node.temporalContext.persistenceDurationRange), totalDuration);
+    const temporalWeight = normalizeDuration(rangeCenter(node.temporalContext.persistenceRange), totalDuration);
     const preservationWeight = preservationWeightFor(node.temporalContext.preservationState);
     const evidenceIds = canonicalText(node.evidenceIds);
     const radius = node.extent.angularRadiusDegrees;
@@ -388,8 +388,10 @@ function validateProjectionSourceLineage(
   for (const event of geologicSpine.events) {
     const epoch = epochById.get(event.epochId);
     if (!epoch) throw new Error(`Process-field projection spine event ${event.eventId} references unknown history epoch ${event.epochId}.`);
-    if (event.normalizedTimeRange.min < epoch.startTime || event.normalizedTimeRange.max > epoch.endTime) {
-      throw new Error(`Process-field projection spine event ${event.eventId} falls outside history epoch ${event.epochId}.`);
+    const hasEpochOverlap = event.normalizedTimeRange.max >= epoch.startTime
+      && event.normalizedTimeRange.min <= epoch.endTime;
+    if (!hasEpochOverlap) {
+      throw new Error(`Process-field projection spine event ${event.eventId} does not overlap history epoch ${event.epochId}.`);
     }
   }
 }
@@ -402,7 +404,7 @@ function normalizeDuration(value: number, totalDuration: number): number {
   return canonicalNumber(clamp(value / totalDuration, 0, 1));
 }
 
-function preservationWeightFor(state: GeologicSpinePreservationState): number {
+function preservationWeightFor(state: GeologicPreservationState): number {
   const weight = PRESERVATION_WEIGHT_BY_STATE.get(state);
   if (weight === undefined) throw new Error(`Unregistered D2 preservation state: ${state}.`);
   return weight;
