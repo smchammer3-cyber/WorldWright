@@ -289,7 +289,7 @@ describe('D2 spherical process-field projection CI harness', () => {
       spineContext,
     );
     if (!spineResolution.spine) throw new Error('D2 lineage rejection fixture did not produce a spine.');
-    expect(() => resolveCausalProcessFieldProjection(incompatible.history, spineResolution.spine)).toThrow(/unknown history epoch|outside history epoch/i);
+    expect(() => resolveCausalProcessFieldProjection(incompatible.history, spineResolution.spine)).toThrow(/unknown history epoch|does not overlap history epoch/i);
   });
 });
 
@@ -350,6 +350,10 @@ function inputForFixture(seed: string, fixture: RegimeHistoryResearchFixtureV1):
       evidenceIds: [],
     },
   ], {
+    initialConditionBundleHash: hashCausalPayload('WorldWright/test/d2-initial-condition-bundle/v1', {
+      fixtureId: fixture.fixtureId,
+      seed,
+    }),
     limitations: ['D2 controlled process-field projection input fixture.'],
   });
 }
