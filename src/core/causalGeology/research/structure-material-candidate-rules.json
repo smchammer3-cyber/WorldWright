@@ -1,0 +1,478 @@
+{
+  "schemaVersion": 1,
+  "ruleSetVersion": "M1B_STRUCTURE_MATERIAL_CANDIDATE_RULES_V1",
+  "scientificStatus": "PARTIAL",
+  "calibrationClass": "PROVISIONAL_NORMALIZED_RESEARCH_BOUNDARIES",
+  "resolverImplementationAuthorized": false,
+  "thresholdTuningFromLiveOutputAuthorized": false,
+  "physicalAuthorityAuthorized": false,
+  "rules": [
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.exhumed-mantle-transition-v1",
+      "targetProvinceClass": "EXHUMED_MANTLE_TRANSITION",
+      "researchStatus": "RESEARCH_REQUIRED",
+      "leadingEligibility": "FORBIDDEN",
+      "requiredAnyStructuralRoles": [
+        "CONTINENTAL_MARGIN",
+        "CONTINENTAL_SLOPE",
+        "TRANSITIONAL_CRUST"
+      ],
+      "requiredAllContextFlags": [
+        "ACTIVE_RIFT_CONTEXT",
+        "MAGMA_POOR_MARGIN_ORIENTATION_MISSING"
+      ],
+      "forbiddenContextFlags": [
+        "ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL",
+        "SURFACE_ONLY_EVIDENCE_PRESENT"
+      ],
+      "fieldConstraints": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "minInclusive": 0.25
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "minInclusive": 0.2
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "plumeInfluence",
+          "maxInclusive": 0.35
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "riftInfluence",
+          "minInclusive": 0.65
+        }
+      ],
+      "interiorConstraints": [
+        {
+          "schemaVersion": 1,
+          "signalId": "meltAndVolcanism",
+          "maxInclusive": 0.45
+        }
+      ],
+      "genericClaimRuleIds": [
+        "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+        "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1"
+      ],
+      "rationaleIds": [
+        "m1b.rationale.magma-poor-rift-transition"
+      ],
+      "limitations": [
+        "Oriented detachment and margin architecture are missing, so this class cannot lead."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.juvenile-continental-or-arc-crust-v1",
+      "targetProvinceClass": "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "leadingEligibility": "FORBIDDEN",
+      "requiredAnyStructuralRoles": [
+        "CONTINENTAL_MARGIN",
+        "VOLCANIC_ARC_SYSTEM"
+      ],
+      "requiredAllContextFlags": [
+        "ARC_BUILDING_SOURCE",
+        "VOLCANIC_ARC_CONTEXT"
+      ],
+      "forbiddenContextFlags": [
+        "ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL",
+        "SURFACE_ONLY_EVIDENCE_PRESENT"
+      ],
+      "fieldConstraints": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "accretionInfluence",
+          "minInclusive": 0.5
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "convergenceInfluence",
+          "minInclusive": 0.6
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "minInclusive": 0.55
+        }
+      ],
+      "interiorConstraints": [
+        {
+          "schemaVersion": 1,
+          "signalId": "meltAndVolcanism",
+          "minInclusive": 0.55
+        }
+      ],
+      "genericClaimRuleIds": [
+        "m1a.claim.arc-density-and-buoyancy-are-context-dependent-v1",
+        "m1a.claim.arc-juvenile-continental-affinity-v1"
+      ],
+      "rationaleIds": [
+        "m1b.rationale.arc-built-juvenile-crust"
+      ],
+      "limitations": [
+        "Arc crust remains compositionally and buoyantly variable and cannot lead from radial evidence alone."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.mixed-transitional-province-v1",
+      "targetProvinceClass": "MIXED_TRANSITIONAL_PROVINCE",
+      "researchStatus": "RESEARCH_REQUIRED",
+      "leadingEligibility": "FORBIDDEN",
+      "requiredAnyStructuralRoles": [
+        "CONTINENTAL_MARGIN",
+        "DROWNED_CONTINENTAL_FRAGMENT",
+        "TRANSITIONAL_CRUST"
+      ],
+      "requiredAllContextFlags": [
+        "MIXED_MARGIN_CONTEXT"
+      ],
+      "forbiddenContextFlags": [
+        "ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL",
+        "SURFACE_ONLY_EVIDENCE_PRESENT"
+      ],
+      "fieldConstraints": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "minInclusive": 0.25
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "minInclusive": 0.25
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "minInclusive": 0.45
+        }
+      ],
+      "interiorConstraints": [],
+      "genericClaimRuleIds": [
+        "m1a.claim.arc-juvenile-continental-affinity-v1",
+        "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+        "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1"
+      ],
+      "rationaleIds": [
+        "m1b.rationale.preserve-mixed-transition"
+      ],
+      "limitations": [
+        "Mixed transition is an ambiguity-preserving class and cannot lead before oriented geometry and material evidence exist."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.normal-oceanic-crust-v1",
+      "targetProvinceClass": "NORMAL_OCEANIC_CRUST",
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "leadingEligibility": "PROVISIONALLY_ELIGIBLE",
+      "requiredAnyStructuralRoles": [
+        "DEEP_OCEAN_BASIN",
+        "OCEANIC_RIDGE_SYSTEM"
+      ],
+      "requiredAllContextFlags": [
+        "OCEAN_BASIN_SOURCE"
+      ],
+      "forbiddenContextFlags": [
+        "ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL",
+        "CONTRADICTORY_DEEP_EVIDENCE",
+        "SURFACE_ONLY_EVIDENCE_PRESENT"
+      ],
+      "fieldConstraints": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "maxInclusive": 0.25
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "minInclusive": 0.65
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "plumeInfluence",
+          "maxInclusive": 0.5
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "minInclusive": 0.6
+        }
+      ],
+      "interiorConstraints": [
+        {
+          "schemaVersion": 1,
+          "signalId": "meltAndVolcanism",
+          "maxInclusive": 0.65
+        }
+      ],
+      "genericClaimRuleIds": [
+        "m1a.claim.layered-lithosphere-is-laterally-heterogeneous-v1",
+        "m1a.claim.normal-oceanic-crust-is-relatively-thin-and-mafic-v1"
+      ],
+      "rationaleIds": [
+        "m1b.rationale.normal-oceanic-affinity"
+      ],
+      "limitations": [
+        "Oceanic affinity does not determine water, depth, sea level, bathymetry, or ridge geometry."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.plume-thickened-mafic-province-v1",
+      "targetProvinceClass": "PLUME_THICKENED_MAFIC_PROVINCE",
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "leadingEligibility": "FORBIDDEN",
+      "requiredAnyStructuralRoles": [
+        "DEEP_OCEAN_BASIN",
+        "OCEANIC_RIDGE_SYSTEM",
+        "TRANSITIONAL_CRUST"
+      ],
+      "requiredAllContextFlags": [
+        "HIGH_MELT_OR_PLUME_CONTEXT"
+      ],
+      "forbiddenContextFlags": [
+        "ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL",
+        "SURFACE_ONLY_EVIDENCE_PRESENT"
+      ],
+      "fieldConstraints": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "minInclusive": 0.45
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "plumeInfluence",
+          "minInclusive": 0.65
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "minInclusive": 0.5
+        }
+      ],
+      "interiorConstraints": [
+        {
+          "schemaVersion": 1,
+          "signalId": "meltAndVolcanism",
+          "minInclusive": 0.7
+        }
+      ],
+      "genericClaimRuleIds": [
+        "m1a.claim.oceanic-plateaus-preserve-thick-oceanic-affinity-crust-v1",
+        "m1a.claim.volcanic-margins-can-build-thick-mafic-crust-v1"
+      ],
+      "rationaleIds": [
+        "m1b.rationale.high-melt-thick-mafic-alternative"
+      ],
+      "limitations": [
+        "High melt production does not uniquely establish plume origin, geometry, relief, or exposure."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.rift-thinned-continental-province-v1",
+      "targetProvinceClass": "RIFT_THINNED_CONTINENTAL_PROVINCE",
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "leadingEligibility": "FORBIDDEN",
+      "requiredAnyStructuralRoles": [
+        "CONTINENTAL_MARGIN",
+        "CONTINENTAL_SHELF",
+        "CONTINENTAL_SLOPE",
+        "DROWNED_CONTINENTAL_FRAGMENT",
+        "TRANSITIONAL_CRUST"
+      ],
+      "requiredAllContextFlags": [
+        "ACTIVE_RIFT_CONTEXT"
+      ],
+      "forbiddenContextFlags": [
+        "ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL",
+        "SURFACE_ONLY_EVIDENCE_PRESENT"
+      ],
+      "fieldConstraints": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "minInclusive": 0.45
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "minInclusive": 0.5
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "riftInfluence",
+          "minInclusive": 0.65
+        }
+      ],
+      "interiorConstraints": [
+        {
+          "schemaVersion": 1,
+          "signalId": "thermalBudget",
+          "minInclusive": 0.35
+        }
+      ],
+      "genericClaimRuleIds": [
+        "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+        "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1"
+      ],
+      "rationaleIds": [
+        "m1b.rationale.rift-thinned-continental-affinity"
+      ],
+      "limitations": [
+        "Radial rift influence does not establish margin-normal direction, final width, shoreline, or bathymetry."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.stable-continental-root-v1",
+      "targetProvinceClass": "STABLE_CONTINENTAL_ROOT",
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "leadingEligibility": "PROVISIONALLY_ELIGIBLE",
+      "requiredAnyStructuralRoles": [
+        "CONTINENTAL_INTERIOR",
+        "DROWNED_CONTINENTAL_FRAGMENT"
+      ],
+      "requiredAllContextFlags": [
+        "LOW_ACTIVE_DEFORMATION",
+        "PERSISTENT_CONTINENTAL_KERNEL"
+      ],
+      "forbiddenContextFlags": [
+        "ACTIVE_CONVERGENCE_CONTEXT",
+        "ACTIVE_RIFT_CONTEXT",
+        "ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL",
+        "CONTRADICTORY_DEEP_EVIDENCE",
+        "SURFACE_ONLY_EVIDENCE_PRESENT"
+      ],
+      "fieldConstraints": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "minInclusive": 0.65
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "persistenceSummary",
+          "minInclusive": 0.6
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "preservationSummary",
+          "minInclusive": 0.55
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "minInclusive": 0.6
+        }
+      ],
+      "interiorConstraints": [
+        {
+          "schemaVersion": 1,
+          "signalId": "meltAndVolcanism",
+          "maxInclusive": 0.45
+        },
+        {
+          "schemaVersion": 1,
+          "signalId": "thermalBudget",
+          "maxInclusive": 0.6
+        }
+      ],
+      "genericClaimRuleIds": [
+        "m1a.claim.continental-crust-varies-with-tectonic-province-v1",
+        "m1a.claim.inherited-lithosphere-controls-strength-and-grain-v1"
+      ],
+      "rationaleIds": [
+        "m1b.rationale.persistent-continental-root"
+      ],
+      "limitations": [
+        "Stable continental affinity does not imply exposure, land, flatness, present-day strength, or elevation."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.structure-material-unresolved-v1",
+      "targetProvinceClass": "STRUCTURE_MATERIAL_UNRESOLVED",
+      "researchStatus": "UNRESOLVED",
+      "leadingEligibility": "FORBIDDEN",
+      "requiredAnyStructuralRoles": [],
+      "requiredAllContextFlags": [],
+      "forbiddenContextFlags": [],
+      "fieldConstraints": [],
+      "interiorConstraints": [],
+      "genericClaimRuleIds": [],
+      "rationaleIds": [
+        "m1b.rationale.fail-closed-unresolved"
+      ],
+      "limitations": [
+        "The unresolved fallback carries no positive material evidence and no terrain permission."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.tectonically-thickened-crust-v1",
+      "targetProvinceClass": "TECTONICALLY_THICKENED_CRUST",
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "leadingEligibility": "PROVISIONALLY_ELIGIBLE",
+      "requiredAnyStructuralRoles": [
+        "CONTINENTAL_INTERIOR",
+        "CONTINENTAL_MARGIN",
+        "VOLCANIC_ARC_SYSTEM"
+      ],
+      "requiredAllContextFlags": [
+        "ACTIVE_CONVERGENCE_CONTEXT"
+      ],
+      "forbiddenContextFlags": [
+        "ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL",
+        "SURFACE_ONLY_EVIDENCE_PRESENT"
+      ],
+      "fieldConstraints": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "minInclusive": 0.5
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "convergenceInfluence",
+          "minInclusive": 0.65
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "minInclusive": 0.55
+        }
+      ],
+      "interiorConstraints": [
+        {
+          "schemaVersion": 1,
+          "signalId": "thermalBudget",
+          "minInclusive": 0.35
+        }
+      ],
+      "genericClaimRuleIds": [
+        "m1a.claim.layered-lithosphere-is-laterally-heterogeneous-v1",
+        "m1a.claim.tectonic-thickening-produces-thick-crustal-provinces-v1"
+      ],
+      "rationaleIds": [
+        "m1b.rationale.convergence-thickened-crust"
+      ],
+      "limitations": [
+        "Thickened crust does not authorize mountain height, plateau geometry, exposure, or erosion state."
+      ]
+    }
+  ],
+  "limitations": [
+    "Provisional normalized boundaries are not universal geophysical constants and cannot be tuned from live resolver output."
+  ]
+}
