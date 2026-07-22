@@ -12,8 +12,8 @@
     "weightRationale": "The USGS synthesis supports the broad convergence, subduction, melting, and volcanic-chain relation while leaving generated-world geometry unresolved.",
     "correlationGroupId": "subduction-and-arc-syntheses",
     "exceptions": [
-      "Not every convergent boundary produces the same volcanic expression.",
-      "C2A may create only an arc candidate and may not infer eruptions, elevation, hazards, or final terrain."
+      "C2A may create only an arc candidate and may not infer eruptions, elevation, hazards, or final terrain.",
+      "Not every convergent boundary produces the same volcanic expression."
     ],
     "evidenceStatus": "REVIEWED",
     "reviewer": "WorldWright C2A scientific implementation review",
@@ -75,9 +75,9 @@
     "weightRationale": "The cited drilling and seismic studies establish structurally variable margins and competing transition interpretations across several well-studied Earth systems.",
     "correlationGroupId": "rifted-margin-transition-observations",
     "exceptions": [
-      "Serpentinized or exhumed mantle is not mandatory at every rifted margin.",
       "A generated transition candidate may remain unresolved or ambiguous until later material and surface context exists.",
-      "C2A radial fields do not supply an oriented margin trace."
+      "C2A radial fields do not supply an oriented margin trace.",
+      "Serpentinized or exhumed mantle is not mandatory at every rifted margin."
     ],
     "evidenceStatus": "REVIEWED",
     "reviewer": "WorldWright C2A scientific implementation review",
@@ -155,8 +155,8 @@
     "weightRationale": "Global crustal variability and drilled rifted-margin transition zones support explicit competing hypotheses and bounded ambiguity.",
     "correlationGroupId": "rifted-margin-transition-observations",
     "exceptions": [
-      "Later material, thickness, buoyancy, sedimentary, or surface evidence may resolve an ambiguity.",
-      "C2A does not suppress an alternative solely because one radial field has the highest value."
+      "C2A does not suppress an alternative solely because one radial field has the highest value.",
+      "Later material, thickness, buoyancy, sedimentary, or surface evidence may resolve an ambiguity."
     ],
     "evidenceStatus": "REVIEWED",
     "reviewer": "WorldWright C2A scientific implementation review",
