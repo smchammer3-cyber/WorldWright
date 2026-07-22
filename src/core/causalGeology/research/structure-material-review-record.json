@@ -43,6 +43,23 @@
     },
     {
       "schemaVersion": 1,
+      "provinceClass": "MAGMATICALLY_THICKENED_MAFIC_PROVINCE",
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "disposition": "CONTRACT_CANDIDATE_ONLY",
+      "genericClaimRuleIds": [
+        "m1a.claim.oceanic-plateaus-preserve-thick-oceanic-affinity-crust-v1",
+        "m1a.claim.volcanic-margins-can-build-thick-mafic-crust-v1"
+      ],
+      "independentCorrelationGroupIds": [
+        "m1a.oceanic-plateau-thickening",
+        "m1a.volcanic-margin-magmatism"
+      ],
+      "limitations": [
+        "High melt production can have multiple causes; M1A does not require a deep mantle plume or prescribe relief."
+      ]
+    },
+    {
+      "schemaVersion": 1,
       "provinceClass": "MIXED_TRANSITIONAL_PROVINCE",
       "researchStatus": "RESEARCH_REQUIRED",
       "disposition": "RESEARCH_REQUIRED_BEFORE_RESOLVER",
@@ -76,23 +93,6 @@
       ],
       "limitations": [
         "Oceanic crustal affinity does not determine water, depth, sea level, bathymetry, age, or spreading geometry."
-      ]
-    },
-    {
-      "schemaVersion": 1,
-      "provinceClass": "PLUME_THICKENED_MAFIC_PROVINCE",
-      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
-      "disposition": "CONTRACT_CANDIDATE_ONLY",
-      "genericClaimRuleIds": [
-        "m1a.claim.oceanic-plateaus-preserve-thick-oceanic-affinity-crust-v1",
-        "m1a.claim.volcanic-margins-can-build-thick-mafic-crust-v1"
-      ],
-      "independentCorrelationGroupIds": [
-        "m1a.oceanic-plateau-thickening",
-        "m1a.volcanic-margin-magmatism"
-      ],
-      "limitations": [
-        "High melt production can have multiple causes; M1A does not require a deep mantle plume or prescribe relief."
       ]
     },
     {
