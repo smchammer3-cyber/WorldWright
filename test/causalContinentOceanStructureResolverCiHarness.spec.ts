@@ -89,7 +89,7 @@ describe('C2B detached structural-role resolver CI harness', () => {
         researchContext,
       });
       expect(interpretation).toEqual(replay);
-      expect(interpretation.status).toBe('PARTIAL');
+      expect(interpretation.scientificStatus).toBe('PARTIAL');
       expect(interpretation.authorityMode).toBe('CAUSAL_SHADOW');
       expect(interpretation.physicalGeneratorAuthority).toBe('LEGACY');
       expect(interpretation.interpretationMode).toBe('DETACHED_DIAGNOSTIC');
