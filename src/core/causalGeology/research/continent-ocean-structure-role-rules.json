@@ -1,0 +1,676 @@
+{
+  "schemaVersion": 1,
+  "ruleSetVersion": "C2A_CONTINENT_OCEAN_STRUCTURE_RULES_V1",
+  "roleRules": [
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.role.continental-interior",
+      "role": "CONTINENTAL_INTERIOR",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/continent-ocean-crustal-contrast-v1"
+      ],
+      "requiredFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.62,
+          "rationaleId": "c2.signal.continental-kernel-strong"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "persistenceSummary",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.4,
+          "rationaleId": "c2.signal.persistence-moderate"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.45,
+          "rationaleId": "c2.signal.projection-confidence-usable"
+        }
+      ],
+      "requiredSourceSignals": [
+        {
+          "schemaVersion": 1,
+          "sourceFamily": "CONTINENTAL_KERNEL",
+          "relation": "SOURCE_FAMILY_PRESENT",
+          "rationaleId": "c2.source.continental-kernel-present"
+        }
+      ],
+      "disqualifyingFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.8,
+          "rationaleId": "c2.disqualifier.ocean-basin-overwhelming"
+        }
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE"
+      ],
+      "geometryRequirement": "RADIAL_INFLUENCE_SUFFICIENT_FOR_CANDIDATE",
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "exceptions": [
+        "A continental-interior candidate may remain ambiguous where strong basin or transition evidence overlaps."
+      ],
+      "limitations": [
+        "The provisional normalized boundaries are not a universal crustal-thickness or composition calibration."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.role.continental-margin",
+      "role": "CONTINENTAL_MARGIN",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/margin-transition-variability-v1",
+        "structure/transition-ambiguity-v1"
+      ],
+      "requiredFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "relation": "BETWEEN_INCLUSIVE",
+          "minimum": 0.25,
+          "maximum": 0.8,
+          "rationaleId": "c2.signal.continental-affinity-transition"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "relation": "BETWEEN_INCLUSIVE",
+          "minimum": 0.15,
+          "maximum": 0.8,
+          "rationaleId": "c2.signal.basin-affinity-transition"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.4,
+          "rationaleId": "c2.signal.projection-confidence-margin"
+        }
+      ],
+      "requiredSourceSignals": [],
+      "disqualifyingFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "relation": "AT_OR_BELOW",
+          "maximum": 0.2,
+          "rationaleId": "c2.disqualifier.margin-low-confidence"
+        }
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES"
+      ],
+      "geometryRequirement": "ORIENTED_GEOMETRY_REQUIRED_FOR_LEADING_ROLE",
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "exceptions": [
+        "Rifted, convergent, accretionary, and transform margins may satisfy different subsets of supporting process fields."
+      ],
+      "limitations": [
+        "Radial Phase D influence fields permit a margin candidate but not a leading oriented margin trace."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.role.continental-shelf",
+      "role": "CONTINENTAL_SHELF",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/margin-transition-variability-v1",
+        "structure/shelf-slope-surface-context-v1"
+      ],
+      "requiredFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.35,
+          "rationaleId": "c2.signal.shelf-continental-affinity"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "relation": "BETWEEN_INCLUSIVE",
+          "minimum": 0.1,
+          "maximum": 0.65,
+          "rationaleId": "c2.signal.shelf-basin-transition"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.4,
+          "rationaleId": "c2.signal.shelf-projection-confidence"
+        }
+      ],
+      "requiredSourceSignals": [],
+      "disqualifyingFieldSignals": [],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "UNRESOLVED"
+      ],
+      "geometryRequirement": "MATERIAL_OR_SURFACE_CONTEXT_REQUIRED_FOR_LEADING_ROLE",
+      "evidenceStatus": "RESEARCH_REQUIRED",
+      "exceptions": [
+        "A shelf alternative may be retained for later material, sedimentary, sea-level, and bathymetric evaluation."
+      ],
+      "limitations": [
+        "C2A cannot make shelf a leading role because Phase D contains no water depth, sea level, sedimentary wedge, or surface morphology."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.role.continental-slope",
+      "role": "CONTINENTAL_SLOPE",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/margin-transition-variability-v1",
+        "structure/shelf-slope-surface-context-v1"
+      ],
+      "requiredFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "relation": "BETWEEN_INCLUSIVE",
+          "minimum": 0.2,
+          "maximum": 0.65,
+          "rationaleId": "c2.signal.slope-continental-transition"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.3,
+          "rationaleId": "c2.signal.slope-basin-affinity"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.4,
+          "rationaleId": "c2.signal.slope-projection-confidence"
+        }
+      ],
+      "requiredSourceSignals": [],
+      "disqualifyingFieldSignals": [],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "UNRESOLVED"
+      ],
+      "geometryRequirement": "MATERIAL_OR_SURFACE_CONTEXT_REQUIRED_FOR_LEADING_ROLE",
+      "evidenceStatus": "RESEARCH_REQUIRED",
+      "exceptions": [
+        "A slope alternative may be retained for later margin, material, sea-level, and bathymetric evaluation."
+      ],
+      "limitations": [
+        "C2A cannot make slope a leading role because Phase D contains no gradient, water depth, sedimentary, or surface morphology field."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.role.deep-ocean-basin",
+      "role": "DEEP_OCEAN_BASIN",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/continent-ocean-crustal-contrast-v1"
+      ],
+      "requiredFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "relation": "AT_OR_BELOW",
+          "maximum": 0.3,
+          "rationaleId": "c2.signal.deep-basin-low-continental-affinity"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.62,
+          "rationaleId": "c2.signal.deep-basin-strong"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.45,
+          "rationaleId": "c2.signal.deep-basin-confidence"
+        }
+      ],
+      "requiredSourceSignals": [
+        {
+          "schemaVersion": 1,
+          "sourceFamily": "OCEAN_BASIN",
+          "relation": "SOURCE_FAMILY_PRESENT",
+          "rationaleId": "c2.source.ocean-basin-present"
+        }
+      ],
+      "disqualifyingFieldSignals": [],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE"
+      ],
+      "geometryRequirement": "RADIAL_INFLUENCE_SUFFICIENT_FOR_CANDIDATE",
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "exceptions": [
+        "Oceanic plateaus, arcs, ridges, and transitional crust may prevent a deep-basin candidate from becoming leading."
+      ],
+      "limitations": [
+        "Deep-ocean-basin structural identity does not assert water, sea level, or depth."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.role.drowned-continental-fragment",
+      "role": "DROWNED_CONTINENTAL_FRAGMENT",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/drowned-continental-affinity-v1",
+        "structure/transition-ambiguity-v1"
+      ],
+      "requiredFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.45,
+          "rationaleId": "c2.signal.drowned-fragment-continental-affinity"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.3,
+          "rationaleId": "c2.signal.drowned-fragment-basin-context"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "preservationSummary",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.3,
+          "rationaleId": "c2.signal.drowned-fragment-preservation"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.35,
+          "rationaleId": "c2.signal.drowned-fragment-confidence"
+        }
+      ],
+      "requiredSourceSignals": [
+        {
+          "schemaVersion": 1,
+          "sourceFamily": "CONTINENTAL_KERNEL",
+          "relation": "SOURCE_FAMILY_PRESENT",
+          "rationaleId": "c2.source.drowned-fragment-kernel-present"
+        }
+      ],
+      "disqualifyingFieldSignals": [],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "UNRESOLVED"
+      ],
+      "geometryRequirement": "MATERIAL_OR_SURFACE_CONTEXT_REQUIRED_FOR_LEADING_ROLE",
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "exceptions": [
+        "Mixed continental and basin influence may instead represent transitional crust or an active margin."
+      ],
+      "limitations": [
+        "C2A preserves a drowned-fragment alternative but cannot establish submergence, buoyancy, crustal composition, or exposure."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.role.oceanic-ridge-system",
+      "role": "OCEANIC_RIDGE_SYSTEM",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/ridge-spreading-association-v1"
+      ],
+      "requiredFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.35,
+          "rationaleId": "c2.signal.ridge-ocean-context"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.4,
+          "rationaleId": "c2.signal.ridge-confidence"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "riftInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.55,
+          "rationaleId": "c2.signal.ridge-rift-strong"
+        }
+      ],
+      "requiredSourceSignals": [
+        {
+          "schemaVersion": 1,
+          "sourceFamily": "RIFT_SYSTEM",
+          "relation": "SOURCE_FAMILY_PRESENT",
+          "rationaleId": "c2.source.ridge-rift-present"
+        }
+      ],
+      "disqualifyingFieldSignals": [],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES"
+      ],
+      "geometryRequirement": "ORIENTED_GEOMETRY_REQUIRED_FOR_LEADING_ROLE",
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "exceptions": [
+        "Continental rifts and failed rifts may also produce strong radial rift influence."
+      ],
+      "limitations": [
+        "C2A may create only an oceanic-ridge candidate because Phase D does not encode an oriented spreading axis or segmentation."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.role.structurally-unresolved",
+      "role": "STRUCTURALLY_UNRESOLVED",
+      "version": 1,
+      "genericClaimRuleIds": [],
+      "requiredFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "relation": "AT_OR_BELOW",
+          "maximum": 0.3,
+          "rationaleId": "c2.signal.unresolved-low-confidence"
+        }
+      ],
+      "requiredSourceSignals": [],
+      "disqualifyingFieldSignals": [],
+      "allowedResolutionStatuses": [
+        "UNRESOLVED"
+      ],
+      "geometryRequirement": "RADIAL_INFLUENCE_SUFFICIENT_FOR_CANDIDATE",
+      "evidenceStatus": "PROVISIONAL",
+      "exceptions": [
+        "Contradictory high-support candidates may also require an unresolved result even when projection confidence is moderate."
+      ],
+      "limitations": [
+        "The low-confidence boundary is an internal fail-closed calibration rather than an external geological threshold."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.role.transitional-crust",
+      "role": "TRANSITIONAL_CRUST",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/margin-transition-variability-v1",
+        "structure/transition-ambiguity-v1"
+      ],
+      "requiredFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "relation": "BETWEEN_INCLUSIVE",
+          "minimum": 0.25,
+          "maximum": 0.7,
+          "rationaleId": "c2.signal.transition-continental-mixed"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "relation": "BETWEEN_INCLUSIVE",
+          "minimum": 0.25,
+          "maximum": 0.7,
+          "rationaleId": "c2.signal.transition-ocean-mixed"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.35,
+          "rationaleId": "c2.signal.transition-confidence"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "riftInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.2,
+          "rationaleId": "c2.signal.transition-extension-context"
+        }
+      ],
+      "requiredSourceSignals": [],
+      "disqualifyingFieldSignals": [],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES"
+      ],
+      "geometryRequirement": "RADIAL_INFLUENCE_SUFFICIENT_FOR_CANDIDATE",
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "exceptions": [
+        "Material and thickness evidence may later resolve a transition candidate toward continental, oceanic, or exhumed-mantle structure."
+      ],
+      "limitations": [
+        "C2A transitional crust is a bounded ambiguity class and not a solved crustal composition."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.role.volcanic-arc-system",
+      "role": "VOLCANIC_ARC_SYSTEM",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/arc-convergence-association-v1"
+      ],
+      "requiredFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "convergenceInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.55,
+          "rationaleId": "c2.signal.arc-convergence-strong"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "projectionConfidence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.4,
+          "rationaleId": "c2.signal.arc-confidence"
+        }
+      ],
+      "requiredSourceSignals": [
+        {
+          "schemaVersion": 1,
+          "sourceFamily": "CONVERGENCE_SYSTEM",
+          "relation": "SOURCE_FAMILY_PRESENT",
+          "rationaleId": "c2.source.arc-convergence-present"
+        }
+      ],
+      "disqualifyingFieldSignals": [],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES"
+      ],
+      "geometryRequirement": "ORIENTED_GEOMETRY_REQUIRED_FOR_LEADING_ROLE",
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "exceptions": [
+        "Convergence without the required spatial organization or melting context may not produce a volcanic arc."
+      ],
+      "limitations": [
+        "C2A may create only an arc candidate because Phase D does not encode subduction polarity, trench geometry, or an oriented volcanic chain."
+      ]
+    }
+  ],
+  "ghostRules": [
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.ghost.continental",
+      "risk": "CONTINENTAL_GHOST",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/continent-ocean-crustal-contrast-v1"
+      ],
+      "triggerFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.55,
+          "rationaleId": "c2.ghost.continental-field-without-source"
+        }
+      ],
+      "missingSourceFamilies": [
+        "CONTINENTAL_KERNEL"
+      ],
+      "recommendedActions": [
+        "SUPPRESS_UNSUPPORTED_CONTINENTAL_GHOST"
+      ],
+      "evidenceStatus": "PROVISIONAL",
+      "limitations": [
+        "The ghost rule suppresses an unsupported diagnostic candidate, not a causal source record or terrain field."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.ghost.drowned-fragment-confusion",
+      "risk": "DROWNED_FRAGMENT_CONFUSION",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/drowned-continental-affinity-v1",
+        "structure/transition-ambiguity-v1"
+      ],
+      "triggerFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.4,
+          "rationaleId": "c2.ghost.drowned-continental-mixed"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.3,
+          "rationaleId": "c2.ghost.drowned-ocean-mixed"
+        }
+      ],
+      "missingSourceFamilies": [],
+      "recommendedActions": [
+        "DEFER_TO_STRUCTURE_MATERIAL_GENESIS",
+        "PRESERVE_DROWNED_FRAGMENT_ALTERNATIVE"
+      ],
+      "evidenceStatus": "PROVISIONAL",
+      "limitations": [
+        "Mixed radial fields cannot distinguish drowned continental affinity from transitional crust without later material and surface context."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.ghost.oceanic",
+      "risk": "OCEANIC_GHOST",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/continent-ocean-crustal-contrast-v1"
+      ],
+      "triggerFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.55,
+          "rationaleId": "c2.ghost.ocean-field-without-source"
+        }
+      ],
+      "missingSourceFamilies": [
+        "OCEAN_BASIN"
+      ],
+      "recommendedActions": [
+        "SUPPRESS_UNSUPPORTED_OCEANIC_GHOST"
+      ],
+      "evidenceStatus": "PROVISIONAL",
+      "limitations": [
+        "The ghost rule suppresses an unsupported diagnostic candidate, not a causal source record or physical water field."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.ghost.ridge-arc-confusion",
+      "risk": "RIDGE_ARC_CONFUSION",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/arc-convergence-association-v1",
+        "structure/ridge-spreading-association-v1"
+      ],
+      "triggerFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "convergenceInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.35,
+          "rationaleId": "c2.ghost.ridge-arc-convergence"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "riftInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.35,
+          "rationaleId": "c2.ghost.ridge-arc-rift"
+        }
+      ],
+      "missingSourceFamilies": [],
+      "recommendedActions": [
+        "DEFER_TO_STRUCTURE_MATERIAL_GENESIS"
+      ],
+      "evidenceStatus": "PROVISIONAL",
+      "limitations": [
+        "Radial overlap cannot reconstruct ridge or arc orientation, polarity, segmentation, or chronology."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "c2.ghost.shelf",
+      "risk": "SHELF_GHOST",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "structure/shelf-slope-surface-context-v1"
+      ],
+      "triggerFieldSignals": [
+        {
+          "schemaVersion": 1,
+          "fieldId": "continentalKernelInfluence",
+          "relation": "AT_OR_ABOVE",
+          "minimum": 0.35,
+          "rationaleId": "c2.ghost.shelf-continental-affinity"
+        },
+        {
+          "schemaVersion": 1,
+          "fieldId": "oceanBasinInfluence",
+          "relation": "BETWEEN_INCLUSIVE",
+          "minimum": 0.15,
+          "maximum": 0.65,
+          "rationaleId": "c2.ghost.shelf-basin-transition"
+        }
+      ],
+      "missingSourceFamilies": [],
+      "recommendedActions": [
+        "DEFER_TO_STRUCTURE_MATERIAL_GENESIS",
+        "SUPPRESS_UNSUPPORTED_SHELF_GHOST"
+      ],
+      "evidenceStatus": "PROVISIONAL",
+      "limitations": [
+        "C2A cannot distinguish shelf from other margin transitions without sea-level, bathymetric, sedimentary, and surface context."
+      ]
+    }
+  ]
+}
