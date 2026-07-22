@@ -115,6 +115,29 @@ physical-output object keys remain absent recursively
 
 The live corpus does not require a preferred role frequency. A scientifically honest unresolved or ambiguous result is acceptable when the current radial evidence cannot justify more.
 
+## Live-route anti-collapse policy
+
+Passing the fixed corpus is necessary but does not alone prove that the production wrapper is useful across live upstream records. C3 therefore evaluates the generated live report against a separate versioned policy:
+
+```text
+minimum live cases: 7
+minimum unique interpretation hashes: 7
+minimum fixtures with an affirmative candidate: 2
+minimum affirmative role classes: 1
+minimum leading regions: 1
+minimum unresolved regions: 1
+specific role-frequency target: forbidden
+specific ghost-frequency target: forbidden
+threshold retuning from live output: forbidden
+```
+
+This prevents two opposite forms of false success:
+
+- a universal unresolved sink that never interprets any affirmative structure;
+- universal forced classification that erases uncertainty.
+
+The policy does not require a deep-ocean basin, ridge, arc, shelf, ghost risk, or any preferred percentage. Observed live distributions remain diagnostics and may not be used to retune C2A thresholds or weaken the fixed corpus.
+
 ## Query-resolution independence
 
 C3 does not claim that Phase C owns a final global structural partition. C2B interprets caller-supplied spherical regions.
@@ -130,15 +153,9 @@ This is query-resolution independence, not a claim that a final physical region 
 
 ## Role traceability and ambiguity
 
-Every structural candidate carries:
+Every structural candidate carries registered process-field IDs, validated source-node IDs where its rule uses source families, rule and signal rationale IDs, and a normalized support range.
 
-```text
-registered process-field IDs
-validated source-node IDs where the rule uses source families
-reviewed generic-claim evidence IDs
-rule and signal rationale IDs
-normalized support range
-```
+Every affirmative structural candidate also carries reviewed generic-claim evidence IDs. `STRUCTURALLY_UNRESOLVED` deliberately carries no positive generic-claim evidence; it instead records explicit fail-closed rationale and source lineage so uncertainty is not disguised as an affirmative scientific claim.
 
 A `SINGLE_LEADING_CANDIDATE` must name one of its candidates and may currently lead only when the C2A rule is radial-safe, non-research-required, unambiguous, and ghost-free. In practice, only controlled `CONTINENTAL_INTERIOR` or `DEEP_OCEAN_BASIN` candidates may lead.
 
@@ -261,10 +278,11 @@ M1 must represent alternative crust/material provinces, buoyancy or thickness te
 
 ```text
 docs/implementation/phase-c/c3-phase-c-completion-readiness.json
+docs/implementation/phase-c/c3-live-coverage-policy.json
 artifacts/c3-phase-c-completion/c3-completion-report.json
 artifacts/c3-phase-c-completion/cases/*.json
 ```
 
 ## Next bounded scope
 
-After the exact C3 head passes every inherited gate, the unchanged fixed corpus, the live end-to-end completion gate, full tests, diagnostics, snapshot canary, and full-globe review, begin M1 detached structure/material contracts and source-backed research. Do not bundle a material resolver, `structureMaterialCause`, terrain permissions with physical effect, or ordinary Generate wiring into C3.
+After the exact C3 head passes every inherited gate, the unchanged fixed corpus, the live end-to-end completion gate, the anti-collapse policy, full tests, diagnostics, snapshot canary, and full-globe review, begin M1 detached structure/material contracts and source-backed research. Do not bundle a material resolver, `structureMaterialCause`, terrain permissions with physical effect, or ordinary Generate wiring into C3.
