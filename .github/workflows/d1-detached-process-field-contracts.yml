@@ -1,0 +1,66 @@
+name: D1 Detached Process-Field Contract Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d1-detached-process-field-contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detached-contracts:
+    name: Validate detached process-field contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run D1 contract and authority tests
+        run: |
+          mkdir -p artifacts/ci-logs artifacts/d1-detached-process-field-contracts
+          set -o pipefail
+          npx vitest run test/causalProcessFieldProjectionContracts.spec.ts test/causalProcessFieldProjectionContractArtifact.spec.ts 2>&1 | tee artifacts/ci-logs/d1-detached-process-field-contracts.log
+          cp docs/implementation/phase-d/d1-detached-process-field-contract.json artifacts/d1-detached-process-field-contracts/
+          cp docs/implementation/PHASE_D1_DETACHED_PROCESS_FIELD_CONTRACTS_STATUS.md artifacts/d1-detached-process-field-contracts/
+
+      - name: Summarize D1 gate
+        if: always()
+        run: |
+          {
+            echo "## Phase D1 detached process-field contracts"
+            echo "- Authority mode: \`CAUSAL_SHADOW\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Writes: \`diagnostics only\`"
+            echo "- Query model: \`CONTINUOUS_SPHERICAL_KERNEL_SET_V1\`"
+            echo "- Scientific status: \`PARTIAL\`"
+            echo "- Physical or visible output change: \`none\`"
+            echo "- A2 candidate authority: \`not implemented\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload D1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-detached-process-field-contracts
+          path: |
+            artifacts/d1-detached-process-field-contracts/
+            artifacts/ci-logs/d1-detached-process-field-contracts.log
+          if-no-files-found: warn
+          retention-days: 30
