@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "bundleVersion": "C2A_CONTINENT_OCEAN_STRUCTURE_RESEARCH_V1",
+  "status": "CONTINENT_OCEAN_STRUCTURE_RESEARCH_PACKAGE_REVIEWED",
+  "reviewDate": "2026-07-21",
+  "reviewer": "WorldWright C2A evidence and authority audit",
+  "scope": "Reviewed broad structural associations, primary-source limitations, explicit ambiguity, controlled provisional normalized thresholds, negative ghost cases, an approved artificial exception, withheld holdouts, and the detached authority boundary for a future C2B resolver.",
+  "reviewedAssociationRuleIds": [
+    "structure/ambiguity-preservation-v1",
+    "structure/continental-interior-association-v1",
+    "structure/deep-ocean-basin-association-v1",
+    "structure/drowned-fragment-association-v1",
+    "structure/margin-shelf-slope-association-v1",
+    "structure/ridge-association-and-orientation-limit-v1",
+    "structure/volcanic-arc-association-and-orientation-limit-v1"
+  ],
+  "provisionalThresholdRuleIds": [
+    "structure/ghost-risk-provisional-thresholds-v1",
+    "structure/provisional-normalized-role-thresholds-v1"
+  ],
+  "completeEligibleRuleIds": [
+    "structure/authority-firewall-v1"
+  ],
+  "partialOnlyRuleIds": [
+    "structure/ambiguity-preservation-v1",
+    "structure/continental-interior-association-v1",
+    "structure/deep-ocean-basin-association-v1",
+    "structure/drowned-fragment-association-v1",
+    "structure/ghost-risk-provisional-thresholds-v1",
+    "structure/margin-shelf-slope-association-v1",
+    "structure/provisional-normalized-role-thresholds-v1",
+    "structure/ridge-association-and-orientation-limit-v1",
+    "structure/volcanic-arc-association-and-orientation-limit-v1"
+  ],
+  "detachedResolverImplementationAuthorized": true,
+  "structuralRoleAuthorityAuthorized": false,
+  "physicalOutputAuthorized": false,
+  "implementationAuthorizationBasis": "C2B may implement a deterministic detached diagnostic resolver against the committed fixtures and rules while preserving PARTIAL status, withheld holdouts, explicit ambiguity, radial-geometry limitations, diagnostics-only writes, and LEGACY physical authority."
+}
