@@ -1,0 +1,165 @@
+[
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/arc-convergence-association-v1",
+    "domain": "convergence-subduction-and-volcanic-arc-association",
+    "version": 1,
+    "sourceIds": [
+      "usgs-subduction-zone-science-2020"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Convergent and subduction systems may support chains of volcanic centers and arc-scale structural identities, but an arc requires spatial organization and polarity that radial convergence influence alone does not provide.",
+    "weightRationale": "The USGS synthesis supports the broad convergence, subduction, melting, and volcanic-chain relation while leaving generated-world geometry unresolved.",
+    "correlationGroupId": "subduction-and-arc-syntheses",
+    "exceptions": [
+      "Not every convergent boundary produces the same volcanic expression.",
+      "C2A may create only an arc candidate and may not infer eruptions, elevation, hazards, or final terrain."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A scientific implementation review",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/continent-ocean-crustal-contrast-v1",
+    "domain": "broad-continental-oceanic-crustal-endmember-contrast",
+    "version": 1,
+    "sourceIds": [
+      "mooney-2007-global-crust"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Continental and deep-ocean crustal systems occupy broadly different structural endmembers, while anomalous oceanic regions and highly extended continental regions create important overlap and transition cases.",
+    "weightRationale": "The global synthesis supports distinct broad endmembers but explicitly documents variable margins and anomalous oceanic structure, so C2A must preserve ambiguity rather than use one hard universal threshold.",
+    "correlationGroupId": "global-crustal-structure-syntheses",
+    "exceptions": [
+      "Continental structural identity does not imply exposed land.",
+      "Ocean-basin structural identity does not imply final water, sea level, or depth.",
+      "Ridges, trenches, volcanic islands, plateaus, arcs, and extended crust may depart from endmember expectations."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A scientific implementation review",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/drowned-continental-affinity-v1",
+    "domain": "submerged-continental-affinity-and-fragment-preservation",
+    "version": 1,
+    "sourceIds": [
+      "mortimer-et-al-2017-zealandia"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "A region may retain continental crustal and geological affinity while being predominantly submerged, so continental structural candidates must remain independent of final land and water state.",
+    "weightRationale": "Zealandia demonstrates that large-scale continental identity and submergence can coexist, supporting drowned-fragment alternatives without calibrating a universal field threshold.",
+    "correlationGroupId": "submerged-continental-affinity-observations",
+    "exceptions": [
+      "A mixed continental-ocean influence signal does not prove a drowned fragment without material and broader structural context.",
+      "C2A does not determine exposure, isostatic balance, shoreline, or water depth."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A scientific implementation review",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/margin-transition-variability-v1",
+    "domain": "rifted-margin-and-continent-ocean-transition-variability",
+    "version": 1,
+    "sourceIds": [
+      "iodp-367-368-scs-rifted-margin-2016",
+      "krawczyk-et-al-1996-iberia-detachment",
+      "schlee-klitgord-1986-atlantic-margin"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Continental margins and continent-ocean transitions may include stretched continental crust, rifted basement, detachment systems, exhumed or serpentinized mantle, sedimented shelf-slope-rise structure, and multiple uncertain transition units rather than one universal boundary.",
+    "weightRationale": "The cited drilling and seismic studies establish structurally variable margins and competing transition interpretations across several well-studied Earth systems.",
+    "correlationGroupId": "rifted-margin-transition-observations",
+    "exceptions": [
+      "Serpentinized or exhumed mantle is not mandatory at every rifted margin.",
+      "A generated transition candidate may remain unresolved or ambiguous until later material and surface context exists.",
+      "C2A radial fields do not supply an oriented margin trace."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A scientific implementation review",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/no-surface-authority-v1",
+    "domain": "continent-ocean-structural-authority-firewall",
+    "version": 1,
+    "sourceIds": [
+      "worldwright-c2a-structural-scope-v1"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "C2A and C2B may create only detached structural candidates, ambiguity, ghost risk, suppression recommendations, provenance, evidence, contradictions, and limitations. They may not create land, water, sea level, bathymetry, shoreline, terrain, material, rendering, or structural-role authority.",
+    "weightRationale": "This internal rule preserves the causal boundary between structural interpretation and later material, landform, terrain, and authority phases.",
+    "correlationGroupId": "worldwright-c2a-structural-scope",
+    "exceptions": [],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A architecture and authority review",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/ridge-spreading-association-v1",
+    "domain": "spreading-boundaries-and-oceanic-ridge-systems",
+    "version": 1,
+    "sourceIds": [
+      "schouten-et-al-1985-mid-ocean-ridges"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Spreading boundaries may support segmented mid-ocean-ridge and oceanic-crust-forming systems whose geometry and expression depend on spatial organization and spreading conditions.",
+    "weightRationale": "The ridge study supports the broad spreading and ridge-volcanism relation while showing segmentation and rate dependence that a radial rift field cannot uniquely reconstruct.",
+    "correlationGroupId": "ridge-and-spreading-observations",
+    "exceptions": [
+      "A rift-influence maximum is not an oriented ridge axis.",
+      "C2A does not infer crustal production rate, elevation, volcanism, or bathymetry."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A scientific implementation review",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/shelf-slope-surface-context-v1",
+    "domain": "shelf-slope-rise-context-dependence",
+    "version": 1,
+    "sourceIds": [
+      "schlee-klitgord-1986-atlantic-margin"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Shelf, slope, and rise interpretations depend on margin structure together with sedimentary, surface, bathymetric, and sea-level context, so Phase D process fields alone are insufficient for a leading shelf or slope role.",
+    "weightRationale": "The Atlantic-margin synthesis relates shelf, slope, rise, rifted basement, sedimentary construction, erosion, and sea-level history rather than treating shelf or slope as a deep-structure field threshold.",
+    "correlationGroupId": "continental-margin-structure-observations",
+    "exceptions": [
+      "C2A may preserve shelf or slope as an ambiguous candidate for later material and surface evaluation.",
+      "No C2A shelf or slope rule may claim water depth, shoreline, or final bathymetry."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A scientific implementation review",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/transition-ambiguity-v1",
+    "domain": "mixed-continental-oceanic-transition-and-ambiguity",
+    "version": 1,
+    "sourceIds": [
+      "iodp-367-368-scs-rifted-margin-2016",
+      "krawczyk-et-al-1996-iberia-detachment",
+      "mooney-2007-global-crust"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "When continental-affinity, basin, rift, transform, or preservation signals overlap, the structurally honest result may be a transitional or unresolved candidate set rather than a forced continent or ocean decision.",
+    "weightRationale": "Global crustal variability and drilled rifted-margin transition zones support explicit competing hypotheses and bounded ambiguity.",
+    "correlationGroupId": "rifted-margin-transition-observations",
+    "exceptions": [
+      "Later material, thickness, buoyancy, sedimentary, or surface evidence may resolve an ambiguity.",
+      "C2A does not suppress an alternative solely because one radial field has the highest value."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A scientific implementation review",
+    "reviewDate": "2026-07-21"
+  }
+]
