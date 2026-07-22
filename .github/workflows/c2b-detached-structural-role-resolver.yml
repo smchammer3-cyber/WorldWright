@@ -1,0 +1,71 @@
+name: C2B Detached Structural-Role Resolver Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c2b-detached-structural-role-resolver-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detached-structural-role-resolver:
+    name: Validate complete C2B resolver corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CAUSAL_CONTINENT_OCEAN_C2B_CI_OUT: artifacts/c2b-structural-role-resolver-gate
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run C2B fixture, projection, artifact, and authority gates
+        run: |
+          mkdir -p artifacts/ci-logs artifacts/c2b-structural-role-resolver-gate
+          set -o pipefail
+          npx vitest run test/causalContinentOceanStructureResolverCiHarness.spec.ts test/causalContinentOceanStructureC2BArtifact.spec.ts 2>&1 | tee artifacts/ci-logs/c2b-structural-role-resolver.log
+          cp docs/implementation/phase-c/c2b-detached-structural-role-resolver.json artifacts/c2b-structural-role-resolver-gate/
+          cp docs/implementation/PHASE_C2B_DETACHED_STRUCTURAL_ROLE_RESOLVER_STATUS.md artifacts/c2b-structural-role-resolver-gate/
+
+      - name: Summarize C2B gate
+        if: always()
+        run: |
+          {
+            echo "## Phase C2B detached structural-role resolver"
+            echo "- Fixtures: \`16\`"
+            echo "- Positive / threshold / negative: \`4 / 7 / 2\`"
+            echo "- Approved exception / withheld holdout: \`1 / 2\`"
+            echo "- Runtime calibration inputs: \`C2A rules only; fixtures excluded\`"
+            echo "- Scientific status: \`PARTIAL\`"
+            echo "- Authority mode: \`CAUSAL_SHADOW\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Writes: \`diagnostics only\`"
+            echo "- structuralRoleAuthority: \`forbidden\`"
+            echo "- Physical or visible output change: \`none\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload C2B artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c2b-structural-role-resolver-gate
+          path: |
+            artifacts/c2b-structural-role-resolver-gate/
+            artifacts/ci-logs/c2b-structural-role-resolver.log
+          if-no-files-found: warn
+          retention-days: 30
