@@ -199,6 +199,7 @@ export function resolveContinentOceanStructureInterpretation(
       'Continental and oceanic structural candidates do not determine land, water, sea level, bathymetry, material, or terrain.',
       'Normalized C2A field boundaries remain provisional software calibration rather than universal geophysical thresholds.',
       'Radial Phase D fields do not independently reconstruct oriented margins, ridges, arcs, trenches, sutures, transforms, or spreading direction.',
+      'Shelf and slope candidates require mixed continental-kernel and ocean-basin source provenance and no active tectonic influence.',
       'Shelf, slope, and drowned-fragment alternatives require later material or surface context before any leading interpretation.',
     ]),
   });
@@ -290,7 +291,7 @@ export function resolveContinentOceanStructuralRegion(
     ? context.ruleSet.roleRules
       .filter((rule) => rule.role !== 'STRUCTURALLY_UNRESOLVED')
       .filter((rule) => roleRuleMatches(rule, fieldValues, sourceFamilies))
-      .filter((rule) => materialContextCandidateAllowed(rule, fieldValues))
+      .filter((rule) => materialContextCandidateAllowed(rule, fieldValues, sourceFamilies))
       .map((rule) => createRoleCandidate(rule, fieldValues, evidence.sourceNodes))
     : [];
 
@@ -442,9 +443,11 @@ function ghostRuleMatches(
 function materialContextCandidateAllowed(
   rule: ContinentOceanStructureRoleRuleV1,
   fields: Readonly<Record<CausalProcessFieldProjectionIdV1, number>>,
+  sourceFamilies: ReadonlySet<GeologicSpineNodeFamily>,
 ): boolean {
   if (!MATERIAL_CONTEXT_ROLES.has(rule.role)) return true;
-  return ACTIVE_TECTONIC_FIELDS.every((fieldId) => fields[fieldId] === 0);
+  const hasMixedCrustalProvenance = sourceFamilies.has('CONTINENTAL_KERNEL') && sourceFamilies.has('OCEAN_BASIN');
+  return hasMixedCrustalProvenance && ACTIVE_TECTONIC_FIELDS.every((fieldId) => fields[fieldId] === 0);
 }
 
 function fieldSignalMatches(signal: ContinentOceanStructureFieldSignalV1, value: number): boolean {
