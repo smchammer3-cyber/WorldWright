@@ -172,37 +172,7 @@ export function evaluateCausalProcessFieldProjection(
   validateCausalProcessFieldProjectionSet(projection);
   validateSphericalAnchor(anchor);
   const canonicalAnchor = createSphericalAnchor(anchor.latitudeDegrees, anchor.longitudeDegrees);
-  const values = QUERY_FIELD_IDS.map((fieldId): CausalProcessFieldProjectionSampleValueV1 => {
-    let dominantKernelId: string | undefined;
-    let dominantValue = 0;
-    let contributingKernelCount = 0;
-    for (const kernel of projection.kernels) {
-      if (kernel.fieldId !== fieldId) continue;
-      const distanceDegrees = sphericalAngularDistanceDegrees(canonicalAnchor, kernel.anchor);
-      if (distanceDegrees >= kernel.angularRadiusDegrees) continue;
-      const normalizedDistance = distanceDegrees / kernel.angularRadiusDegrees;
-      const falloff = 0.5 * (1 + Math.cos(Math.PI * normalizedDistance));
-      const contribution = canonicalNumber(
-        kernel.peakValue * kernel.temporalWeight * kernel.preservationWeight * falloff,
-      );
-      if (contribution <= 0) continue;
-      contributingKernelCount += 1;
-      if (
-        contribution > dominantValue
-        || (contribution === dominantValue && dominantKernelId !== undefined && kernel.kernelId < dominantKernelId)
-        || (contribution === dominantValue && dominantKernelId === undefined)
-      ) {
-        dominantValue = contribution;
-        dominantKernelId = kernel.kernelId;
-      }
-    }
-    return {
-      fieldId,
-      value: dominantValue,
-      ...(dominantKernelId ? { dominantKernelId } : {}),
-      contributingKernelCount,
-    };
-  });
+  const values = evaluateProjectionValues(projection, canonicalAnchor);
   const payload = {
     schemaVersion: 1 as const,
     evaluatorVersion: 1 as const,
@@ -247,11 +217,11 @@ export function sampleCausalProcessFieldProjectionDiagnosticGrid(
     const latitudeDegrees = 90 - ((y + 0.5) * 180) / height;
     for (let x = 0; x < width; x += 1) {
       const longitudeDegrees = -180 + ((x + 0.5) * 360) / width;
-      const query = evaluateCausalProcessFieldProjection(
+      const values = evaluateProjectionValues(
         projection,
         createSphericalAnchor(latitudeDegrees, longitudeDegrees),
       );
-      for (const sample of query.values) mutableValues[sample.fieldId].push(sample.value);
+      for (const sample of values) mutableValues[sample.fieldId].push(sample.value);
     }
   }
   const valuesByField = Object.fromEntries(QUERY_FIELD_IDS.map((fieldId) => [
@@ -347,6 +317,47 @@ export function validateCausalProcessFieldProjectionDiagnosticGrid(
 export function sphericalAngularDistanceDegrees(a: SphericalAnchorV1, b: SphericalAnchorV1): number {
   validateSphericalAnchor(a);
   validateSphericalAnchor(b);
+  return sphericalAngularDistanceDegreesUnchecked(a, b);
+}
+
+function evaluateProjectionValues(
+  projection: CausalProcessFieldProjectionSetV1,
+  anchor: SphericalAnchorV1,
+): readonly CausalProcessFieldProjectionSampleValueV1[] {
+  return QUERY_FIELD_IDS.map((fieldId): CausalProcessFieldProjectionSampleValueV1 => {
+    let dominantKernelId: string | undefined;
+    let dominantValue = 0;
+    let contributingKernelCount = 0;
+    for (const kernel of projection.kernels) {
+      if (kernel.fieldId !== fieldId) continue;
+      const distanceDegrees = sphericalAngularDistanceDegreesUnchecked(anchor, kernel.anchor);
+      if (distanceDegrees >= kernel.angularRadiusDegrees) continue;
+      const normalizedDistance = distanceDegrees / kernel.angularRadiusDegrees;
+      const falloff = 0.5 * (1 + Math.cos(Math.PI * normalizedDistance));
+      const contribution = canonicalNumber(
+        kernel.peakValue * kernel.temporalWeight * kernel.preservationWeight * falloff,
+      );
+      if (contribution <= 0) continue;
+      contributingKernelCount += 1;
+      if (
+        contribution > dominantValue
+        || (contribution === dominantValue && dominantKernelId !== undefined && kernel.kernelId < dominantKernelId)
+        || (contribution === dominantValue && dominantKernelId === undefined)
+      ) {
+        dominantValue = contribution;
+        dominantKernelId = kernel.kernelId;
+      }
+    }
+    return {
+      fieldId,
+      value: dominantValue,
+      ...(dominantKernelId ? { dominantKernelId } : {}),
+      contributingKernelCount,
+    };
+  });
+}
+
+function sphericalAngularDistanceDegreesUnchecked(a: SphericalAnchorV1, b: SphericalAnchorV1): number {
   const latitudeA = degreesToRadians(a.latitudeDegrees);
   const latitudeB = degreesToRadians(b.latitudeDegrees);
   const longitudeDelta = degreesToRadians(a.longitudeDegrees - b.longitudeDegrees);
