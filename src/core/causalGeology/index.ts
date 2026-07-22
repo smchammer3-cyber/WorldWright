@@ -28,6 +28,7 @@ export * from './geologicSpineResearchContracts';
 export * from './geologicSpineResolver';
 export * from './processFieldProjection';
 export * from './processFieldProjectionResolver';
+export * from './continentOceanStructure';
 export * from './shadowAudit';
 export * from './shadowThresholdCoverage';
 export * from './shadowArchetypeCoverage';
