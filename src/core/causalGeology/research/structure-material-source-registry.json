@@ -1,0 +1,190 @@
+[
+  {
+    "schemaVersion": 1,
+    "sourceId": "m1a.source.audet-burgmann-2011-tectonic-inheritance",
+    "sourceType": "peer-reviewed journal article",
+    "citation": "Audet, P., and R. Burgmann (2011), Dominant role of tectonic inheritance in supercontinent cycles, Nature Geoscience, 4, 184-187, doi:10.1038/ngeo1080.",
+    "title": "Dominant role of tectonic inheritance in supercontinent cycles",
+    "authorsOrInstitution": "Pascal Audet and Roland Burgmann",
+    "publicationYear": 2011,
+    "domain": "lithospheric strength, anisotropy, and tectonic inheritance",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "m1a.lithosphere-heterogeneity",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "Earth continental observations do not directly calibrate normalized generated-world resistance values."
+    ],
+    "contentFingerprint": "doi:10.1038/ngeo1080"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "m1a.source.christensen-mooney-1995-continental-crust",
+    "sourceType": "peer-reviewed global synthesis",
+    "citation": "Christensen, N. I., and W. D. Mooney (1995), Seismic velocity structure and composition of the continental crust: A global view, Journal of Geophysical Research: Solid Earth, 100(B6), 9761-9788, doi:10.1029/95JB00259.",
+    "title": "Seismic velocity structure and composition of the continental crust: A global view",
+    "authorsOrInstitution": "Nikolas I. Christensen and Walter D. Mooney",
+    "publicationYear": 1995,
+    "domain": "continental crustal thickness, composition, density, and anisotropy",
+    "qualityClass": "REVIEW_OR_SYNTHESIS",
+    "correlationGroupId": "m1a.continental-crust-global",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "Global Earth averages cannot be treated as universal planetary constants or direct M1A thresholds."
+    ],
+    "contentFingerprint": "doi:10.1029/95JB00259"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "m1a.source.gazel-et-al-2015-oceanic-arcs",
+    "sourceType": "peer-reviewed journal article",
+    "citation": "Gazel, E., J. L. Hayes, K. Hoernle, et al. (2015), Continental crust generated in oceanic arcs, Nature Geoscience, 8, 321-327, doi:10.1038/ngeo2392.",
+    "title": "Continental crust generated in oceanic arcs",
+    "authorsOrInstitution": "Esteban Gazel and coauthors",
+    "publicationYear": 2015,
+    "domain": "juvenile continental crust and arc composition",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "m1a.arc-composition",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "The documented Central American and global arc comparisons do not make every volcanic arc continental-affinity crust."
+    ],
+    "contentFingerprint": "doi:10.1038/ngeo2392"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "m1a.source.gouiza-naliboff-2021-rift-inheritance",
+    "sourceType": "peer-reviewed numerical geodynamics article",
+    "citation": "Gouiza, M., and J. Naliboff (2021), Rheological inheritance controls the formation of segmented rifted margins in cratonic lithosphere, Nature Communications, 12, 4653, doi:10.1038/s41467-021-24945-5.",
+    "title": "Rheological inheritance controls the formation of segmented rifted margins in cratonic lithosphere",
+    "authorsOrInstitution": "M. Gouiza and J. Naliboff",
+    "publicationYear": 2021,
+    "domain": "rift segmentation, rheological inheritance, and crustal thinning",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "m1a.rift-inheritance",
+    "licenseOrUsageNote": "Open-access bibliographic metadata and paraphrased scientific claims only.",
+    "limitations": [
+      "Numerical rift experiments support candidate tendencies but do not provide universal generated-world orientation or threshold calibration."
+    ],
+    "contentFingerprint": "doi:10.1038/s41467-021-24945-5"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "m1a.source.hussong-et-al-1979-oceanic-plateaus",
+    "sourceType": "peer-reviewed marine geophysics article",
+    "citation": "Hussong, D. M., L. K. Wipperman, and L. W. Kroenke (1979), The crustal structure of the Ontong Java and Manihiki oceanic plateaus, Journal of Geophysical Research, 84(B11), 6003-6010, doi:10.1029/JB084iB11p06003.",
+    "title": "The crustal structure of the Ontong Java and Manihiki oceanic plateaus",
+    "authorsOrInstitution": "D. M. Hussong, L. K. Wipperman, and L. W. Kroenke",
+    "publicationYear": 1979,
+    "domain": "oceanic plateau crustal affinity and anomalous thickness",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "m1a.oceanic-plateau-thickening",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "Specific plateau thickness ratios are observations of selected Earth provinces and are not M1A numeric rules."
+    ],
+    "contentFingerprint": "doi:10.1029/JB084iB11p06003"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "m1a.source.jagoutz-behn-2013-arc-foundering",
+    "sourceType": "peer-reviewed journal article",
+    "citation": "Jagoutz, O., and M. D. Behn (2013), Foundering of lower island-arc crust as an explanation for the origin of the continental Moho, Nature, 504, 131-134, doi:10.1038/nature12758.",
+    "title": "Foundering of lower island-arc crust as an explanation for the origin of the continental Moho",
+    "authorsOrInstitution": "Oliver Jagoutz and Mark D. Behn",
+    "publicationYear": 2013,
+    "domain": "arc lower-crust density, buoyancy, and compositional evolution",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "m1a.arc-density-evolution",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "Lower-arc foundering is context dependent and prevents a universal positive-buoyancy rule for juvenile arc crust."
+    ],
+    "contentFingerprint": "doi:10.1038/nature12758"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "m1a.source.kelemen-holbrook-1995-volcanic-margin",
+    "sourceType": "peer-reviewed journal article",
+    "citation": "Kelemen, P. B., and W. S. Holbrook (1995), Origin of thick, high-velocity igneous crust along the U.S. East Coast Margin, Journal of Geophysical Research: Solid Earth, 100(B6), 10077-10094, doi:10.1029/95JB00924.",
+    "title": "Origin of thick, high-velocity igneous crust along the U.S. East Coast Margin",
+    "authorsOrInstitution": "Peter B. Kelemen and W. Steven Holbrook",
+    "publicationYear": 1995,
+    "domain": "magmatic rifted-margin crust and thick mafic igneous provinces",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "m1a.volcanic-margin-magmatism",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "The East Coast Margin example does not establish a universal plume origin or mandatory thick mafic crust at rifts."
+    ],
+    "contentFingerprint": "doi:10.1029/95JB00924"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "m1a.source.pasyanos-et-al-2014-litho1",
+    "sourceType": "peer-reviewed authoritative Earth model",
+    "citation": "Pasyanos, M. E., T. G. Masters, G. Laske, and Z. Ma (2014), LITHO1.0: An updated crust and lithospheric model of the Earth, Journal of Geophysical Research: Solid Earth, 119, 2153-2173, doi:10.1002/2013JB010626.",
+    "title": "LITHO1.0: An updated crust and lithospheric model of the Earth",
+    "authorsOrInstitution": "Michael E. Pasyanos, T. Guy Masters, Gabi Laske, and Zhitu Ma",
+    "publicationYear": 2014,
+    "domain": "global crust and lithosphere thickness, velocity, density, and heterogeneity",
+    "qualityClass": "AUTHORITATIVE_DATA_OR_MODEL",
+    "correlationGroupId": "m1a.lithosphere-heterogeneity",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased model description only; no model redistribution.",
+    "limitations": [
+      "LITHO1.0 is an Earth reference model with uneven regional constraints and is not a generated-world classifier."
+    ],
+    "contentFingerprint": "doi:10.1002/2013JB010626"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "m1a.source.whitmarsh-et-al-2001-magma-poor-margins",
+    "sourceType": "peer-reviewed journal article",
+    "citation": "Whitmarsh, R. B., G. Manatschal, and T. A. Minshull (2001), Evolution of magma-poor continental margins from rifting to seafloor spreading, Nature, 413, 150-154, doi:10.1038/35093085.",
+    "title": "Evolution of magma-poor continental margins from rifting to seafloor spreading",
+    "authorsOrInstitution": "R. B. Whitmarsh, G. Manatschal, and T. A. Minshull",
+    "publicationYear": 2001,
+    "domain": "magma-poor rifting and exhumed continental mantle",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "m1a.magma-poor-transition",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "Exhumed mantle transition zones are documented for magma-poor margins and are not universal margin components."
+    ],
+    "contentFingerprint": "doi:10.1038/35093085"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "m1a.source.white-et-al-1992-oceanic-crust",
+    "sourceType": "peer-reviewed global synthesis",
+    "citation": "White, R. S., D. McKenzie, and R. K. O'Nions (1992), Oceanic crustal thickness from seismic measurements and rare earth element inversions, Journal of Geophysical Research: Solid Earth, 97(B13), 19683-19715, doi:10.1029/92JB01749.",
+    "title": "Oceanic crustal thickness from seismic measurements and rare earth element inversions",
+    "authorsOrInstitution": "Robert S. White, Dan McKenzie, and R. Keith O'Nions",
+    "publicationYear": 1992,
+    "domain": "normal and anomalous oceanic crustal thickness and melt production",
+    "qualityClass": "REVIEW_OR_SYNTHESIS",
+    "correlationGroupId": "m1a.oceanic-crust-global",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "Earth oceanic-crust measurements do not define universal planetary thickness or normalized field thresholds."
+    ],
+    "contentFingerprint": "doi:10.1029/92JB01749"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "m1a.source.worldwright-scope-control-v1",
+    "sourceType": "internal controlled architecture record",
+    "citation": "WorldWright M1A detached structure/material scope control, version 1.",
+    "title": "WorldWright M1A detached structure/material scope control",
+    "authorsOrInstitution": "WorldWright causal architecture",
+    "publicationYear": 2026,
+    "revisionOrAccessDate": "2026-07-22",
+    "domain": "authority, provenance, and deep-versus-surface material separation",
+    "qualityClass": "INTERNAL_CONTROLLED_ARCHETYPE",
+    "correlationGroupId": "m1a.internal-scope-control",
+    "licenseOrUsageNote": "Internal project architecture record.",
+    "limitations": [
+      "Internal scope controls can constrain software authority but cannot independently establish a scientific material class."
+    ],
+    "contentFingerprint": "worldwright:m1a:scope-control:v1"
+  }
+]
