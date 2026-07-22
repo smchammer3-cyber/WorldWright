@@ -7,6 +7,7 @@ import {
   createCausalProcessFieldProjectionSet,
   createCausalStageResult,
   createGeologicSpineResearchContext,
+  createRegimeHistoryResearchContext,
   createScientificQuantity,
   createScientificRange,
   createScientificResearchBundle,
@@ -15,6 +16,7 @@ import {
   hashCausalPayload,
   resolveCausalProcessFieldProjection,
   resolveGeologicSpine,
+  runRegimeHistoryShadow,
   sampleCausalProcessFieldProjectionDiagnosticGrid,
   sphericalAngularDistanceDegrees,
   validateCausalProcessFieldProjectionDiagnosticGrid,
@@ -22,16 +24,19 @@ import {
   validateCausalProcessFieldProjectionSet,
   type CausalGeologyInputV1,
   type CausalProcessFieldProjectionIdV1,
-  type CausalStageResultV1,
   type GeologicSpineFixtureSetV1,
   type GeologicSpineNodeFamily,
   type GeologicSpineResearchReviewV1,
   type InteriorStateV1,
   type PlanetaryPremiseV1,
+  type RegimeHistoryFixtureSetV1,
+  type RegimeHistoryResearchFixtureV1,
+  type RegimeHistoryResearchReviewV1,
   type ScientificClaimRuleV1,
   type ScientificSourceV1,
   type TectonicRegimeHistoryV1,
 } from '../src/core/causalGeology';
+import { resolveWorldFeatureFlags } from '../src/core/worldFeatureFlags/resolve';
 
 const repositoryRoot = process.cwd();
 const researchRoot = resolve(repositoryRoot, 'src/core/causalGeology/research');
@@ -48,6 +53,9 @@ const controlledSeeds = [
   'd2-controlled-06',
   'd2-holdout-07',
 ] as const;
+const regimeFixtures = readResearchJson<RegimeHistoryFixtureSetV1>('regime-history-fixtures.json');
+const primaryFixture = requireFixture('positive/earthlike-mixed-evolution-v1');
+const incompatibleFixture = requireFixture('positive/tidal-ice-shell-history-v1');
 
 const familyField: Readonly<Record<GeologicSpineNodeFamily, CausalProcessFieldProjectionIdV1>> = Object.freeze({
   ACCRETION_SYSTEM: 'accretionInfluence',
@@ -68,7 +76,22 @@ const budget = Object.freeze({
   diagnosticGridHeight: 18,
 });
 
-function createResearchContext() {
+function createHistoryResearchContext() {
+  const review = readResearchJson<RegimeHistoryResearchReviewV1>('regime-history-review-record.json');
+  return createRegimeHistoryResearchContext({
+    researchBundle: createScientificResearchBundle({
+      bundleVersion: review.bundleVersion,
+      sources: readResearchJson<ScientificSourceV1[]>('regime-history-source-registry.json'),
+      claimRules: readResearchJson<ScientificClaimRuleV1[]>('regime-history-claim-rules.json'),
+      correlationGroups: readResearchJson<string[]>('regime-history-correlation-groups.json'),
+      knownLimitations: readResearchJson<string[]>('regime-history-known-limitations.json'),
+    }),
+    fixtureSet: regimeFixtures,
+    review,
+  });
+}
+
+function createSpineResearchContext() {
   const review = readResearchJson<GeologicSpineResearchReviewV1>('geologic-spine-review-record.json');
   return createGeologicSpineResearchContext({
     researchBundle: createScientificResearchBundle({
@@ -87,36 +110,32 @@ describe('D2 spherical process-field projection CI harness', () => {
   it('resolves deterministic detached projections for controlled and holdout seeds', () => {
     rmSync(artifactRoot, { recursive: true, force: true });
     mkdirSync(artifactRoot, { recursive: true });
-    const researchContext = createResearchContext();
-    const history = createHistory();
+    const historyContext = createHistoryResearchContext();
+    const spineContext = createSpineResearchContext();
     const caseReports: Array<Record<string, unknown>> = [];
     const projectionHashes = new Set<string>();
     const sampledQueryHashes = new Set<string>();
 
     for (const seed of controlledSeeds) {
-      const input = createInput(seed);
-      const premise = createPremise(input);
-      const interior = createInterior(seed);
-      const historyStageResult = createHistoryStageResult(input, premise, interior, history);
-      const spineResolution = resolveGeologicSpine({
-        inputSnapshot: input,
-        premise,
-        interior,
-        regimeHistory: history,
-        regimeHistoryStageResult: historyStageResult,
-        researchContext,
-      });
+      const upstream = resolveUpstream(seed, primaryFixture, historyContext);
+      const spineResolution = resolveGeologicSpine(
+        upstream.input,
+        upstream.premise,
+        upstream.interior,
+        upstream.history,
+        spineContext,
+      );
       expect(spineResolution.status).toBe('PARTIAL');
       if (!spineResolution.spine) throw new Error(`D2 controlled case ${seed} did not produce a spine.`);
 
       const startProjection = performance.now();
-      const projection = resolveCausalProcessFieldProjection(history, spineResolution.spine);
+      const projection = resolveCausalProcessFieldProjection(upstream.history, spineResolution.spine);
       const projectionMilliseconds = performance.now() - startProjection;
-      const replay = resolveCausalProcessFieldProjection(history, spineResolution.spine);
+      const replay = resolveCausalProcessFieldProjection(upstream.history, spineResolution.spine);
       validateCausalProcessFieldProjectionSet(projection);
       expect(projection).toEqual(replay);
       expect(projection.kernels).toHaveLength(spineResolution.spine.nodes.length * 6);
-      expect(projection.sourceRegimeHistoryHash).toEqual(history.contentHash);
+      expect(projection.sourceRegimeHistoryHash).toEqual(upstream.history.contentHash);
       expect(projection.sourceGeologicSpineHash).toEqual(spineResolution.spine.contentHash);
       expect(projection.physicalGeneratorAuthority).toBe('LEGACY');
       expect(projection.projectionMode).toBe('DETACHED_DIAGNOSTIC');
@@ -170,6 +189,7 @@ describe('D2 spherical process-field projection CI harness', () => {
         schemaVersion: 1,
         seed,
         holdout: seed.startsWith('d2-holdout'),
+        historyHash: upstream.history.contentHash.value,
         spineHash: spineResolution.spine.contentHash.value,
         projectionHash: projection.contentHash.value,
         queryHash: query.contentHash.value,
@@ -257,53 +277,76 @@ describe('D2 spherical process-field projection CI harness', () => {
   });
 
   it('fails closed when spine events do not belong to the supplied history', () => {
-    const researchContext = createResearchContext();
-    const input = createInput('d2-lineage-rejection');
-    const premise = createPremise(input);
-    const interior = createInterior('d2-lineage-rejection');
-    const history = createHistory();
-    const stage = createHistoryStageResult(input, premise, interior, history);
-    const resolution = resolveGeologicSpine({
-      inputSnapshot: input,
-      premise,
-      interior,
-      regimeHistory: history,
-      regimeHistoryStageResult: stage,
-      researchContext,
-    });
-    if (!resolution.spine) throw new Error('D2 lineage rejection fixture did not produce a spine.');
-    const wrongHistory = createHistory('different-history');
-    expect(() => resolveCausalProcessFieldProjection(wrongHistory, resolution.spine)).toThrow(/unknown history epoch|outside history epoch/i);
+    const historyContext = createHistoryResearchContext();
+    const spineContext = createSpineResearchContext();
+    const primary = resolveUpstream('d2-lineage-primary', primaryFixture, historyContext);
+    const incompatible = resolveUpstream('d2-lineage-incompatible', incompatibleFixture, historyContext);
+    const spineResolution = resolveGeologicSpine(
+      primary.input,
+      primary.premise,
+      primary.interior,
+      primary.history,
+      spineContext,
+    );
+    if (!spineResolution.spine) throw new Error('D2 lineage rejection fixture did not produce a spine.');
+    expect(() => resolveCausalProcessFieldProjection(incompatible.history, spineResolution.spine)).toThrow(/unknown history epoch|outside history epoch/i);
   });
 });
 
-function createInput(seed: string): CausalGeologyInputV1 {
+function resolveUpstream(
+  seed: string,
+  fixture: RegimeHistoryResearchFixtureV1,
+  historyContext: ReturnType<typeof createHistoryResearchContext>,
+): {
+  readonly input: CausalGeologyInputV1;
+  readonly premise: PlanetaryPremiseV1;
+  readonly interior: InteriorStateV1;
+  readonly history: TectonicRegimeHistoryV1;
+} {
+  const input = inputForFixture(seed, fixture);
+  const premise = premiseForFixture(input, fixture);
+  const interior = interiorForFixture(seed, fixture);
+  const run = runRegimeHistoryShadow({
+    authorityMode: 'CAUSAL_SHADOW',
+    featureFlags: resolveWorldFeatureFlags('CAUSAL_SHADOW', { 'causal.shadow.enabled': true }),
+    inputSnapshot: input,
+    premise,
+    interior,
+    interiorStageResult: createCausalStageResult({
+      stageId: 'CAUSAL_INTERIOR_RESOLUTION',
+      stageVersion: 1,
+      status: 'PARTIAL',
+      input: { inputSnapshot: input, premise },
+      record: interior,
+      limitations: interior.limitations,
+      missingDomains: ['controlled-d2-interior-fixture'],
+      downstreamCompatibleStageIds: ['CAUSAL_REGIME_HISTORY'],
+    }),
+    researchContext: historyContext,
+  });
+  expect(run.stageResult.status).toBe('PARTIAL');
+  if (!run.resolution.history) throw new Error(`D2 upstream fixture ${fixture.fixtureId} did not produce regime history.`);
+  return { input, premise, interior, history: run.resolution.history };
+}
+
+function inputForFixture(seed: string, fixture: RegimeHistoryResearchFixtureV1): CausalGeologyInputV1 {
   return createCausalGeologyInput(seed, [
     {
       schemaVersion: 1,
       inputId: 'thermal.age',
-      quantity: createScientificQuantity(4.6, 'gigaannum', 'gigaannum-v1'),
+      quantity: createScientificQuantity(fixture.ageGyr, 'gigaannum', 'gigaannum-v1'),
       sourceClass: 'DIRECT_DECLARATION',
-      sourceRecordId: `input:${seed}:thermal-age`,
+      sourceRecordId: `d2:${fixture.fixtureId}:${seed}:thermal-age`,
       confidenceSubject: `d2.${seed}.thermal-age`,
       evidenceIds: [],
     },
     {
       schemaVersion: 1,
       inputId: 'inventory.water',
-      quantity: createScientificQuantity(0.8, 'earth-water-inventory', 'earth-water-inventory-v1'),
+      quantity: createScientificQuantity(fixture.waterInventory, 'earth-water-inventory', 'earth-water-inventory-v1'),
       sourceClass: 'DIRECT_DECLARATION',
-      sourceRecordId: `input:${seed}:water`,
+      sourceRecordId: `d2:${fixture.fixtureId}:${seed}:water`,
       confidenceSubject: `d2.${seed}.water`,
-      evidenceIds: [],
-    },
-    {
-      schemaVersion: 1,
-      inputId: 'thermal.radiogenic-heat',
-      quantity: createScientificQuantity(0.6, 'normalized-0-1', 'normalized-0-1-v1'),
-      sourceClass: 'DIRECT_DECLARATION',
-      sourceRecordId: `input:${seed}:radiogenic`,
-      confidenceSubject: `d2.${seed}.radiogenic`,
       evidenceIds: [],
     },
   ], {
@@ -311,19 +354,22 @@ function createInput(seed: string): CausalGeologyInputV1 {
   });
 }
 
-function createPremise(input: CausalGeologyInputV1): PlanetaryPremiseV1 {
+function premiseForFixture(
+  input: CausalGeologyInputV1,
+  fixture: RegimeHistoryResearchFixtureV1,
+): PlanetaryPremiseV1 {
   const payload = {
     schemaVersion: 1 as const,
     premiseVersion: 1,
     status: 'PARTIAL' as const,
     inputSnapshotHash: input.contentHash,
-    bodyClassCandidates: ['ROCKY_TERRESTRIAL' as const],
-    surfaceMediumCandidates: ['SOLID_SURFACE'],
-    layerStackCandidates: ['METALLIC_CORE_SILICATE_MANTLE_CRUST'],
+    bodyClassCandidates: fixture.premiseBodyClassCandidates,
+    surfaceMediumCandidates: ['CONTROLLED_SOLID_SURFACE'],
+    layerStackCandidates: ['CONTROLLED_SOLID_LAYER_STACK'],
     assumptions: [] as readonly string[],
     branchResolutionIds: [] as readonly string[],
-    confidenceAssessmentSubject: 'd2.controlled.premise',
-    evidenceIds: ['evidence.d2.premise'],
+    confidenceAssessmentSubject: `d2.${fixture.fixtureId}.premise`,
+    evidenceIds: [] as readonly string[],
     contradictionIds: [] as readonly string[],
     limitations: ['D2 controlled premise fixture.'],
   };
@@ -333,29 +379,36 @@ function createPremise(input: CausalGeologyInputV1): PlanetaryPremiseV1 {
   };
 }
 
-function createInterior(seed: string): InteriorStateV1 {
+function interiorForFixture(seed: string, fixture: RegimeHistoryResearchFixtureV1): InteriorStateV1 {
+  const normalized = (center: number, subject: string) => createScientificRange(
+    Math.max(0, center - 0.04),
+    Math.min(1, center + 0.04),
+    'normalized-0-1',
+    'normalized-0-1-v1',
+    subject,
+  );
   const payload = {
     schemaVersion: 1 as const,
     status: 'PARTIAL' as const,
     interiorVersion: 1,
-    thermalBudgetRange: createScientificRange(0.68, 0.76, 'normalized-0-1', 'normalized-0-1-v1', `d2.${seed}.thermal`),
+    thermalBudgetRange: normalized(fixture.interior.thermalBudgetCenter, `d2.${seed}.thermal`),
     heatSourceFractions: [
-      { sourceId: 'PRIMORDIAL' as const, fractionRange: createScientificRange(0.2, 0.3, 'normalized-0-1', 'normalized-0-1-v1', `d2.${seed}.primordial`) },
-      { sourceId: 'RADIOGENIC' as const, fractionRange: createScientificRange(0.4, 0.5, 'normalized-0-1', 'normalized-0-1-v1', `d2.${seed}.radiogenic`) },
-      { sourceId: 'TIDAL' as const, fractionRange: createScientificRange(0.05, 0.1, 'normalized-0-1', 'normalized-0-1-v1', `d2.${seed}.tidal`) },
+      { sourceId: 'PRIMORDIAL' as const, fractionRange: normalized(fixture.interior.heatSourceFractions.primordial, `d2.${seed}.primordial`) },
+      { sourceId: 'RADIOGENIC' as const, fractionRange: normalized(fixture.interior.heatSourceFractions.radiogenic, `d2.${seed}.radiogenic`) },
+      { sourceId: 'TIDAL' as const, fractionRange: normalized(fixture.interior.heatSourceFractions.tidal, `d2.${seed}.tidal`) },
     ],
-    mantleConvectionRange: createScientificRange(0.55, 0.68, 'normalized-0-1', 'normalized-0-1-v1', `d2.${seed}.convection`),
+    mantleConvectionRange: normalized(fixture.interior.convectionCenter, `d2.${seed}.convection`),
     rheologyCandidates: ['TEMPERATURE_DEPENDENT_SOLID_STATE'],
     lithosphereBehaviorCandidates: ['RIGID_SINGLE_LID'],
-    lidRegimeCandidates: ['EPISODIC_LID', 'MOBILE_LID_HYPOTHESIS'],
-    resolvedLidRegime: 'MOBILE_LID_HYPOTHESIS' as const,
-    meltAndVolcanismRange: createScientificRange(0.45, 0.58, 'normalized-0-1', 'normalized-0-1-v1', `d2.${seed}.melt`),
-    riftTendencyRange: createScientificRange(0.5, 0.65, 'normalized-0-1', 'normalized-0-1-v1', `d2.${seed}.rift`),
-    hotspotTendencyRange: createScientificRange(0.35, 0.5, 'normalized-0-1', 'normalized-0-1-v1', `d2.${seed}.hotspot`),
+    lidRegimeCandidates: fixture.interior.lidRegimeCandidates,
+    resolvedLidRegime: fixture.interior.resolvedLidRegime,
+    meltAndVolcanismRange: normalized(fixture.interior.meltCenter, `d2.${seed}.melt`),
+    riftTendencyRange: normalized(fixture.interior.riftCenter, `d2.${seed}.rift`),
+    hotspotTendencyRange: normalized(fixture.interior.hotspotCenter, `d2.${seed}.hotspot`),
     assumptions: [] as readonly string[],
     branchResolutionIds: [] as readonly string[],
-    confidenceAssessmentSubject: `d2.${seed}.interior`,
-    evidenceIds: ['evidence.d2.interior'],
+    confidenceAssessmentSubject: `d2.${fixture.fixtureId}.interior`,
+    evidenceIds: [] as readonly string[],
     contradictionIds: [] as readonly string[],
     limitations: ['D2 controlled interior fixture.'],
   };
@@ -365,120 +418,10 @@ function createInterior(seed: string): InteriorStateV1 {
   };
 }
 
-function createHistory(suffix = 'controlled'): TectonicRegimeHistoryV1 {
-  const epochs = [
-    {
-      schemaVersion: 1 as const,
-      epochId: `epoch-0-${suffix}`,
-      startTime: 0,
-      endTime: 0.32,
-      regime: 'STAGNANT_LID' as const,
-      transitionInEventId: undefined,
-      transitionOutEventId: `transition-0-${suffix}`,
-      confidenceAssessmentSubject: `d2.${suffix}.epoch0`,
-      evidenceIds: ['evidence.d2.history'],
-      contradictionIds: [] as readonly string[],
-      limitations: ['D2 controlled stagnant epoch.'],
-    },
-    {
-      schemaVersion: 1 as const,
-      epochId: `epoch-1-${suffix}`,
-      startTime: 0.32,
-      endTime: 0.66,
-      regime: 'EPISODIC_LID' as const,
-      transitionInEventId: `transition-0-${suffix}`,
-      transitionOutEventId: `transition-1-${suffix}`,
-      confidenceAssessmentSubject: `d2.${suffix}.epoch1`,
-      evidenceIds: ['evidence.d2.history'],
-      contradictionIds: [] as readonly string[],
-      limitations: ['D2 controlled episodic epoch.'],
-    },
-    {
-      schemaVersion: 1 as const,
-      epochId: `epoch-2-${suffix}`,
-      startTime: 0.66,
-      endTime: 1,
-      regime: 'MOBILE_LID_HYPOTHESIS' as const,
-      transitionInEventId: `transition-1-${suffix}`,
-      transitionOutEventId: undefined,
-      confidenceAssessmentSubject: `d2.${suffix}.epoch2`,
-      evidenceIds: ['evidence.d2.history'],
-      contradictionIds: [] as readonly string[],
-      limitations: ['D2 controlled mobile-lid hypothesis epoch.'],
-    },
-  ];
-  const transitions = [
-    {
-      schemaVersion: 1 as const,
-      transitionEventId: `transition-0-${suffix}`,
-      normalizedTime: 0.32,
-      fromRegime: 'STAGNANT_LID' as const,
-      toRegime: 'EPISODIC_LID' as const,
-      trigger: 'SECULAR_COOLING' as const,
-      sourceEpochId: `epoch-0-${suffix}`,
-      destinationEpochId: `epoch-1-${suffix}`,
-      assumptions: [] as readonly string[],
-      branchResolutionIds: [] as readonly string[],
-      confidenceAssessmentSubject: `d2.${suffix}.transition0`,
-      evidenceIds: ['evidence.d2.history'],
-      contradictionIds: [] as readonly string[],
-      limitations: ['D2 controlled regime transition.'],
-    },
-    {
-      schemaVersion: 1 as const,
-      transitionEventId: `transition-1-${suffix}`,
-      normalizedTime: 0.66,
-      fromRegime: 'EPISODIC_LID' as const,
-      toRegime: 'MOBILE_LID_HYPOTHESIS' as const,
-      trigger: 'WATER_WEAKENING' as const,
-      sourceEpochId: `epoch-1-${suffix}`,
-      destinationEpochId: `epoch-2-${suffix}`,
-      assumptions: [] as readonly string[],
-      branchResolutionIds: [] as readonly string[],
-      confidenceAssessmentSubject: `d2.${suffix}.transition1`,
-      evidenceIds: ['evidence.d2.history'],
-      contradictionIds: [] as readonly string[],
-      limitations: ['D2 controlled regime transition.'],
-    },
-  ];
-  const payload = {
-    schemaVersion: 1 as const,
-    status: 'PARTIAL' as const,
-    regimeHistoryVersion: 1,
-    totalResolvedDuration: createScientificQuantity(4.6, 'gigaannum', 'gigaannum-v1'),
-    epochs,
-    transitions,
-    currentRegime: 'MOBILE_LID_HYPOTHESIS' as const,
-    currentEpochId: `epoch-2-${suffix}`,
-    assumptions: [] as readonly string[],
-    branchResolutionIds: [] as readonly string[],
-    confidenceAssessmentSubject: `d2.${suffix}.history`,
-    evidenceIds: ['evidence.d2.history'],
-    contradictionIds: [] as readonly string[],
-    limitations: ['D2 controlled tectonic regime history fixture.'],
-  };
-  return {
-    ...payload,
-    contentHash: hashCausalPayload('WorldWright/tectonic-regime-history/v1', payload),
-  };
-}
-
-function createHistoryStageResult(
-  input: CausalGeologyInputV1,
-  premise: PlanetaryPremiseV1,
-  interior: InteriorStateV1,
-  history: TectonicRegimeHistoryV1,
-): CausalStageResultV1<TectonicRegimeHistoryV1> {
-  return createCausalStageResult({
-    stageId: 'CAUSAL_REGIME_HISTORY',
-    stageVersion: 1,
-    status: 'PARTIAL',
-    input: { inputSnapshot: input, premise, interior },
-    record: history,
-    limitations: history.limitations,
-    missingDomains: ['long-term-regime-history-calibration'],
-    downstreamCompatibleStageIds: ['CAUSAL_GEOLOGIC_SPINE'],
-  });
+function requireFixture(fixtureId: string): RegimeHistoryResearchFixtureV1 {
+  const fixture = regimeFixtures.fixtures.find((entry) => entry.fixtureId === fixtureId);
+  if (!fixture) throw new Error(`Missing D2 regime-history fixture ${fixtureId}.`);
+  return fixture;
 }
 
 function readResearchJson<T>(fileName: string): T {
