@@ -1,0 +1,65 @@
+name: W1-06B1 Direct-Input Threshold Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w1-06b1-direct-input-thresholds-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  direct-input-thresholds:
+    name: Canonical direct-input thresholds
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CAUSAL_SHADOW_THRESHOLD_CI_OUT: artifacts/causal-shadow-threshold-gate
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run canonical direct-input threshold gate
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npx vitest run test/causalGeologyShadowThresholdCoverageCiHarness.spec.ts 2>&1 | tee artifacts/ci-logs/causal-shadow-threshold.log
+
+      - name: Summarize direct-input threshold gate
+        if: always()
+        run: |
+          {
+            echo "## W1-06B1 canonical direct-input thresholds"
+            echo "- Canonical axes: \`12\`"
+            echo "- Triplets per axis: \`low / reference / high\`"
+            echo "- Authority: \`CAUSAL_SHADOW only\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Expected scientific status: \`PARTIAL\` until downstream relations are reviewed"
+            echo "- Artifact: \`causal-shadow-threshold-gate\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload direct-input threshold artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: causal-shadow-threshold-gate
+          path: |
+            artifacts/causal-shadow-threshold-gate/
+            artifacts/ci-logs/causal-shadow-threshold.log
+          if-no-files-found: warn
+          retention-days: 14
