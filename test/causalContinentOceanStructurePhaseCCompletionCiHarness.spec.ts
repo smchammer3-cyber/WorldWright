@@ -296,7 +296,11 @@ describe('C3 Phase C completion and detached Phase M readiness gate', () => {
           increment(caseRoleCounts, candidate.role);
           increment(aggregateRoleCounts, candidate.role);
           expect(candidate.rationaleIds.length).toBeGreaterThan(0);
-          expect(candidate.evidenceIds.length).toBeGreaterThan(0);
+          if (candidate.role === 'STRUCTURALLY_UNRESOLVED') {
+            expect(candidate.evidenceIds).toEqual([]);
+          } else {
+            expect(candidate.evidenceIds.length).toBeGreaterThan(0);
+          }
           expect(candidate.supportRange.min).toBeGreaterThanOrEqual(0);
           expect(candidate.supportRange.max).toBeLessThanOrEqual(1);
           expect(candidate.supportRange.min).toBeLessThanOrEqual(candidate.supportRange.max);
