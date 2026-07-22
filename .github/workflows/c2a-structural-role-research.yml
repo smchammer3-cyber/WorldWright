@@ -1,0 +1,71 @@
+name: C2A Structural-Role Research Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c2a-structural-role-research-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  structural-role-research:
+    name: Validate structural research, fixtures, and readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run C2A research, hostile, and artifact gates
+        run: |
+          mkdir -p artifacts/ci-logs artifacts/c2a-structural-role-research
+          set -o pipefail
+          npx vitest run test/causalContinentOceanStructureResearchPackage.spec.ts test/causalContinentOceanStructureC2AArtifact.spec.ts 2>&1 | tee artifacts/ci-logs/c2a-structural-role-research.log
+          cp docs/implementation/phase-c/c2a-structural-research-readiness.json artifacts/c2a-structural-role-research/
+          cp docs/implementation/PHASE_C2A_STRUCTURAL_RESEARCH_AND_FIXTURES_STATUS.md artifacts/c2a-structural-role-research/
+          cp src/core/causalGeology/research/continent-ocean-structure-*.json artifacts/c2a-structural-role-research/
+
+      - name: Summarize C2A gate
+        if: always()
+        run: |
+          {
+            echo "## Phase C2A structural-role research"
+            echo "- Sources: \`9\`"
+            echo "- Rules: \`10\`"
+            echo "- Fixtures: \`13\`"
+            echo "- Positives / thresholds / negatives: \`5 / 3 / 2\`"
+            echo "- Approved exceptions / withheld holdouts: \`1 / 2\`"
+            echo "- Broad associations: \`REVIEWED\`"
+            echo "- Normalized thresholds: \`PROVISIONAL fixture-only\`"
+            echo "- Detached C2B resolver: \`AUTHORIZED\`"
+            echo "- structuralRoleAuthority: \`NOT AUTHORIZED\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Physical or visible output change: \`none\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload C2A artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c2a-structural-role-research
+          path: |
+            artifacts/c2a-structural-role-research/
+            artifacts/ci-logs/c2a-structural-role-research.log
+          if-no-files-found: warn
+          retention-days: 30
