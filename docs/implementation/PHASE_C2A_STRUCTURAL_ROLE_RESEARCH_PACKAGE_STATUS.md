@@ -36,7 +36,7 @@ No normalized boundary in C2A is presented as a universal geophysical threshold.
 
 ## Sources
 
-The registry contains five primary peer-reviewed sources, two authoritative institutional sources, and one internal scope/authority contract.
+The registry contains five primary peer-reviewed sources, two authoritative data/model sources, and one internal scope/authority contract.
 
 ### Global crustal structure
 
