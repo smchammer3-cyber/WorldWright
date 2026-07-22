@@ -35,12 +35,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run fixed corpus, live route, artifact, and authority gates
+      - name: Run fixed corpus, live route, artifact, authority, and anti-collapse gates
         run: |
           mkdir -p artifacts/ci-logs artifacts/c3-phase-c-completion
           set -o pipefail
           npx vitest run test/causalContinentOceanStructureResolverCiHarness.spec.ts test/causalContinentOceanStructurePhaseCCompletionCiHarness.spec.ts test/causalContinentOceanStructureC3Artifact.spec.ts 2>&1 | tee artifacts/ci-logs/c3-phase-c-completion.log
+          node scripts/ci/validate-c3-live-coverage.mjs 2>&1 | tee -a artifacts/ci-logs/c3-phase-c-completion.log
           cp docs/implementation/phase-c/c3-phase-c-completion-readiness.json artifacts/c3-phase-c-completion/
+          cp docs/implementation/phase-c/c3-live-coverage-policy.json artifacts/c3-phase-c-completion/
           cp docs/implementation/PHASE_C3_COMPLETION_AND_PHASE_M_READINESS.md artifacts/c3-phase-c-completion/
 
       - name: Summarize C3 verdict
@@ -50,6 +52,7 @@ jobs:
             echo "## Phase C3 completion and Phase M readiness"
             echo "- Fixed structural fixtures: \`16\`"
             echo "- Live upstream routes: \`7\`"
+            echo "- Live anti-collapse: \`>=2 affirmative fixtures and >=1 unresolved region; no role-frequency target\`"
             echo "- Structural holdouts used for calibration: \`no\`"
             echo "- Scientific status: \`PARTIAL\`"
             echo "- Authority mode: \`CAUSAL_SHADOW\`"
