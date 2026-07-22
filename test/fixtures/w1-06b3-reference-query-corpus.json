@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "corpusVersion": "W1_06B3_REFERENCE_QUERY_CORPUS_V1",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "queries": [
+    {
+      "schemaVersion": 1,
+      "caseId": "reference-mobile-lid-rocky",
+      "rootSeed": "1063001",
+      "archetypeFamily": "MOBILE_LID_ROCKY",
+      "ruleIds": ["w1-06b3.detached-causal-comparison"],
+      "parameters": { "tectonicActivity": 0.8, "heatFlowNormalized": 0.7, "surfaceAgeNormalized": 0.45 },
+      "limitations": ["W1-06B3 query parameters are detached comparison coordinates, not final solved physical fields."]
+    },
+    {
+      "schemaVersion": 1,
+      "caseId": "reference-stagnant-lid-rocky",
+      "rootSeed": "1063002",
+      "archetypeFamily": "STAGNANT_LID_ROCKY",
+      "ruleIds": ["w1-06b3.detached-causal-comparison"],
+      "parameters": { "tectonicActivity": 0.15, "heatFlowNormalized": 0.2, "surfaceAgeNormalized": 0.8 },
+      "limitations": ["W1-06B3 query parameters are detached comparison coordinates, not final solved physical fields."]
+    },
+    {
+      "schemaVersion": 1,
+      "caseId": "reference-rift-dominated-rocky",
+      "rootSeed": "1063003",
+      "archetypeFamily": "RIFT_DOMINATED_ROCKY",
+      "ruleIds": ["w1-06b3.detached-causal-comparison"],
+      "parameters": { "tectonicActivity": 0.7, "heatFlowNormalized": 0.65, "surfaceAgeNormalized": 0.4 },
+      "limitations": ["W1-06B3 query parameters are detached comparison coordinates, not final solved physical fields."]
+    },
+    {
+      "schemaVersion": 1,
+      "caseId": "reference-hotspot-dominated-rocky",
+      "rootSeed": "1063004",
+      "archetypeFamily": "HOTSPOT_DOMINATED_ROCKY",
+      "ruleIds": ["w1-06b3.detached-causal-comparison"],
+      "parameters": { "tectonicActivity": 0.5, "heatFlowNormalized": 0.85, "surfaceAgeNormalized": 0.35 },
+      "limitations": ["W1-06B3 query parameters are detached comparison coordinates, not final solved physical fields."]
+    },
+    {
+      "schemaVersion": 1,
+      "caseId": "reference-low-heat-old-rocky",
+      "rootSeed": "1063005",
+      "archetypeFamily": "LOW_HEAT_OLD_ROCKY",
+      "ruleIds": ["w1-06b3.detached-causal-comparison"],
+      "parameters": { "tectonicActivity": 0.1, "heatFlowNormalized": 0.1, "surfaceAgeNormalized": 0.95 },
+      "limitations": ["W1-06B3 query parameters are detached comparison coordinates, not final solved physical fields."]
+    },
+    {
+      "schemaVersion": 1,
+      "caseId": "reference-high-heat-young-super-earth",
+      "rootSeed": "1063006",
+      "archetypeFamily": "HIGH_HEAT_YOUNG_SUPER_EARTH",
+      "ruleIds": ["w1-06b3.detached-causal-comparison"],
+      "parameters": { "gravityEarthG": 1.7, "tectonicActivity": 0.85, "heatFlowNormalized": 0.95, "surfaceAgeNormalized": 0.2 },
+      "limitations": ["W1-06B3 query parameters are detached comparison coordinates, not final solved physical fields."]
+    },
+    {
+      "schemaVersion": 1,
+      "caseId": "reference-water-rich-rocky",
+      "rootSeed": "1063007",
+      "archetypeFamily": "WATER_RICH_ROCKY",
+      "ruleIds": ["w1-06b3.detached-causal-comparison"],
+      "parameters": { "tectonicActivity": 0.55, "heatFlowNormalized": 0.55, "precipitationNormalized": 0.9, "surfaceAgeNormalized": 0.5 },
+      "limitations": ["W1-06B3 query parameters are detached comparison coordinates, not final solved physical fields."]
+    },
+    {
+      "schemaVersion": 1,
+      "caseId": "reference-dry-rocky",
+      "rootSeed": "1063008",
+      "archetypeFamily": "DRY_ROCKY",
+      "ruleIds": ["w1-06b3.detached-causal-comparison"],
+      "parameters": { "tectonicActivity": 0.4, "heatFlowNormalized": 0.45, "precipitationNormalized": 0.05, "surfaceAgeNormalized": 0.65 },
+      "limitations": ["W1-06B3 query parameters are detached comparison coordinates, not final solved physical fields."]
+    },
+    {
+      "schemaVersion": 1,
+      "caseId": "reference-super-earth-direct-range",
+      "rootSeed": "1063009",
+      "archetypeFamily": "SUPER_EARTH_DIRECT_INPUT_RANGE",
+      "ruleIds": ["w1-06b3.detached-causal-comparison"],
+      "parameters": { "gravityEarthG": 1.8, "tectonicActivity": 0.65, "heatFlowNormalized": 0.7, "surfaceAgeNormalized": 0.45 },
+      "limitations": ["W1-06B3 query parameters are detached comparison coordinates, not final solved physical fields."]
+    },
+    {
+      "schemaVersion": 1,
+      "caseId": "reference-approved-artificial-exception",
+      "rootSeed": "1063010",
+      "archetypeFamily": "APPROVED_ARTIFICIAL_OR_FANTASY_EXCEPTION",
+      "ruleIds": ["w1-06b3.detached-causal-comparison"],
+      "parameters": {},
+      "limitations": ["W1-06B3 query parameters are detached comparison coordinates, not final solved physical fields."]
+    }
+  ]
+}
