@@ -1,0 +1,154 @@
+[
+  {
+    "schemaVersion": 1,
+    "sourceId": "iodp-367-368-scs-rifted-margin-2016",
+    "sourceType": "authoritative international drilling-program scientific prospectus",
+    "citation": "Sun, Z.; Stock, J.; Jian, Z.; McIntosh, K.; Alvarez-Zarikian, C. A.; Klaus, A. Expedition 367/368 Scientific Prospectus: South China Sea Rifted Margin. International Ocean Discovery Program (2016).",
+    "title": "Expedition 367/368 Scientific Prospectus: South China Sea Rifted Margin",
+    "authorsOrInstitution": "International Ocean Discovery Program; Zhen Sun et al.",
+    "publicationYear": 2016,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "magma-poor-rifted-margin-and-continent-ocean-transition",
+    "qualityClass": "AUTHORITATIVE_INSTITUTIONAL",
+    "correlationGroupId": "rifted-margin-transition-observations",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level structural relations only; no copied figures, datasets, or numerical calibration.",
+    "limitations": [
+      "The South China Sea is one rifted-margin system and does not define a universal continent-ocean transition geometry.",
+      "Competing transition models remain scientifically meaningful until basement composition and structure are resolved."
+    ],
+    "contentFingerprint": "doi:10.14379/iodp.sp.367368.2016#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "krawczyk-et-al-1996-iberia-detachment",
+    "sourceType": "peer-reviewed Ocean Drilling Program scientific-results chapter",
+    "citation": "Krawczyk, C. M.; Reston, T. J.; Beslier, M.-O.; Boillot, G. Evidence for detachment tectonics on the Iberia Abyssal Plain rifted margin. Proceedings of the Ocean Drilling Program, Scientific Results 149 (1996), 603–615.",
+    "title": "Evidence for detachment tectonics on the Iberia Abyssal Plain rifted margin",
+    "authorsOrInstitution": "Charlotte M. Krawczyk, T. J. Reston, Marie-Odile Beslier, and G. Boillot",
+    "publicationYear": 1996,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "hyperextended-rifted-margin-detachment-and-transition-zone",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "rifted-margin-transition-observations",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level detachment/transition relation only; no copied text, figures, or site template.",
+    "limitations": [
+      "The Iberia Abyssal Plain example does not make exhumed or serpentinized mantle mandatory at all rifted margins.",
+      "A transition zone may contain multiple plausible structural identities that cannot be resolved from radial influence fields alone."
+    ],
+    "contentFingerprint": "doi:10.2973/odp.proc.sr.149.244.1996#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "mooney-2007-global-crust",
+    "sourceType": "authoritative peer-reviewed global crustal synthesis",
+    "citation": "Mooney, W. D. Crust and lithospheric structure – Global crustal structure. Treatise on Geophysics 1 (2007), 361–417.",
+    "title": "Crust and lithospheric structure – Global crustal structure",
+    "authorsOrInstitution": "Walter D. Mooney; U.S. Geological Survey",
+    "publicationYear": 2007,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "global-continental-oceanic-and-margin-crustal-contrast",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "global-crustal-structure-syntheses",
+    "licenseOrUsageNote": "Bibliographic metadata and broad crustal-contrast relation only; no copied model, data, text, or numerical calibration into WorldWright fields.",
+    "limitations": [
+      "Broad continental and oceanic crustal contrasts do not define a single threshold in normalized WorldWright process fields.",
+      "Passive margins, ridges, plateaus, arcs, trenches, and anomalous oceanic regions depart from simple endmember structure."
+    ],
+    "contentFingerprint": "doi:10.1016/B978-044452748-6.00011-0#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "mortimer-et-al-2017-zealandia",
+    "sourceType": "peer-reviewed regional crustal synthesis",
+    "citation": "Mortimer, N.; Campbell, H. J.; Tulloch, A. J.; King, P. R.; Stagpoole, V. M.; et al. Zealandia: Earth’s Hidden Continent. GSA Today 27 (2017), 27–35.",
+    "title": "Zealandia: Earth’s Hidden Continent",
+    "authorsOrInstitution": "Nick Mortimer et al.; Geological Society of America",
+    "publicationYear": 2017,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "submerged-continental-crust-and-drowned-continental-affinity",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "submerged-continental-affinity-observations",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level submerged continental-affinity relation only; no copied map, text, or bathymetric calibration.",
+    "limitations": [
+      "Continental structural identity does not imply exposed land.",
+      "Zealandia's regional scale and documented geology do not provide a universal drowned-fragment threshold for generated worlds."
+    ],
+    "contentFingerprint": "doi:10.1130/GSATG321A.1#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "schlee-klitgord-1986-atlantic-margin",
+    "sourceType": "peer-reviewed seismic and drilling synthesis of a passive continental margin",
+    "citation": "Schlee, J. S.; Klitgord, K. K. Structure of the North American Atlantic Continental Margin. Journal of Geological Education 34 (1986), 72–89.",
+    "title": "Structure of the North American Atlantic Continental Margin",
+    "authorsOrInstitution": "J. S. Schlee and K. K. Klitgord; U.S. Geological Survey",
+    "publicationYear": 1986,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "continental-margin-shelf-slope-rise-and-rifted-basement-structure",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "continental-margin-structure-observations",
+    "licenseOrUsageNote": "Bibliographic metadata and broad margin-structure relation only; no copied seismic profiles, text, or bathymetric values.",
+    "limitations": [
+      "Shelf, slope, and rise are surface and sedimentary expressions that cannot be resolved from Phase D radial process fields alone.",
+      "The North American Atlantic margin is not a universal passive-margin geometry."
+    ],
+    "contentFingerprint": "doi:10.5408/0022-1368-34.2.72#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "schouten-et-al-1985-mid-ocean-ridges",
+    "sourceType": "peer-reviewed observational and physical mid-ocean-ridge study",
+    "citation": "Schouten, H.; Klitgord, K. D.; Whitehead, J. A. Segmentation of mid-ocean ridges. Nature 317 (1985), 225–229.",
+    "title": "Segmentation of mid-ocean ridges",
+    "authorsOrInstitution": "Hans Schouten, Kim D. Klitgord, and J. A. Whitehead; U.S. Geological Survey",
+    "publicationYear": 1985,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "spreading-boundaries-ridge-segmentation-and-oceanic-crust-formation",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "ridge-and-spreading-observations",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level spreading/ridge association only; no copied geometry, data, or numerical calibration.",
+    "limitations": [
+      "The association of spreading boundaries and ridge volcanism does not make a radial rift-influence kernel an oriented ridge axis.",
+      "Observed segmentation and spreading-rate dependence require geometry and rate information beyond C2A."
+    ],
+    "contentFingerprint": "doi:10.1038/317225a0#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "usgs-subduction-zone-science-2020",
+    "sourceType": "authoritative U.S. Geological Survey subduction-zone synthesis",
+    "citation": "U.S. Geological Survey Subduction Zone Science. Introduction to Subduction Zones: Amazing Events in Subduction Zones (2020).",
+    "title": "Introduction to Subduction Zones: Amazing Events in Subduction Zones",
+    "authorsOrInstitution": "U.S. Geological Survey Subduction Zone Science",
+    "publicationYear": 2020,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "subduction-convergence-trenches-melting-and-volcanic-arcs",
+    "qualityClass": "AUTHORITATIVE_INSTITUTIONAL",
+    "correlationGroupId": "subduction-and-arc-syntheses",
+    "licenseOrUsageNote": "Public-domain institutional synthesis used only for broad convergence, subduction, trench, melting, and volcanic-chain relations.",
+    "limitations": [
+      "A convergence influence field does not by itself determine subduction polarity, trench geometry, or an oriented volcanic arc.",
+      "C2A does not infer earthquakes, eruptions, elevation, or hazards."
+    ],
+    "contentFingerprint": "usgs:subduction-zone-science:2020#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "worldwright-c2a-structural-scope-v1",
+    "sourceType": "internal controlled scope, ambiguity, and authority contract",
+    "citation": "WorldWright C1/C2A detached continent-ocean structural interpretation contract.",
+    "title": "WorldWright Detached Structural Interpretation Scope Contract",
+    "authorsOrInstitution": "WorldWright",
+    "publicationYear": 2026,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "structural-role-scope-ambiguity-and-authority-firewall",
+    "qualityClass": "INTERNAL_CONTROLLED_ARCHETYPE",
+    "correlationGroupId": "worldwright-c2a-structural-scope",
+    "licenseOrUsageNote": "Internal architecture and product boundary; not external scientific evidence.",
+    "limitations": [
+      "Normalized C2A signal boundaries are provisional software calibration for detached candidates, not universal geophysical thresholds.",
+      "C2A forbids land, water, sea level, bathymetry, terrain, material, renderer, and structural-role authority."
+    ],
+    "contentFingerprint": "worldwright:c2a-structural-scope-v1"
+  }
+]
