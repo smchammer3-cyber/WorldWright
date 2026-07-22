@@ -262,7 +262,7 @@ export function validateContinentOceanStructuralRegion(
     throw new Error(`Unresolved continent/ocean structural region ${region.regionId} must include STRUCTURALLY_UNRESOLVED.`);
   }
   canonicalGhostRisks(region.ghostRiskCandidates ?? [], region.regionId as string);
-  canonicalEnumText(region.suppressionRecommendations, SUPPRESSION_RECOMMENDATION_SET, `Continent/ocean structural region ${region.regionId} suppression recommendations`, 1);
+  canonicalEnumText<ContinentOceanSuppressionRecommendationV1>(region.suppressionRecommendations, SUPPRESSION_RECOMMENDATION_SET, `Continent/ocean structural region ${region.regionId} suppression recommendations`, 1);
   canonicalText(region.unresolvedReasonIds, `Continent/ocean structural region ${region.regionId} unresolved reason IDs`, region.resolutionStatus === 'UNRESOLVED' ? 1 : 0);
   canonicalText(region.evidenceIds, `Continent/ocean structural region ${region.regionId} evidence IDs`);
   canonicalText(region.contradictionIds, `Continent/ocean structural region ${region.regionId} contradiction IDs`);
@@ -300,7 +300,7 @@ function canonicalRegions(value: readonly ContinentOceanStructuralRegionV1[]): r
       ...region,
       roleCandidates: canonicalRoleCandidates(region.roleCandidates, region.regionId),
       ghostRiskCandidates: canonicalGhostRisks(region.ghostRiskCandidates, region.regionId),
-      suppressionRecommendations: canonicalEnumText(region.suppressionRecommendations, SUPPRESSION_RECOMMENDATION_SET, `Continent/ocean structural region ${region.regionId} suppression recommendations`, 1),
+      suppressionRecommendations: canonicalEnumText<ContinentOceanSuppressionRecommendationV1>(region.suppressionRecommendations, SUPPRESSION_RECOMMENDATION_SET, `Continent/ocean structural region ${region.regionId} suppression recommendations`, 1),
       unresolvedReasonIds: canonicalText(region.unresolvedReasonIds, `Continent/ocean structural region ${region.regionId} unresolved reason IDs`, region.resolutionStatus === 'UNRESOLVED' ? 1 : 0),
       evidenceIds: canonicalText(region.evidenceIds, `Continent/ocean structural region ${region.regionId} evidence IDs`),
       contradictionIds: canonicalText(region.contradictionIds, `Continent/ocean structural region ${region.regionId} contradiction IDs`),
