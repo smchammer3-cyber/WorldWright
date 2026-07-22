@@ -250,13 +250,16 @@ describe('C1 detached continent-ocean structural-role contracts', () => {
     expect(() => createState(hiddenAmbiguity)).toThrow(/cannot hide competing roles/i);
 
     const unsupportedSource = cloneRegions();
-    unsupportedSource[0].candidates[0] = {
-      ...unsupportedSource[0].candidates[0],
-      sourceReferences: [{
-        schemaVersion: 1,
-        sourceKind: 'PROCESS_FIELD',
-        sourceId: 'oceanBasinInfluence',
-        evidenceIds: ['evidence.c1.invalid-source'],
+    unsupportedSource[0] = {
+      ...unsupportedSource[0],
+      candidates: [{
+        ...unsupportedSource[0].candidates[0],
+        sourceReferences: [{
+          schemaVersion: 1,
+          sourceKind: 'PROCESS_FIELD',
+          sourceId: 'oceanBasinInfluence',
+          evidenceIds: ['evidence.c1.invalid-source'],
+        }],
       }],
     };
     expect(() => createState(unsupportedSource)).toThrow(/unsupported process field/i);
