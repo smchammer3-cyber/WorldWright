@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "reportVersion": "C1_DETACHED_STRUCTURAL_ROLE_CONTRACTS_V1",
+  "baseCommit": "5dad3bc94749ff3e3fdcc83f91c74132b4a94835",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "interpretationMode": "DETACHED_DIAGNOSTIC",
+  "scientificStatus": "PARTIAL",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "record": "ContinentOceanStructureInterpretationV1",
+  "process": {
+    "processId": "CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION",
+    "reads": [
+      "causalRecord",
+      "diagnostics"
+    ],
+    "writes": [
+      "diagnostics"
+    ],
+    "prerequisites": [
+      "CAUSAL_PROCESS_FIELD_PROJECTION"
+    ],
+    "allowedDiagnosticInputs": [
+      "validated detached process-field projection",
+      "validated planetary premise",
+      "validated geologic spine"
+    ],
+    "forbiddenAuthorityWrites": [
+      "processFieldAuthority",
+      "structuralRoleAuthority",
+      "terrain",
+      "derivedSurface",
+      "baseTerrain",
+      "finalTerrain",
+      "presentation"
+    ]
+  },
+  "roleIds": [
+    "CONTINENTAL_INTERIOR",
+    "CONTINENTAL_MARGIN",
+    "CONTINENTAL_SHELF",
+    "CONTINENTAL_SLOPE",
+    "DEEP_OCEAN_BASIN",
+    "OCEANIC_RIDGE_SYSTEM",
+    "VOLCANIC_ARC_SYSTEM",
+    "DROWNED_CONTINENTAL_FRAGMENT",
+    "TRANSITIONAL_CRUST",
+    "STRUCTURALLY_UNRESOLVED"
+  ],
+  "resolutionStatuses": [
+    "SINGLE_LEADING_CANDIDATE",
+    "AMBIGUOUS_CANDIDATES",
+    "UNRESOLVED"
+  ],
+  "ghostRiskIds": [
+    "CONTINENTAL_GHOST",
+    "OCEANIC_GHOST",
+    "SHELF_GHOST",
+    "DROWNED_FRAGMENT_CONFUSION",
+    "RIDGE_ARC_CONFUSION"
+  ],
+  "suppressionRecommendationIds": [
+    "SUPPRESS_UNSUPPORTED_CONTINENTAL_GHOST",
+    "SUPPRESS_UNSUPPORTED_OCEANIC_GHOST",
+    "SUPPRESS_UNSUPPORTED_SHELF_GHOST",
+    "PRESERVE_DROWNED_FRAGMENT_ALTERNATIVE",
+    "DEFER_TO_STRUCTURE_MATERIAL_GENESIS",
+    "NO_SUPPRESSION_RECOMMENDATION"
+  ],
+  "budgets": {
+    "maximumRoleDefinitions": 32,
+    "maximumRegions": 4096,
+    "maximumRoleCandidatesPerRegion": 10,
+    "maximumGhostRiskCandidatesPerRegion": 8,
+    "maximumSerializedBytes": 8388608
+  },
+  "gates": {
+    "stableRegionIdentity": "REQUIRED",
+    "canonicalRoleCandidates": "REQUIRED",
+    "normalizedSupportRanges": "REQUIRED",
+    "sourceFieldTraceability": "REQUIRED",
+    "sourceNodeTraceability": "SUPPORTED",
+    "explicitAmbiguity": "REQUIRED",
+    "unresolvedRoleForUnresolvedStatus": "REQUIRED",
+    "ghostRiskTraceability": "REQUIRED",
+    "deterministicHashing": "REQUIRED",
+    "structuralRoleAuthority": "FORBIDDEN",
+    "landWaterAuthority": "FORBIDDEN",
+    "bathymetryAuthority": "FORBIDDEN",
+    "terrainAuthority": "FORBIDDEN"
+  },
+  "forbiddenInputs": [
+    "legacy solved morphology",
+    "legacy land or water masks",
+    "sea level",
+    "bathymetry",
+    "renderer color",
+    "UI labels",
+    "province IDs",
+    "debug identities",
+    "shadow-audit comparison output"
+  ],
+  "explicitNonScope": [
+    "No structural-role resolver or threshold equation in C1.",
+    "No regional sampling algorithm or role promotion.",
+    "No final land, water, sea level, bathymetry, shoreline, or terrain output.",
+    "No crust, material, buoyancy, thickness, resistance, structural grain, or terrain permission.",
+    "No ordinary Generate, Create, Sim, rendering, storage, export, or migration change.",
+    "No processFieldAuthority or structuralRoleAuthority before A2.",
+    "No CAUSAL_ACTIVE route or physical promotion."
+  ],
+  "nextScope": "C2 reviewed structural-role interpretation rules, controlled fixtures, ambiguity thresholds, and detached resolver"
+}
