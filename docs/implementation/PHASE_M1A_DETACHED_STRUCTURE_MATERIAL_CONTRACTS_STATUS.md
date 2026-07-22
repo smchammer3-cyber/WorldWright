@@ -41,14 +41,16 @@ M1A defines nine province classes:
 ```text
 EXHUMED_MANTLE_TRANSITION
 JUVENILE_CONTINENTAL_OR_ARC_CRUST
+MAGMATICALLY_THICKENED_MAFIC_PROVINCE
 MIXED_TRANSITIONAL_PROVINCE
 NORMAL_OCEANIC_CRUST
-PLUME_THICKENED_MAFIC_PROVINCE
 RIFT_THINNED_CONTINENTAL_PROVINCE
 STABLE_CONTINENTAL_ROOT
 STRUCTURE_MATERIAL_UNRESOLVED
 TECTONICALLY_THICKENED_CRUST
 ```
+
+`MAGMATICALLY_THICKENED_MAFIC_PROVINCE` is deliberately cause-neutral. It permits anomalously thick mafic crust associated with elevated melt production, volcanic-margin construction, or oceanic plateau construction without asserting a unique deep-plume origin.
 
 Six are source-supported **candidate classes**, not resolved outcomes. Two remain `RESEARCH_REQUIRED` before a resolver:
 
@@ -160,9 +162,13 @@ They require:
 
 - deterministic replay and exact source-hash lineage;
 - canonical region and candidate ordering;
+- exact owned-key validation at state, definition, region, and candidate levels;
+- rejection of nested physical or presentation payloads even after a forged state receives a recomputed valid hash;
 - exact compatibility between province class and substrate, thickness, buoyancy, resistance, grain, structural-role, and terrain-permission dimensions;
 - affirmative candidates to carry source-linked evidence;
 - unresolved candidates to carry explicit reasons and no fabricated positive evidence;
+- ambiguous regions to retain at least two affirmative alternatives and no unresolved reasons;
+- leading regions to retain no unresolved reasons;
 - ambiguous or unresolved states to have no hidden leading candidate;
 - `surfaceExposureSummary` to be rejected as deep material evidence;
 - physical payload keys and authority promotion to be rejected;
