@@ -1,0 +1,235 @@
+{
+  "schemaVersion": 1,
+  "reportVersion": "C3_PHASE_C_COMPLETION_AND_PHASE_M_READINESS_V1",
+  "baseCommit": "6e5543511e2bcb7de9c32b57ec90870a12a7b0f4",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "interpretationMode": "DETACHED_DIAGNOSTIC",
+  "scientificStatus": "PARTIAL",
+  "phaseCImplementationStatus": "COMPLETE_PENDING_EXACT_HEAD_VALIDATION",
+  "phaseCScientificCompletion": "PARTIAL",
+  "phaseMReadiness": "READY_FOR_M1_DETACHED_STRUCTURE_MATERIAL_CONTRACTS_AND_RESEARCH_ONLY",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "mergedMilestones": [
+    {
+      "milestoneId": "C1",
+      "pullRequest": 151,
+      "validatedHead": "082bc00583b979aa3b3c66e94acc4deb00b3c8fb",
+      "mergeCommit": "3060054b7e862a8a5dc898db83a4d5145868d3ff",
+      "summary": "Immutable detached structural-role contracts, ambiguity, provenance, validators, budgets, and diagnostics-only authority registration."
+    },
+    {
+      "milestoneId": "C2A",
+      "pullRequest": 153,
+      "validatedHead": "cc5227c03658d9e9d50bd303be1c0821a7078cdf",
+      "mergeCommit": "e4e14ce0914c489964afe3a4ecea14097c4e07b5",
+      "summary": "Source-backed role and ghost rules, explicit research-required boundaries, negatives, approved exception, and two withheld holdouts."
+    },
+    {
+      "milestoneId": "C2B",
+      "pullRequest": 155,
+      "validatedHead": "968a22026df1727e8d672d504f16e60839dd5ed1",
+      "mergeCommit": "6e5543511e2bcb7de9c32b57ec90870a12a7b0f4",
+      "summary": "Deterministic detached candidate resolver with semantic authority tests, source-lineage checks, conservative mixed-provenance shelf/slope admission, and complete fixed-corpus validation."
+    }
+  ],
+  "completionEvidence": {
+    "fixedStructuralCorpus": {
+      "fixtureSetVersion": "C2A_CONTINENT_OCEAN_STRUCTURE_FIXTURES_V1",
+      "totalCases": 16,
+      "fixtureKindCounts": {
+        "POSITIVE": 4,
+        "THRESHOLD": 7,
+        "NEGATIVE": 2,
+        "EXCEPTION": 1,
+        "HOLDOUT": 2
+      },
+      "holdoutsUsedForCalibration": false,
+      "requiredEvidence": [
+        "unchanged fixed fixture expectations",
+        "byte-identical replay",
+        "required and allowed role conformance",
+        "forbidden leading-role enforcement",
+        "negative and exception fail-closed behavior",
+        "withheld holdout success without runtime calibration access",
+        "semantic false-authority checks",
+        "recursive physical-payload key exclusion",
+        "runtime and payload budgets"
+      ]
+    },
+    "liveUpstreamCorpus": {
+      "fixtureIds": [
+        "positive/cold-rocky-dwarf-single-lid-v1",
+        "positive/earthlike-mixed-evolution-v1",
+        "positive/hot-super-earth-magmatic-v1",
+        "threshold/tidally-heated-rocky-v1",
+        "positive/tidal-ice-shell-history-v1",
+        "holdout/rock-ice-mixed-history-v1",
+        "holdout/volatile-pressure-history-v1"
+      ],
+      "fixtureKindCounts": {
+        "POSITIVE": 4,
+        "THRESHOLD": 1,
+        "HOLDOUT": 2
+      },
+      "route": "premise -> regime history -> geologic spine -> detached process-field projection -> detached structural interpretation",
+      "requiredEvidence": [
+        "production-wrapper execution",
+        "source-hash lineage continuity",
+        "byte-identical replay",
+        "region-order independence",
+        "diagnostic-grid sampling noninterference",
+        "candidate field and node traceability",
+        "explicit ambiguity and unresolved behavior",
+        "oriented and material-context roles never leading",
+        "artificial premise fail-closed behavior",
+        "payload and runtime budgets",
+        "no physical or visible output fields"
+      ]
+    }
+  },
+  "phaseCGates": [
+    {
+      "gateId": "CONTRACT_AND_AUTHORITY_ISOLATION",
+      "target": "PASS",
+      "blockingPhaseM": true,
+      "evidence": "The C1 record remains immutable, source-hashed, PARTIAL, CAUSAL_SHADOW-only, and explicitly false for structural-role, land, water, bathymetry, and terrain authority."
+    },
+    {
+      "gateId": "RESEARCH_REVIEW_AND_HOLDOUT_INTEGRITY",
+      "target": "PASS",
+      "blockingPhaseM": true,
+      "evidence": "C2A retains zero COMPLETE-eligible rules, two RESEARCH_REQUIRED rules, two withheld holdouts, negative evidence, and the approved artificial-shell exception."
+    },
+    {
+      "gateId": "FIXED_CORPUS_CONFORMANCE",
+      "target": "PASS",
+      "blockingPhaseM": true,
+      "evidence": "The unchanged sixteen-case C2A corpus passes the C2B resolver without weakening expected roles, statuses, ghosts, or holdout boundaries."
+    },
+    {
+      "gateId": "LIVE_UPSTREAM_LINEAGE",
+      "target": "PASS",
+      "blockingPhaseM": true,
+      "evidence": "Seven reviewed upstream worlds execute through history, spine, projection, and structural interpretation with exact source-hash continuity."
+    },
+    {
+      "gateId": "DETERMINISM_AND_QUERY_RESOLUTION_INDEPENDENCE",
+      "target": "PASS",
+      "blockingPhaseM": true,
+      "evidence": "Replay and reversed region ordering are byte-identical, and disposable diagnostic-grid sampling does not alter projection or structural interpretation."
+    },
+    {
+      "gateId": "TRACEABILITY_AND_EXPLICIT_AMBIGUITY",
+      "target": "PASS",
+      "blockingPhaseM": true,
+      "evidence": "Every candidate cites registered fields and valid source nodes where present; ambiguous and unresolved states cannot silently acquire a leading role."
+    },
+    {
+      "gateId": "PHYSICAL_PAYLOAD_ABSENCE",
+      "target": "PASS",
+      "blockingPhaseM": true,
+      "evidence": "Semantic authority flags remain false and recursive object-key inspection rejects land, water, sea-level, bathymetry, terrain, renderer, and canonical-world payloads."
+    },
+    {
+      "gateId": "PERFORMANCE_AND_PAYLOAD",
+      "target": "PASS",
+      "blockingPhaseM": true,
+      "evidence": "The fixed corpus and seven live routes remain within committed resolver and serialized-payload budgets."
+    },
+    {
+      "gateId": "LEGACY_VISUAL_EQUIVALENCE",
+      "target": "PASS",
+      "blockingPhaseM": true,
+      "evidence": "Exact-head full CI, snapshot canary, and full-globe review must pass because Phase C remains detached and ordinary Generate is unchanged."
+    }
+  ],
+  "knownLimitations": [
+    {
+      "limitationId": "PROVISIONAL_NORMALIZED_CALIBRATION",
+      "severity": "BLOCKING_PHYSICAL_PROMOTION",
+      "status": "OPEN",
+      "description": "C2A normalized signal boundaries are controlled software calibration, not universal geophysical constants or observationally calibrated probabilities."
+    },
+    {
+      "limitationId": "RADIAL_PROCESS_FIELD_GEOMETRY",
+      "severity": "BLOCKING_ORIENTED_ROLE_AUTHORITY",
+      "status": "OPEN",
+      "description": "Radial compact-support fields do not independently reconstruct oriented margins, ridges, arcs, trenches, sutures, transforms, or spreading direction."
+    },
+    {
+      "limitationId": "SHELF_SLOPE_MATERIAL_SURFACE_CONTEXT",
+      "severity": "BLOCKING_SHELF_SLOPE_AUTHORITY",
+      "status": "OPEN",
+      "description": "Shelf and slope remain RESEARCH_REQUIRED and require mixed crustal provenance plus later material, sedimentary, sea-level, bathymetric, and surface-gradient evidence."
+    },
+    {
+      "limitationId": "DROWNED_FRAGMENT_CONTEXT",
+      "severity": "BLOCKING_DROWNED_FRAGMENT_AUTHORITY",
+      "status": "OPEN",
+      "description": "Drowned continental affinity remains an alternative until later material, buoyancy, exposure, and surface context exists."
+    },
+    {
+      "limitationId": "NO_GLOBAL_REGION_PARTITIONER",
+      "severity": "OPEN_IMPLEMENTATION_LIMITATION",
+      "status": "OPEN",
+      "description": "C2B interprets caller-supplied spherical regions; Phase C does not claim a final global structural partition, coastline, or physical region geometry."
+    },
+    {
+      "limitationId": "NO_OBSERVATIONAL_ROLE_FREQUENCY_CALIBRATION",
+      "severity": "BLOCKING_SCIENTIFIC_COMPLETION",
+      "status": "OPEN",
+      "description": "The completion gate does not establish generated-world role frequencies, global accuracy, or observational calibration."
+    }
+  ],
+  "phaseMEntryBoundary": {
+    "allowed": true,
+    "mode": "M1_DETACHED_STRUCTURE_MATERIAL_CONTRACTS_AND_RESEARCH_ONLY",
+    "firstScope": "M1 immutable StructureMaterialStateV1 candidate contracts, source-backed research package, provenance, ambiguity, budgets, and diagnostics-only authority registration",
+    "reads": [
+      "validated planetary premise and interior material constraints",
+      "validated regime history and geologic spine",
+      "validated detached process-field projection",
+      "validated detached continent/ocean structural interpretation"
+    ],
+    "writes": [
+      "diagnostics"
+    ],
+    "forbiddenWrites": [
+      "processFieldAuthority",
+      "structuralRoleAuthority",
+      "structureMaterialCause",
+      "landformPotentialAuthority",
+      "baseTerrain",
+      "finalTerrain",
+      "landMask",
+      "waterMask",
+      "seaLevel",
+      "bathymetry",
+      "presentation"
+    ],
+    "forbiddenInputs": [
+      "legacy solved morphology",
+      "legacy land or water masks",
+      "legacy crust or material labels",
+      "renderer color",
+      "UI labels",
+      "province IDs",
+      "debug identities",
+      "shadow-audit comparison output"
+    ],
+    "ordinaryGenerateInvocation": "FORBIDDEN",
+    "physicalPromotion": "FORBIDDEN",
+    "causalActive": "FORBIDDEN"
+  },
+  "finalVerdict": {
+    "phaseCSoftwareImplementation": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
+    "phaseCScientificStatus": "PARTIAL",
+    "phaseMDetachedEntry": "ALLOWED_AFTER_EXACT_HEAD_GATE_PASS",
+    "physicalPromotion": "BLOCKED",
+    "legacyRetirement": "FORBIDDEN",
+    "nextAction": "BEGIN_M1_DETACHED_STRUCTURE_MATERIAL_CONTRACTS_AND_RESEARCH"
+  }
+}
