@@ -10,6 +10,7 @@ import {
   createSphericalExtent,
   createStructureMaterialState,
   hashCausalPayload,
+  hashRecordWithoutContentHash,
   validateStructureMaterialResearchReview,
   validateStructureMaterialState,
   type ScientificClaimRuleV1,
@@ -17,6 +18,7 @@ import {
   type StructureMaterialProvinceCandidateV1,
   type StructureMaterialRegionV1,
   type StructureMaterialResearchReviewV1,
+  type StructureMaterialStateV1,
 } from '../src/core/causalGeology';
 import { getAuthorityProcess } from '../src/core/worldAuthority';
 
@@ -122,7 +124,26 @@ describe('M1A detached structure/material contracts', () => {
     ])).toThrow(/incompatible terrain-term permission/i);
   });
 
-  it('requires canonical ordering and rejects duplicate or unresolved leading classifications', () => {
+  it('rejects unowned fields recursively even when a forged state has a recomputed valid hash', () => {
+    const state = createState([ambiguousContinentalRegion()]);
+
+    const topLevelLeak = structuredClone(state);
+    (topLevelLeak as unknown as Record<string, unknown>).terrain = { fabricated: true };
+    setHash(topLevelLeak);
+    expect(() => validateStructureMaterialState(topLevelLeak)).toThrow(/unowned field: terrain/i);
+
+    const regionLeak = structuredClone(state);
+    (regionLeak.regions[0] as unknown as Record<string, unknown>).landMask = [true];
+    setHash(regionLeak);
+    expect(() => validateStructureMaterialState(regionLeak)).toThrow(/unowned field: landMask/i);
+
+    const candidateLeak = structuredClone(state);
+    (candidateLeak.regions[0].provinceCandidates[0] as unknown as Record<string, unknown>).rendererColor = '#00ff00';
+    setHash(candidateLeak);
+    expect(() => validateStructureMaterialState(candidateLeak)).toThrow(/unowned field: rendererColor/i);
+  });
+
+  it('requires canonical ordering and exact ambiguity, leading, and unresolved invariants', () => {
     expect(() => createState([
       ambiguousContinentalRegion([
         tectonicallyThickenedCandidate(),
@@ -132,6 +153,22 @@ describe('M1A detached structure/material contracts', () => {
 
     const duplicateRegion = ambiguousContinentalRegion();
     expect(() => createState([duplicateRegion, duplicateRegion])).toThrow(/duplicate structure\/material region/i);
+
+    expect(() => createState([
+      ambiguousContinentalRegion([stableCandidate()]),
+    ])).toThrow(/at least two affirmative province candidates/i);
+
+    expect(() => createState([{
+      ...ambiguousContinentalRegion(),
+      unresolvedReasonIds: ['m1a.unresolved.not-allowed-on-ambiguity'],
+    }])).toThrow(/ambiguous.*cannot carry unresolved reasons/i);
+
+    expect(() => createState([{
+      ...ambiguousContinentalRegion(),
+      resolutionStatus: 'SINGLE_LEADING_CANDIDATE',
+      leadingProvinceClass: 'STABLE_CONTINENTAL_ROOT',
+      unresolvedReasonIds: ['m1a.unresolved.not-allowed-with-leading'],
+    }])).toThrow(/cannot carry unresolved reasons while a leading province exists/i);
 
     const unresolved = unresolvedRegion();
     const unresolvedState = createState([unresolved]);
@@ -145,6 +182,7 @@ describe('M1A detached structure/material contracts', () => {
       ...unresolved,
       resolutionStatus: 'SINGLE_LEADING_CANDIDATE',
       leadingProvinceClass: 'STRUCTURE_MATERIAL_UNRESOLVED',
+      unresolvedReasonIds: [],
     }])).toThrow(/cannot lead with the unresolved province/i);
 
     expect(() => createState([{
@@ -371,6 +409,14 @@ function sourceHash(kind: string) {
   return hashCausalPayload(`WorldWright/test/m1a-${kind}/v1`, { kind });
 }
 
+function rehash(state: StructureMaterialStateV1) {
+  return hashRecordWithoutContentHash('WorldWright/structure-material-state/v1', state as object);
+}
+
+function setHash(state: StructureMaterialStateV1): void {
+  (state as unknown as { contentHash: StructureMaterialStateV1['contentHash'] }).contentHash = rehash(state);
+}
+
 function findForbiddenPhysicalPayloadKeys(value: unknown, path = 'state'): string[] {
   if (Array.isArray(value)) return value.flatMap((entry, index) => findForbiddenPhysicalPayloadKeys(entry, `${path}[${index}]`));
   if (!value || typeof value !== 'object') return [];
@@ -383,6 +429,6 @@ function findForbiddenPhysicalPayloadKeys(value: unknown, path = 'state'): strin
   });
 }
 
-function readResearchJson<T>(fileName: string): T {
-  return JSON.parse(readFileSync(resolve(researchRoot, fileName), 'utf8')) as T;
+function readResearchJson<T>(filename: string): T {
+  return JSON.parse(readFileSync(resolve(researchRoot, filename), 'utf8')) as T;
 }
