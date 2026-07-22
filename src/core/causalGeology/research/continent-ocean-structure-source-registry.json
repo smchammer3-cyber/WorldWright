@@ -13,8 +13,8 @@
     "correlationGroupId": "rifted-margin-transition-observations",
     "licenseOrUsageNote": "Bibliographic metadata and high-level structural relations only; no copied figures, datasets, or numerical calibration.",
     "limitations": [
-      "The South China Sea is one rifted-margin system and does not define a universal continent-ocean transition geometry.",
-      "Competing transition models remain scientifically meaningful until basement composition and structure are resolved."
+      "Competing transition models remain scientifically meaningful until basement composition and structure are resolved.",
+      "The South China Sea is one rifted-margin system and does not define a universal continent-ocean transition geometry."
     ],
     "contentFingerprint": "doi:10.14379/iodp.sp.367368.2016#c2a"
   },
@@ -32,8 +32,8 @@
     "correlationGroupId": "rifted-margin-transition-observations",
     "licenseOrUsageNote": "Bibliographic metadata and high-level detachment/transition relation only; no copied text, figures, or site template.",
     "limitations": [
-      "The Iberia Abyssal Plain example does not make exhumed or serpentinized mantle mandatory at all rifted margins.",
-      "A transition zone may contain multiple plausible structural identities that cannot be resolved from radial influence fields alone."
+      "A transition zone may contain multiple plausible structural identities that cannot be resolved from radial influence fields alone.",
+      "The Iberia Abyssal Plain example does not make exhumed or serpentinized mantle mandatory at all rifted margins."
     ],
     "contentFingerprint": "doi:10.2973/odp.proc.sr.149.244.1996#c2a"
   },
@@ -108,8 +108,8 @@
     "correlationGroupId": "ridge-and-spreading-observations",
     "licenseOrUsageNote": "Bibliographic metadata and high-level spreading/ridge association only; no copied geometry, data, or numerical calibration.",
     "limitations": [
-      "The association of spreading boundaries and ridge volcanism does not make a radial rift-influence kernel an oriented ridge axis.",
-      "Observed segmentation and spreading-rate dependence require geometry and rate information beyond C2A."
+      "Observed segmentation and spreading-rate dependence require geometry and rate information beyond C2A.",
+      "The association of spreading boundaries and ridge volcanism does not make a radial rift-influence kernel an oriented ridge axis."
     ],
     "contentFingerprint": "doi:10.1038/317225a0#c2a"
   },
@@ -146,8 +146,8 @@
     "correlationGroupId": "worldwright-c2a-structural-scope",
     "licenseOrUsageNote": "Internal architecture and product boundary; not external scientific evidence.",
     "limitations": [
-      "Normalized C2A signal boundaries are provisional software calibration for detached candidates, not universal geophysical thresholds.",
-      "C2A forbids land, water, sea level, bathymetry, terrain, material, renderer, and structural-role authority."
+      "C2A forbids land, water, sea level, bathymetry, terrain, material, renderer, and structural-role authority.",
+      "Normalized C2A signal boundaries are provisional software calibration for detached candidates, not universal geophysical thresholds."
     ],
     "contentFingerprint": "worldwright:c2a-structural-scope-v1"
   }
