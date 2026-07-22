@@ -1,0 +1,70 @@
+name: M1A Detached Structure Material Contracts Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m1a-detached-structure-material-contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detached-structure-material-contracts:
+    name: Validate M1A contracts, research, and authority firewall
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run M1A adversarial gates
+        run: |
+          mkdir -p artifacts/ci-logs artifacts/m1a-detached-structure-material-contracts
+          set -o pipefail
+          npx vitest run test/causalStructureMaterialContracts.spec.ts test/causalStructureMaterialM1AArtifact.spec.ts test/causalGeologyAuthority.spec.ts 2>&1 | tee artifacts/ci-logs/m1a-detached-structure-material-contracts.log
+          cp docs/implementation/phase-m/m1a-detached-structure-material-contracts.json artifacts/m1a-detached-structure-material-contracts/
+          cp docs/implementation/PHASE_M1A_DETACHED_STRUCTURE_MATERIAL_CONTRACTS_STATUS.md artifacts/m1a-detached-structure-material-contracts/
+
+      - name: Summarize M1A verdict
+        if: always()
+        run: |
+          {
+            echo "## M1A detached structure/material contracts"
+            echo "- Province definitions: \`9\`"
+            echo "- Supported candidate classes: \`6\`"
+            echo "- Research-required classes: \`2\`"
+            echo "- Scientific status: \`PARTIAL\`"
+            echo "- Resolver implementation: \`forbidden\`"
+            echo "- Threshold calibration: \`forbidden\`"
+            echo "- surfaceExposureSummary as deep evidence: \`forbidden\`"
+            echo "- Authority mode: \`CAUSAL_SHADOW\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- structureMaterialCause / terrain writes: \`forbidden\`"
+            echo "- Ordinary Generate change: \`none\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload M1A artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m1a-detached-structure-material-contracts
+          path: |
+            artifacts/m1a-detached-structure-material-contracts/
+            artifacts/ci-logs/m1a-detached-structure-material-contracts.log
+          if-no-files-found: warn
+          retention-days: 30
