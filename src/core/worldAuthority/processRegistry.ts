@@ -76,6 +76,7 @@ export const CAUSAL_SHADOW_PROCESS_ORDER = Object.freeze([
 
 export const CAUSAL_SHADOW_DIAGNOSTIC_PROCESS_ORDER = Object.freeze([
   'CAUSAL_PROCESS_FIELD_PROJECTION',
+  'CAUSAL_CONTINENT_OCEAN_STRUCTURE',
   'CAUSAL_SHADOW_AUDIT',
 ] as const);
 
@@ -110,6 +111,7 @@ export const WORLD_AUTHORITY_PROCESSES: readonly AuthorityProcessDefinition[] = 
   process('CAUSAL_REGIME_HISTORY', 'causal-resolution', ['causalRecord'], ['causalRecord'], { owner: 'CAUSAL_GEOLOGY_SHADOW', prerequisites: ['CAUSAL_INTERIOR_RESOLUTION'], modes: SHADOW_ONLY, invariants: ['Uses normalized history time plus declared total duration and stable epoch identities.'] }),
   process('CAUSAL_GEOLOGIC_SPINE', 'causal-resolution', ['causalRecord'], ['causalRecord'], { owner: 'CAUSAL_GEOLOGY_SHADOW', prerequisites: ['CAUSAL_REGIME_HISTORY'], modes: SHADOW_ONLY, invariants: ['Produces resolution-independent spherical graph records with age, persistence, exposure, and preservation; never terrain.'] }),
   process('CAUSAL_PROCESS_FIELD_PROJECTION', 'diagnostic', ['causalRecord'], ['diagnostics'], { owner: 'CAUSAL_PROCESS_FIELD_PROJECTION_DIAGNOSTIC', prerequisites: ['CAUSAL_GEOLOGIC_SPINE'], modes: SHADOW_ONLY, invariants: ['Produces a continuous queryable spherical kernel projection as a detached diagnostic stage artifact.', 'Never writes processFieldAuthority, terrain, land/water, renderer state, or canonical world state.', 'Reads only validated regime-history and geologic-spine records.', 'Uses no legacy morphology, renderer colors, UI labels, or debug identities as causal input.'] }),
+  process('CAUSAL_CONTINENT_OCEAN_STRUCTURE', 'diagnostic', ['causalRecord', 'diagnostics'], ['diagnostics'], { owner: 'CAUSAL_CONTINENT_OCEAN_STRUCTURE_DIAGNOSTIC', prerequisites: ['CAUSAL_PROCESS_FIELD_PROJECTION'], modes: SHADOW_ONLY, invariants: ['Produces only detached candidate structural roles, ambiguity, provenance, and ghost-risk records.', 'Never writes structuralRoleAuthority, processFieldAuthority, terrain, land/water, bathymetry, material, renderer state, or canonical world state.', 'Reads only validated premise, geologic-spine, and detached process-field projection records.', 'Preserves UNRESOLVED and competing roles instead of forcing continent or ocean.', 'Ghost suppression remains an auditable candidate disposition and cannot physically suppress output.'] }),
   process('CAUSAL_SHADOW_AUDIT', 'diagnostic', ['causalRecord'], ['diagnostics'], { owner: 'WORLD_DIAGNOSTICS', prerequisites: ['CAUSAL_GEOLOGIC_SPINE'], modes: SHADOW_ONLY, invariants: ['Causal modules export immutable records only.', 'An external read-only adapter may separately read legacy/reference data.', 'Comparison output cannot feed causal generation or mutate canonical state.'] }),
   process('CREATE_EDIT', 'edit', ['terrain', 'biomeDerived', 'worldbuilding'], ['terrain', 'biomeDerived', 'worldbuilding'], { owner: 'CREATE_MODE', modes: OPERABLE_MODES }),
   process('SIM_TICK', 'simulation', ['terrain', 'worldbuilding', 'causalRecord'], ['terrain', 'worldbuilding'], { owner: 'SIM_MODE', modes: OPERABLE_MODES }),
@@ -149,5 +151,8 @@ export function validateAuthorityProcessRegistry(): readonly string[] {
   if (audit.reads.some((group) => group !== 'causalRecord')) errors.push('CAUSAL_SHADOW_AUDIT: comparison must read legacy/reference state only through an external adapter');
   const projection = getAuthorityProcess('CAUSAL_PROCESS_FIELD_PROJECTION');
   if (projection.writes.includes('processFieldAuthority')) errors.push('CAUSAL_PROCESS_FIELD_PROJECTION: Phase D detached projections cannot write processFieldAuthority before A2');
+  const structure = getAuthorityProcess('CAUSAL_CONTINENT_OCEAN_STRUCTURE');
+  if (!structure.reads.includes('diagnostics')) errors.push('CAUSAL_CONTINENT_OCEAN_STRUCTURE: detached structure must read the detached projection through diagnostics');
+  if (structure.writes.includes('structuralRoleAuthority')) errors.push('CAUSAL_CONTINENT_OCEAN_STRUCTURE: C1 detached interpretation cannot write structuralRoleAuthority before A2');
   return Object.freeze(errors);
 }
