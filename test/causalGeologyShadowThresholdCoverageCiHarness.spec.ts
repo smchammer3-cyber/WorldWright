@@ -10,11 +10,11 @@ import {
   validateCausalGeologyInput,
   validateCausalShadowThresholdCorpus,
   validateCausalShadowThresholdCoverageReport,
+  type CausalGeologyInputV1,
   type CausalInputDeclarationV1,
   type CausalShadowThresholdCaseV1,
   type CausalShadowThresholdCorpusV1,
   type CausalShadowThresholdExecutionV1,
-  type CausalGeologyInputV1,
 } from '../src/core/causalGeology';
 
 const repositoryRoot = process.cwd();
@@ -122,9 +122,15 @@ describe('W1-06B1 canonical direct-input threshold CI harness', () => {
   });
 
   it('rejects duplicate axes rather than counting aliases as completed threshold coverage', () => {
-    const duplicate = JSON.parse(JSON.stringify(corpus)) as CausalShadowThresholdCorpusV1;
-    const cases = duplicate.cases as CausalShadowThresholdCaseV1[];
-    cases[1] = { ...cases[1], axis: cases[0].axis, unit: cases[0].unit, scaleId: cases[0].scaleId };
+    const duplicate = JSON.parse(JSON.stringify(corpus)) as unknown as {
+      cases: CausalShadowThresholdCaseV1[];
+    };
+    duplicate.cases[1] = {
+      ...duplicate.cases[1],
+      axis: duplicate.cases[0].axis,
+      unit: duplicate.cases[0].unit,
+      scaleId: duplicate.cases[0].scaleId,
+    };
     expect(() => validateCausalShadowThresholdCorpus(duplicate)).toThrow(/Duplicate causal threshold axis/);
   });
 });
