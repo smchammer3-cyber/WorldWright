@@ -1,0 +1,1246 @@
+{
+  "schemaVersion": 1,
+  "fixtureSetVersion": "M1B_STRUCTURE_MATERIAL_FIXTURES_V1",
+  "fixtures": [
+    {
+      "schemaVersion": 1,
+      "fixtureId": "exception/magma-poor-exhumed-mantle-or-transition-v1",
+      "kind": "EXCEPTION",
+      "withheldFromCalibration": false,
+      "description": "Magma-poor rift evidence permits exhumed-mantle and mixed-transition alternatives but lacks oriented margin geometry.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "CONTINENTAL_MARGIN",
+          "CONTINENTAL_SLOPE",
+          "TRANSITIONAL_CRUST"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "continentalKernelInfluence",
+            "value": 0.45
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "oceanBasinInfluence",
+            "value": 0.35
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "plumeInfluence",
+            "value": 0.2
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.65
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "riftInfluence",
+            "value": 0.8
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "meltAndVolcanism",
+            "value": 0.35
+          }
+        ],
+        "contextFlags": [
+          "ACTIVE_RIFT_CONTEXT",
+          "MAGMA_POOR_MARGIN_ORIENTATION_MISSING",
+          "MIXED_MARGIN_CONTEXT"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "EXHUMED_MANTLE_TRANSITION"
+        ],
+        "allowedProvinceClasses": [
+          "EXHUMED_MANTLE_TRANSITION",
+          "MIXED_TRANSITIONAL_PROVINCE",
+          "RIFT_THINNED_CONTINENTAL_PROVINCE"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "EXHUMED_MANTLE_TRANSITION",
+          "MIXED_TRANSITIONAL_PROVINCE",
+          "RIFT_THINNED_CONTINENTAL_PROVINCE"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.oriented-magma-poor-margin-geometry-missing"
+        ]
+      },
+      "evidenceIds": [
+        "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+        "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1"
+      ],
+      "limitations": [
+        "This approved exception establishes alternatives, not a leading material classification."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/arc-plume-overlap-v1",
+      "kind": "HOLDOUT",
+      "withheldFromCalibration": true,
+      "description": "Arc-building and high-melt signals overlap without authorizing a juvenile-arc or plume-thickened winner.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "TRANSITIONAL_CRUST",
+          "VOLCANIC_ARC_SYSTEM"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "accretionInfluence",
+            "value": 0.7
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "convergenceInfluence",
+            "value": 0.75
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "oceanBasinInfluence",
+            "value": 0.55
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "plumeInfluence",
+            "value": 0.8
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.75
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "meltAndVolcanism",
+            "value": 0.85
+          }
+        ],
+        "contextFlags": [
+          "ARC_BUILDING_SOURCE",
+          "HIGH_MELT_OR_PLUME_CONTEXT",
+          "VOLCANIC_ARC_CONTEXT"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+          "PLUME_THICKENED_MAFIC_PROVINCE"
+        ],
+        "allowedProvinceClasses": [
+          "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+          "PLUME_THICKENED_MAFIC_PROVINCE"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+          "PLUME_THICKENED_MAFIC_PROVINCE"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.arc-plume-origin-overlap"
+        ]
+      },
+      "evidenceIds": [
+        "m1a.claim.arc-density-and-buoyancy-are-context-dependent-v1",
+        "m1a.claim.arc-juvenile-continental-affinity-v1",
+        "m1a.claim.oceanic-plateaus-preserve-thick-oceanic-affinity-crust-v1",
+        "m1a.claim.volcanic-margins-can-build-thick-mafic-crust-v1"
+      ],
+      "limitations": [
+        "This holdout cannot tune arc, plume, melt, or confidence boundaries."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/drowned-rifted-continental-fragment-v1",
+      "kind": "HOLDOUT",
+      "withheldFromCalibration": true,
+      "description": "A drowned continental-affinity fragment with active rift inheritance preserves rift-thinned and mixed-transition alternatives.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "DROWNED_CONTINENTAL_FRAGMENT",
+          "TRANSITIONAL_CRUST"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "continentalKernelInfluence",
+            "value": 0.7
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "oceanBasinInfluence",
+            "value": 0.3
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "persistenceSummary",
+            "value": 0.65
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "preservationSummary",
+            "value": 0.6
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.7
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "riftInfluence",
+            "value": 0.7
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "thermalBudget",
+            "value": 0.5
+          }
+        ],
+        "contextFlags": [
+          "ACTIVE_RIFT_CONTEXT",
+          "DROWNED_CONTINENTAL_AFFINITY",
+          "MIXED_MARGIN_CONTEXT"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "RIFT_THINNED_CONTINENTAL_PROVINCE"
+        ],
+        "allowedProvinceClasses": [
+          "MIXED_TRANSITIONAL_PROVINCE",
+          "RIFT_THINNED_CONTINENTAL_PROVINCE"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "MIXED_TRANSITIONAL_PROVINCE",
+          "RIFT_THINNED_CONTINENTAL_PROVINCE"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.drowned-fragment-material-ambiguity"
+        ]
+      },
+      "evidenceIds": [
+        "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+        "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1"
+      ],
+      "limitations": [
+        "This holdout cannot tune drowned-fragment or rift-thinning boundaries."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "negative/artificial-solid-shell-unresolved-v1",
+      "kind": "NEGATIVE",
+      "withheldFromCalibration": false,
+      "description": "An artificial or fictional shell cannot inherit natural crustal material classes from the Earth-derived research package.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "STRUCTURALLY_UNRESOLVED"
+        ],
+        "fieldSignals": [],
+        "interiorSignals": [],
+        "contextFlags": [
+          "ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "allowedProvinceClasses": [
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.natural-material-model-inapplicable"
+        ]
+      },
+      "evidenceIds": [],
+      "limitations": [
+        "The negative fixture cannot be converted into a natural material candidate by fallback heuristics."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "negative/contradictory-deep-lineage-unresolved-v1",
+      "kind": "NEGATIVE",
+      "withheldFromCalibration": false,
+      "description": "Strong continental-kernel and ocean-basin signals with contradictory lineage fail closed rather than forcing a class.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "STRUCTURALLY_UNRESOLVED"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "continentalKernelInfluence",
+            "value": 0.85
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "oceanBasinInfluence",
+            "value": 0.85
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.8
+          }
+        ],
+        "interiorSignals": [],
+        "contextFlags": [
+          "CONTRADICTORY_DEEP_EVIDENCE",
+          "OCEAN_BASIN_SOURCE",
+          "PERSISTENT_CONTINENTAL_KERNEL"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "allowedProvinceClasses": [
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.contradictory-deep-lineage"
+        ]
+      },
+      "evidenceIds": [
+        "m1a.claim.continental-crust-varies-with-tectonic-province-v1",
+        "m1a.claim.normal-oceanic-crust-is-relatively-thin-and-mafic-v1"
+      ],
+      "limitations": [
+        "High normalized values do not override contradictory source provenance."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "negative/surface-only-evidence-unresolved-v1",
+      "kind": "NEGATIVE",
+      "withheldFromCalibration": false,
+      "description": "Surface exposure, renderer color, and legacy material labels cannot establish deep substrate.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "STRUCTURALLY_UNRESOLVED"
+        ],
+        "fieldSignals": [],
+        "interiorSignals": [],
+        "contextFlags": [
+          "SURFACE_ONLY_EVIDENCE_PRESENT"
+        ],
+        "rejectedInputIds": [
+          "legacy.materialLabel",
+          "rendererColor",
+          "surfaceExposureSummary"
+        ]
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "allowedProvinceClasses": [
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.surface-evidence-rejected"
+        ]
+      },
+      "evidenceIds": [],
+      "limitations": [
+        "Rejected surface inputs are recorded only to prove the firewall and are not material evidence."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/juvenile-continental-or-arc-crust-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "description": "Strong arc-building, accretion, convergence, melt, and source confidence require a juvenile arc-crust candidate.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "VOLCANIC_ARC_SYSTEM"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "accretionInfluence",
+            "value": 0.75
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "convergenceInfluence",
+            "value": 0.82
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.85
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "meltAndVolcanism",
+            "value": 0.78
+          }
+        ],
+        "contextFlags": [
+          "ARC_BUILDING_SOURCE",
+          "VOLCANIC_ARC_CONTEXT"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "JUVENILE_CONTINENTAL_OR_ARC_CRUST"
+        ],
+        "allowedProvinceClasses": [
+          "JUVENILE_CONTINENTAL_OR_ARC_CRUST"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "JUVENILE_CONTINENTAL_OR_ARC_CRUST"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.arc-composition-remains-context-dependent"
+        ]
+      },
+      "evidenceIds": [
+        "m1a.claim.arc-density-and-buoyancy-are-context-dependent-v1",
+        "m1a.claim.arc-juvenile-continental-affinity-v1"
+      ],
+      "limitations": [
+        "The candidate is required but cannot lead from radial arc evidence alone."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/normal-oceanic-crust-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "description": "A confident ocean-basin source with low continental and plume influence requires a normal oceanic-crust candidate.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "DEEP_OCEAN_BASIN"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "continentalKernelInfluence",
+            "value": 0.12
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "oceanBasinInfluence",
+            "value": 0.88
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "plumeInfluence",
+            "value": 0.2
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.9
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "meltAndVolcanism",
+            "value": 0.45
+          }
+        ],
+        "contextFlags": [
+          "OCEAN_BASIN_SOURCE"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "NORMAL_OCEANIC_CRUST"
+        ],
+        "allowedProvinceClasses": [
+          "NORMAL_OCEANIC_CRUST"
+        ],
+        "forbiddenLeadingProvinceClasses": [],
+        "allowedResolutionStatuses": [
+          "SINGLE_LEADING_CANDIDATE"
+        ],
+        "requiredReasonIds": []
+      },
+      "evidenceIds": [
+        "m1a.claim.layered-lithosphere-is-laterally-heterogeneous-v1",
+        "m1a.claim.normal-oceanic-crust-is-relatively-thin-and-mafic-v1"
+      ],
+      "limitations": [
+        "A future leading material class would still carry no water or bathymetry authority."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/plume-thickened-mafic-province-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "description": "High plume or melt context in oceanic-affinity structure requires a thick-mafic alternative.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "DEEP_OCEAN_BASIN"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "oceanBasinInfluence",
+            "value": 0.78
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "plumeInfluence",
+            "value": 0.88
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.82
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "meltAndVolcanism",
+            "value": 0.9
+          }
+        ],
+        "contextFlags": [
+          "HIGH_MELT_OR_PLUME_CONTEXT"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "PLUME_THICKENED_MAFIC_PROVINCE"
+        ],
+        "allowedProvinceClasses": [
+          "NORMAL_OCEANIC_CRUST",
+          "PLUME_THICKENED_MAFIC_PROVINCE"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "NORMAL_OCEANIC_CRUST",
+          "PLUME_THICKENED_MAFIC_PROVINCE"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.high-melt-origin-not-unique"
+        ]
+      },
+      "evidenceIds": [
+        "m1a.claim.oceanic-plateaus-preserve-thick-oceanic-affinity-crust-v1",
+        "m1a.claim.volcanic-margins-can-build-thick-mafic-crust-v1"
+      ],
+      "limitations": [
+        "The candidate cannot establish plume origin, relief, or exposure."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/rift-thinned-continental-province-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "description": "Strong continental and rift evidence requires a rift-thinned continental candidate while orientation remains unresolved.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "CONTINENTAL_MARGIN"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "continentalKernelInfluence",
+            "value": 0.75
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.8
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "riftInfluence",
+            "value": 0.88
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "thermalBudget",
+            "value": 0.58
+          }
+        ],
+        "contextFlags": [
+          "ACTIVE_RIFT_CONTEXT"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "RIFT_THINNED_CONTINENTAL_PROVINCE"
+        ],
+        "allowedProvinceClasses": [
+          "RIFT_THINNED_CONTINENTAL_PROVINCE"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "RIFT_THINNED_CONTINENTAL_PROVINCE"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.rift-orientation-unresolved"
+        ]
+      },
+      "evidenceIds": [
+        "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+        "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1"
+      ],
+      "limitations": [
+        "The candidate cannot establish final margin width, shoreline, or bathymetry."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/stable-continental-root-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "description": "Persistent, preserved continental-kernel evidence under low active deformation requires a stable-root candidate.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "CONTINENTAL_INTERIOR"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "continentalKernelInfluence",
+            "value": 0.9
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "persistenceSummary",
+            "value": 0.82
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "preservationSummary",
+            "value": 0.78
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.9
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "meltAndVolcanism",
+            "value": 0.2
+          },
+          {
+            "schemaVersion": 1,
+            "signalId": "thermalBudget",
+            "value": 0.4
+          }
+        ],
+        "contextFlags": [
+          "LOW_ACTIVE_DEFORMATION",
+          "PERSISTENT_CONTINENTAL_KERNEL"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "STABLE_CONTINENTAL_ROOT"
+        ],
+        "allowedProvinceClasses": [
+          "STABLE_CONTINENTAL_ROOT"
+        ],
+        "forbiddenLeadingProvinceClasses": [],
+        "allowedResolutionStatuses": [
+          "SINGLE_LEADING_CANDIDATE"
+        ],
+        "requiredReasonIds": []
+      },
+      "evidenceIds": [
+        "m1a.claim.continental-crust-varies-with-tectonic-province-v1",
+        "m1a.claim.inherited-lithosphere-controls-strength-and-grain-v1"
+      ],
+      "limitations": [
+        "A future leading root candidate would still carry no exposure, land, flatness, or elevation authority."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/tectonically-thickened-crust-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "description": "Strong continental and convergence evidence requires a tectonically thickened crust candidate.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "CONTINENTAL_MARGIN"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "continentalKernelInfluence",
+            "value": 0.82
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "convergenceInfluence",
+            "value": 0.88
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.85
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "thermalBudget",
+            "value": 0.55
+          }
+        ],
+        "contextFlags": [
+          "ACTIVE_CONVERGENCE_CONTEXT"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "TECTONICALLY_THICKENED_CRUST"
+        ],
+        "allowedProvinceClasses": [
+          "TECTONICALLY_THICKENED_CRUST"
+        ],
+        "forbiddenLeadingProvinceClasses": [],
+        "allowedResolutionStatuses": [
+          "SINGLE_LEADING_CANDIDATE"
+        ],
+        "requiredReasonIds": []
+      },
+      "evidenceIds": [
+        "m1a.claim.layered-lithosphere-is-laterally-heterogeneous-v1",
+        "m1a.claim.tectonic-thickening-produces-thick-crustal-provinces-v1"
+      ],
+      "limitations": [
+        "A future leading thickened candidate would still carry no mountain or plateau authority."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/juvenile-arc-boundary-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "description": "Exact juvenile-arc candidate boundaries must remain ambiguous and cannot become a leading class.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "VOLCANIC_ARC_SYSTEM"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "accretionInfluence",
+            "value": 0.5
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "convergenceInfluence",
+            "value": 0.6
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.55
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "meltAndVolcanism",
+            "value": 0.55
+          }
+        ],
+        "contextFlags": [
+          "ARC_BUILDING_SOURCE",
+          "VOLCANIC_ARC_CONTEXT"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "JUVENILE_CONTINENTAL_OR_ARC_CRUST"
+        ],
+        "allowedProvinceClasses": [
+          "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.exact-boundary-no-leading-class"
+        ]
+      },
+      "evidenceIds": [
+        "m1a.claim.arc-density-and-buoyancy-are-context-dependent-v1",
+        "m1a.claim.arc-juvenile-continental-affinity-v1"
+      ],
+      "limitations": [
+        "The exact normalized boundary is a software calibration fixture, not a universal physical threshold."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/normal-oceanic-boundary-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "description": "Exact normal-oceanic candidate boundaries must not silently become a leading material class.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "DEEP_OCEAN_BASIN"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "continentalKernelInfluence",
+            "value": 0.25
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "oceanBasinInfluence",
+            "value": 0.65
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "plumeInfluence",
+            "value": 0.5
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.6
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "meltAndVolcanism",
+            "value": 0.65
+          }
+        ],
+        "contextFlags": [
+          "OCEAN_BASIN_SOURCE"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "NORMAL_OCEANIC_CRUST"
+        ],
+        "allowedProvinceClasses": [
+          "NORMAL_OCEANIC_CRUST",
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "NORMAL_OCEANIC_CRUST",
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.exact-boundary-no-leading-class"
+        ]
+      },
+      "evidenceIds": [
+        "m1a.claim.layered-lithosphere-is-laterally-heterogeneous-v1",
+        "m1a.claim.normal-oceanic-crust-is-relatively-thin-and-mafic-v1"
+      ],
+      "limitations": [
+        "The exact normalized boundary is a software calibration fixture, not a universal physical threshold."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/plume-thickened-boundary-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "description": "Exact thick-mafic plume or high-melt boundaries require ambiguity rather than a winner.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "DEEP_OCEAN_BASIN"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "oceanBasinInfluence",
+            "value": 0.45
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "plumeInfluence",
+            "value": 0.65
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.5
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "meltAndVolcanism",
+            "value": 0.7
+          }
+        ],
+        "contextFlags": [
+          "HIGH_MELT_OR_PLUME_CONTEXT"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "PLUME_THICKENED_MAFIC_PROVINCE"
+        ],
+        "allowedProvinceClasses": [
+          "PLUME_THICKENED_MAFIC_PROVINCE",
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "PLUME_THICKENED_MAFIC_PROVINCE",
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.exact-boundary-no-leading-class"
+        ]
+      },
+      "evidenceIds": [
+        "m1a.claim.oceanic-plateaus-preserve-thick-oceanic-affinity-crust-v1",
+        "m1a.claim.volcanic-margins-can-build-thick-mafic-crust-v1"
+      ],
+      "limitations": [
+        "The exact normalized boundary is a software calibration fixture, not a universal physical threshold."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/rift-thinned-boundary-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "description": "Exact continental-rift boundaries preserve rift-thinned and mixed alternatives without a leader.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "CONTINENTAL_MARGIN"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "continentalKernelInfluence",
+            "value": 0.45
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.5
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "riftInfluence",
+            "value": 0.65
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "thermalBudget",
+            "value": 0.35
+          }
+        ],
+        "contextFlags": [
+          "ACTIVE_RIFT_CONTEXT",
+          "MIXED_MARGIN_CONTEXT"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "RIFT_THINNED_CONTINENTAL_PROVINCE"
+        ],
+        "allowedProvinceClasses": [
+          "MIXED_TRANSITIONAL_PROVINCE",
+          "RIFT_THINNED_CONTINENTAL_PROVINCE"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "MIXED_TRANSITIONAL_PROVINCE",
+          "RIFT_THINNED_CONTINENTAL_PROVINCE"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.exact-boundary-no-leading-class"
+        ]
+      },
+      "evidenceIds": [
+        "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+        "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1"
+      ],
+      "limitations": [
+        "The exact normalized boundary is a software calibration fixture, not a universal physical threshold."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/stable-root-boundary-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "description": "Exact stable-root boundaries preserve an unresolved alternative and cannot become leading.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "CONTINENTAL_INTERIOR"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "continentalKernelInfluence",
+            "value": 0.65
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "persistenceSummary",
+            "value": 0.6
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "preservationSummary",
+            "value": 0.55
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.6
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "meltAndVolcanism",
+            "value": 0.45
+          },
+          {
+            "schemaVersion": 1,
+            "signalId": "thermalBudget",
+            "value": 0.6
+          }
+        ],
+        "contextFlags": [
+          "LOW_ACTIVE_DEFORMATION",
+          "PERSISTENT_CONTINENTAL_KERNEL"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "STABLE_CONTINENTAL_ROOT"
+        ],
+        "allowedProvinceClasses": [
+          "STABLE_CONTINENTAL_ROOT",
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "STABLE_CONTINENTAL_ROOT",
+          "STRUCTURE_MATERIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.exact-boundary-no-leading-class"
+        ]
+      },
+      "evidenceIds": [
+        "m1a.claim.continental-crust-varies-with-tectonic-province-v1",
+        "m1a.claim.inherited-lithosphere-controls-strength-and-grain-v1"
+      ],
+      "limitations": [
+        "The exact normalized boundary is a software calibration fixture, not a universal physical threshold."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/tectonically-thickened-boundary-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "description": "Exact convergence-thickening boundaries preserve an unresolved alternative and cannot become leading.",
+      "evidence": {
+        "schemaVersion": 1,
+        "sourceStructuralRoles": [
+          "CONTINENTAL_MARGIN"
+        ],
+        "fieldSignals": [
+          {
+            "schemaVersion": 1,
+            "fieldId": "continentalKernelInfluence",
+            "value": 0.5
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "convergenceInfluence",
+            "value": 0.65
+          },
+          {
+            "schemaVersion": 1,
+            "fieldId": "projectionConfidence",
+            "value": 0.55
+          }
+        ],
+        "interiorSignals": [
+          {
+            "schemaVersion": 1,
+            "signalId": "thermalBudget",
+            "value": 0.35
+          }
+        ],
+        "contextFlags": [
+          "ACTIVE_CONVERGENCE_CONTEXT"
+        ],
+        "rejectedInputIds": []
+      },
+      "expected": {
+        "schemaVersion": 1,
+        "requiredProvinceClasses": [
+          "TECTONICALLY_THICKENED_CRUST"
+        ],
+        "allowedProvinceClasses": [
+          "STRUCTURE_MATERIAL_UNRESOLVED",
+          "TECTONICALLY_THICKENED_CRUST"
+        ],
+        "forbiddenLeadingProvinceClasses": [
+          "STRUCTURE_MATERIAL_UNRESOLVED",
+          "TECTONICALLY_THICKENED_CRUST"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredReasonIds": [
+          "m1b.reason.exact-boundary-no-leading-class"
+        ]
+      },
+      "evidenceIds": [
+        "m1a.claim.layered-lithosphere-is-laterally-heterogeneous-v1",
+        "m1a.claim.tectonic-thickening-produces-thick-crustal-provinces-v1"
+      ],
+      "limitations": [
+        "The exact normalized boundary is a software calibration fixture, not a universal physical threshold."
+      ]
+    }
+  ],
+  "limitations": [
+    "The fixed corpus defines software evidence expectations before resolver implementation and cannot be rewritten from future resolver output."
+  ]
+}
