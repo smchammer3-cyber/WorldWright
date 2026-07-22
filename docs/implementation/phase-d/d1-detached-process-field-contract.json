@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "reportVersion": "D1_DETACHED_PROCESS_FIELD_CONTRACT_V1",
+  "baseCommit": "0c55202d331702702c0106e6b60c95d85e0dfeef",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "projectionMode": "DETACHED_DIAGNOSTIC",
+  "scientificStatus": "PARTIAL",
+  "visiblePhysicalOutputChanged": false,
+  "ordinaryGenerateChanged": false,
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "process": {
+    "processId": "CAUSAL_PROCESS_FIELD_PROJECTION",
+    "reads": ["causalRecord"],
+    "writes": ["diagnostics"],
+    "prerequisites": ["CAUSAL_GEOLOGIC_SPINE"],
+    "forbiddenAuthorityWrites": [
+      "processFieldAuthority",
+      "terrain",
+      "derivedSurface",
+      "structuralRoleAuthority",
+      "baseTerrain",
+      "finalTerrain",
+      "presentation"
+    ]
+  },
+  "queryContract": {
+    "coordinateConvention": "SPHERICAL_LAT_LON_DEGREES_V1",
+    "queryModel": "CONTINUOUS_SPHERICAL_KERNEL_SET_V1",
+    "falloff": "COSINE_COMPACT_SUPPORT_V1",
+    "randomStreamPolicy": "NONE_DETERMINISTIC_FROM_SOURCE_RECORDS",
+    "unit": "normalized-0-1",
+    "scaleId": "normalized-0-1-v1"
+  },
+  "fieldIds": [
+    "accretionInfluence",
+    "continentalKernelInfluence",
+    "convergenceInfluence",
+    "formationAgeSummary",
+    "oceanBasinInfluence",
+    "persistenceSummary",
+    "plumeInfluence",
+    "preservationSummary",
+    "projectionConfidence",
+    "riftInfluence",
+    "surfaceExposureSummary",
+    "transformInfluence"
+  ],
+  "budgets": {
+    "maximumDefinitions": 64,
+    "maximumKernels": 4096,
+    "maximumSerializedBytes": 4194304
+  },
+  "gates": {
+    "deterministicHashing": "REQUIRED",
+    "canonicalOrdering": "REQUIRED",
+    "sourceHashSensitivity": "REQUIRED",
+    "sphericalAnchorValidation": "REQUIRED",
+    "physicalAuthority": "FORBIDDEN",
+    "terrainAuthority": "FORBIDDEN",
+    "landWaterAuthority": "FORBIDDEN"
+  },
+  "explicitNonScope": [
+    "No projection algorithm or field-value query implementation in D1.",
+    "No sampled raster, land mask, water mask, terrain height, bathymetry, climate, biome, material, resource, Create, Sim, renderer, save, or migration change.",
+    "No write to processFieldAuthority before A2.",
+    "No CAUSAL_ACTIVE route.",
+    "No claim that Phase D scientific or promotion gates are complete."
+  ],
+  "nextScope": "D2 deterministic spherical kernel construction and resolution-independent query evaluation from validated regime history and geologic spine records"
+}

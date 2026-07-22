@@ -37,12 +37,20 @@ describe('W1-01 shadow authority registration', () => {
     expect(getAuthorityProcess('CAUSAL_INPUT_SANITIZATION').reads).toEqual(['planetInitialConditions']);
   });
 
-  it('keeps legacy comparison in an external diagnostic side branch', () => {
-    expect(CAUSAL_SHADOW_DIAGNOSTIC_PROCESS_ORDER).toEqual(['CAUSAL_SHADOW_AUDIT']);
-    const audit = getAuthorityProcess('CAUSAL_SHADOW_AUDIT');
-    expect(audit.owner).toBe('WORLD_DIAGNOSTICS');
-    expect(audit.reads).toEqual(['causalRecord']);
-    expect(audit.writes).toEqual(['diagnostics']);
-    expect(audit.writes).not.toEqual(expect.arrayContaining(FUTURE_PHYSICAL_GROUPS));
+  it('keeps projections and legacy comparison in external diagnostic side branches', () => {
+    expect(CAUSAL_SHADOW_DIAGNOSTIC_PROCESS_ORDER).toEqual([
+      'CAUSAL_PROCESS_FIELD_PROJECTION',
+      'CAUSAL_SHADOW_AUDIT',
+    ]);
+    for (const id of CAUSAL_SHADOW_DIAGNOSTIC_PROCESS_ORDER) {
+      const diagnostic = getAuthorityProcess(id);
+      expect(diagnostic.modes).toEqual(['CAUSAL_SHADOW']);
+      expect(diagnostic.reads).toEqual(['causalRecord']);
+      expect(diagnostic.writes).toEqual(['diagnostics']);
+      expect(diagnostic.writes).not.toEqual(expect.arrayContaining(FUTURE_PHYSICAL_GROUPS));
+      expect(diagnostic.modes).not.toContain('CAUSAL_ACTIVE');
+    }
+    expect(getAuthorityProcess('CAUSAL_PROCESS_FIELD_PROJECTION').owner).toBe('CAUSAL_PROCESS_FIELD_PROJECTION_DIAGNOSTIC');
+    expect(getAuthorityProcess('CAUSAL_SHADOW_AUDIT').owner).toBe('WORLD_DIAGNOSTICS');
   });
 });

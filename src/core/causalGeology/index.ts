@@ -26,6 +26,7 @@ export * from './regimeHistoryResearchContracts';
 export * from './regimeHistoryResolver';
 export * from './geologicSpineResearchContracts';
 export * from './geologicSpineResolver';
+export * from './processFieldProjection';
 export * from './shadowAudit';
 export * from './shadowThresholdCoverage';
 export * from './shadowArchetypeCoverage';
