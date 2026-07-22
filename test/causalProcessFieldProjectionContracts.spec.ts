@@ -132,10 +132,11 @@ describe('D1 detached process-field projection contracts', () => {
     expect(() => validateCausalProcessFieldProjectionSet(forged)).toThrow(/content hash does not match/i);
   });
 
-  it('registers the Phase D process as shadow-only diagnostics with no physical writes', () => {
+  it('keeps the Phase D process shadow-only after detached C1 is registered', () => {
     expect(validateAuthorityProcessRegistry()).toEqual([]);
     expect(CAUSAL_SHADOW_DIAGNOSTIC_PROCESS_ORDER).toEqual([
       'CAUSAL_PROCESS_FIELD_PROJECTION',
+      'CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION',
       'CAUSAL_SHADOW_AUDIT',
     ]);
     const process = getAuthorityProcess('CAUSAL_PROCESS_FIELD_PROJECTION');

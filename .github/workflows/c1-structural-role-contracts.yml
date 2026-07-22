@@ -1,0 +1,67 @@
+name: C1 Structural-Role Contract Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c1-structural-role-contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  structural-role-contracts:
+    name: Validate detached continent-ocean structural contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run C1 contract, ambiguity, and authority gates
+        run: |
+          mkdir -p artifacts/ci-logs artifacts/c1-structural-role-contracts
+          set -o pipefail
+          npx vitest run test/causalContinentOceanStructureContracts.spec.ts test/causalContinentOceanStructureC1Artifact.spec.ts 2>&1 | tee artifacts/ci-logs/c1-structural-role-contracts.log
+          cp docs/implementation/phase-c/c1-structural-role-contracts.json artifacts/c1-structural-role-contracts/
+          cp docs/implementation/PHASE_C1_STRUCTURAL_ROLE_CONTRACTS_STATUS.md artifacts/c1-structural-role-contracts/
+
+      - name: Summarize C1 gate
+        if: always()
+        run: |
+          {
+            echo "## Phase C1 detached structural-role contracts"
+            echo "- Structural roles: \`10\`"
+            echo "- Resolution states: \`leading / ambiguous / unresolved\`"
+            echo "- Ghost-risk classes: \`5\`"
+            echo "- Authority mode: \`CAUSAL_SHADOW\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Writes: \`diagnostics only\`"
+            echo "- Scientific status: \`PARTIAL\`"
+            echo "- Land, water, bathymetry, or terrain output: \`none\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload C1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c1-structural-role-contracts
+          path: |
+            artifacts/c1-structural-role-contracts/
+            artifacts/ci-logs/c1-structural-role-contracts.log
+          if-no-files-found: warn
+          retention-days: 30
