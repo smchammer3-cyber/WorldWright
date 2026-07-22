@@ -1,0 +1,206 @@
+[
+  {
+    "schemaVersion": 1,
+    "ruleId": "m1a.claim.arc-density-and-buoyancy-are-context-dependent-v1",
+    "domain": "structure-material-genesis",
+    "version": 1,
+    "sourceIds": [
+      "m1a.source.jagoutz-behn-2013-arc-foundering"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Juvenile arc crust may contain dense lower-crustal components and therefore supports context-dependent rather than universally positive buoyancy candidates.",
+    "weightRationale": "The claim limits overconfident buoyancy assignment and is not a numeric weight or threshold.",
+    "correlationGroupId": "m1a.arc-density-evolution",
+    "exceptions": [
+      "Arc sections vary in composition, pressure-temperature history, and lower-crust retention or foundering."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "m1a.claim.arc-juvenile-continental-affinity-v1",
+    "domain": "structure-material-genesis",
+    "version": 1,
+    "sourceIds": [
+      "m1a.source.gazel-et-al-2015-oceanic-arcs"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Some intra-oceanic arc systems can generate intermediate-composition crust with properties between normal oceanic and mature continental endmembers.",
+    "weightRationale": "The claim supports an arc or juvenile continental-affinity candidate class without making it universal.",
+    "correlationGroupId": "m1a.arc-composition",
+    "exceptions": [
+      "Not every volcanic arc produces or preserves juvenile continental-affinity crust."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "m1a.claim.continental-crust-varies-with-tectonic-province-v1",
+    "domain": "structure-material-genesis",
+    "version": 1,
+    "sourceIds": [
+      "m1a.source.christensen-mooney-1995-continental-crust"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Continental crustal thickness, seismic structure, composition, density, and anisotropy vary with tectonic province, permitting relative continental substrate and thickness candidates.",
+    "weightRationale": "The global synthesis supports qualitative candidate dimensions but not Earth-average numerical calibration in WorldWright.",
+    "correlationGroupId": "m1a.continental-crust-global",
+    "exceptions": [
+      "Continental lower crust can be mafic and continental provinces overlap strongly in measured properties."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "m1a.claim.deep-material-and-surface-material-must-remain-separate-v1",
+    "domain": "structure-material-authority",
+    "version": 1,
+    "sourceIds": [
+      "m1a.source.worldwright-scope-control-v1"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "M1A deep substrate candidates cannot infer exposed rock, weathered material, sediment cover, land, water, elevation, bathymetry, or terrain.",
+    "weightRationale": "This is an authority firewall and contributes no scientific support weight to a material class.",
+    "correlationGroupId": "m1a.internal-scope-control",
+    "exceptions": [],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright causal architecture",
+    "reviewDate": "2026-07-22"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "m1a.claim.inherited-lithosphere-controls-strength-and-grain-v1",
+    "domain": "structure-material-genesis",
+    "version": 1,
+    "sourceIds": [
+      "m1a.source.audet-burgmann-2011-tectonic-inheritance"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Pre-existing lithospheric structure can preserve strength contrasts and mechanical anisotropy that guide later deformation.",
+    "weightRationale": "The claim supports resistance and orientation-unresolved inherited-grain candidates, never a final line geometry.",
+    "correlationGroupId": "m1a.lithosphere-heterogeneity",
+    "exceptions": [
+      "Effective elastic thickness is a proxy and does not uniquely determine local rheology or exposed structure."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "m1a.claim.layered-lithosphere-is-laterally-heterogeneous-v1",
+    "domain": "structure-material-genesis",
+    "version": 1,
+    "sourceIds": [
+      "m1a.source.pasyanos-et-al-2014-litho1"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Crust and uppermost lithosphere vary laterally in thickness, velocity, density, and lid structure, supporting separate candidate dimensions instead of a single universal rock label.",
+    "weightRationale": "The authoritative Earth model supports heterogeneous candidate dimensions but not direct generated-world classification.",
+    "correlationGroupId": "m1a.lithosphere-heterogeneity",
+    "exceptions": [
+      "Earth model resolution and data coverage vary regionally."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+    "domain": "structure-material-genesis",
+    "version": 1,
+    "sourceIds": [
+      "m1a.source.whitmarsh-et-al-2001-magma-poor-margins"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Some magma-poor rifted margins contain exhumed continental lithospheric mantle between continental and normal oceanic crust.",
+    "weightRationale": "The claim establishes a real candidate class but current radial Phase D and C evidence cannot decide when or where it occurs.",
+    "correlationGroupId": "m1a.magma-poor-transition",
+    "exceptions": [
+      "Volcanic and magma-rich margins can follow different transition architectures."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "m1a.claim.normal-oceanic-crust-is-relatively-thin-and-mafic-v1",
+    "domain": "structure-material-genesis",
+    "version": 1,
+    "sourceIds": [
+      "m1a.source.white-et-al-1992-oceanic-crust"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Normal oceanic crust supports a relatively thin mafic substrate candidate compared with typical continental crust, with substantial spreading-rate and thermal variation.",
+    "weightRationale": "The synthesis supports relative candidate tendencies, not a fixed thickness value or a water-depth conclusion.",
+    "correlationGroupId": "m1a.oceanic-crust-global",
+    "exceptions": [
+      "Hotspot proximity, spreading rate, mantle composition, and magma supply can produce anomalously thick or thin oceanic crust."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "m1a.claim.oceanic-plateaus-preserve-thick-oceanic-affinity-crust-v1",
+    "domain": "structure-material-genesis",
+    "version": 1,
+    "sourceIds": [
+      "m1a.source.hussong-et-al-1979-oceanic-plateaus"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Oceanic plateaus can preserve oceanic-affinity seismic layering while being substantially thicker than normal ocean-basin crust.",
+    "weightRationale": "The claim supports a plume-modified or high-melt thick mafic alternative without fixing its origin, geometry, or relief.",
+    "correlationGroupId": "m1a.oceanic-plateau-thickening",
+    "exceptions": [
+      "Oceanic plateaus differ in formation mechanism, composition, and later tectonic modification."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1",
+    "domain": "structure-material-genesis",
+    "version": 1,
+    "sourceIds": [
+      "m1a.source.gouiza-naliboff-2021-rift-inheritance"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Continental extension can thin crust and lithosphere while inherited rheological structure controls segmentation and preferred deformation corridors.",
+    "weightRationale": "The claim supports thin, weakened, and orientation-unresolved rift candidates without creating a final margin geometry.",
+    "correlationGroupId": "m1a.rift-inheritance",
+    "exceptions": [
+      "Rift outcomes vary with thermal state, composition, strain rate, magma supply, and inherited structure."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "m1a.claim.tectonic-thickening-produces-thick-crustal-provinces-v1",
+    "domain": "structure-material-genesis",
+    "version": 1,
+    "sourceIds": [
+      "m1a.source.christensen-mooney-1995-continental-crust"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Orogenic and convergent provinces can preserve relatively thickened crustal structure compared with extended provinces.",
+    "weightRationale": "The claim supports a thickening tendency candidate but does not authorize relief, plateau height, or mountain geometry.",
+    "correlationGroupId": "m1a.continental-crust-global",
+    "exceptions": [
+      "Erosion, delamination, extension, thermal weakening, and inherited composition can modify thickened crust."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "m1a.claim.volcanic-margins-can-build-thick-mafic-crust-v1",
+    "domain": "structure-material-genesis",
+    "version": 1,
+    "sourceIds": [
+      "m1a.source.kelemen-holbrook-1995-volcanic-margin"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "High melt production during rifting can build thick, high-velocity mafic igneous crust at volcanic margins.",
+    "weightRationale": "The claim supports a magmatically thickened mafic alternative while explicitly avoiding a universal plume or margin rule.",
+    "correlationGroupId": "m1a.volcanic-margin-magmatism",
+    "exceptions": [
+      "Magma-poor margins and normal oceanic spreading do not require thick volcanic-margin crust."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  }
+]
