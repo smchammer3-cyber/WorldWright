@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "corpusVersion": "W1_06B2_CONTROLLED_ARCHETYPE_CORPUS_V1",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "upstreamMode": "CONTROLLED_VALIDATED_W1_FIXTURES",
+  "profiles": [
+    {
+      "profileId": "mobile-lid-rocky-v1",
+      "archetypeFamily": "MOBILE_LID_ROCKY",
+      "evidenceMode": "CONTROLLED_NATURAL_CHAIN",
+      "criterion": "MOBILE_CURRENT_REGIME",
+      "bodyClassCandidates": ["ROCKY_TERRESTRIAL"],
+      "inputs": { "radius": 1.0, "density": 1.0, "water": 0.8, "volatiles": 0.5, "ageGyr": 4.0, "primordialHeat": 0.25, "radiogenicHeat": 0.55, "tidalHeating": 0.2 },
+      "interior": { "thermal": 0.65, "convection": 0.8, "melt": 0.55, "rift": 0.6, "hotspot": 0.45, "lidCandidates": ["EPISODIC_LID", "MOBILE_LID_HYPOTHESIS"], "resolvedLid": "MOBILE_LID_HYPOTHESIS" },
+      "limitations": ["Mobile-lid status is a controlled current-regime hypothesis, not an Earth-plate-tectonics proof."]
+    },
+    {
+      "profileId": "stagnant-lid-rocky-v1",
+      "archetypeFamily": "STAGNANT_LID_ROCKY",
+      "evidenceMode": "CONTROLLED_NATURAL_CHAIN",
+      "criterion": "STAGNANT_CURRENT_REGIME",
+      "bodyClassCandidates": ["ROCKY_TERRESTRIAL"],
+      "inputs": { "radius": 0.8, "density": 0.95, "water": 0.1, "volatiles": 0.2, "ageGyr": 7.5, "primordialHeat": 0.35, "radiogenicHeat": 0.6, "tidalHeating": 0.05 },
+      "interior": { "thermal": 0.18, "convection": 0.15, "melt": 0.12, "rift": 0.1, "hotspot": 0.18, "lidCandidates": ["STAGNANT_LID"], "resolvedLid": "STAGNANT_LID" },
+      "limitations": ["The controlled stagnant-lid state does not calibrate final surface age or relief."]
+    },
+    {
+      "profileId": "rift-dominated-rocky-v1",
+      "archetypeFamily": "RIFT_DOMINATED_ROCKY",
+      "evidenceMode": "CONTROLLED_NATURAL_CHAIN",
+      "criterion": "RIFT_NOT_LESS_THAN_PLUME",
+      "bodyClassCandidates": ["ROCKY_TERRESTRIAL"],
+      "inputs": { "radius": 1.0, "density": 1.0, "water": 0.4, "volatiles": 0.4, "ageGyr": 3.5, "primordialHeat": 0.3, "radiogenicHeat": 0.55, "tidalHeating": 0.15 },
+      "interior": { "thermal": 0.6, "convection": 0.65, "melt": 0.55, "rift": 0.92, "hotspot": 0.3, "lidCandidates": ["EPISODIC_LID", "SLUGGISH_LID"], "resolvedLid": "EPISODIC_LID" },
+      "limitations": ["Dominance is a bounded comparison of broad RIFT_SYSTEM and PLUME_SYSTEM counts, not final rift topography."]
+    },
+    {
+      "profileId": "hotspot-dominated-rocky-v1",
+      "archetypeFamily": "HOTSPOT_DOMINATED_ROCKY",
+      "evidenceMode": "CONTROLLED_NATURAL_CHAIN",
+      "criterion": "PLUME_NOT_LESS_THAN_RIFT",
+      "bodyClassCandidates": ["ROCKY_TERRESTRIAL"],
+      "inputs": { "radius": 1.0, "density": 1.0, "water": 0.2, "volatiles": 0.4, "ageGyr": 3.0, "primordialHeat": 0.4, "radiogenicHeat": 0.45, "tidalHeating": 0.15 },
+      "interior": { "thermal": 0.8, "convection": 0.55, "melt": 0.9, "rift": 0.2, "hotspot": 0.95, "lidCandidates": ["PLUTONIC_SQUISHY_LID"], "resolvedLid": "PLUTONIC_SQUISHY_LID" },
+      "limitations": ["Dominance is a bounded comparison of broad PLUME_SYSTEM and RIFT_SYSTEM counts, not a hotspot-chain reconstruction."]
+    },
+    {
+      "profileId": "low-heat-old-rocky-v1",
+      "archetypeFamily": "LOW_HEAT_OLD_ROCKY",
+      "evidenceMode": "CONTROLLED_NATURAL_CHAIN",
+      "criterion": "LOW_HEAT_OLD_INPUT",
+      "bodyClassCandidates": ["ROCKY_DWARF_OR_SMALL_BODY"],
+      "inputs": { "radius": 0.7, "density": 0.95, "water": 0.2, "volatiles": 0.2, "ageGyr": 9.0, "primordialHeat": 0.35, "radiogenicHeat": 0.6, "tidalHeating": 0.05 },
+      "interior": { "thermal": 0.12, "convection": 0.1, "melt": 0.05, "rift": 0.05, "hotspot": 0.1, "lidCandidates": ["STAGNANT_LID"], "resolvedLid": "STAGNANT_LID" },
+      "limitations": ["Old and low-heat are controlled declared/interior conditions, not a calibrated cooling curve."]
+    },
+    {
+      "profileId": "high-heat-young-super-earth-v1",
+      "archetypeFamily": "HIGH_HEAT_YOUNG_SUPER_EARTH",
+      "evidenceMode": "CONTROLLED_NATURAL_CHAIN",
+      "criterion": "HIGH_HEAT_YOUNG_SUPER_EARTH_INPUT",
+      "bodyClassCandidates": ["ROCKY_SUPER_EARTH"],
+      "inputs": { "radius": 1.6, "density": 1.15, "water": 0.3, "volatiles": 0.4, "ageGyr": 1.5, "primordialHeat": 0.45, "radiogenicHeat": 0.45, "tidalHeating": 0.1 },
+      "interior": { "thermal": 0.92, "convection": 0.9, "melt": 0.9, "rift": 0.75, "hotspot": 0.85, "lidCandidates": ["EPISODIC_LID", "MOBILE_LID_HYPOTHESIS", "PLUTONIC_SQUISHY_LID"], "resolvedLid": "PLUTONIC_SQUISHY_LID" },
+      "limitations": ["Super-Earth heat and lid behavior remain broad hypotheses rather than a unique physical solution."]
+    },
+    {
+      "profileId": "water-rich-rocky-v1",
+      "archetypeFamily": "WATER_RICH_ROCKY",
+      "evidenceMode": "CONTROLLED_NATURAL_CHAIN",
+      "criterion": "WATER_RICH_INPUT",
+      "bodyClassCandidates": ["ROCKY_TERRESTRIAL"],
+      "inputs": { "radius": 1.1, "density": 0.95, "water": 5.0, "volatiles": 1.0, "ageGyr": 4.0, "primordialHeat": 0.3, "radiogenicHeat": 0.55, "tidalHeating": 0.15 },
+      "interior": { "thermal": 0.55, "convection": 0.55, "melt": 0.5, "rift": 0.45, "hotspot": 0.45, "lidCandidates": ["EPISODIC_LID", "SLUGGISH_LID"], "resolvedLid": "EPISODIC_LID" },
+      "limitations": ["Water inventory does not prescribe final ocean fraction, sea level, or mobile-lid behavior."]
+    },
+    {
+      "profileId": "dry-rocky-v1",
+      "archetypeFamily": "DRY_ROCKY",
+      "evidenceMode": "CONTROLLED_NATURAL_CHAIN",
+      "criterion": "DRY_INPUT",
+      "bodyClassCandidates": ["ROCKY_TERRESTRIAL"],
+      "inputs": { "radius": 1.0, "density": 1.0, "water": 0.01, "volatiles": 0.05, "ageGyr": 4.5, "primordialHeat": 0.35, "radiogenicHeat": 0.6, "tidalHeating": 0.05 },
+      "interior": { "thermal": 0.5, "convection": 0.45, "melt": 0.4, "rift": 0.35, "hotspot": 0.4, "lidCandidates": ["STAGNANT_LID"], "resolvedLid": "STAGNANT_LID" },
+      "limitations": ["Dry inventory does not prescribe atmosphere loss, desert climate, or final surface material."]
+    },
+    {
+      "profileId": "super-earth-direct-range-v1",
+      "archetypeFamily": "SUPER_EARTH_DIRECT_INPUT_RANGE",
+      "evidenceMode": "CONTROLLED_NATURAL_CHAIN",
+      "criterion": "SUPER_EARTH_INPUT_RANGE",
+      "bodyClassCandidates": ["ROCKY_SUPER_EARTH"],
+      "inputs": { "radius": 1.8, "density": 1.2, "water": 0.5, "volatiles": 0.5, "ageGyr": 4.0, "primordialHeat": 0.3, "radiogenicHeat": 0.55, "tidalHeating": 0.15 },
+      "interior": { "thermal": 0.7, "convection": 0.75, "melt": 0.7, "rift": 0.55, "hotspot": 0.6, "lidCandidates": ["EPISODIC_LID", "MOBILE_LID_HYPOTHESIS"], "resolvedLid": "EPISODIC_LID" },
+      "limitations": ["The profile tests a declared super-Earth range without claiming a unique tectonic regime."]
+    },
+    {
+      "profileId": "approved-artificial-exception-v1",
+      "archetypeFamily": "APPROVED_ARTIFICIAL_OR_FANTASY_EXCEPTION",
+      "evidenceMode": "APPROVED_EXCEPTION_PREMISE",
+      "criterion": "APPROVED_EXCEPTION_PERMISSION",
+      "premiseFixtureId": "exception/artificial-permitted-v1",
+      "limitations": ["The permissioned exception ends at premise classification; artificial geology is intentionally not implemented."]
+    }
+  ],
+  "cases": [
+    { "caseId": "mobile-lid-rocky-01", "rootSeed": "1062001", "profileId": "mobile-lid-rocky-v1" },
+    { "caseId": "mobile-lid-rocky-02", "rootSeed": "1062002", "profileId": "mobile-lid-rocky-v1" },
+    { "caseId": "mobile-lid-rocky-03", "rootSeed": "1062003", "profileId": "mobile-lid-rocky-v1" },
+    { "caseId": "stagnant-lid-rocky-01", "rootSeed": "1062101", "profileId": "stagnant-lid-rocky-v1" },
+    { "caseId": "stagnant-lid-rocky-02", "rootSeed": "1062102", "profileId": "stagnant-lid-rocky-v1" },
+    { "caseId": "stagnant-lid-rocky-03", "rootSeed": "1062103", "profileId": "stagnant-lid-rocky-v1" },
+    { "caseId": "rift-dominated-rocky-01", "rootSeed": "1062201", "profileId": "rift-dominated-rocky-v1" },
+    { "caseId": "rift-dominated-rocky-02", "rootSeed": "1062202", "profileId": "rift-dominated-rocky-v1" },
+    { "caseId": "rift-dominated-rocky-03", "rootSeed": "1062203", "profileId": "rift-dominated-rocky-v1" },
+    { "caseId": "hotspot-dominated-rocky-01", "rootSeed": "1062301", "profileId": "hotspot-dominated-rocky-v1" },
+    { "caseId": "hotspot-dominated-rocky-02", "rootSeed": "1062302", "profileId": "hotspot-dominated-rocky-v1" },
+    { "caseId": "hotspot-dominated-rocky-03", "rootSeed": "1062303", "profileId": "hotspot-dominated-rocky-v1" },
+    { "caseId": "low-heat-old-rocky-01", "rootSeed": "1062401", "profileId": "low-heat-old-rocky-v1" },
+    { "caseId": "low-heat-old-rocky-02", "rootSeed": "1062402", "profileId": "low-heat-old-rocky-v1" },
+    { "caseId": "low-heat-old-rocky-03", "rootSeed": "1062403", "profileId": "low-heat-old-rocky-v1" },
+    { "caseId": "high-heat-young-super-earth-01", "rootSeed": "1062501", "profileId": "high-heat-young-super-earth-v1" },
+    { "caseId": "high-heat-young-super-earth-02", "rootSeed": "1062502", "profileId": "high-heat-young-super-earth-v1" },
+    { "caseId": "high-heat-young-super-earth-03", "rootSeed": "1062503", "profileId": "high-heat-young-super-earth-v1" },
+    { "caseId": "water-rich-rocky-01", "rootSeed": "1062601", "profileId": "water-rich-rocky-v1" },
+    { "caseId": "water-rich-rocky-02", "rootSeed": "1062602", "profileId": "water-rich-rocky-v1" },
+    { "caseId": "water-rich-rocky-03", "rootSeed": "1062603", "profileId": "water-rich-rocky-v1" },
+    { "caseId": "dry-rocky-01", "rootSeed": "1062701", "profileId": "dry-rocky-v1" },
+    { "caseId": "dry-rocky-02", "rootSeed": "1062702", "profileId": "dry-rocky-v1" },
+    { "caseId": "dry-rocky-03", "rootSeed": "1062703", "profileId": "dry-rocky-v1" },
+    { "caseId": "super-earth-direct-range-01", "rootSeed": "1062801", "profileId": "super-earth-direct-range-v1" },
+    { "caseId": "super-earth-direct-range-02", "rootSeed": "1062802", "profileId": "super-earth-direct-range-v1" },
+    { "caseId": "super-earth-direct-range-03", "rootSeed": "1062803", "profileId": "super-earth-direct-range-v1" },
+    { "caseId": "approved-artificial-exception-01", "rootSeed": "1062901", "profileId": "approved-artificial-exception-v1" },
+    { "caseId": "approved-artificial-exception-02", "rootSeed": "1062902", "profileId": "approved-artificial-exception-v1" },
+    { "caseId": "approved-artificial-exception-03", "rootSeed": "1062903", "profileId": "approved-artificial-exception-v1" }
+  ]
+}
