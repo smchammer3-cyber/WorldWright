@@ -31,6 +31,8 @@ export * from './processFieldProjectionResolver';
 export * from './continentOceanStructure';
 export * from './continentOceanStructureResearchContracts';
 export * from './continentOceanStructureResolver';
+export * from './structureMaterial';
+export * from './structureMaterialResearchContracts';
 export * from './shadowAudit';
 export * from './shadowThresholdCoverage';
 export * from './shadowArchetypeCoverage';
