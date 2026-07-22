@@ -1,0 +1,725 @@
+{
+  "schemaVersion": 1,
+  "fixtureSetVersion": "C2A_CONTINENT_OCEAN_STRUCTURE_FIXTURES_V1",
+  "fixtures": [
+    {
+      "schemaVersion": 1,
+      "fixtureId": "exception/artificial-shell-unresolved-v1",
+      "kind": "EXCEPTION",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ARTIFICIAL_OR_FICTIONAL_SOLID_SHELL"
+      ],
+      "fieldValues": {
+        "projectionConfidence": 0.1
+      },
+      "sourceFamilies": [],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "STRUCTURALLY_UNRESOLVED"
+        ],
+        "allowedRoleCandidates": [
+          "STRUCTURALLY_UNRESOLVED"
+        ],
+        "forbiddenLeadingRoles": [
+          "CONTINENTAL_INTERIOR",
+          "CONTINENTAL_MARGIN",
+          "CONTINENTAL_SHELF",
+          "CONTINENTAL_SLOPE",
+          "DEEP_OCEAN_BASIN",
+          "DROWNED_CONTINENTAL_FRAGMENT",
+          "OCEANIC_RIDGE_SYSTEM",
+          "TRANSITIONAL_CRUST",
+          "VOLCANIC_ARC_SYSTEM"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredGhostRisks": [],
+        "requiredSuppressionRecommendations": [
+          "NO_SUPPRESSION_RECOMMENDATION"
+        ]
+      },
+      "limitations": [
+        "The exception validates fail-closed structural ambiguity only and does not implement artificial geology."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/drowned-fragment-boundary-v1",
+      "kind": "HOLDOUT",
+      "withheldFromCalibration": true,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "continentalKernelInfluence": 0.48,
+        "oceanBasinInfluence": 0.34,
+        "preservationSummary": 0.32,
+        "projectionConfidence": 0.38,
+        "riftInfluence": 0.28
+      },
+      "sourceFamilies": [
+        "CONTINENTAL_KERNEL",
+        "OCEAN_BASIN"
+      ],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "DROWNED_CONTINENTAL_FRAGMENT",
+          "TRANSITIONAL_CRUST"
+        ],
+        "allowedRoleCandidates": [
+          "CONTINENTAL_MARGIN",
+          "DROWNED_CONTINENTAL_FRAGMENT",
+          "STRUCTURALLY_UNRESOLVED",
+          "TRANSITIONAL_CRUST"
+        ],
+        "forbiddenLeadingRoles": [
+          "DROWNED_CONTINENTAL_FRAGMENT",
+          "TRANSITIONAL_CRUST"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredGhostRisks": [
+          "DROWNED_FRAGMENT_CONFUSION"
+        ],
+        "requiredSuppressionRecommendations": [
+          "DEFER_TO_STRUCTURE_MATERIAL_GENESIS",
+          "PRESERVE_DROWNED_FRAGMENT_ALTERNATIVE"
+        ]
+      },
+      "limitations": [
+        "The holdout tests a near-boundary drowned-fragment alternative without permitting a submergence or material conclusion."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/ridge-arc-overlap-v1",
+      "kind": "HOLDOUT",
+      "withheldFromCalibration": true,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "convergenceInfluence": 0.58,
+        "oceanBasinInfluence": 0.5,
+        "projectionConfidence": 0.55,
+        "riftInfluence": 0.58
+      },
+      "sourceFamilies": [
+        "CONVERGENCE_SYSTEM",
+        "OCEAN_BASIN",
+        "RIFT_SYSTEM"
+      ],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "OCEANIC_RIDGE_SYSTEM",
+          "VOLCANIC_ARC_SYSTEM"
+        ],
+        "allowedRoleCandidates": [
+          "OCEANIC_RIDGE_SYSTEM",
+          "STRUCTURALLY_UNRESOLVED",
+          "TRANSITIONAL_CRUST",
+          "VOLCANIC_ARC_SYSTEM"
+        ],
+        "forbiddenLeadingRoles": [
+          "OCEANIC_RIDGE_SYSTEM",
+          "VOLCANIC_ARC_SYSTEM"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredGhostRisks": [
+          "RIDGE_ARC_CONFUSION"
+        ],
+        "requiredSuppressionRecommendations": [
+          "DEFER_TO_STRUCTURE_MATERIAL_GENESIS"
+        ]
+      },
+      "limitations": [
+        "The holdout requires explicit ridge-arc ambiguity because radial fields do not encode orientation or polarity."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "negative/continental-ghost-no-source-v1",
+      "kind": "NEGATIVE",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "continentalKernelInfluence": 0.7,
+        "projectionConfidence": 0.6
+      },
+      "sourceFamilies": [],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "STRUCTURALLY_UNRESOLVED"
+        ],
+        "allowedRoleCandidates": [
+          "CONTINENTAL_INTERIOR",
+          "STRUCTURALLY_UNRESOLVED"
+        ],
+        "forbiddenLeadingRoles": [
+          "CONTINENTAL_INTERIOR"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredGhostRisks": [
+          "CONTINENTAL_GHOST"
+        ],
+        "requiredSuppressionRecommendations": [
+          "SUPPRESS_UNSUPPORTED_CONTINENTAL_GHOST"
+        ]
+      },
+      "limitations": [
+        "A high detached field without a matching continental-kernel source must fail closed rather than become continent authority."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "negative/oceanic-ghost-no-source-v1",
+      "kind": "NEGATIVE",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "oceanBasinInfluence": 0.72,
+        "projectionConfidence": 0.62
+      },
+      "sourceFamilies": [],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "STRUCTURALLY_UNRESOLVED"
+        ],
+        "allowedRoleCandidates": [
+          "DEEP_OCEAN_BASIN",
+          "STRUCTURALLY_UNRESOLVED"
+        ],
+        "forbiddenLeadingRoles": [
+          "DEEP_OCEAN_BASIN"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredGhostRisks": [
+          "OCEANIC_GHOST"
+        ],
+        "requiredSuppressionRecommendations": [
+          "SUPPRESS_UNSUPPORTED_OCEANIC_GHOST"
+        ]
+      },
+      "limitations": [
+        "A high detached field without a matching ocean-basin source must fail closed rather than become ocean or water authority."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/continental-interior-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "continentalKernelInfluence": 0.8,
+        "oceanBasinInfluence": 0.1,
+        "persistenceSummary": 0.65,
+        "projectionConfidence": 0.8
+      },
+      "sourceFamilies": [
+        "CONTINENTAL_KERNEL"
+      ],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "CONTINENTAL_INTERIOR"
+        ],
+        "allowedRoleCandidates": [
+          "CONTINENTAL_INTERIOR",
+          "CONTINENTAL_MARGIN"
+        ],
+        "forbiddenLeadingRoles": [],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "SINGLE_LEADING_CANDIDATE"
+        ],
+        "requiredGhostRisks": [],
+        "requiredSuppressionRecommendations": [
+          "NO_SUPPRESSION_RECOMMENDATION"
+        ]
+      },
+      "limitations": [
+        "A leading continental-interior candidate remains structural only and cannot imply exposed land."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/deep-ocean-basin-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "continentalKernelInfluence": 0.1,
+        "oceanBasinInfluence": 0.82,
+        "projectionConfidence": 0.78
+      },
+      "sourceFamilies": [
+        "OCEAN_BASIN"
+      ],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "DEEP_OCEAN_BASIN"
+        ],
+        "allowedRoleCandidates": [
+          "DEEP_OCEAN_BASIN",
+          "TRANSITIONAL_CRUST"
+        ],
+        "forbiddenLeadingRoles": [],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "SINGLE_LEADING_CANDIDATE"
+        ],
+        "requiredGhostRisks": [],
+        "requiredSuppressionRecommendations": [
+          "NO_SUPPRESSION_RECOMMENDATION"
+        ]
+      },
+      "limitations": [
+        "A leading deep-ocean-basin candidate remains structural only and cannot imply final water or depth."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/mixed-continental-margin-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "continentalKernelInfluence": 0.55,
+        "oceanBasinInfluence": 0.45,
+        "projectionConfidence": 0.65,
+        "riftInfluence": 0.35
+      },
+      "sourceFamilies": [
+        "CONTINENTAL_KERNEL",
+        "OCEAN_BASIN",
+        "RIFT_SYSTEM"
+      ],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "CONTINENTAL_MARGIN",
+          "TRANSITIONAL_CRUST"
+        ],
+        "allowedRoleCandidates": [
+          "CONTINENTAL_MARGIN",
+          "DROWNED_CONTINENTAL_FRAGMENT",
+          "TRANSITIONAL_CRUST"
+        ],
+        "forbiddenLeadingRoles": [
+          "CONTINENTAL_MARGIN",
+          "TRANSITIONAL_CRUST"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredGhostRisks": [
+          "DROWNED_FRAGMENT_CONFUSION"
+        ],
+        "requiredSuppressionRecommendations": [
+          "DEFER_TO_STRUCTURE_MATERIAL_GENESIS",
+          "PRESERVE_DROWNED_FRAGMENT_ALTERNATIVE"
+        ]
+      },
+      "limitations": [
+        "The fixture preserves margin, transition, and drowned-fragment alternatives without an oriented margin or material solution."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/transitional-crust-v1",
+      "kind": "POSITIVE",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "continentalKernelInfluence": 0.45,
+        "oceanBasinInfluence": 0.48,
+        "preservationSummary": 0.45,
+        "projectionConfidence": 0.65,
+        "riftInfluence": 0.4
+      },
+      "sourceFamilies": [
+        "CONTINENTAL_KERNEL",
+        "OCEAN_BASIN",
+        "RIFT_SYSTEM"
+      ],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "TRANSITIONAL_CRUST"
+        ],
+        "allowedRoleCandidates": [
+          "CONTINENTAL_MARGIN",
+          "DROWNED_CONTINENTAL_FRAGMENT",
+          "TRANSITIONAL_CRUST"
+        ],
+        "forbiddenLeadingRoles": [
+          "DROWNED_CONTINENTAL_FRAGMENT",
+          "TRANSITIONAL_CRUST"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredGhostRisks": [
+          "DROWNED_FRAGMENT_CONFUSION"
+        ],
+        "requiredSuppressionRecommendations": [
+          "DEFER_TO_STRUCTURE_MATERIAL_GENESIS",
+          "PRESERVE_DROWNED_FRAGMENT_ALTERNATIVE"
+        ]
+      },
+      "limitations": [
+        "Transitional crust remains an ambiguity class until later material, thickness, and buoyancy evidence exists."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/continental-shelf-context-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "continentalKernelInfluence": 0.5,
+        "oceanBasinInfluence": 0.3,
+        "projectionConfidence": 0.55
+      },
+      "sourceFamilies": [
+        "CONTINENTAL_KERNEL",
+        "OCEAN_BASIN"
+      ],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "CONTINENTAL_SHELF"
+        ],
+        "allowedRoleCandidates": [
+          "CONTINENTAL_MARGIN",
+          "CONTINENTAL_SHELF",
+          "CONTINENTAL_SLOPE",
+          "STRUCTURALLY_UNRESOLVED",
+          "TRANSITIONAL_CRUST"
+        ],
+        "forbiddenLeadingRoles": [
+          "CONTINENTAL_SHELF"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredGhostRisks": [
+          "DROWNED_FRAGMENT_CONFUSION",
+          "SHELF_GHOST"
+        ],
+        "requiredSuppressionRecommendations": [
+          "DEFER_TO_STRUCTURE_MATERIAL_GENESIS",
+          "PRESERVE_DROWNED_FRAGMENT_ALTERNATIVE",
+          "SUPPRESS_UNSUPPORTED_SHELF_GHOST"
+        ]
+      },
+      "limitations": [
+        "The threshold retains a shelf alternative but cannot establish sea level, water depth, sedimentary form, or bathymetry."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/continental-slope-context-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "continentalKernelInfluence": 0.4,
+        "oceanBasinInfluence": 0.5,
+        "projectionConfidence": 0.55
+      },
+      "sourceFamilies": [
+        "CONTINENTAL_KERNEL",
+        "OCEAN_BASIN"
+      ],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "CONTINENTAL_SLOPE"
+        ],
+        "allowedRoleCandidates": [
+          "CONTINENTAL_MARGIN",
+          "CONTINENTAL_SHELF",
+          "CONTINENTAL_SLOPE",
+          "STRUCTURALLY_UNRESOLVED",
+          "TRANSITIONAL_CRUST"
+        ],
+        "forbiddenLeadingRoles": [
+          "CONTINENTAL_SLOPE"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredGhostRisks": [
+          "DROWNED_FRAGMENT_CONFUSION",
+          "SHELF_GHOST"
+        ],
+        "requiredSuppressionRecommendations": [
+          "DEFER_TO_STRUCTURE_MATERIAL_GENESIS",
+          "PRESERVE_DROWNED_FRAGMENT_ALTERNATIVE",
+          "SUPPRESS_UNSUPPORTED_SHELF_GHOST"
+        ]
+      },
+      "limitations": [
+        "The threshold retains a slope alternative but cannot establish gradient, water depth, sedimentary form, or bathymetry."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/drowned-fragment-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "continentalKernelInfluence": 0.5,
+        "oceanBasinInfluence": 0.38,
+        "preservationSummary": 0.4,
+        "projectionConfidence": 0.5,
+        "riftInfluence": 0.25
+      },
+      "sourceFamilies": [
+        "CONTINENTAL_KERNEL",
+        "OCEAN_BASIN"
+      ],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "DROWNED_CONTINENTAL_FRAGMENT",
+          "TRANSITIONAL_CRUST"
+        ],
+        "allowedRoleCandidates": [
+          "CONTINENTAL_MARGIN",
+          "DROWNED_CONTINENTAL_FRAGMENT",
+          "STRUCTURALLY_UNRESOLVED",
+          "TRANSITIONAL_CRUST"
+        ],
+        "forbiddenLeadingRoles": [
+          "DROWNED_CONTINENTAL_FRAGMENT",
+          "TRANSITIONAL_CRUST"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredGhostRisks": [
+          "DROWNED_FRAGMENT_CONFUSION"
+        ],
+        "requiredSuppressionRecommendations": [
+          "DEFER_TO_STRUCTURE_MATERIAL_GENESIS",
+          "PRESERVE_DROWNED_FRAGMENT_ALTERNATIVE"
+        ]
+      },
+      "limitations": [
+        "The threshold preserves drowned-fragment and transition alternatives without asserting submergence or continental composition."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/margin-boundary-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "continentalKernelInfluence": 0.27,
+        "oceanBasinInfluence": 0.18,
+        "projectionConfidence": 0.42,
+        "riftInfluence": 0.25
+      },
+      "sourceFamilies": [
+        "RIFT_SYSTEM"
+      ],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "CONTINENTAL_MARGIN",
+          "TRANSITIONAL_CRUST"
+        ],
+        "allowedRoleCandidates": [
+          "CONTINENTAL_MARGIN",
+          "STRUCTURALLY_UNRESOLVED",
+          "TRANSITIONAL_CRUST"
+        ],
+        "forbiddenLeadingRoles": [
+          "CONTINENTAL_MARGIN",
+          "TRANSITIONAL_CRUST"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredGhostRisks": [],
+        "requiredSuppressionRecommendations": [
+          "NO_SUPPRESSION_RECOMMENDATION"
+        ]
+      },
+      "limitations": [
+        "The boundary fixture tests low-end margin and transition inclusion without an oriented margin trace."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/oceanic-ridge-radial-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "oceanBasinInfluence": 0.4,
+        "projectionConfidence": 0.45,
+        "riftInfluence": 0.56
+      },
+      "sourceFamilies": [
+        "OCEAN_BASIN",
+        "RIFT_SYSTEM"
+      ],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "OCEANIC_RIDGE_SYSTEM"
+        ],
+        "allowedRoleCandidates": [
+          "OCEANIC_RIDGE_SYSTEM",
+          "TRANSITIONAL_CRUST"
+        ],
+        "forbiddenLeadingRoles": [
+          "OCEANIC_RIDGE_SYSTEM"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredGhostRisks": [],
+        "requiredSuppressionRecommendations": [
+          "NO_SUPPRESSION_RECOMMENDATION"
+        ]
+      },
+      "limitations": [
+        "The threshold permits a ridge candidate but cannot infer an oriented spreading axis or segmented ridge geometry."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/structurally-unresolved-low-confidence-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "continentalKernelInfluence": 0.2,
+        "oceanBasinInfluence": 0.2,
+        "projectionConfidence": 0.2
+      },
+      "sourceFamilies": [],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "STRUCTURALLY_UNRESOLVED"
+        ],
+        "allowedRoleCandidates": [
+          "STRUCTURALLY_UNRESOLVED"
+        ],
+        "forbiddenLeadingRoles": [
+          "CONTINENTAL_INTERIOR",
+          "CONTINENTAL_MARGIN",
+          "CONTINENTAL_SHELF",
+          "CONTINENTAL_SLOPE",
+          "DEEP_OCEAN_BASIN",
+          "DROWNED_CONTINENTAL_FRAGMENT",
+          "OCEANIC_RIDGE_SYSTEM",
+          "TRANSITIONAL_CRUST",
+          "VOLCANIC_ARC_SYSTEM"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredGhostRisks": [],
+        "requiredSuppressionRecommendations": [
+          "NO_SUPPRESSION_RECOMMENDATION"
+        ]
+      },
+      "limitations": [
+        "The threshold enforces a fail-closed unresolved state when detached projection coverage is insufficient."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "threshold/volcanic-arc-radial-v1",
+      "kind": "THRESHOLD",
+      "withheldFromCalibration": false,
+      "premiseBodyClassCandidates": [
+        "ROCKY_TERRESTRIAL"
+      ],
+      "fieldValues": {
+        "convergenceInfluence": 0.56,
+        "plumeInfluence": 0.2,
+        "projectionConfidence": 0.45
+      },
+      "sourceFamilies": [
+        "CONVERGENCE_SYSTEM"
+      ],
+      "expected": {
+        "status": "PARTIAL",
+        "requiredRoleCandidates": [
+          "VOLCANIC_ARC_SYSTEM"
+        ],
+        "allowedRoleCandidates": [
+          "TRANSITIONAL_CRUST",
+          "VOLCANIC_ARC_SYSTEM"
+        ],
+        "forbiddenLeadingRoles": [
+          "VOLCANIC_ARC_SYSTEM"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredGhostRisks": [],
+        "requiredSuppressionRecommendations": [
+          "NO_SUPPRESSION_RECOMMENDATION"
+        ]
+      },
+      "limitations": [
+        "The threshold permits an arc candidate but cannot infer subduction polarity, trench geometry, or an oriented volcanic chain."
+      ]
+    }
+  ]
+}
