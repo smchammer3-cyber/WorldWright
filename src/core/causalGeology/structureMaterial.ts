@@ -581,22 +581,22 @@ function canonicalProvinceCandidates(value: readonly StructureMaterialProvinceCa
     if (!definition.compatibleBuoyancyTendencies.includes(candidate.buoyancyTendency)) {
       throw new Error(`Structure/material region ${regionId} province ${candidate.provinceClass} has an incompatible buoyancy tendency.`);
     }
-    const resistanceTendencies = canonicalEnumText(candidate.resistanceTendencies, RESISTANCE_TENDENCY_SET, `Structure/material region ${regionId} province ${candidate.provinceClass} resistance tendencies`, 1);
+    const resistanceTendencies = canonicalEnumText<MechanicalResistanceTendencyV1>(candidate.resistanceTendencies, RESISTANCE_TENDENCY_SET, `Structure/material region ${regionId} province ${candidate.provinceClass} resistance tendencies`, 1);
     if (resistanceTendencies.length > M1A_STRUCTURE_MATERIAL_LIMITS_V1.maximumResistanceTendenciesPerCandidate
       || resistanceTendencies.some((entry) => !definition.compatibleResistanceTendencies.includes(entry))) {
       throw new Error(`Structure/material region ${regionId} province ${candidate.provinceClass} has incompatible resistance tendencies.`);
     }
-    const grainTendencies = canonicalEnumText(candidate.grainTendencies, GRAIN_TENDENCY_SET, `Structure/material region ${regionId} province ${candidate.provinceClass} grain tendencies`, 1);
+    const grainTendencies = canonicalEnumText<StructuralGrainTendencyV1>(candidate.grainTendencies, GRAIN_TENDENCY_SET, `Structure/material region ${regionId} province ${candidate.provinceClass} grain tendencies`, 1);
     if (grainTendencies.length > M1A_STRUCTURE_MATERIAL_LIMITS_V1.maximumGrainTendenciesPerCandidate
       || grainTendencies.some((entry) => !definition.compatibleGrainTendencies.includes(entry))) {
       throw new Error(`Structure/material region ${regionId} province ${candidate.provinceClass} has incompatible grain tendencies.`);
     }
-    const terrainTermPermissionCandidates = canonicalEnumText(candidate.terrainTermPermissionCandidates, TERRAIN_PERMISSION_SET, `Structure/material region ${regionId} province ${candidate.provinceClass} terrain-term permission candidates`, 1);
+    const terrainTermPermissionCandidates = canonicalEnumText<TerrainTermPermissionCandidateV1>(candidate.terrainTermPermissionCandidates, TERRAIN_PERMISSION_SET, `Structure/material region ${regionId} province ${candidate.provinceClass} terrain-term permission candidates`, 1);
     if (terrainTermPermissionCandidates.length > M1A_STRUCTURE_MATERIAL_LIMITS_V1.maximumTerrainTermPermissionCandidatesPerCandidate
       || terrainTermPermissionCandidates.some((entry) => !definition.candidateTerrainTermPermissions.includes(entry))) {
       throw new Error(`Structure/material region ${regionId} province ${candidate.provinceClass} has incompatible terrain-term permission candidates.`);
     }
-    const sourceStructuralRoles = canonicalEnumText(candidate.sourceStructuralRoles, STRUCTURAL_ROLE_SET, `Structure/material region ${regionId} province ${candidate.provinceClass} source structural roles`, 1);
+    const sourceStructuralRoles = canonicalEnumText<ContinentOceanStructuralRoleV1>(candidate.sourceStructuralRoles, STRUCTURAL_ROLE_SET, `Structure/material region ${regionId} province ${candidate.provinceClass} source structural roles`, 1);
     if (sourceStructuralRoles.some((entry) => !definition.expectedStructuralRoles.includes(entry))) {
       throw new Error(`Structure/material region ${regionId} province ${candidate.provinceClass} cites an incompatible structural role.`);
     }
