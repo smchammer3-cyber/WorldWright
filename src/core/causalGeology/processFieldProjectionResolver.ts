@@ -152,16 +152,16 @@ export function resolveCausalProcessFieldProjection(
       ...regimeHistory.contradictionIds,
       ...geologicSpine.contradictionIds,
     ]),
-    limitations: [
+    limitations: canonicalText([
       'D2 projects validated regime-history and geologic-spine records into detached continuous diagnostic fields only.',
       'Family influence fields are not terrain, land, water, bathymetry, climate, biome, material, or resource authority.',
       'Kernel radius is inherited directly from each spine node angular extent; no legacy morphology or renderer data is read.',
-      'Temporal summaries divide explicit source durations by total resolved history duration and do not claim final surface age.',
+      'Maximum compact-support blending preserves dominant-source interpretability and does not add feature-count amplitude.',
       'Preservation weights are published nonphysical diagnostic assumptions and must not be interpreted as calibrated geology.',
       'Projection confidence means validated source coverage at a location, not epistemic or scientific confidence.',
-      'Maximum compact-support blending preserves dominant-source interpretability and does not add feature-count amplitude.',
       'Scientific status remains PARTIAL and ordinary LEGACY generation is unchanged.',
-    ],
+      'Temporal summaries divide explicit source durations by total resolved history duration and do not claim final surface age.',
+    ]),
   });
 }
 
@@ -213,11 +213,11 @@ export function evaluateCausalProcessFieldProjection(
     blendRule: 'MAXIMUM_COMPACT_SUPPORT_V1' as const,
     contributionRule: 'PEAK_TIMES_TEMPORAL_TIMES_PRESERVATION_TIMES_COSINE_FALLOFF_V1' as const,
     values,
-    limitations: [
+    limitations: canonicalText([
+      'Dominant-kernel identity is diagnostic lineage and must not be rendered as final physical authority.',
       'Query values are detached diagnostic samples from a continuous spherical kernel model.',
       'Zero means no registered kernel contributes at the query anchor; it does not mean physical absence.',
-      'Dominant-kernel identity is diagnostic lineage and must not be rendered as final physical authority.',
-    ],
+    ]),
   };
   const result = cloneAndDeepFreeze({
     ...payload,
@@ -301,7 +301,7 @@ export function validateCausalProcessFieldProjectionQueryResult(
     if (!Number.isSafeInteger(sample.contributingKernelCount) || sample.contributingKernelCount < 0) throw new Error(`Process-field projection query ${sample.fieldId} contribution count is invalid.`);
     if (sample.dominantKernelId !== undefined && !isText(sample.dominantKernelId)) throw new Error(`Process-field projection query ${sample.fieldId} dominant kernel is invalid.`);
   }
-  canonicalText(result.limitations, 1);
+  validateCanonicalText(result.limitations, 1, 'Process-field projection query limitations');
   assertDeterministicHash(result.contentHash, 'Process-field projection query content');
   const expectedHash = hashRecordWithoutContentHash('WorldWright/causal-process-field-projection-query/v1', result as object);
   if (!deterministicHashEquals(result.contentHash as DeterministicHash, expectedHash)) throw new Error('Process-field projection query content hash does not match its record.');
@@ -328,9 +328,10 @@ export function validateCausalProcessFieldProjectionDiagnosticGrid(
   }
   if (JSON.stringify(grid.fieldIds) !== JSON.stringify(QUERY_FIELD_IDS)) throw new Error('Process-field projection diagnostic grid fields are not canonical.');
   if (!grid.valuesByField || typeof grid.valuesByField !== 'object' || Array.isArray(grid.valuesByField)) throw new Error('Process-field projection diagnostic grid values are invalid.');
+  const valuesByField = grid.valuesByField as Readonly<Record<CausalProcessFieldProjectionIdV1, readonly number[]>>;
   const expectedLength = (grid.width as number) * (grid.height as number);
   for (const fieldId of QUERY_FIELD_IDS) {
-    const values = grid.valuesByField[fieldId];
+    const values = valuesByField[fieldId];
     if (!Array.isArray(values) || values.length !== expectedLength) throw new Error(`Process-field projection diagnostic grid ${fieldId} length is invalid.`);
     for (const sample of values) assertNormalized(sample, `Process-field projection diagnostic grid ${fieldId}`);
   }
@@ -407,10 +408,15 @@ function preservationWeightFor(state: GeologicSpinePreservationState): number {
   return weight;
 }
 
-function canonicalText(value: readonly string[], minimumLength = 0): readonly string[] {
-  const canonical = [...new Set(value)].sort(compareStableText);
-  if (canonical.length < minimumLength) throw new Error(`Canonical text requires at least ${minimumLength} value(s).`);
-  return Object.freeze(canonical);
+function canonicalText(value: readonly string[]): readonly string[] {
+  return Object.freeze([...new Set(value)].sort(compareStableText));
+}
+
+function validateCanonicalText(value: unknown, minimumLength: number, label: string): asserts value is readonly string[] {
+  if (!Array.isArray(value) || value.some((entry) => !isText(entry))) throw new Error(`${label} must contain non-empty text.`);
+  const canonical = canonicalText(value as string[]);
+  if (canonical.length < minimumLength) throw new Error(`${label} requires at least ${minimumLength} value(s).`);
+  if (JSON.stringify(value) !== JSON.stringify(canonical)) throw new Error(`${label} must be sorted and unique.`);
 }
 
 function canonicalNumber(value: number): number {
