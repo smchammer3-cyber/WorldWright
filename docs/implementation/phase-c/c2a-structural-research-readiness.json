@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "reportVersion": "C2A_STRUCTURAL_RESEARCH_READINESS_V1",
+  "baseCommit": "3060054b7e862a8a5dc898db83a4d5145868d3ff",
+  "c1Completion": {
+    "pullRequest": 151,
+    "validatedHead": "082bc00583b979aa3b3c66e94acc4deb00b3c8fb",
+    "mergeCommit": "3060054b7e862a8a5dc898db83a4d5145868d3ff"
+  },
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "interpretationMode": "DETACHED_DIAGNOSTIC",
+  "scientificStatus": "PARTIAL",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "researchPackage": {
+    "packageVersion": "C2A_CONTINENT_OCEAN_STRUCTURE_RESEARCH_PACKAGE_V1",
+    "sourceCount": 9,
+    "primaryPeerReviewedSourceCount": 7,
+    "authoritativeDataOrModelSourceCount": 1,
+    "internalControlledSourceCount": 1,
+    "ruleCount": 10,
+    "reviewedAssociationRuleCount": 7,
+    "provisionalThresholdRuleCount": 2,
+    "internalAuthorityRuleCount": 1,
+    "correlationGroupCount": 6,
+    "knownLimitationCount": 8
+  },
+  "fixtureCorpus": {
+    "fixtureSetVersion": "C2A_CONTINENT_OCEAN_STRUCTURE_FIXTURES_V1",
+    "totalCases": 13,
+    "positiveCases": 5,
+    "thresholdCases": 3,
+    "negativeCases": 2,
+    "approvedExceptionCases": 1,
+    "withheldHoldoutCases": 2,
+    "allTenStructuralRolesCovered": true,
+    "allTwelveProjectionFieldsDeclaredPerCase": true,
+    "holdoutsWithheldFromCalibration": true
+  },
+  "reviewDecision": {
+    "detachedResolverImplementationAuthorized": true,
+    "structuralRoleAuthorityAuthorized": false,
+    "physicalOutputAuthorized": false,
+    "completeEligibleRuleIds": [
+      "structure/authority-firewall-v1"
+    ],
+    "provisionalThresholdRuleIds": [
+      "structure/ghost-risk-provisional-thresholds-v1",
+      "structure/provisional-normalized-role-thresholds-v1"
+    ]
+  },
+  "calibrationBoundary": {
+    "broadStructuralAssociations": "REVIEWED",
+    "normalizedSupportThresholds": "PROVISIONAL_CONTROLLED_FIXTURES_ONLY",
+    "universalGeophysicalThresholdsClaimed": false,
+    "earthBathymetryEquationImported": false,
+    "earthMarginDimensionsImported": false,
+    "holdoutsAvailableForCalibration": false,
+    "negativeCasesCountAsConformance": false,
+    "approvedExceptionGeneralizesToNaturalGeology": false
+  },
+  "requiredC2BBehavior": [
+    "Consume only the validated C2A research context and C1 detached contracts.",
+    "Remain deterministic, immutable, source-traceable, and PARTIAL.",
+    "Pass positives, thresholds, negatives, approved exception, and withheld holdouts without calibrating on holdouts.",
+    "Preserve SINGLE_LEADING_CANDIDATE, AMBIGUOUS_CANDIDATES, and UNRESOLVED honestly.",
+    "Treat suppression recommendations as diagnostic only and never erase source records.",
+    "Preserve radial-kernel orientation limits for ridges, arcs, margins, and transitions.",
+    "Write diagnostics only; structuralRoleAuthority remains forbidden until A2.",
+    "Never produce land, water, sea level, bathymetry, material, terrain, renderer, or canonical world state."
+  ],
+  "blockingScientificLimitations": [
+    "Normalized fixture thresholds remain provisional product hypotheses rather than universal geophysical constants.",
+    "Radial Phase D kernels do not independently encode oriented ridges, arcs, trenches, sutures, margins, or spreading direction.",
+    "Shelf and slope distinctions remain underconstrained without later crustal-thickness, material, and surface-boundary evidence.",
+    "Earth observational associations do not prescribe arbitrary-world role frequency, region size, or geometry.",
+    "Projection confidence measures validated source coverage rather than scientific certainty."
+  ],
+  "explicitNonScope": [
+    "No structural-role resolver or field-to-role scoring algorithm in C2A.",
+    "No regional sampling or sphere partitioning.",
+    "No structuralRoleAuthority or processFieldAuthority write.",
+    "No final continent, ocean, shelf, slope, ridge, arc, fragment, land, water, coastline, sea level, bathymetry, material, or terrain.",
+    "No ordinary Generate, Create, Sim, rendering, storage, export, or migration change.",
+    "No physical promotion, CAUSAL_ACTIVE route, or legacy retirement."
+  ],
+  "nextScope": "C2B deterministic detached structural-role resolver and complete fixture gate"
+}
