@@ -1,0 +1,389 @@
+[
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/ambiguity-preservation-v1",
+    "relation": "AMBIGUITY_PRESERVATION",
+    "sourceIds": [
+      "davy-et-al-2016-continent-ocean-transition",
+      "lau-et-al-2018-continent-ocean-transition",
+      "worldwright-c2a-structure-scope"
+    ],
+    "sourceFieldIds": [
+      "continentalKernelInfluence",
+      "oceanBasinInfluence",
+      "projectionConfidence",
+      "riftInfluence"
+    ],
+    "sourceNodeFamilies": [
+      "CONTINENTAL_KERNEL",
+      "OCEAN_BASIN",
+      "RIFT_SYSTEM"
+    ],
+    "supportedRoleIds": [
+      "CONTINENTAL_MARGIN",
+      "CONTINENTAL_SHELF",
+      "CONTINENTAL_SLOPE",
+      "DEEP_OCEAN_BASIN",
+      "STRUCTURALLY_UNRESOLVED",
+      "TRANSITIONAL_CRUST"
+    ],
+    "supportedGhostRiskIds": [
+      "CONTINENTAL_GHOST",
+      "OCEANIC_GHOST",
+      "SHELF_GHOST"
+    ],
+    "expectedRelation": "Overlapping continental, ocean-basin, extension, and confidence evidence may support multiple bounded structural candidates; uncertain continent-ocean transitions must remain ambiguous or unresolved rather than being forced into one class.",
+    "calibrationStatus": "REVIEWED_ASSOCIATION",
+    "thresholdPolicy": "NO_NUMERIC_THRESHOLD",
+    "exceptions": [
+      "A later material-genesis stage may resolve some ambiguity using independent crustal evidence, but C2A cannot pre-empt that stage.",
+      "An approved artificial premise remains outside natural continent-ocean interpretation."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/authority-firewall-v1",
+    "relation": "AUTHORITY_FIREWALL",
+    "sourceIds": [
+      "worldwright-c2a-structure-scope"
+    ],
+    "sourceFieldIds": [],
+    "sourceNodeFamilies": [],
+    "supportedRoleIds": [],
+    "supportedGhostRiskIds": [],
+    "expectedRelation": "C2A and any authorized C2B resolver may create only detached structural candidates, ambiguity, ghost-risk evidence, suppression recommendations, provenance, contradictions, and limitations. They may not create structuralRoleAuthority, final land, final water, sea level, bathymetry, terrain, material, rendering, or canonical world state.",
+    "calibrationStatus": "INTERNAL_AUTHORITY",
+    "thresholdPolicy": "NO_NUMERIC_THRESHOLD",
+    "exceptions": [],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A authority audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/continental-interior-association-v1",
+    "relation": "ROLE_SUPPORT",
+    "sourceIds": [
+      "artemieva-mooney-2001-cratonic-lithosphere",
+      "worldwright-c2a-structure-scope"
+    ],
+    "sourceFieldIds": [
+      "continentalKernelInfluence",
+      "formationAgeSummary",
+      "persistenceSummary",
+      "preservationSummary"
+    ],
+    "sourceNodeFamilies": [
+      "CONTINENTAL_KERNEL"
+    ],
+    "supportedRoleIds": [
+      "CONTINENTAL_INTERIOR"
+    ],
+    "supportedGhostRiskIds": [
+      "CONTINENTAL_GHOST"
+    ],
+    "expectedRelation": "A durable continental-kernel source combined with persistent, preserved, and older structural context may support a continental-interior candidate, while isolated continental influence without lineage or temporal support remains ghost-prone.",
+    "calibrationStatus": "REVIEWED_ASSOCIATION",
+    "thresholdPolicy": "NO_NUMERIC_THRESHOLD",
+    "exceptions": [
+      "Continental structural identity does not assert exposed land.",
+      "Young reworked continental-affinity structure may remain a margin, fragment, transition, or unresolved candidate."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/deep-ocean-basin-association-v1",
+    "relation": "ROLE_SUPPORT",
+    "sourceIds": [
+      "parsons-sclater-1977-ocean-floor-age",
+      "seton-et-al-2020-ocean-crust-age",
+      "worldwright-c2a-structure-scope"
+    ],
+    "sourceFieldIds": [
+      "formationAgeSummary",
+      "oceanBasinInfluence",
+      "persistenceSummary",
+      "projectionConfidence"
+    ],
+    "sourceNodeFamilies": [
+      "OCEAN_BASIN"
+    ],
+    "supportedRoleIds": [
+      "DEEP_OCEAN_BASIN"
+    ],
+    "supportedGhostRiskIds": [
+      "OCEANIC_GHOST"
+    ],
+    "expectedRelation": "A validated ocean-basin source with coherent age, persistence, and projection coverage may support a deep-ocean-basin structural candidate, without importing a terrestrial age-depth equation or deciding final water and bathymetry.",
+    "calibrationStatus": "REVIEWED_ASSOCIATION",
+    "thresholdPolicy": "NO_NUMERIC_THRESHOLD",
+    "exceptions": [
+      "A young spreading domain may support ridge or transitional candidates instead of a mature basin.",
+      "Ocean-basin structural identity does not assert present water coverage or depth."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/drowned-fragment-association-v1",
+    "relation": "ROLE_SUPPORT",
+    "sourceIds": [
+      "mortimer-et-al-2017-zealandia",
+      "worldwright-c2a-structure-scope"
+    ],
+    "sourceFieldIds": [
+      "continentalKernelInfluence",
+      "oceanBasinInfluence",
+      "preservationSummary",
+      "surfaceExposureSummary"
+    ],
+    "sourceNodeFamilies": [
+      "CONTINENTAL_KERNEL",
+      "OCEAN_BASIN"
+    ],
+    "supportedRoleIds": [
+      "DROWNED_CONTINENTAL_FRAGMENT",
+      "TRANSITIONAL_CRUST"
+    ],
+    "supportedGhostRiskIds": [
+      "DROWNED_FRAGMENT_CONFUSION"
+    ],
+    "expectedRelation": "Continental-affinity structure preserved within a strong basin context may support a drowned-fragment alternative; exposure or submergence cannot be concluded until later surface-boundary stages.",
+    "calibrationStatus": "REVIEWED_ASSOCIATION",
+    "thresholdPolicy": "NO_NUMERIC_THRESHOLD",
+    "exceptions": [
+      "A broad coherent submerged continent and a small isolated fragment are different end members not distinguished by one normalized field signature.",
+      "Drowned-fragment candidacy does not decide land, water, or sea level."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/ghost-risk-provisional-thresholds-v1",
+    "relation": "GHOST_RISK",
+    "sourceIds": [
+      "davy-et-al-2016-continent-ocean-transition",
+      "lau-et-al-2018-continent-ocean-transition",
+      "worldwright-c2a-structure-scope"
+    ],
+    "sourceFieldIds": [
+      "continentalKernelInfluence",
+      "convergenceInfluence",
+      "oceanBasinInfluence",
+      "projectionConfidence",
+      "riftInfluence"
+    ],
+    "sourceNodeFamilies": [
+      "CONTINENTAL_KERNEL",
+      "CONVERGENCE_SYSTEM",
+      "OCEAN_BASIN",
+      "RIFT_SYSTEM"
+    ],
+    "supportedRoleIds": [
+      "CONTINENTAL_MARGIN",
+      "CONTINENTAL_SHELF",
+      "CONTINENTAL_SLOPE",
+      "DEEP_OCEAN_BASIN",
+      "STRUCTURALLY_UNRESOLVED",
+      "TRANSITIONAL_CRUST"
+    ],
+    "supportedGhostRiskIds": [
+      "CONTINENTAL_GHOST",
+      "OCEANIC_GHOST",
+      "SHELF_GHOST"
+    ],
+    "expectedRelation": "Controlled normalized fixtures may flag isolated or weakly corroborated structural influence as a ghost risk, but the numeric bands are product hypotheses and cannot physically suppress output.",
+    "calibrationStatus": "PROVISIONAL_THRESHOLD",
+    "thresholdPolicy": "CONTROLLED_NORMALIZED_FIXTURE_ONLY",
+    "exceptions": [
+      "A high single-field value may be legitimate when independent spine lineage or later material evidence corroborates it.",
+      "Ghost-risk recommendations remain diagnostic and may not erase source records."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/margin-shelf-slope-association-v1",
+    "relation": "ROLE_SUPPORT",
+    "sourceIds": [
+      "brune-et-al-2014-rift-migration",
+      "davy-et-al-2016-continent-ocean-transition",
+      "lau-et-al-2018-continent-ocean-transition",
+      "worldwright-c2a-structure-scope"
+    ],
+    "sourceFieldIds": [
+      "accretionInfluence",
+      "continentalKernelInfluence",
+      "convergenceInfluence",
+      "oceanBasinInfluence",
+      "riftInfluence"
+    ],
+    "sourceNodeFamilies": [
+      "ACCRETION_SYSTEM",
+      "CONTINENTAL_KERNEL",
+      "CONVERGENCE_SYSTEM",
+      "OCEAN_BASIN",
+      "RIFT_SYSTEM"
+    ],
+    "supportedRoleIds": [
+      "CONTINENTAL_MARGIN",
+      "CONTINENTAL_SHELF",
+      "CONTINENTAL_SLOPE",
+      "TRANSITIONAL_CRUST"
+    ],
+    "supportedGhostRiskIds": [
+      "SHELF_GHOST"
+    ],
+    "expectedRelation": "Mixed continental, basin, extension, convergence, and accretion evidence may support margin, shelf, slope, or transitional-crust alternatives, with role ambiguity preserved where the fields do not distinguish crustal domains.",
+    "calibrationStatus": "REVIEWED_ASSOCIATION",
+    "thresholdPolicy": "NO_NUMERIC_THRESHOLD",
+    "exceptions": [
+      "A structural shelf or slope is not a present-day bathymetric or inundation class.",
+      "Radial process fields do not recover margin-normal orientation or conjugate-margin asymmetry."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/provisional-normalized-role-thresholds-v1",
+    "relation": "ROLE_SUPPORT",
+    "sourceIds": [
+      "worldwright-c2a-structure-scope"
+    ],
+    "sourceFieldIds": [
+      "accretionInfluence",
+      "continentalKernelInfluence",
+      "convergenceInfluence",
+      "formationAgeSummary",
+      "oceanBasinInfluence",
+      "persistenceSummary",
+      "plumeInfluence",
+      "preservationSummary",
+      "projectionConfidence",
+      "riftInfluence",
+      "surfaceExposureSummary",
+      "transformInfluence"
+    ],
+    "sourceNodeFamilies": [
+      "ACCRETION_SYSTEM",
+      "CONTINENTAL_KERNEL",
+      "CONVERGENCE_SYSTEM",
+      "OCEAN_BASIN",
+      "PLUME_SYSTEM",
+      "RIFT_SYSTEM",
+      "TRANSFORM_SYSTEM"
+    ],
+    "supportedRoleIds": [
+      "CONTINENTAL_INTERIOR",
+      "CONTINENTAL_MARGIN",
+      "CONTINENTAL_SHELF",
+      "CONTINENTAL_SLOPE",
+      "DEEP_OCEAN_BASIN",
+      "DROWNED_CONTINENTAL_FRAGMENT",
+      "OCEANIC_RIDGE_SYSTEM",
+      "STRUCTURALLY_UNRESOLVED",
+      "TRANSITIONAL_CRUST",
+      "VOLCANIC_ARC_SYSTEM"
+    ],
+    "supportedGhostRiskIds": [
+      "CONTINENTAL_GHOST",
+      "DROWNED_FRAGMENT_CONFUSION",
+      "OCEANIC_GHOST",
+      "RIDGE_ARC_CONFUSION",
+      "SHELF_GHOST"
+    ],
+    "expectedRelation": "C2B may use only the committed controlled normalized fixtures to define deterministic candidate-support bands; those values remain provisional and may not be reported as universal scientific thresholds.",
+    "calibrationStatus": "PROVISIONAL_THRESHOLD",
+    "thresholdPolicy": "CONTROLLED_NORMALIZED_FIXTURE_ONLY",
+    "exceptions": [
+      "Holdouts must remain withheld from calibration.",
+      "Negative and approved-exception fixtures must not be tuned into positive conformance."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/ridge-association-and-orientation-limit-v1",
+    "relation": "ROLE_SUPPORT",
+    "sourceIds": [
+      "seton-et-al-2020-ocean-crust-age",
+      "worldwright-c2a-structure-scope"
+    ],
+    "sourceFieldIds": [
+      "formationAgeSummary",
+      "oceanBasinInfluence",
+      "projectionConfidence",
+      "riftInfluence"
+    ],
+    "sourceNodeFamilies": [
+      "OCEAN_BASIN",
+      "RIFT_SYSTEM"
+    ],
+    "supportedRoleIds": [
+      "OCEANIC_RIDGE_SYSTEM",
+      "TRANSITIONAL_CRUST"
+    ],
+    "supportedGhostRiskIds": [
+      "RIDGE_ARC_CONFUSION"
+    ],
+    "expectedRelation": "Coherent basin and rift evidence may support an oceanic-ridge candidate, but Phase D radial kernels do not establish ridge orientation, spreading direction, asymmetry, or final relief.",
+    "calibrationStatus": "REVIEWED_ASSOCIATION",
+    "thresholdPolicy": "NO_NUMERIC_THRESHOLD",
+    "exceptions": [
+      "A continental rift may share the same broad radial field signature and must remain an alternative unless basin context is independently supported.",
+      "No ridge candidate may become terrain or bathymetry in Phase C."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A evidence audit",
+    "reviewDate": "2026-07-21"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "structure/volcanic-arc-association-and-orientation-limit-v1",
+    "relation": "ROLE_SUPPORT",
+    "sourceIds": [
+      "acocella-funiciello-2010-arc-control",
+      "worldwright-c2a-structure-scope"
+    ],
+    "sourceFieldIds": [
+      "accretionInfluence",
+      "convergenceInfluence",
+      "plumeInfluence",
+      "projectionConfidence"
+    ],
+    "sourceNodeFamilies": [
+      "ACCRETION_SYSTEM",
+      "CONVERGENCE_SYSTEM",
+      "PLUME_SYSTEM"
+    ],
+    "supportedRoleIds": [
+      "TRANSITIONAL_CRUST",
+      "VOLCANIC_ARC_SYSTEM"
+    ],
+    "supportedGhostRiskIds": [
+      "RIDGE_ARC_CONFUSION"
+    ],
+    "expectedRelation": "Convergence with accretionary and magmatic context may support a volcanic-arc candidate, but radial fields do not establish arc orientation, trench offset, volcano spacing, material composition, or topographic relief.",
+    "calibrationStatus": "REVIEWED_ASSOCIATION",
+    "thresholdPolicy": "NO_NUMERIC_THRESHOLD",
+    "exceptions": [
+      "Plume-related magmatism outside subduction settings may produce an overlapping radial signature.",
+      "Volcanic-arc candidacy does not assert volcanoes, land, elevation, or material composition."
+    ],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright C2A evidence audit",
+    "reviewDate": "2026-07-21"
+  }
+]
