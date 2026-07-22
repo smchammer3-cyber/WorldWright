@@ -1,0 +1,173 @@
+[
+  {
+    "schemaVersion": 1,
+    "sourceId": "acocella-funiciello-2010-arc-control",
+    "sourceType": "peer-reviewed comparative kinematic and structural analysis of active volcanic arcs",
+    "citation": "Acocella, V.; Funiciello, F. Kinematic setting and structural control of arc volcanism. Earth and Planetary Science Letters 289 (2010), 43–53. doi:10.1016/j.epsl.2009.10.027.",
+    "title": "Kinematic setting and structural control of arc volcanism",
+    "authorsOrInstitution": "Valerio Acocella and Francesca Funiciello",
+    "publicationYear": 2010,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "convergent-boundary-and-volcanic-arc-association",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "arc-kinematic-observations",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level structural association only; no copied text, figures, or numerical calibration.",
+    "limitations": [
+      "Arc structure and volcanic productivity vary with upper-plate kinematics and do not define a universal field threshold.",
+      "The study does not provide generated-world arc geometry from radial influence fields."
+    ],
+    "contentFingerprint": "doi:10.1016/j.epsl.2009.10.027#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "artemieva-mooney-2001-cratonic-lithosphere",
+    "sourceType": "peer-reviewed global thermal and geophysical modeling study of Precambrian lithosphere",
+    "citation": "Artemieva, I. M.; Mooney, W. D. Thermal thickness and evolution of Precambrian lithosphere: A global study. Journal of Geophysical Research: Solid Earth 106 (2001), 16387–16414. doi:10.1029/2000JB900439.",
+    "title": "Thermal thickness and evolution of Precambrian lithosphere: A global study",
+    "authorsOrInstitution": "Irina M. Artemieva and Walter D. Mooney",
+    "publicationYear": 2001,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "durable-continental-interior-lithosphere",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "continental-lithosphere-observation-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level durability relation only; no copied data, text, figures, or quantitative transfer.",
+    "limitations": [
+      "Cratonic lithosphere may be reworked, displaced, or absent and cannot be inferred from one normalized field alone.",
+      "Earth craton thickness and age distributions are not arbitrary-planet calibration targets."
+    ],
+    "contentFingerprint": "doi:10.1029/2000JB900439#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "brune-et-al-2014-rift-migration",
+    "sourceType": "peer-reviewed thermomechanical model constrained by South Atlantic reconstruction",
+    "citation": "Brune, S.; Heine, C.; Pérez-Gussinyé, M.; Sobolev, S. V. Rift migration explains continental margin asymmetry and crustal hyper-extension. Nature Communications 5 (2014), 4014. doi:10.1038/ncomms5014.",
+    "title": "Rift migration explains continental margin asymmetry and crustal hyper-extension",
+    "authorsOrInstitution": "Sascha Brune, Christian Heine, Marta Pérez-Gussinyé, and Stephan V. Sobolev",
+    "publicationYear": 2014,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "rifted-continental-margin-evolution",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "rifted-margin-observation-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level margin-evolution relation only; no copied model, text, figures, or numerical calibration.",
+    "limitations": [
+      "Hyperextension and margin asymmetry depend on extension history and cannot be reduced to one universal support cutoff.",
+      "South Atlantic constraints do not prescribe arbitrary-world margin width or placement."
+    ],
+    "contentFingerprint": "doi:10.1038/ncomms5014#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "davy-et-al-2016-continent-ocean-transition",
+    "sourceType": "peer-reviewed wide-angle seismic study of hyperextended crust and early oceanic crust",
+    "citation": "Davy, R. G.; Minshull, T. A.; Bayrakci, G.; Bull, J. M.; Klaeschen, D.; Papenberg, C.; Reston, T. J.; Sawyer, D. S.; Zelt, C. A. Continental hyperextension, mantle exhumation, and thin oceanic crust at the continent-ocean transition, West Iberia. Journal of Geophysical Research: Solid Earth 121 (2016), 3177–3199. doi:10.1002/2016JB012825.",
+    "title": "Continental hyperextension, mantle exhumation, and thin oceanic crust at the continent-ocean transition, West Iberia",
+    "authorsOrInstitution": "Richard G. Davy et al.",
+    "publicationYear": 2016,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "ambiguous-continent-ocean-transition-structure",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "rifted-margin-observation-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level transitional-crust relation only; no copied seismic data, text, figures, or numerical calibration.",
+    "limitations": [
+      "Continent-ocean transition boundaries may remain uncertain even with seismic observations.",
+      "West Iberia does not define a universal transitional-crust geometry."
+    ],
+    "contentFingerprint": "doi:10.1002/2016JB012825#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "lau-et-al-2018-continent-ocean-transition",
+    "sourceType": "peer-reviewed dense wide-angle seismic profile across a magma-poor continental margin",
+    "citation": "Lau, K. W. H.; Nedimović, M. R.; Canales, J. P.; Jian, H. Continent-ocean transition across the northeastern Nova Scotian margin from a dense wide-angle seismic profile. Journal of Geophysical Research: Solid Earth 123 (2018), 4331–4359. doi:10.1029/2017JB015282.",
+    "title": "Continent-ocean transition across the northeastern Nova Scotian margin from a dense wide-angle seismic profile",
+    "authorsOrInstitution": "Kevin W. H. Lau, Mladen R. Nedimović, J. Pablo Canales, and Hanchao Jian",
+    "publicationYear": 2018,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "shelf-slope-and-continent-ocean-transition-structure",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "rifted-margin-observation-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level crustal-domain relation only; no copied seismic data, text, figures, or numerical calibration.",
+    "limitations": [
+      "A shelf, slope, and continent-ocean transition require multiple structural observations and are not water-depth labels.",
+      "Nova Scotian crustal dimensions do not transfer quantitatively to arbitrary worlds."
+    ],
+    "contentFingerprint": "doi:10.1029/2017JB015282#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "mortimer-et-al-2017-zealandia",
+    "sourceType": "peer-reviewed integrated geological and geophysical synthesis of submerged continental crust",
+    "citation": "Mortimer, N.; Campbell, H. J.; Tulloch, A. J.; King, P. R.; Stagpoole, V. M.; et al. Zealandia: Earth's Hidden Continent. GSA Today 27 (2017), 27–35. doi:10.1130/GSATG321A.1.",
+    "title": "Zealandia: Earth's Hidden Continent",
+    "authorsOrInstitution": "Nick Mortimer et al.",
+    "publicationYear": 2017,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "submerged-and-thinned-continental-affinity",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "drowned-continental-fragment-syntheses",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level submerged-continental relation only; no copied maps, text, figures, or locality template.",
+    "limitations": [
+      "Continental affinity does not determine present-day exposure, water coverage, or sea level.",
+      "Zealandia is an Earth end member and does not define a universal drowned-fragment threshold."
+    ],
+    "contentFingerprint": "doi:10.1130/GSATG321A.1#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "parsons-sclater-1977-ocean-floor-age",
+    "sourceType": "peer-reviewed empirical and thermal-model analysis of ocean-floor age, bathymetry, and heat flow",
+    "citation": "Parsons, B.; Sclater, J. G. An analysis of the variation of ocean floor bathymetry and heat flow with age. Journal of Geophysical Research 82 (1977), 803–827. doi:10.1029/JB082i005p00803.",
+    "title": "An analysis of the variation of ocean floor bathymetry and heat flow with age",
+    "authorsOrInstitution": "Barry Parsons and John G. Sclater",
+    "publicationYear": 1977,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "oceanic-lithosphere-age-and-basin-context",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "oceanic-age-and-spreading-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level age-context relation only; C2A does not import the bathymetry equations or values.",
+    "limitations": [
+      "C2A may use formation-age context for structural interpretation but may not compute bathymetry or sea level.",
+      "The terrestrial age-depth relation is not a universal arbitrary-planet depth law."
+    ],
+    "contentFingerprint": "doi:10.1029/JB082i005p00803#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "seton-et-al-2020-ocean-crust-age",
+    "sourceType": "peer-reviewed global data model of oceanic crustal age and spreading parameters",
+    "citation": "Seton, M.; Müller, R. D.; Zahirovic, S.; Gaina, C.; Torsvik, T.; et al. A global data set of present-day oceanic crustal age and seafloor spreading parameters. Geochemistry, Geophysics, Geosystems 21 (2020), e2020GC009214. doi:10.1029/2020GC009214.",
+    "title": "A global data set of present-day oceanic crustal age and seafloor spreading parameters",
+    "authorsOrInstitution": "Maria Seton et al.",
+    "publicationYear": 2020,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "oceanic-crust-age-spreading-and-ridge-context",
+    "qualityClass": "AUTHORITATIVE_DATA_OR_MODEL",
+    "correlationGroupId": "oceanic-age-and-spreading-models",
+    "licenseOrUsageNote": "Bibliographic metadata and high-level age/spreading relation only; no copied data grids, software, text, or figures.",
+    "limitations": [
+      "Earth's preserved seafloor inventory is not a generated-world ridge count or placement prior.",
+      "Radial WorldWright fields do not independently recover spreading direction, asymmetry, or ridge orientation."
+    ],
+    "contentFingerprint": "doi:10.1029/2020GC009214#c2a"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "worldwright-c2a-structure-scope",
+    "sourceType": "internal controlled authority, fixture, ambiguity, and calibration contract",
+    "citation": "WorldWright C2A detached continent-ocean structural research contract.",
+    "title": "WorldWright C2A Structural Interpretation Scope Contract",
+    "authorsOrInstitution": "WorldWright",
+    "publicationYear": 2026,
+    "revisionOrAccessDate": "2026-07-21",
+    "domain": "detached-structural-interpretation-scope-and-provisional-thresholds",
+    "qualityClass": "INTERNAL_CONTROLLED_ARCHETYPE",
+    "correlationGroupId": "worldwright-c2a-scope",
+    "licenseOrUsageNote": "Internal product and architecture contract; not external scientific evidence.",
+    "limitations": [
+      "Controlled normalized fixture thresholds are provisional product hypotheses, not universal geophysical constants.",
+      "The contract forbids structural-role authority, land-water, bathymetry, terrain, rendering, and canonical-world output."
+    ],
+    "contentFingerprint": "worldwright:c2a-structure-scope-v1"
+  }
+]
