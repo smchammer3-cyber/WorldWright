@@ -1,0 +1,69 @@
+name: C1 Detached Structural-Role Contract Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: c1-detached-structural-role-contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detached-structural-role-contracts:
+    name: Validate detached continent-ocean contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run C1 contract, hostile, artifact, and authority gates
+        run: |
+          mkdir -p artifacts/ci-logs artifacts/c1-detached-structural-role-contracts
+          set -o pipefail
+          npx vitest run test/causalContinentOceanStructureContracts.spec.ts test/causalContinentOceanStructureC1Artifact.spec.ts 2>&1 | tee artifacts/ci-logs/c1-detached-structural-role-contracts.log
+          cp docs/implementation/phase-c/c1-detached-structural-role-contract.json artifacts/c1-detached-structural-role-contracts/
+          cp docs/implementation/PHASE_C1_DETACHED_STRUCTURAL_ROLE_CONTRACTS_STATUS.md artifacts/c1-detached-structural-role-contracts/
+
+      - name: Summarize C1 gate
+        if: always()
+        run: |
+          {
+            echo "## Phase C1 detached structural-role contracts"
+            echo "- Authority mode: \`CAUSAL_SHADOW\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Reads: \`causalRecord + diagnostics\`"
+            echo "- Writes: \`diagnostics only\`"
+            echo "- Role vocabulary: \`10 candidate roles\`"
+            echo "- Ambiguity and unresolved states: \`explicit\`"
+            echo "- Ghost suppression: \`diagnostic only\`"
+            echo "- Scientific status: \`PARTIAL\`"
+            echo "- Physical or visible output change: \`none\`"
+            echo "- structuralRoleAuthority: \`forbidden until A2\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload C1 artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c1-detached-structural-role-contracts
+          path: |
+            artifacts/c1-detached-structural-role-contracts/
+            artifacts/ci-logs/c1-detached-structural-role-contracts.log
+          if-no-files-found: warn
+          retention-days: 30
