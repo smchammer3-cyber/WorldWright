@@ -1,0 +1,67 @@
+name: W1-06B2 Controlled Archetype Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w1-06b2-controlled-archetypes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  controlled-archetypes:
+    name: Complete controlled archetype coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CAUSAL_CONTROLLED_ARCHETYPE_CI_OUT: artifacts/causal-controlled-archetype-gate
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run controlled archetype gate
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npx vitest run test/causalGeologyControlledArchetypeCiHarness.spec.ts 2>&1 | tee artifacts/ci-logs/causal-controlled-archetype.log
+
+      - name: Summarize controlled archetype gate
+        if: always()
+        run: |
+          {
+            echo "## W1-06B2 controlled archetypes"
+            echo "- Required families: \`10\`"
+            echo "- Cases per family: \`3\`"
+            echo "- Total unique seeds: \`30\`"
+            echo "- Natural routes: detached history → spine chain"
+            echo "- Artificial route: reviewed permissioned premise only"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Expected scientific status: \`PARTIAL\`"
+            echo "- Artifact: \`causal-controlled-archetype-gate\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload controlled archetype artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: causal-controlled-archetype-gate
+          path: |
+            artifacts/causal-controlled-archetype-gate/
+            artifacts/ci-logs/causal-controlled-archetype.log
+          if-no-files-found: warn
+          retention-days: 14
