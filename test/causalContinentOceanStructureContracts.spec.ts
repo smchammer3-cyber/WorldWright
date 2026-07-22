@@ -240,11 +240,12 @@ describe('C1 detached continent/ocean structural-role contracts', () => {
     expect(() => validateContinentOceanStructureInterpretation(forged)).toThrow(/content hash does not match/i);
   });
 
-  it('registers C1 as a shadow-only diagnostic with no structural or physical writes', () => {
+  it('registers C1 and its downstream M1A contract owner as exact shadow-only diagnostics', () => {
     expect(validateAuthorityProcessRegistry()).toEqual([]);
     expect(CAUSAL_SHADOW_DIAGNOSTIC_PROCESS_ORDER).toEqual([
       'CAUSAL_PROCESS_FIELD_PROJECTION',
       'CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION',
+      'CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION',
       'CAUSAL_SHADOW_AUDIT',
     ]);
     const process = getAuthorityProcess('CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION');
@@ -255,5 +256,15 @@ describe('C1 detached continent/ocean structural-role contracts', () => {
     expect(process.writes).not.toContain('structuralRoleAuthority');
     expect(process.writes).not.toContain('terrain');
     expect(process.writes).not.toContain('presentation');
+
+    const material = getAuthorityProcess('CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION');
+    expect(material.modes).toEqual(['CAUSAL_SHADOW']);
+    expect(material.reads).toEqual(['causalRecord', 'diagnostics']);
+    expect(material.writes).toEqual(['diagnostics']);
+    expect(material.prerequisites).toEqual(['CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION']);
+    expect(material.writes).not.toContain('structureMaterialCause');
+    expect(material.writes).not.toContain('landformPotentialAuthority');
+    expect(material.writes).not.toContain('terrain');
+    expect(material.writes).not.toContain('presentation');
   });
 });
