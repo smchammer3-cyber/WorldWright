@@ -781,7 +781,7 @@ function canonicalEnumText<T extends string>(value: readonly T[], allowed: Reado
   return Object.freeze(canonical);
 }
 
-function assertRecord(value: unknown, label: string): asserts value is Record<string, unknown> {
+function assertRecord<T>(value: T, label: string): asserts value is T & Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object.`);
 }
 
