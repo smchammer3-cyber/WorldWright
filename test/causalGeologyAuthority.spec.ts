@@ -37,10 +37,11 @@ describe('W1-01 shadow authority registration', () => {
     expect(getAuthorityProcess('CAUSAL_INPUT_SANITIZATION').reads).toEqual(['planetInitialConditions']);
   });
 
-  it('keeps projection, structural interpretation, and legacy comparison in diagnostic side branches', () => {
+  it('keeps projection, structure, material contracts, and legacy comparison in diagnostic side branches', () => {
     expect(CAUSAL_SHADOW_DIAGNOSTIC_PROCESS_ORDER).toEqual([
       'CAUSAL_PROCESS_FIELD_PROJECTION',
       'CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION',
+      'CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION',
       'CAUSAL_SHADOW_AUDIT',
     ]);
     for (const id of CAUSAL_SHADOW_DIAGNOSTIC_PROCESS_ORDER) {
@@ -58,6 +59,12 @@ describe('W1-01 shadow authority registration', () => {
       owner: 'CAUSAL_CONTINENT_OCEAN_STRUCTURE_DIAGNOSTIC',
       reads: ['causalRecord', 'diagnostics'],
       prerequisites: ['CAUSAL_PROCESS_FIELD_PROJECTION'],
+    });
+    expect(getAuthorityProcess('CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION')).toMatchObject({
+      owner: 'CAUSAL_STRUCTURE_MATERIAL_DIAGNOSTIC',
+      reads: ['causalRecord', 'diagnostics'],
+      writes: ['diagnostics'],
+      prerequisites: ['CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION'],
     });
     expect(getAuthorityProcess('CAUSAL_SHADOW_AUDIT')).toMatchObject({
       owner: 'WORLD_DIAGNOSTICS',
