@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "reportVersion": "C2A_STRUCTURAL_ROLE_RESEARCH_PACKAGE_V1",
+  "baseCommit": "3060054b7e862a8a5dc898db83a4d5145868d3ff",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "interpretationMode": "DETACHED_DIAGNOSTIC",
+  "scientificStatus": "PARTIAL",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "researchBundleVersion": "C2A_CONTINENT_OCEAN_STRUCTURE_RESEARCH_BUNDLE_V1",
+  "ruleSetVersion": "C2A_CONTINENT_OCEAN_STRUCTURE_RULES_V1",
+  "fixtureSetVersion": "C2A_CONTINENT_OCEAN_STRUCTURE_FIXTURES_V1",
+  "sources": {
+    "total": 8,
+    "primaryPeerReviewed": 5,
+    "authoritativeDataOrModel": 2,
+    "internalControlledScope": 1,
+    "sourceIds": [
+      "iodp-367-368-scs-rifted-margin-2016",
+      "krawczyk-et-al-1996-iberia-detachment",
+      "mooney-2007-global-crust",
+      "mortimer-et-al-2017-zealandia",
+      "schlee-klitgord-1986-atlantic-margin",
+      "schouten-et-al-1985-mid-ocean-ridges",
+      "usgs-subduction-zone-science-2020",
+      "worldwright-c2a-structural-scope-v1"
+    ]
+  },
+  "genericClaims": {
+    "total": 8,
+    "reviewed": 8,
+    "claimIds": [
+      "structure/arc-convergence-association-v1",
+      "structure/continent-ocean-crustal-contrast-v1",
+      "structure/drowned-continental-affinity-v1",
+      "structure/margin-transition-variability-v1",
+      "structure/no-surface-authority-v1",
+      "structure/ridge-spreading-association-v1",
+      "structure/shelf-slope-surface-context-v1",
+      "structure/transition-ambiguity-v1"
+    ]
+  },
+  "specializedRules": {
+    "roleRuleCount": 10,
+    "ghostRuleCount": 5,
+    "completeEligibleRuleIds": [],
+    "researchRequiredRuleIds": [
+      "c2.role.continental-shelf",
+      "c2.role.continental-slope"
+    ],
+    "orientedGeometryRequiredForLeadingRoles": [
+      "CONTINENTAL_MARGIN",
+      "OCEANIC_RIDGE_SYSTEM",
+      "VOLCANIC_ARC_SYSTEM"
+    ],
+    "materialOrSurfaceContextRequiredForLeadingRoles": [
+      "CONTINENTAL_SHELF",
+      "CONTINENTAL_SLOPE",
+      "DROWNED_CONTINENTAL_FRAGMENT"
+    ],
+    "provisionalNormalizedBoundaryStatus": "SOFTWARE_CALIBRATION_ONLY_NOT_UNIVERSAL_GEOPHYSICAL_THRESHOLD"
+  },
+  "fixtures": {
+    "total": 16,
+    "kindCounts": {
+      "EXCEPTION": 1,
+      "HOLDOUT": 2,
+      "NEGATIVE": 2,
+      "POSITIVE": 4,
+      "THRESHOLD": 7
+    },
+    "withheldHoldoutIds": [
+      "holdout/drowned-fragment-boundary-v1",
+      "holdout/ridge-arc-overlap-v1"
+    ],
+    "requiredEvidenceClasses": [
+      "positive",
+      "threshold",
+      "negative",
+      "approved exception",
+      "holdout"
+    ]
+  },
+  "review": {
+    "status": "CONTINENT_OCEAN_STRUCTURE_RESEARCH_PACKAGE_REVIEWED",
+    "reviewDate": "2026-07-21",
+    "reviewer": "WorldWright C2A scientific implementation and authority review",
+    "externalPeerReviewClaimed": false,
+    "implementationAuthorized": true,
+    "authorizedScope": "C2B deterministic detached candidate resolver only"
+  },
+  "gates": {
+    "genericSourceTraceability": "REQUIRED",
+    "specializedRuleTraceability": "REQUIRED",
+    "allRoleCoverage": "REQUIRED",
+    "allGhostRiskCoverage": "REQUIRED",
+    "holdoutsWithheldFromCalibration": "REQUIRED",
+    "negativeGhostCasesFailClosed": "REQUIRED",
+    "artificialExceptionRemainsUnresolved": "REQUIRED",
+    "partialScientificStatus": "REQUIRED",
+    "completeEligibleRules": "FORBIDDEN",
+    "structuralRoleAuthority": "FORBIDDEN",
+    "landWaterAuthority": "FORBIDDEN",
+    "bathymetryAuthority": "FORBIDDEN",
+    "terrainAuthority": "FORBIDDEN"
+  },
+  "explicitNonScope": [
+    "No C2B structural-role resolver in C2A.",
+    "No sampling or partitioning of the sphere into structural regions.",
+    "No role support computation from live process-field projections.",
+    "No oriented margin, ridge, arc, suture, transform, or rift geometry reconstruction.",
+    "No crust, material, buoyancy, thickness, resistance, structural grain, or terrain permission.",
+    "No land, water, sea level, bathymetry, shoreline, terrain, renderer, Create, Sim, storage, export, or migration change.",
+    "No processFieldAuthority or structuralRoleAuthority write.",
+    "No CAUSAL_ACTIVE route or physical promotion."
+  ],
+  "nextScope": "C2B detached structural-role candidate resolver using only the reviewed C2A package, validated premise, spine, and Phase D projection evidence"
+}
