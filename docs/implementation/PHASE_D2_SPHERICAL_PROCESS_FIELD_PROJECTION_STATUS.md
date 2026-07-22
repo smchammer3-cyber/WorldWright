@@ -99,7 +99,7 @@ canonical kernel order
 published evidence and limitations
 ```
 
-The resolver rejects spine events whose referenced epoch does not exist in the supplied history or whose event interval lies outside that epoch. No random stream is used.
+The resolver rejects spine events whose referenced epoch does not exist in the supplied history or whose event interval does not overlap that epoch. Reviewed spine-event windows may straddle epoch boundaries, so full containment is not required. No random stream is used.
 
 ## Validation corpus
 
