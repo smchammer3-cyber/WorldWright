@@ -143,11 +143,12 @@ describe('C1 detached continent/ocean structural-role contracts', () => {
       'TRANSITIONAL_CRUST',
       'STRUCTURALLY_UNRESOLVED',
     ]);
-    expect(interpretation.regions.find((entry) => entry.regionId === 'region-transition-ambiguous')).toMatchObject({
+    const ambiguous = interpretation.regions.find((entry) => entry.regionId === 'region-transition-ambiguous');
+    expect(ambiguous).toMatchObject({
       resolutionStatus: 'AMBIGUOUS_CANDIDATES',
-      leadingRole: undefined,
       suppressionRecommendations: ['DEFER_TO_STRUCTURE_MATERIAL_GENESIS', 'PRESERVE_DROWNED_FRAGMENT_ALTERNATIVE'],
     });
+    expect(ambiguous).not.toHaveProperty('leadingRole');
     expect(interpretation.structuralRoleAuthority).toBe(false);
     expect(interpretation.finalLandAuthority).toBe(false);
     expect(interpretation.finalWaterAuthority).toBe(false);
