@@ -51,6 +51,21 @@ const researchContext = createContinentOceanStructureResolverResearchContext({
   review,
 });
 
+const FORBIDDEN_PHYSICAL_PAYLOAD_KEYS = new Set([
+  'baseHeight',
+  'landMask',
+  'waterMask',
+  'seaLevel',
+  'bathymetry',
+  'bathymetryValues',
+  'bathymetryGrid',
+  'bathymetryDepth',
+  'depthMap',
+  'rendererColor',
+  'rendererColors',
+  'WorldBrain',
+]);
+
 describe('C2B detached structural-role resolver CI harness', () => {
   it('passes the complete fixed C2A corpus, including negatives, exception, and withheld holdouts', () => {
     rmSync(artifactRoot, { recursive: true, force: true });
@@ -93,6 +108,21 @@ describe('C2B detached structural-role resolver CI harness', () => {
       expect(interpretation.authorityMode).toBe('CAUSAL_SHADOW');
       expect(interpretation.physicalGeneratorAuthority).toBe('LEGACY');
       expect(interpretation.interpretationMode).toBe('DETACHED_DIAGNOSTIC');
+      expect(interpretation).toMatchObject({
+        structuralRoleAuthority: false,
+        finalLandAuthority: false,
+        finalWaterAuthority: false,
+        bathymetryAuthority: false,
+        terrainAuthority: false,
+      });
+      for (const definition of interpretation.roleDefinitions) {
+        expect(definition).toMatchObject({
+          finalLandAuthority: false,
+          finalWaterAuthority: false,
+          bathymetryAuthority: false,
+          terrainAuthority: false,
+        });
+      }
       expect(interpretation.regions).toHaveLength(1);
       expect(durationMilliseconds).toBeLessThanOrEqual(C2B_CONTINENT_OCEAN_STRUCTURE_BUDGET_V1.maximumResolverMillisecondsPerRegion);
       expect(Buffer.byteLength(JSON.stringify(interpretation), 'utf8')).toBeLessThanOrEqual(
@@ -118,13 +148,7 @@ describe('C2B detached structural-role resolver CI harness', () => {
       if (fixture.kind === 'THRESHOLD') expect(region.resolutionStatus).not.toBe('SINGLE_LEADING_CANDIDATE');
       expect(Object.isFrozen(interpretation)).toBe(true);
       expect(Object.isFrozen(region.roleCandidates)).toBe(true);
-      expect(JSON.stringify(interpretation)).not.toContain('baseHeight');
-      expect(JSON.stringify(interpretation)).not.toContain('landMask');
-      expect(JSON.stringify(interpretation)).not.toContain('waterMask');
-      expect(JSON.stringify(interpretation)).not.toContain('seaLevel');
-      expect(JSON.stringify(interpretation)).not.toContain('bathymetry');
-      expect(JSON.stringify(interpretation)).not.toContain('rendererColor');
-      expect(JSON.stringify(interpretation)).not.toContain('WorldBrain');
+      expect(findForbiddenPhysicalPayloadKeys(interpretation)).toEqual([]);
       interpretationHashes.add(interpretation.contentHash.value);
 
       const caseReport = {
@@ -168,6 +192,22 @@ describe('C2B detached structural-role resolver CI harness', () => {
       ],
       nextScope: 'C3 Phase C completion and readiness evidence before Phase M',
     });
+  });
+
+  it('distinguishes non-authoritative bathymetry metadata from physical bathymetry payloads', () => {
+    const diagnosticMetadata = {
+      bathymetryAuthority: false,
+      limitation: 'No bathymetry authority is granted.',
+      nested: {
+        description: 'This diagnostic must not produce bathymetry.',
+      },
+    };
+
+    expect(findForbiddenPhysicalPayloadKeys(diagnosticMetadata)).toEqual([]);
+    expect(findForbiddenPhysicalPayloadKeys({
+      ...diagnosticMetadata,
+      bathymetryGrid: [0],
+    })).toEqual(['interpretation.bathymetryGrid']);
   });
 
   it('integrates a validated Phase D projection and rejects mismatched spine lineage', () => {
@@ -254,6 +294,19 @@ function evidenceRegionForFixture(
       }))
       .sort((a, b) => a.nodeId.localeCompare(b.nodeId)),
   };
+}
+
+function findForbiddenPhysicalPayloadKeys(value: unknown, path = 'interpretation'): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry, index) => findForbiddenPhysicalPayloadKeys(entry, `${path}[${index}]`));
+  }
+  if (!value || typeof value !== 'object') return [];
+
+  return Object.entries(value as Record<string, unknown>).flatMap(([key, nestedValue]) => {
+    const nestedPath = `${path}.${key}`;
+    const matches = FORBIDDEN_PHYSICAL_PAYLOAD_KEYS.has(key) ? [nestedPath] : [];
+    return [...matches, ...findForbiddenPhysicalPayloadKeys(nestedValue, nestedPath)];
+  });
 }
 
 function safeFileName(value: string): string {
