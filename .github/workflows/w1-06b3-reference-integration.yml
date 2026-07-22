@@ -1,0 +1,67 @@
+name: W1-06B3 Reference Integration Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w1-06b3-reference-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reference-integration:
+    name: Four-kind detached reference integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CAUSAL_SHADOW_REFERENCE_CI_OUT: artifacts/causal-shadow-reference-gate
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run detached reference integration gate
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npx vitest run test/causalGeologyShadowReferenceIntegrationCiHarness.spec.ts 2>&1 | tee artifacts/ci-logs/causal-shadow-reference.log
+
+      - name: Summarize reference integration gate
+        if: always()
+        run: |
+          {
+            echo "## W1-06B3 detached reference integration"
+            echo "- Controlled archetype families: \`10\`"
+            echo "- Required evidence classes: \`positive / threshold / negative / exception\`"
+            echo "- Reference status: \`approved only\`"
+            echo "- Negative authority: \`worldwright-failure\`"
+            echo "- Exception authority: \`worldwright-approved\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Expected scientific status: \`PARTIAL\`"
+            echo "- Artifact: \`causal-shadow-reference-gate\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reference integration artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: causal-shadow-reference-gate
+          path: |
+            artifacts/causal-shadow-reference-gate/
+            artifacts/ci-logs/causal-shadow-reference.log
+          if-no-files-found: warn
+          retention-days: 14

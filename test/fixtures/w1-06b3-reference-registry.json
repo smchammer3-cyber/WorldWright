@@ -1,0 +1,215 @@
+{
+  "schemaVersion": "1.0.0",
+  "registryVersion": "W1_06B3_REFERENCE_REGISTRY_V1",
+  "rules": [
+    {
+      "schemaVersion": "1.0.0",
+      "ruleId": "w1-06b3.detached-causal-comparison",
+      "title": "Detached causal comparison evidence",
+      "domain": "causal-shadow-diagnostics",
+      "summary": "A detached causal result must retrieve approved positive, threshold, negative, and bounded-exception evidence without treating any reference as physical authority.",
+      "appliesWhen": {},
+      "expectedMorphology": [
+        "No final morphology is inferred by this diagnostic rule.",
+        "Reference classes remain separated by evidentiary purpose."
+      ],
+      "metricExpectations": [
+        {
+          "metricId": "referenceKindCoverage",
+          "preferredRange": { "min": 4, "max": 4 },
+          "hardRange": { "min": 4, "max": 4 },
+          "rationale": "W1-06B requires positive, threshold, negative, and approved-exception evidence classes."
+        }
+      ],
+      "thresholdExpectations": [],
+      "warningPatterns": [
+        "negative reference counted as conformance",
+        "exception generalized into natural geology",
+        "candidate reference treated as approved",
+        "reference case granted physical authority"
+      ],
+      "validExceptions": [
+        "A bounded artificial or fantasy premise may be approved only through an explicit product exception."
+      ],
+      "evidenceStatus": "reviewed",
+      "evidenceNotes": [
+        "This rule reviews evidence-routing architecture only; it does not review a physical geology equation or final morphology."
+      ],
+      "version": "1.0.0"
+    }
+  ],
+  "references": [
+    {
+      "schemaVersion": "1.0.0",
+      "caseId": "w1-06b3-positive-controlled-chain",
+      "familyId": "w1-06b3-detached-evidence",
+      "title": "Positive detached causal chain evidence",
+      "kind": "positive",
+      "status": "approved",
+      "authority": "controlled-archetype",
+      "rulesDemonstrated": ["w1-06b3.detached-causal-comparison"],
+      "parameters": {
+        "tectonicActivity": 0.55,
+        "heatFlowNormalized": 0.55,
+        "surfaceAgeNormalized": 0.5
+      },
+      "metrics": {
+        "causalChainValid": 1,
+        "referenceKindCoverage": 4
+      },
+      "assets": [
+        {
+          "assetId": "w1-06b3-positive-controlled-chain-record",
+          "role": "annotation",
+          "uri": "urn:worldwright:w1-06b3:positive-controlled-chain",
+          "mediaType": "application/json"
+        }
+      ],
+      "sourceNotes": [
+        "Controlled internal diagnostic evidence representing a valid detached causal chain.",
+        "It is not an observational analogue and does not authorize calibration of final physical fields."
+      ],
+      "license": "WorldWright internal diagnostic fixture",
+      "review": {
+        "geological": "approved",
+        "structural": "approved",
+        "visual": "approved",
+        "reviewedBy": ["WorldWright W1-06B evidence review"],
+        "reviewedAt": "2026-07-21T00:00:00.000Z",
+        "notes": [
+          "Approval is limited to detached evidence-routing behavior.",
+          "Visual approval confirms only that the annotation asset contract is reviewable; no morphology is approved."
+        ]
+      },
+      "version": "1.0.0"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "caseId": "w1-06b3-threshold-controlled-boundary",
+      "familyId": "w1-06b3-detached-evidence",
+      "title": "Threshold-neighbor detached evidence",
+      "kind": "threshold",
+      "status": "approved",
+      "authority": "controlled-archetype",
+      "rulesDemonstrated": ["w1-06b3.detached-causal-comparison"],
+      "parameters": {
+        "tectonicActivity": 0.5,
+        "heatFlowNormalized": 0.5,
+        "surfaceAgeNormalized": 0.5
+      },
+      "metrics": {
+        "thresholdBoundaryRecorded": 1,
+        "referenceKindCoverage": 4
+      },
+      "assets": [
+        {
+          "assetId": "w1-06b3-threshold-controlled-boundary-record",
+          "role": "annotation",
+          "uri": "urn:worldwright:w1-06b3:threshold-controlled-boundary",
+          "mediaType": "application/json"
+        }
+      ],
+      "sourceNotes": [
+        "Controlled threshold-neighbor evidence for routing and comparison behavior.",
+        "It does not establish a universal scientific threshold."
+      ],
+      "license": "WorldWright internal diagnostic fixture",
+      "review": {
+        "geological": "approved",
+        "structural": "approved",
+        "visual": "approved",
+        "reviewedBy": ["WorldWright W1-06B evidence review"],
+        "reviewedAt": "2026-07-21T00:00:00.000Z",
+        "notes": [
+          "Approval is limited to threshold evidence classification and retrieval.",
+          "No physical calibration is approved."
+        ]
+      },
+      "version": "1.0.0"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "caseId": "w1-06b3-negative-known-failure",
+      "familyId": "w1-06b3-detached-evidence",
+      "title": "Negative known-failure evidence",
+      "kind": "negative",
+      "status": "approved",
+      "authority": "worldwright-failure",
+      "rulesDemonstrated": ["w1-06b3.detached-causal-comparison"],
+      "parameters": {
+        "tectonicActivity": 0.55,
+        "heatFlowNormalized": 0.55,
+        "surfaceAgeNormalized": 0.5
+      },
+      "metrics": {
+        "knownFailureRecorded": 1,
+        "referenceKindCoverage": 4
+      },
+      "assets": [
+        {
+          "assetId": "w1-06b3-negative-known-failure-record",
+          "role": "annotation",
+          "uri": "urn:worldwright:w1-06b3:negative-known-failure",
+          "mediaType": "application/json"
+        }
+      ],
+      "sourceNotes": [
+        "Approved as a known-failure reference only.",
+        "This case must never be counted as successful conformance or used to tune toward the failure."
+      ],
+      "license": "WorldWright internal diagnostic fixture",
+      "review": {
+        "geological": "approved",
+        "structural": "approved",
+        "visual": "approved",
+        "reviewedBy": ["WorldWright W1-06B evidence review"],
+        "reviewedAt": "2026-07-21T00:00:00.000Z",
+        "notes": [
+          "Approval means the failure is valid negative evidence, not that the failed result is scientifically acceptable.",
+          "The adapter must keep this case in the negative evidence class."
+        ]
+      },
+      "version": "1.0.0"
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "caseId": "w1-06b3-approved-artificial-exception",
+      "familyId": "w1-06b3-detached-evidence",
+      "title": "Approved bounded artificial exception evidence",
+      "kind": "exception",
+      "status": "approved",
+      "authority": "worldwright-approved",
+      "rulesDemonstrated": ["w1-06b3.detached-causal-comparison"],
+      "parameters": {},
+      "metrics": {
+        "boundedExceptionRecorded": 1,
+        "referenceKindCoverage": 4
+      },
+      "assets": [
+        {
+          "assetId": "w1-06b3-approved-artificial-exception-record",
+          "role": "annotation",
+          "uri": "urn:worldwright:w1-06b3:approved-artificial-exception",
+          "mediaType": "application/json"
+        }
+      ],
+      "sourceNotes": [
+        "Approved only as a product exception for an explicitly declared artificial or fantasy solid shell.",
+        "It is not a natural geology analogue and cannot authorize downstream physical inference."
+      ],
+      "license": "WorldWright internal diagnostic fixture",
+      "review": {
+        "geological": "approved",
+        "structural": "approved",
+        "visual": "approved",
+        "reviewedBy": ["WorldWright W1-06B evidence review"],
+        "reviewedAt": "2026-07-21T00:00:00.000Z",
+        "notes": [
+          "Approval is bounded to explicit exception routing.",
+          "The exception must remain separate from natural positive evidence."
+        ]
+      },
+      "version": "1.0.0"
+    }
+  ]
+}
