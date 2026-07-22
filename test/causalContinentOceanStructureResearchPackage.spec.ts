@@ -120,9 +120,16 @@ describe('C2A continent-ocean structural research package', () => {
 
   it('fails closed on missing holdouts, duplicate source evidence, and threshold rules disguised as reviewed science', () => {
     const missingHoldout = clonePackage();
+    let removedHoldout = false;
     missingHoldout.fixtureSet = {
       ...missingHoldout.fixtureSet,
-      fixtures: missingHoldout.fixtureSet.fixtures.filter((fixture) => fixture.kind !== 'HOLDOUT'),
+      fixtures: missingHoldout.fixtureSet.fixtures.filter((fixture) => {
+        if (!removedHoldout && fixture.kind === 'HOLDOUT') {
+          removedHoldout = true;
+          return false;
+        }
+        return true;
+      }),
     };
     expect(() => validateContinentOceanStructureResearchPackageForImplementation(missingHoldout)).toThrow(/at least two withheld holdouts/i);
 
