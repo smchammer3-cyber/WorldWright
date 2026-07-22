@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "reportVersion": "D3_PHASE_D_COMPLETION_READINESS_V1",
+  "baseCommit": "e3d34f8afddc07c97901e31fe426a1a0156ceea6",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "projectionMode": "DETACHED_DIAGNOSTIC",
+  "scientificStatus": "PARTIAL",
+  "phaseDImplementationStatus": "COMPLETE_PENDING_EXACT_HEAD_VALIDATION",
+  "phaseDScientificCompletion": "PARTIAL",
+  "phaseCReadiness": "READY_FOR_DETACHED_STRUCTURAL_INTERPRETATION_ONLY",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "mergedMilestones": [
+    {
+      "milestoneId": "D1",
+      "pullRequest": 148,
+      "validatedHead": "302ee8a1c46715053c2945ba009c9998049e2318",
+      "mergeCommit": "b52f85fdea4c0f3b8afb395ec951f81829c556c9",
+      "summary": "Detached continuous process-field projection contracts and shadow-only diagnostic authority registration."
+    },
+    {
+      "milestoneId": "D2",
+      "pullRequest": 149,
+      "validatedHead": "89ae3f3be32e656ca28cced8cedcc008e8b606ef",
+      "mergeCommit": "e3d34f8afddc07c97901e31fe426a1a0156ceea6",
+      "summary": "Deterministic great-circle compact-support projection, coordinate queries, disposable grids, reviewed epoch-overlap lineage, and bounded evaluation."
+    }
+  ],
+  "completionCorpus": {
+    "fixtureIds": [
+      "positive/cold-rocky-dwarf-single-lid-v1",
+      "positive/earthlike-mixed-evolution-v1",
+      "positive/hot-super-earth-magmatic-v1",
+      "threshold/tidally-heated-rocky-v1",
+      "positive/tidal-ice-shell-history-v1",
+      "holdout/rock-ice-mixed-history-v1",
+      "holdout/volatile-pressure-history-v1"
+    ],
+    "fixtureKindCounts": {
+      "POSITIVE": 4,
+      "THRESHOLD": 1,
+      "HOLDOUT": 2
+    },
+    "blockedOrNegativeEvidence": [
+      "A spine paired with a history whose epoch identities do not overlap must be rejected.",
+      "A projection with no kernels must be rejected.",
+      "Artificial or fantasy premise exceptions remain outside the natural history-to-spine-to-projection route."
+    ],
+    "gridResolutions": [
+      { "width": 24, "height": 12 },
+      { "width": 48, "height": 24 }
+    ],
+    "requiredEvidence": [
+      "deterministic replay",
+      "unique source-linked projection hashes",
+      "exact source-anchor lineage",
+      "nonzero diagnostic coverage",
+      "finite normalized distributions",
+      "cross-resolution coordinate-query invariance",
+      "antimeridian and pole stability",
+      "controlled, threshold, ice-shell, and holdout coverage",
+      "blocked lineage rejection",
+      "payload and runtime budgets",
+      "no legacy morphology or physical writes"
+    ]
+  },
+  "phaseDGates": [
+    {
+      "gateId": "SPHERICAL_QUERY_MODEL",
+      "target": "PASS",
+      "blockingPhaseC": true,
+      "evidence": "All fields remain continuous great-circle queries; diagnostic grids are sampled artifacts rather than source authority."
+    },
+    {
+      "gateId": "SOURCE_LINEAGE_INTERPRETABILITY",
+      "target": "PASS",
+      "blockingPhaseC": true,
+      "evidence": "Every nonzero source-anchor family query must identify a matching dominant kernel and source node."
+    },
+    {
+      "gateId": "DIVERSE_REGIME_COVERAGE",
+      "target": "PASS",
+      "blockingPhaseC": true,
+      "evidence": "Cold rocky dwarf, mixed terrestrial, hot super-Earth, tidal threshold, ice-shell, and two holdouts are exercised."
+    },
+    {
+      "gateId": "RESOLUTION_INDEPENDENCE",
+      "target": "PASS",
+      "blockingPhaseC": true,
+      "evidence": "Sampling multiple grids may not alter the projection record or exact coordinate-query values."
+    },
+    {
+      "gateId": "BLOCKED_CASES_FAIL_CLOSED",
+      "target": "PASS",
+      "blockingPhaseC": true,
+      "evidence": "Incompatible history/spine lineage and empty-kernel artifacts are rejected."
+    },
+    {
+      "gateId": "PERFORMANCE_AND_PAYLOAD",
+      "target": "PASS",
+      "blockingPhaseC": true,
+      "evidence": "Projection creation, exact queries, and two diagnostic resolutions remain within committed CI budgets."
+    },
+    {
+      "gateId": "PHYSICAL_AUTHORITY_ISOLATION",
+      "target": "PASS",
+      "blockingPhaseC": true,
+      "evidence": "The process writes diagnostics only; processFieldAuthority, structuralRoleAuthority, terrain, land/water, and renderer authority remain absent."
+    }
+  ],
+  "knownLimitations": [
+    {
+      "limitationId": "RADIAL_KERNEL_GEOMETRY",
+      "severity": "BLOCKING_PHYSICAL_PROMOTION",
+      "status": "OPEN",
+      "description": "D2 kernels are radial compact-support influence fields. They do not independently encode oriented ridges, arcs, sutures, transforms, elongated rifts, or corridor geometry."
+    },
+    {
+      "limitationId": "NONPHYSICAL_PRESERVATION_WEIGHTS",
+      "severity": "BLOCKING_PHYSICAL_PROMOTION",
+      "status": "OPEN",
+      "description": "Published preservation weights are diagnostic visibility assumptions and are not physically calibrated."
+    },
+    {
+      "limitationId": "UNREVIEWED_DIRECT_INPUT_SENSITIVITY",
+      "severity": "BLOCKING_PHYSICAL_PROMOTION",
+      "status": "OPEN",
+      "description": "Wave 1 direct-input downstream relations remain research-required rather than reviewed."
+    },
+    {
+      "limitationId": "NO_STRUCTURAL_ROLE_INTERPRETATION",
+      "severity": "EXPECTED_NEXT_PHASE",
+      "status": "OPEN",
+      "description": "Phase D fields do not decide continent, ocean basin, shelf, transitional crust, or uncertain structural roles."
+    }
+  ],
+  "phaseCEntryBoundary": {
+    "allowed": true,
+    "mode": "DETACHED_STRUCTURAL_INTERPRETATION_ONLY",
+    "firstScope": "C1 immutable structural-role interpretation contracts, provenance, ambiguity, and authority isolation",
+    "reads": [
+      "validated detached process-field projection",
+      "validated planetary premise",
+      "validated geologic spine"
+    ],
+    "writes": [
+      "diagnostics"
+    ],
+    "forbiddenWrites": [
+      "processFieldAuthority",
+      "structuralRoleAuthority",
+      "terrain",
+      "derivedSurface",
+      "baseTerrain",
+      "finalTerrain",
+      "presentation"
+    ],
+    "forbiddenInputs": [
+      "legacy solved morphology",
+      "legacy land or water masks",
+      "renderer color",
+      "UI labels",
+      "province IDs",
+      "debug identities"
+    ],
+    "ordinaryGenerateInvocation": "FORBIDDEN",
+    "physicalPromotion": "FORBIDDEN"
+  },
+  "finalVerdict": {
+    "phaseDSoftwareImplementation": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
+    "phaseDScientificStatus": "PARTIAL",
+    "phaseCDetachedEntry": "ALLOWED_AFTER_EXACT_HEAD_GATE_PASS",
+    "physicalPromotion": "BLOCKED",
+    "legacyRetirement": "FORBIDDEN",
+    "nextAction": "BEGIN_C1_DETACHED_STRUCTURAL_ROLE_CONTRACTS"
+  }
+}
