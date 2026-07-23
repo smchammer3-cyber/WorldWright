@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "authorizationVersion": "M1C_STRUCTURE_MATERIAL_RESOLVER_AUTHORIZATION_V1",
+  "sourceReviewVersion": "M1B_STRUCTURE_MATERIAL_RESEARCH_REVIEW_V1",
+  "reviewStatus": "APPROVED_FOR_DETACHED_PARTIAL_RESOLVER",
+  "reviewer": "WorldWright M1C detached resolver gate",
+  "reviewDate": "2026-07-22",
+  "scope": "Deterministic source-backed partial-candidate construction from M1B rules and fixed fixtures, with research-required classes non-leading and every physical authority disabled.",
+  "completeEligibleRuleIds": [],
+  "partialCandidateRuleIds": [
+    "m1b.rule.juvenile-continental-or-arc-crust-v1",
+    "m1b.rule.magmatically-thickened-mafic-province-v1",
+    "m1b.rule.normal-oceanic-crust-v1",
+    "m1b.rule.rift-thinned-continental-province-v1",
+    "m1b.rule.stable-continental-root-v1",
+    "m1b.rule.tectonically-thickened-crust-v1"
+  ],
+  "researchRequiredRuleIds": [
+    "m1b.rule.exhumed-mantle-transition-v1",
+    "m1b.rule.mixed-transitional-province-v1"
+  ],
+  "failClosedRuleIds": [
+    "m1b.rule.structure-material-unresolved-v1"
+  ],
+  "resolverImplementationAuthorized": true,
+  "thresholdCalibrationAuthorized": false,
+  "structureMaterialCauseAuthorityAuthorized": false,
+  "landformPotentialAuthorityAuthorized": false,
+  "physicalOutputAuthorized": false,
+  "ordinaryGenerateInvocationAuthorized": false,
+  "legacyMorphologyInputAuthorized": false,
+  "surfaceExposureInputAuthorized": false
+}
