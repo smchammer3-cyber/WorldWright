@@ -192,8 +192,10 @@ describe('M1B source-backed structure/material research package', () => {
     expect(() => validateStructureMaterialM1BResearchReview(review, rules, fixtures, bypassBundle)).toThrow(/cannot bypass upstream causal records/i);
   });
 
-  it('adds no structure-material resolver implementation in M1B', () => {
-    expect(existsSync(resolve(repositoryRoot, 'src/core/causalGeology/structureMaterialResolver.ts'))).toBe(false);
+  it('keeps M1B itself non-authorizing after the separately reviewed M1C resolver exists', () => {
+    expect(review.resolverImplementationAuthorized).toBe(false);
+    expect(existsSync(resolve(repositoryRoot, 'src/core/causalGeology/structureMaterialResolver.ts'))).toBe(true);
+    expect(existsSync(resolve(researchRoot, 'structure-material-m1c-authorization.json'))).toBe(true);
   });
 });
 
