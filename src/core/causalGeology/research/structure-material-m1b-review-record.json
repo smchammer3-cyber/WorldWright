@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "reviewVersion": "M1B_STRUCTURE_MATERIAL_RESEARCH_REVIEW_V1",
+  "bundleVersion": "M1A_STRUCTURE_MATERIAL_RESEARCH_BUNDLE_V1",
+  "ruleSetVersion": "M1B_STRUCTURE_MATERIAL_RULES_V1",
+  "fixtureSetVersion": "M1B_STRUCTURE_MATERIAL_FIXTURES_V1",
+  "reviewStatus": "APPROVED_FOR_FIXED_RESEARCH_CORPUS_ONLY",
+  "reviewer": "WorldWright M1B research corpus gate",
+  "reviewDate": "2026-07-22",
+  "scope": "Source-linked province rules, fixed positives, negatives, thresholds, bounded exceptions, and withheld holdouts before any structure-material resolver implementation.",
+  "completeEligibleRuleIds": [],
+  "partialCandidateRuleIds": [
+    "m1b.rule.juvenile-continental-or-arc-crust-v1",
+    "m1b.rule.magmatically-thickened-mafic-province-v1",
+    "m1b.rule.normal-oceanic-crust-v1",
+    "m1b.rule.rift-thinned-continental-province-v1",
+    "m1b.rule.stable-continental-root-v1",
+    "m1b.rule.tectonically-thickened-crust-v1"
+  ],
+  "researchRequiredRuleIds": [
+    "m1b.rule.exhumed-mantle-transition-v1",
+    "m1b.rule.mixed-transitional-province-v1"
+  ],
+  "failClosedRuleIds": [
+    "m1b.rule.structure-material-unresolved-v1"
+  ],
+  "futureResolverResearchAuthorized": true,
+  "resolverImplementationAuthorized": false,
+  "thresholdCalibrationAuthorized": false,
+  "structureMaterialCauseAuthorityAuthorized": false,
+  "landformPotentialAuthorityAuthorized": false,
+  "physicalOutputAuthorized": false,
+  "ordinaryGenerateInvocationAuthorized": false,
+  "legacyMorphologyInputAuthorized": false,
+  "surfaceExposureInputAuthorized": false
+}
