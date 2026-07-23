@@ -103,6 +103,6 @@
     "fixedCorpus": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
     "researchRequiredNonLeading": "REQUIRED",
     "physicalPromotion": "BLOCKED",
-    "nextAction": "VALIDATE_EXACT_M1C_HEAD_AND_REVIEW_BEFORE_ANY_NEXT PHASE"
+    "nextAction": "VALIDATE_EXACT_M1C_HEAD_AND_REVIEW_BEFORE_ANY_NEXT_PHASE"
   }
 }
