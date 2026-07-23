@@ -1,4 +1,4 @@
-import type { ContinentOceanStructuralResolutionStatusV1, ContinentOceanStructuralRoleV1 } from './continentOceanStructure';
+import type { ContinentOceanStructuralRoleV1 } from './continentOceanStructure';
 import { cloneAndDeepFreeze } from './immutable';
 import type { CausalProcessFieldProjectionIdV1 } from './processFieldProjection';
 import { validateScientificResearchBundle } from './researchLedger';
@@ -232,14 +232,14 @@ export function validateStructureMaterialRuleSet(value: unknown): asserts value 
       throw new Error(`M1B rule ${rule.ruleId} research status does not match the M1A province contract.`);
     }
     const claimIds = canonicalText(rule.genericClaimRuleIds, `M1B rule ${rule.ruleId} generic claim IDs`);
-    canonicalEnums(rule.requiredStructuralRoles, STRUCTURAL_ROLE_SET, `M1B rule ${rule.ruleId} structural roles`, 1);
-    const fieldIds = canonicalEnums(rule.allowedFieldIds, ALLOWED_FIELD_SET, `M1B rule ${rule.ruleId} field IDs`, 1);
-    if (fieldIds.includes('surfaceExposureSummary' as CausalProcessFieldProjectionIdV1)) {
+    canonicalEnums<ContinentOceanStructuralRoleV1>(rule.requiredStructuralRoles, STRUCTURAL_ROLE_SET, `M1B rule ${rule.ruleId} structural roles`, 1);
+    const fieldIds = canonicalEnums<CausalProcessFieldProjectionIdV1>(rule.allowedFieldIds, ALLOWED_FIELD_SET, `M1B rule ${rule.ruleId} field IDs`, 1);
+    if (fieldIds.includes('surfaceExposureSummary')) {
       throw new Error(`M1B rule ${rule.ruleId} cannot use surfaceExposureSummary as deep-material evidence.`);
     }
-    canonicalEnums(rule.requiredSourceFamilies, SOURCE_FAMILY_SET, `M1B rule ${rule.ruleId} source families`);
-    const resolutionStatuses = canonicalEnums(rule.allowedResolutionStatuses, RESOLUTION_STATUS_SET, `M1B rule ${rule.ruleId} resolution statuses`, 1);
-    const terrainPermissions = canonicalEnums(
+    canonicalEnums<GeologicSpineNodeFamily>(rule.requiredSourceFamilies, SOURCE_FAMILY_SET, `M1B rule ${rule.ruleId} source families`);
+    const resolutionStatuses = canonicalEnums<StructureMaterialResolutionStatusV1>(rule.allowedResolutionStatuses, RESOLUTION_STATUS_SET, `M1B rule ${rule.ruleId} resolution statuses`, 1);
+    const terrainPermissions = canonicalEnums<TerrainTermPermissionCandidateV1>(
       rule.candidateTerrainTermPermissions,
       new Set(definition.candidateTerrainTermPermissions),
       `M1B rule ${rule.ruleId} terrain-term permissions`,
@@ -309,9 +309,9 @@ export function validateStructureMaterialFixtureSet(value: unknown): asserts val
     }
 
     canonicalText(fixture.premiseBodyClassCandidates, `M1B fixture ${fixture.fixtureId} premise candidates`, 1);
-    canonicalEnums(fixture.structuralRoles, STRUCTURAL_ROLE_SET, `M1B fixture ${fixture.fixtureId} structural roles`, 1);
+    canonicalEnums<ContinentOceanStructuralRoleV1>(fixture.structuralRoles, STRUCTURAL_ROLE_SET, `M1B fixture ${fixture.fixtureId} structural roles`, 1);
     validateFieldValues(fixture.fieldValues, fixture.fixtureId);
-    canonicalEnums(fixture.sourceFamilies, SOURCE_FAMILY_SET, `M1B fixture ${fixture.fixtureId} source families`);
+    canonicalEnums<GeologicSpineNodeFamily>(fixture.sourceFamilies, SOURCE_FAMILY_SET, `M1B fixture ${fixture.fixtureId} source families`);
     validateExpectedFixture(fixture.expected, fixture.fixtureId, representedClasses);
     canonicalText(fixture.limitations, `M1B fixture ${fixture.fixtureId} limitations`, 1);
   }
@@ -400,11 +400,11 @@ function validateExpectedFixture(
   assertExactKeys(value, EXPECTED_KEYS, `M1B fixture ${fixtureId} expected result`);
   const expected = value as unknown as StructureMaterialFixtureExpectedV1;
   if (expected.status !== 'PARTIAL') throw new Error(`M1B fixture ${fixtureId} must remain PARTIAL.`);
-  const required = canonicalEnums(expected.requiredProvinceCandidates, PROVINCE_CLASS_SET, `M1B fixture ${fixtureId} required candidates`, 1);
-  const allowed = canonicalEnums(expected.allowedProvinceCandidates, PROVINCE_CLASS_SET, `M1B fixture ${fixtureId} allowed candidates`, 1);
-  const forbidden = canonicalEnums(expected.forbiddenLeadingProvinceClasses, PROVINCE_CLASS_SET, `M1B fixture ${fixtureId} forbidden leading classes`);
-  const statuses = canonicalEnums(expected.allowedResolutionStatuses, RESOLUTION_STATUS_SET, `M1B fixture ${fixtureId} resolution statuses`, 1);
-  canonicalEnums(
+  const required = canonicalEnums<StructureMaterialProvinceClassV1>(expected.requiredProvinceCandidates, PROVINCE_CLASS_SET, `M1B fixture ${fixtureId} required candidates`, 1);
+  const allowed = canonicalEnums<StructureMaterialProvinceClassV1>(expected.allowedProvinceCandidates, PROVINCE_CLASS_SET, `M1B fixture ${fixtureId} allowed candidates`, 1);
+  const forbidden = canonicalEnums<StructureMaterialProvinceClassV1>(expected.forbiddenLeadingProvinceClasses, PROVINCE_CLASS_SET, `M1B fixture ${fixtureId} forbidden leading classes`);
+  const statuses = canonicalEnums<StructureMaterialResolutionStatusV1>(expected.allowedResolutionStatuses, RESOLUTION_STATUS_SET, `M1B fixture ${fixtureId} resolution statuses`, 1);
+  canonicalEnums<TerrainTermPermissionCandidateV1>(
     expected.requiredTerrainTermPermissionCandidates,
     new Set(M1A_STRUCTURE_MATERIAL_PROVINCE_DEFINITIONS_V1.flatMap((entry) => entry.candidateTerrainTermPermissions)),
     `M1B fixture ${fixtureId} required terrain-term permissions`,
@@ -462,7 +462,7 @@ function canonicalEnums<T extends string>(
   return canonicalText(value, label, minimumLength) as readonly T[];
 }
 
-function assertExactKeys(value: unknown, keys: readonly string[], label: string): asserts value is Record<string, unknown> {
+function assertExactKeys<T>(value: T, keys: readonly string[], label: string): asserts value is T & Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object.`);
   const allowed = new Set(keys);
   for (const key of Object.keys(value)) if (!allowed.has(key)) throw new Error(`${label} contains an unowned field: ${key}.`);
