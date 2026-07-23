@@ -85,8 +85,8 @@
       "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
       "resolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
       "exceptions": [
-        "Not every volcanic arc generates or preserves juvenile continental-affinity crust.",
-        "Dense lower-arc components can make buoyancy context dependent."
+        "Dense lower-arc components can make buoyancy context dependent.",
+        "Not every volcanic arc generates or preserves juvenile continental-affinity crust."
       ],
       "limitations": [
         "An arc-linked material candidate does not establish exposed composition, elevation, land, or preserved crustal thickness."
@@ -175,8 +175,8 @@
       "evidenceStatus": "RESEARCH_REQUIRED",
       "resolverDisposition": "AMBIGUITY_OR_UNRESOLVED_ONLY",
       "exceptions": [
-        "Mixed transition cannot serve as an unbounded residual bucket.",
-        "A single well-supported endmember should not be diluted by an automatic mixed classification."
+        "A single well-supported endmember should not be diluted by an automatic mixed classification.",
+        "Mixed transition cannot serve as an unbounded residual bucket."
       ],
       "limitations": [
         "M1B permits this class only to preserve explicit multi-endmember uncertainty; it cannot lead before later evidence separates the alternatives."
@@ -266,8 +266,8 @@
       "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
       "resolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
       "exceptions": [
-        "Volcanic margins can be dominated by magmatic addition rather than simple thinning.",
-        "Extreme magma-poor transitions can preserve exhumed mantle alternatives."
+        "Extreme magma-poor transitions can preserve exhumed mantle alternatives.",
+        "Volcanic margins can be dominated by magmatic addition rather than simple thinning."
       ],
       "limitations": [
         "A rift-thinned candidate does not determine margin orientation, shoreline, exposure, or bathymetry."
@@ -309,8 +309,8 @@
       "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
       "resolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
       "exceptions": [
-        "Continental affinity does not guarantee present-day strength, exposure, flatness, land, or high elevation.",
-        "Ancient continental provinces can be reworked, extended, thermally weakened, or submerged."
+        "Ancient continental provinces can be reworked, extended, thermally weakened, or submerged.",
+        "Continental affinity does not guarantee present-day strength, exposure, flatness, land, or high elevation."
       ],
       "limitations": [
         "The rule identifies a deep long-lived continental candidate only and cannot infer surface state."
