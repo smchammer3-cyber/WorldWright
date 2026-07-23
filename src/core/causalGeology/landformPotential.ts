@@ -522,11 +522,11 @@ function potentialDefinition(options: Omit<LandformPotentialDefinitionV1,
     finalTerrainAuthority: false as const,
     terrainAuthority: false as const,
     ...options,
-    requiredTerrainTermPermissions: canonicalEnumText(options.requiredTerrainTermPermissions, TERRAIN_PERMISSION_SET, `${options.potentialClass} required terrain-term permissions`, 1),
-    compatibleProvinceClasses: canonicalEnumText(options.compatibleProvinceClasses, PROVINCE_CLASS_SET, `${options.potentialClass} compatible province classes`, 1),
-    compatibleStructuralRoles: canonicalEnumText(options.compatibleStructuralRoles, STRUCTURAL_ROLE_SET, `${options.potentialClass} compatible structural roles`, 1),
-    permittedResponseModes: canonicalEnumText(options.permittedResponseModes, RESPONSE_MODE_SET, `${options.potentialClass} permitted response modes`, 1),
-    permittedSpatialExpressions: canonicalEnumText(options.permittedSpatialExpressions, SPATIAL_EXPRESSION_SET, `${options.potentialClass} permitted spatial expressions`, 1),
+    requiredTerrainTermPermissions: canonicalEnumText<TerrainTermPermissionCandidateV1>(options.requiredTerrainTermPermissions, TERRAIN_PERMISSION_SET, `${options.potentialClass} required terrain-term permissions`, 1),
+    compatibleProvinceClasses: canonicalEnumText<StructureMaterialProvinceClassV1>(options.compatibleProvinceClasses, PROVINCE_CLASS_SET, `${options.potentialClass} compatible province classes`, 1),
+    compatibleStructuralRoles: canonicalEnumText<ContinentOceanStructuralRoleV1>(options.compatibleStructuralRoles, STRUCTURAL_ROLE_SET, `${options.potentialClass} compatible structural roles`, 1),
+    permittedResponseModes: canonicalEnumText<LandformResponseModeV1>(options.permittedResponseModes, RESPONSE_MODE_SET, `${options.potentialClass} permitted response modes`, 1),
+    permittedSpatialExpressions: canonicalEnumText<LandformSpatialExpressionCandidateV1>(options.permittedSpatialExpressions, SPATIAL_EXPRESSION_SET, `${options.potentialClass} permitted spatial expressions`, 1),
   };
   validatePotentialDefinition(definition);
   return cloneAndDeepFreeze(definition);
@@ -547,11 +547,11 @@ function validatePotentialDefinition(value: unknown): asserts value is LandformP
     || definition.terrainAuthority !== false
     || !isText(definition.description)
   ) throw new Error('Landform-potential definition contract is invalid.');
-  canonicalEnumText(definition.requiredTerrainTermPermissions ?? [], TERRAIN_PERMISSION_SET, `${definition.potentialClass} required terrain-term permissions`, 1);
-  canonicalEnumText(definition.compatibleProvinceClasses ?? [], PROVINCE_CLASS_SET, `${definition.potentialClass} compatible province classes`, 1);
-  canonicalEnumText(definition.compatibleStructuralRoles ?? [], STRUCTURAL_ROLE_SET, `${definition.potentialClass} compatible structural roles`, 1);
-  canonicalEnumText(definition.permittedResponseModes ?? [], RESPONSE_MODE_SET, `${definition.potentialClass} permitted response modes`, 1);
-  canonicalEnumText(definition.permittedSpatialExpressions ?? [], SPATIAL_EXPRESSION_SET, `${definition.potentialClass} permitted spatial expressions`, 1);
+  canonicalEnumText<TerrainTermPermissionCandidateV1>(definition.requiredTerrainTermPermissions ?? [], TERRAIN_PERMISSION_SET, `${definition.potentialClass} required terrain-term permissions`, 1);
+  canonicalEnumText<StructureMaterialProvinceClassV1>(definition.compatibleProvinceClasses ?? [], PROVINCE_CLASS_SET, `${definition.potentialClass} compatible province classes`, 1);
+  canonicalEnumText<ContinentOceanStructuralRoleV1>(definition.compatibleStructuralRoles ?? [], STRUCTURAL_ROLE_SET, `${definition.potentialClass} compatible structural roles`, 1);
+  canonicalEnumText<LandformResponseModeV1>(definition.permittedResponseModes ?? [], RESPONSE_MODE_SET, `${definition.potentialClass} permitted response modes`, 1);
+  canonicalEnumText<LandformSpatialExpressionCandidateV1>(definition.permittedSpatialExpressions ?? [], SPATIAL_EXPRESSION_SET, `${definition.potentialClass} permitted spatial expressions`, 1);
   if (definition.potentialClass === 'LANDFORM_POTENTIAL_UNRESOLVED') {
     if (definition.researchStatus !== 'UNRESOLVED') throw new Error('Unresolved landform-potential definition must remain UNRESOLVED.');
   } else if (definition.researchStatus !== 'RESEARCH_REQUIRED') {
@@ -594,29 +594,29 @@ function canonicalPotentialCandidates(value: readonly LandformPotentialCandidate
     if (!definition) throw new Error(`Landform-potential region ${regionId} contains an unsupported potential class.`);
     if (classes.has(candidate.potentialClass)) throw new Error(`Landform-potential region ${regionId} repeats potential ${candidate.potentialClass}.`);
     classes.add(candidate.potentialClass);
-    const responseModes = canonicalEnumText(candidate.responseModes, RESPONSE_MODE_SET, `${regionId} ${candidate.potentialClass} response modes`, 1);
+    const responseModes = canonicalEnumText<LandformResponseModeV1>(candidate.responseModes, RESPONSE_MODE_SET, `${regionId} ${candidate.potentialClass} response modes`, 1);
     if (responseModes.length > L1A_LANDFORM_POTENTIAL_LIMITS_V1.maximumResponseModesPerCandidate
       || responseModes.some((entry) => !definition.permittedResponseModes.includes(entry))) {
       throw new Error(`Landform-potential region ${regionId} ${candidate.potentialClass} has incompatible response modes.`);
     }
-    const spatialExpressionCandidates = canonicalEnumText(candidate.spatialExpressionCandidates, SPATIAL_EXPRESSION_SET, `${regionId} ${candidate.potentialClass} spatial expressions`, 1);
+    const spatialExpressionCandidates = canonicalEnumText<LandformSpatialExpressionCandidateV1>(candidate.spatialExpressionCandidates, SPATIAL_EXPRESSION_SET, `${regionId} ${candidate.potentialClass} spatial expressions`, 1);
     if (spatialExpressionCandidates.length > L1A_LANDFORM_POTENTIAL_LIMITS_V1.maximumSpatialExpressionsPerCandidate
       || spatialExpressionCandidates.some((entry) => !definition.permittedSpatialExpressions.includes(entry))) {
       throw new Error(`Landform-potential region ${regionId} ${candidate.potentialClass} has incompatible spatial expressions.`);
     }
-    const sourceProvinceClasses = canonicalEnumText(candidate.sourceProvinceClasses, PROVINCE_CLASS_SET, `${regionId} ${candidate.potentialClass} source provinces`, 1);
+    const sourceProvinceClasses = canonicalEnumText<StructureMaterialProvinceClassV1>(candidate.sourceProvinceClasses, PROVINCE_CLASS_SET, `${regionId} ${candidate.potentialClass} source provinces`, 1);
     if (sourceProvinceClasses.some((entry) => !definition.compatibleProvinceClasses.includes(entry))) {
       throw new Error(`Landform-potential region ${regionId} ${candidate.potentialClass} cites an incompatible province.`);
     }
-    const sourceStructuralRoles = canonicalEnumText(candidate.sourceStructuralRoles, STRUCTURAL_ROLE_SET, `${regionId} ${candidate.potentialClass} source structural roles`, 1);
+    const sourceStructuralRoles = canonicalEnumText<ContinentOceanStructuralRoleV1>(candidate.sourceStructuralRoles, STRUCTURAL_ROLE_SET, `${regionId} ${candidate.potentialClass} source structural roles`, 1);
     if (sourceStructuralRoles.some((entry) => !definition.compatibleStructuralRoles.includes(entry))) {
       throw new Error(`Landform-potential region ${regionId} ${candidate.potentialClass} cites an incompatible structural role.`);
     }
-    const sourceTerrainTermPermissions = canonicalEnumText(candidate.sourceTerrainTermPermissions, TERRAIN_PERMISSION_SET, `${regionId} ${candidate.potentialClass} terrain-term permissions`, 1);
+    const sourceTerrainTermPermissions = canonicalEnumText<TerrainTermPermissionCandidateV1>(candidate.sourceTerrainTermPermissions, TERRAIN_PERMISSION_SET, `${regionId} ${candidate.potentialClass} terrain-term permissions`, 1);
     if (sourceTerrainTermPermissions.some((entry) => !definition.requiredTerrainTermPermissions.includes(entry))) {
       throw new Error(`Landform-potential region ${regionId} ${candidate.potentialClass} cites an incompatible terrain-term permission.`);
     }
-    const sourceFieldIds = canonicalEnumText(candidate.sourceFieldIds, FIELD_ID_SET, `${regionId} ${candidate.potentialClass} source fields`);
+    const sourceFieldIds = canonicalEnumText<CausalProcessFieldProjectionIdV1>(candidate.sourceFieldIds, FIELD_ID_SET, `${regionId} ${candidate.potentialClass} source fields`);
     validateNormalizedRange(candidate.supportRange, `Landform-potential region ${regionId} ${candidate.potentialClass}`);
     const evidenceIds = canonicalText(candidate.evidenceIds, `${regionId} ${candidate.potentialClass} evidence IDs`, candidate.potentialClass === 'LANDFORM_POTENTIAL_UNRESOLVED' ? 0 : 1);
     if (candidate.potentialClass === 'LANDFORM_POTENTIAL_UNRESOLVED' && evidenceIds.length !== 0) {
@@ -652,9 +652,9 @@ function canonicalSuppressionCandidates(value: readonly LandformSuppressionCandi
     if (classes.has(candidate.suppressionClass)) throw new Error(`Landform-potential region ${regionId} repeats suppression ${candidate.suppressionClass}.`);
     classes.add(candidate.suppressionClass);
     validateNormalizedRange(candidate.supportRange, `Landform-potential region ${regionId} suppression ${candidate.suppressionClass}`);
-    const sourceProvinceClasses = canonicalEnumText(candidate.sourceProvinceClasses, PROVINCE_CLASS_SET, `${regionId} ${candidate.suppressionClass} source provinces`);
-    const sourceStructuralRoles = canonicalEnumText(candidate.sourceStructuralRoles, STRUCTURAL_ROLE_SET, `${regionId} ${candidate.suppressionClass} source structural roles`);
-    const sourceFieldIds = canonicalEnumText(candidate.sourceFieldIds, FIELD_ID_SET, `${regionId} ${candidate.suppressionClass} source fields`);
+    const sourceProvinceClasses = canonicalEnumText<StructureMaterialProvinceClassV1>(candidate.sourceProvinceClasses, PROVINCE_CLASS_SET, `${regionId} ${candidate.suppressionClass} source provinces`);
+    const sourceStructuralRoles = canonicalEnumText<ContinentOceanStructuralRoleV1>(candidate.sourceStructuralRoles, STRUCTURAL_ROLE_SET, `${regionId} ${candidate.suppressionClass} source structural roles`);
+    const sourceFieldIds = canonicalEnumText<CausalProcessFieldProjectionIdV1>(candidate.sourceFieldIds, FIELD_ID_SET, `${regionId} ${candidate.suppressionClass} source fields`);
     const evidenceIds = canonicalText(candidate.evidenceIds, `${regionId} ${candidate.suppressionClass} evidence IDs`, candidate.suppressionClass === 'NO_SUPPRESSION_CLAIM' ? 0 : 1);
     return cloneAndDeepFreeze({
       ...candidate,
