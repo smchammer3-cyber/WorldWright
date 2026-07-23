@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "artifactVersion": "L1A_DETACHED_LANDFORM_POTENTIAL_CONTRACTS_V1",
+  "baseCommit": "a7fc1a7b608166ce8bd7dfb73af7b3100003b004",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "stateMode": "DETACHED_DIAGNOSTIC",
+  "scientificStatus": "PARTIAL",
+  "implementationStatus": "CONTRACTS_COMPLETE_PENDING_EXACT_HEAD_VALIDATION",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "contractCounts": {
+    "potentialDefinitions": 7,
+    "researchRequiredPotentialClasses": 6,
+    "unresolvedPotentialClasses": 1,
+    "responseModes": 7,
+    "spatialExpressionCandidates": 7,
+    "suppressionClasses": 6
+  },
+  "potentialClasses": [
+    "EXTENSIONAL_RESPONSE_POTENTIAL",
+    "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+    "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+    "LANDFORM_POTENTIAL_UNRESOLVED",
+    "MAGMATIC_CONSTRUCTION_POTENTIAL",
+    "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL",
+    "THICKENING_RESPONSE_POTENTIAL"
+  ],
+  "authorityBoundary": {
+    "diagnosticProcessId": "CAUSAL_LANDFORM_POTENTIAL_INTERPRETATION",
+    "owner": "CAUSAL_LANDFORM_POTENTIAL_DIAGNOSTIC",
+    "prerequisite": "CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION",
+    "reads": [
+      "causalRecord",
+      "diagnostics"
+    ],
+    "writes": [
+      "diagnostics"
+    ],
+    "landformPotentialAuthority": false,
+    "baseTerrainAuthority": false,
+    "surfaceMaterialAuthority": false,
+    "finalLandAuthority": false,
+    "finalWaterAuthority": false,
+    "bathymetryAuthority": false,
+    "finalTerrainAuthority": false,
+    "terrainAuthority": false
+  },
+  "sparseCoverageBoundary": {
+    "explicitSuppressionClass": "SPATIAL_COVERAGE_UNRESOLVED",
+    "arbitraryInterpolationAllowed": false,
+    "visualGapFillingAllowed": false,
+    "unresolvedRegionsMustRemainExplicit": true
+  },
+  "forbiddenPayloads": [
+    "height",
+    "elevation",
+    "base terrain",
+    "final terrain",
+    "bathymetry",
+    "sea level",
+    "land mask",
+    "water mask",
+    "coastline",
+    "surface material",
+    "renderer state",
+    "WorldBrain",
+    "ordinary Generate output"
+  ],
+  "l1bEntryBoundary": {
+    "allowedAfterExactHeadValidationAndMerge": true,
+    "sourceRegistryAndReviewedRules": "ALLOWED_IN_SEPARATE_PHASE",
+    "fixedFixturesAndHoldouts": "ALLOWED_IN_SEPARATE_PHASE",
+    "resolverCodeInL1A": "FORBIDDEN",
+    "thresholdCalibrationInL1A": "FORBIDDEN",
+    "geometryOrElevationInL1A": "FORBIDDEN",
+    "physicalPromotion": "FORBIDDEN",
+    "ordinaryGenerateInvocation": "FORBIDDEN",
+    "legacyRetirement": "FORBIDDEN"
+  },
+  "knownLimitations": [
+    "All six affirmative potential families remain research-required until L1B source and fixture review.",
+    "Spatial-expression candidates are categorical possibilities, not geometry or coordinates.",
+    "The contract does not resolve sparse upstream structural coverage.",
+    "The contract does not define calibrated probabilities or universal thresholds.",
+    "No landform-potential resolver exists in L1A."
+  ],
+  "finalVerdict": {
+    "l1aContracts": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
+    "l1aResearch": "NOT_STARTED",
+    "l1bResearchEntry": "ALLOWED_AFTER_EXACT_HEAD_GATE_PASS_AND_MERGE",
+    "resolverImplementation": "BLOCKED",
+    "baseTerrain": "BLOCKED",
+    "physicalPromotion": "BLOCKED",
+    "nextAction": "VALIDATE_EXACT_L1A_HEAD_AND_REVIEW_BEFORE_L1B"
+  }
+}
