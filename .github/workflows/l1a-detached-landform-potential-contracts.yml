@@ -1,0 +1,69 @@
+name: L1A Detached Landform Potential Contracts Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: l1a-landform-potential-contracts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  l1a-contract-gate:
+    name: Validate detached landform-potential contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused L1A contract and artifact tests
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npx vitest run \
+            test/causalLandformPotentialL1AContracts.spec.ts \
+            test/causalLandformPotentialL1AArtifact.spec.ts \
+            2>&1 | tee artifacts/ci-logs/l1a-landform-potential-contracts.log
+
+      - name: Verify TypeScript and Vite build
+        run: npm run build
+
+      - name: Summarize L1A gate
+        if: always()
+        run: |
+          {
+            echo "## L1A detached landform-potential contracts"
+            echo "- Potential definitions: \`7\`"
+            echo "- Affirmative research-required families: \`6\`"
+            echo "- Explicit unresolved class: \`1\`"
+            echo "- Sparse coverage suppression: \`SPATIAL_COVERAGE_UNRESOLVED\`"
+            echo "- Resolver implementation: \`none\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Ordinary Generate change: \`none\`"
+            echo "- Landform, terrain, land/water, bathymetry, and renderer authority: \`false\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload L1A gate logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l1a-landform-potential-contract-gate
+          path: artifacts/ci-logs/l1a-landform-potential-contracts.log
+          if-no-files-found: warn
+          retention-days: 14
