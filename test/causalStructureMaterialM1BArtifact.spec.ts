@@ -54,6 +54,7 @@ const artifactPath = resolve(repositoryRoot, 'docs/implementation/phase-m/m1b-st
 const statusPath = resolve(repositoryRoot, 'docs/implementation/PHASE_M1B_STRUCTURE_MATERIAL_RESEARCH_PACKAGE_STATUS.md');
 const workflowPath = resolve(repositoryRoot, '.github/workflows/m1b-structure-material-research-package.yml');
 const resolverPath = resolve(repositoryRoot, 'src/core/causalGeology/structureMaterialResolver.ts');
+const m1cAuthorizationPath = resolve(repositoryRoot, 'src/core/causalGeology/research/structure-material-m1c-authorization.json');
 const artifact = JSON.parse(readFileSync(artifactPath, 'utf8')) as M1BArtifactV1;
 const status = readFileSync(statusPath, 'utf8');
 
@@ -93,7 +94,7 @@ describe('M1B structure/material research-package artifact', () => {
     expect(artifact.baseCommit).toMatch(commitPattern);
   });
 
-  it('keeps M1C, threshold calibration, physical promotion, and legacy retirement blocked', () => {
+  it('keeps threshold calibration, physical promotion, and legacy retirement blocked', () => {
     expect(artifact.nextPhaseBoundary).toEqual({
       m1cResolverImplementationAuthorizedByThisArtifact: false,
       separateExplicitAuthorizationRequired: true,
@@ -113,12 +114,14 @@ describe('M1B structure/material research-package artifact', () => {
     });
   });
 
-  it('ships a dedicated status record and CI gate but no resolver implementation', () => {
+  it('keeps the historical M1B artifact non-authorizing after separately reviewed M1C entry', () => {
     expect(existsSync(statusPath)).toBe(true);
     expect(status).toContain('M1B turns the M1A province definitions');
     expect(status).toContain('resolver implementation: not implemented and not authorized');
     expect(status).toContain('withheld holdout: 2');
     expect(existsSync(workflowPath)).toBe(true);
-    expect(existsSync(resolverPath)).toBe(false);
+    expect(artifact.nextPhaseBoundary.m1cResolverImplementationAuthorizedByThisArtifact).toBe(false);
+    expect(existsSync(resolverPath)).toBe(true);
+    expect(existsSync(m1cAuthorizationPath)).toBe(true);
   });
 });
