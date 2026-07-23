@@ -1,0 +1,68 @@
+name: M1C Detached Structure Material Resolver Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m1c-structure-material-resolver-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  m1c-resolver-gate:
+    name: Validate detached partial-candidate resolver
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused M1C resolver and artifact tests
+        run: |
+          mkdir -p artifacts/ci-logs
+          set -o pipefail
+          npx vitest run \
+            test/causalStructureMaterialM1CResolver.spec.ts \
+            test/causalStructureMaterialM1CArtifact.spec.ts \
+            2>&1 | tee artifacts/ci-logs/m1c-structure-material-resolver.log
+
+      - name: Verify TypeScript and Vite build
+        run: npm run build
+
+      - name: Summarize M1C gate
+        if: always()
+        run: |
+          {
+            echo "## M1C detached structure/material resolver"
+            echo "- Fixed corpus: \`18 cases\`"
+            echo "- Withheld holdouts: \`2\`"
+            echo "- Research-required leading classes: \`forbidden\`"
+            echo "- Threshold calibration: \`false\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Ordinary Generate change: \`none\`"
+            echo "- Terrain, land/water, bathymetry, surface material, and renderer authority: \`false\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload M1C gate logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m1c-structure-material-resolver-gate
+          path: artifacts/ci-logs/m1c-structure-material-resolver.log
+          if-no-files-found: warn
+          retention-days: 14
