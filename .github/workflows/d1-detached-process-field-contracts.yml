@@ -36,7 +36,7 @@ jobs:
         run: |
           mkdir -p artifacts/ci-logs artifacts/d1-detached-process-field-contracts
           set -o pipefail
-          npx vitest run test/causalProcessFieldProjectionContracts.spec.ts test/causalProcessFieldProjectionContractArtifact.spec.ts 2>&1 | tee artifacts/ci-logs/d1-detached-process-field-contracts.log
+          npx vitest run test/causalProcessFieldProjectionContracts.spec.ts test/causalProcessFieldProjectionContractArtifact.spec.ts test/causalDetachedOwnershipRegression.spec.ts 2>&1 | tee artifacts/ci-logs/d1-detached-process-field-contracts.log
           cp docs/implementation/phase-d/d1-detached-process-field-contract.json artifacts/d1-detached-process-field-contracts/
           cp docs/implementation/PHASE_D1_DETACHED_PROCESS_FIELD_CONTRACTS_STATUS.md artifacts/d1-detached-process-field-contracts/
 
@@ -50,6 +50,7 @@ jobs:
             echo "- Writes: \`diagnostics only\`"
             echo "- Query model: \`CONTINUOUS_SPHERICAL_KERNEL_SET_V1\`"
             echo "- Scientific status: \`PARTIAL\`"
+            echo "- Exact owned-field firewall: \`required\`"
             echo "- Physical or visible output change: \`none\`"
             echo "- A2 candidate authority: \`not implemented\`"
           } >> "$GITHUB_STEP_SUMMARY"

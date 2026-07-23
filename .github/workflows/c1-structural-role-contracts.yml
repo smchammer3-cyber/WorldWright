@@ -36,7 +36,7 @@ jobs:
         run: |
           mkdir -p artifacts/ci-logs artifacts/c1-structural-role-contracts
           set -o pipefail
-          npx vitest run test/causalContinentOceanStructureContracts.spec.ts test/causalContinentOceanStructureC1Artifact.spec.ts 2>&1 | tee artifacts/ci-logs/c1-structural-role-contracts.log
+          npx vitest run test/causalContinentOceanStructureContracts.spec.ts test/causalContinentOceanStructureC1Artifact.spec.ts test/causalDetachedOwnershipRegression.spec.ts 2>&1 | tee artifacts/ci-logs/c1-structural-role-contracts.log
           cp docs/implementation/phase-c/c1-structural-role-contracts.json artifacts/c1-structural-role-contracts/
           cp docs/implementation/PHASE_C1_STRUCTURAL_ROLE_CONTRACTS_STATUS.md artifacts/c1-structural-role-contracts/
 
@@ -47,6 +47,8 @@ jobs:
             echo "## Phase C1 detached structural-role contracts"
             echo "- Structural roles: \`10\`"
             echo "- Resolution states: \`leading / ambiguous / unresolved\`"
+            echo "- Ambiguity requires: \`at least two affirmative candidates\`"
+            echo "- Exact owned-field firewall: \`required\`"
             echo "- Ghost-risk classes: \`5\`"
             echo "- Authority mode: \`CAUSAL_SHADOW\`"
             echo "- Physical generator authority: \`LEGACY\`"

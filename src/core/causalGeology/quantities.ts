@@ -27,6 +27,23 @@ export const CAUSAL_QUANTITY_SCALES: readonly ScientificScaleDefinitionV1[] = Ob
 const SCALE_BY_ID = new Map(CAUSAL_QUANTITY_SCALES.map((definition) => [definition.scaleId, definition]));
 if (SCALE_BY_ID.size !== CAUSAL_QUANTITY_SCALES.length) throw new Error('Duplicate causal quantity scale ID.');
 
+const SCIENTIFIC_QUANTITY_KEYS = new Set([
+  'schemaVersion',
+  'value',
+  'unit',
+  'scaleId',
+  'derivationId',
+]);
+
+const SCIENTIFIC_RANGE_KEYS = new Set([
+  'schemaVersion',
+  'min',
+  'max',
+  'unit',
+  'scaleId',
+  'confidenceSubject',
+]);
+
 export function createScientificQuantity(value: number, unit: string, scaleId: string, derivationId?: string): ScientificQuantityV1 {
   const quantity: ScientificQuantityV1 = {
     schemaVersion: 1,
@@ -53,7 +70,8 @@ export function createScientificRange(min: number, max: number, unit: string, sc
 }
 
 export function validateScientificQuantity(value: unknown): asserts value is ScientificQuantityV1 {
-  if (!value || typeof value !== 'object') throw new Error('Scientific quantity must be an object.');
+  assertRecord(value, 'Scientific quantity');
+  assertExactKeys(value, SCIENTIFIC_QUANTITY_KEYS, 'Scientific quantity');
   const quantity = value as Partial<ScientificQuantityV1>;
   if (quantity.schemaVersion !== 1 || !Number.isFinite(quantity.value) || Object.is(quantity.value, -0)) throw new Error('Scientific quantity value is invalid or non-canonical.');
   const scale = getScientificScale(quantity.scaleId);
@@ -63,7 +81,8 @@ export function validateScientificQuantity(value: unknown): asserts value is Sci
 }
 
 export function validateScientificRange(value: unknown): asserts value is ScientificRangeV1 {
-  if (!value || typeof value !== 'object') throw new Error('Scientific range must be an object.');
+  assertRecord(value, 'Scientific range');
+  assertExactKeys(value, SCIENTIFIC_RANGE_KEYS, 'Scientific range');
   const range = value as Partial<ScientificRangeV1>;
   if (range.schemaVersion !== 1 || !Number.isFinite(range.min) || !Number.isFinite(range.max) || Object.is(range.min, -0) || Object.is(range.max, -0) || (range.min as number) > (range.max as number)) {
     throw new Error('Scientific range bounds are invalid or non-canonical.');
@@ -96,6 +115,16 @@ function canonicalNumber(value: number): number {
 function enforceScaleBounds(value: number, scale: ScientificScaleDefinitionV1, label: string): void {
   if (scale.minimum !== undefined && value < scale.minimum) throw new RangeError(`${label} is below ${scale.scaleId} minimum.`);
   if (scale.maximum !== undefined && value > scale.maximum) throw new RangeError(`${label} is above ${scale.scaleId} maximum.`);
+}
+
+function assertRecord(value: unknown, label: string): asserts value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object.`);
+}
+
+function assertExactKeys(value: Record<string, unknown>, allowedKeys: ReadonlySet<string>, label: string): void {
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) throw new Error(`${label} contains an unowned field: ${key}.`);
+  }
 }
 
 function isNonEmptyText(value: unknown): value is string {
