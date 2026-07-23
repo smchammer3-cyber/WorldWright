@@ -1,0 +1,92 @@
+name: Legacy vs Causal Shadow Preview
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: causal-shadow-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview-pack:
+    name: Build same-seed diagnostic comparison pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      CAUSAL_SHADOW_PREVIEW_OUT: artifacts/causal-shadow-preview/causal
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save --no-package-lock playwright
+          npx playwright install --with-deps chromium
+
+      - name: Generate causal shadow diagnostic globes
+        run: |
+          mkdir -p artifacts/ci-logs artifacts/causal-shadow-preview/causal
+          set -o pipefail
+          npx vitest run test/causalShadowPreviewSnapshotsCiHarness.spec.ts 2>&1 | tee artifacts/ci-logs/causal-shadow-preview-harness.log
+
+      - name: Capture legacy physical globes
+        timeout-minutes: 7
+        run: |
+          mkdir -p artifacts/causal-shadow-preview/legacy
+          timeout --kill-after=20s 390s npm run snapshots:jarvis -- \
+            --out=artifacts/causal-shadow-preview/legacy \
+            --seeds=1040037,860009786 \
+            --width=384 \
+            --globe-image-size=768x768 \
+            --viewport=1800x1200 \
+            --timeout-ms=45000 \
+            --download-timeout-ms=45000 \
+            --per-seed-timeout-ms=90000
+
+      - name: Compose side-by-side review images
+        run: node scripts/compose-causal-shadow-preview-pack.mjs --root=artifacts/causal-shadow-preview
+
+      - name: Verify repository build
+        run: npm run build
+
+      - name: Summarize preview pack
+        if: always()
+        run: |
+          {
+            echo "## Legacy vs. causal shadow preview"
+            echo "- Seeds: \`1040037\`, \`860009786\`"
+            echo "- Views per seed: \`front / +120° / -120°\`"
+            echo "- Comparison images: \`6\`"
+            echo "- Causal view: \`D2 fields + C2B structural candidates + spine anchors\`"
+            echo "- Same-seed scope: \`shared root seed; causal inputs still use the controlled Earth-like fixture\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Terrain, land/water, bathymetry, material, and renderer authority: \`unchanged / false\`"
+            echo "- Artifact: \`legacy-vs-causal-shadow-preview\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload preview pack
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: legacy-vs-causal-shadow-preview
+          path: |
+            artifacts/causal-shadow-preview/
+            artifacts/ci-logs/causal-shadow-preview-harness.log
+          if-no-files-found: error
+          retention-days: 30
