@@ -7,6 +7,16 @@ import {
 import { CURRENT_WORLD_DOCUMENT_SCHEMA_VERSION } from '../src/core/worldSchema/version';
 import { isCausalProvenanceManifestV1 } from '../src/core/worldProvenance/schema';
 
+const CANONICAL_CAUSAL_REGRESSION_SEEDS = [
+  2_040_037,
+  1_040_037,
+  9_011,
+  3_301,
+  4_404,
+  7_205,
+  8_808,
+] as const;
+
 function physicalProjection<T extends ReturnType<typeof generateWorldFromParams>>(world: T): Omit<T, 'causal'> {
   const clone = structuredClone(world) as T & { causal?: unknown };
   delete clone.causal;
@@ -42,10 +52,36 @@ describe('C02 explicit-seed legacy output equivalence', () => {
       },
     });
 
-    const normalizedCurrent = physicalProjection(current);
-    normalizedCurrent.metadata.schemaVersion = legacy.metadata.schemaVersion;
-    normalizedCurrent.metadata.createdAt = legacy.metadata.createdAt;
-    normalizedCurrent.metadata.updatedAt = legacy.metadata.updatedAt;
-    expect(normalizedCurrent).toEqual(legacy);
+    expectPhysicalEquivalence(current, legacy);
   }, 30_000);
+
+  it('preserves complete legacy physical output across the seven canonical causal regression seeds', () => {
+    for (const seed of CANONICAL_CAUSAL_REGRESSION_SEEDS) {
+      const params = {
+        ...createDefaultGeneratorParams(),
+        width: 96,
+        height: 48,
+        seed,
+      };
+      const legacy = generateLegacyV3WorldFromParams(params);
+      const current = generateWorldFromParams(params);
+
+      expect(current.causal).toMatchObject({
+        authorityMode: 'LEGACY',
+        status: 'EMPTY',
+      });
+      expectPhysicalEquivalence(current, legacy);
+    }
+  }, 60_000);
 });
+
+function expectPhysicalEquivalence(
+  current: ReturnType<typeof generateWorldFromParams>,
+  legacy: ReturnType<typeof generateLegacyV3WorldFromParams>,
+): void {
+  const normalizedCurrent = physicalProjection(current);
+  normalizedCurrent.metadata.schemaVersion = legacy.metadata.schemaVersion;
+  normalizedCurrent.metadata.createdAt = legacy.metadata.createdAt;
+  normalizedCurrent.metadata.updatedAt = legacy.metadata.updatedAt;
+  expect(normalizedCurrent).toEqual(legacy);
+}
