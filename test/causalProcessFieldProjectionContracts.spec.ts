@@ -138,6 +138,7 @@ describe('D1 detached process-field projection contracts', () => {
       'CAUSAL_PROCESS_FIELD_PROJECTION',
       'CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION',
       'CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION',
+      'CAUSAL_LANDFORM_POTENTIAL_INTERPRETATION',
       'CAUSAL_SHADOW_AUDIT',
     ]);
     const process = getAuthorityProcess('CAUSAL_PROCESS_FIELD_PROJECTION');
@@ -154,5 +155,14 @@ describe('D1 detached process-field projection contracts', () => {
     expect(material.writes).toEqual(['diagnostics']);
     expect(material.writes).not.toContain('structureMaterialCause');
     expect(material.writes).not.toContain('terrain');
+
+    const landform = getAuthorityProcess('CAUSAL_LANDFORM_POTENTIAL_INTERPRETATION');
+    expect(landform.modes).toEqual(['CAUSAL_SHADOW']);
+    expect(landform.prerequisites).toEqual(['CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION']);
+    expect(landform.writes).toEqual(['diagnostics']);
+    expect(landform.writes).not.toContain('landformPotentialAuthority');
+    expect(landform.writes).not.toContain('baseTerrain');
+    expect(landform.writes).not.toContain('finalTerrain');
+    expect(landform.writes).not.toContain('terrain');
   });
 });
