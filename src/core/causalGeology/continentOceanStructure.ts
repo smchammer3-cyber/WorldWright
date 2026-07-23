@@ -129,6 +129,66 @@ export const C1_CONTINENT_OCEAN_STRUCTURE_LIMITS_V1 = Object.freeze({
   maximumSerializedBytes: 8_388_608,
 });
 
+const INTERPRETATION_KEYS = new Set([
+  'schemaVersion',
+  'interpretationVersion',
+  'authorityMode',
+  'physicalGeneratorAuthority',
+  'interpretationMode',
+  'scientificStatus',
+  'classification',
+  'sourcePremiseHash',
+  'sourceGeologicSpineHash',
+  'sourceProcessFieldProjectionHash',
+  'roleDefinitions',
+  'regions',
+  'structuralRoleAuthority',
+  'finalLandAuthority',
+  'finalWaterAuthority',
+  'bathymetryAuthority',
+  'terrainAuthority',
+  'evidenceIds',
+  'contradictionIds',
+  'limitations',
+  'contentHash',
+]);
+
+const REGION_KEYS = new Set([
+  'schemaVersion',
+  'regionId',
+  'anchor',
+  'extent',
+  'resolutionStatus',
+  'leadingRole',
+  'roleCandidates',
+  'ghostRiskCandidates',
+  'suppressionRecommendations',
+  'unresolvedReasonIds',
+  'confidenceAssessmentSubject',
+  'evidenceIds',
+  'contradictionIds',
+  'limitations',
+]);
+
+const ROLE_CANDIDATE_KEYS = new Set([
+  'schemaVersion',
+  'role',
+  'supportRange',
+  'sourceFieldIds',
+  'sourceNodeIds',
+  'rationaleIds',
+  'evidenceIds',
+]);
+
+const GHOST_RISK_KEYS = new Set([
+  'schemaVersion',
+  'risk',
+  'supportRange',
+  'sourceFieldIds',
+  'rationaleIds',
+  'evidenceIds',
+]);
+
 const ALL_FIELD_IDS: readonly CausalProcessFieldProjectionIdV1[] = Object.freeze([
   'accretionInfluence',
   'continentalKernelInfluence',
@@ -200,7 +260,8 @@ export function createContinentOceanStructureInterpretation(
 export function validateContinentOceanStructureInterpretation(
   value: unknown,
 ): asserts value is ContinentOceanStructureInterpretationV1 {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Continent/ocean structure interpretation must be an object.');
+  assertRecord(value, 'Continent/ocean structure interpretation');
+  assertExactKeys(value, INTERPRETATION_KEYS, 'Continent/ocean structure interpretation');
   const interpretation = value as Partial<ContinentOceanStructureInterpretationV1>;
   if (
     interpretation.schemaVersion !== 1
@@ -240,7 +301,8 @@ export function validateContinentOceanStructureInterpretation(
 export function validateContinentOceanStructuralRegion(
   value: unknown,
 ): asserts value is ContinentOceanStructuralRegionV1 {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Continent/ocean structural region must be an object.');
+  assertRecord(value, 'Continent/ocean structural region');
+  assertExactKeys(value, REGION_KEYS, 'Continent/ocean structural region');
   const region = value as Partial<ContinentOceanStructuralRegionV1>;
   if (region.schemaVersion !== 1 || !isText(region.regionId) || !isText(region.confidenceAssessmentSubject)) {
     throw new Error('Continent/ocean structural region identity is invalid.');
@@ -253,17 +315,33 @@ export function validateContinentOceanStructuralRegion(
   const roleCandidates = canonicalRoleCandidates(region.roleCandidates ?? [], region.regionId as string);
   if (roleCandidates.length === 0) throw new Error(`Continent/ocean structural region ${region.regionId} requires role candidates.`);
   const candidateRoles = new Set(roleCandidates.map((entry) => entry.role));
+  const affirmativeCandidates = roleCandidates.filter((entry) => entry.role !== 'STRUCTURALLY_UNRESOLVED');
+  const unresolvedReasonIds = canonicalText(
+    region.unresolvedReasonIds,
+    `Continent/ocean structural region ${region.regionId} unresolved reason IDs`,
+    region.resolutionStatus === 'UNRESOLVED' ? 1 : 0,
+  );
+
   if (region.resolutionStatus === 'SINGLE_LEADING_CANDIDATE') {
     if (!region.leadingRole || !candidateRoles.has(region.leadingRole)) throw new Error(`Continent/ocean structural region ${region.regionId} leading role is invalid.`);
+    if (region.leadingRole === 'STRUCTURALLY_UNRESOLVED') throw new Error(`Continent/ocean structural region ${region.regionId} cannot lead with STRUCTURALLY_UNRESOLVED.`);
+    if (candidateRoles.has('STRUCTURALLY_UNRESOLVED')) throw new Error(`Leading continent/ocean structural region ${region.regionId} cannot include STRUCTURALLY_UNRESOLVED.`);
+    if (unresolvedReasonIds.length !== 0) throw new Error(`Continent/ocean structural region ${region.regionId} cannot carry unresolved reasons while a leading role exists.`);
   } else if (region.leadingRole !== undefined) {
     throw new Error(`Continent/ocean structural region ${region.regionId} cannot declare a leading role while ambiguous or unresolved.`);
   }
+
+  if (region.resolutionStatus === 'AMBIGUOUS_CANDIDATES') {
+    if (affirmativeCandidates.length < 2) throw new Error(`Ambiguous continent/ocean structural region ${region.regionId} requires at least two affirmative role candidates.`);
+    if (candidateRoles.has('STRUCTURALLY_UNRESOLVED')) throw new Error(`Ambiguous continent/ocean structural region ${region.regionId} cannot include STRUCTURALLY_UNRESOLVED.`);
+    if (unresolvedReasonIds.length !== 0) throw new Error(`Ambiguous continent/ocean structural region ${region.regionId} cannot carry unresolved reasons.`);
+  }
+
   if (region.resolutionStatus === 'UNRESOLVED' && !candidateRoles.has('STRUCTURALLY_UNRESOLVED')) {
     throw new Error(`Unresolved continent/ocean structural region ${region.regionId} must include STRUCTURALLY_UNRESOLVED.`);
   }
   canonicalGhostRisks(region.ghostRiskCandidates ?? [], region.regionId as string);
   canonicalEnumText<ContinentOceanSuppressionRecommendationV1>(region.suppressionRecommendations, SUPPRESSION_RECOMMENDATION_SET, `Continent/ocean structural region ${region.regionId} suppression recommendations`, 1);
-  canonicalText(region.unresolvedReasonIds, `Continent/ocean structural region ${region.regionId} unresolved reason IDs`, region.resolutionStatus === 'UNRESOLVED' ? 1 : 0);
   canonicalText(region.evidenceIds, `Continent/ocean structural region ${region.regionId} evidence IDs`);
   canonicalText(region.contradictionIds, `Continent/ocean structural region ${region.regionId} contradiction IDs`);
   canonicalText(region.limitations, `Continent/ocean structural region ${region.regionId} limitations`, 1);
@@ -320,7 +398,9 @@ function canonicalRoleCandidates(
   }
   const roles = new Set<string>();
   const canonical = [...value].map((candidate) => {
-    if (!candidate || typeof candidate !== 'object' || candidate.schemaVersion !== 1 || !ROLE_DEFINITION_BY_ID.has(candidate.role)) {
+    assertRecord(candidate, `Continent/ocean structural region ${regionId} role candidate`);
+    assertExactKeys(candidate, ROLE_CANDIDATE_KEYS, `Continent/ocean structural region ${regionId} role candidate`);
+    if (candidate.schemaVersion !== 1 || !ROLE_DEFINITION_BY_ID.has(candidate.role)) {
       throw new Error(`Continent/ocean structural region ${regionId} contains an invalid role candidate.`);
     }
     if (roles.has(candidate.role)) throw new Error(`Continent/ocean structural region ${regionId} contains duplicate role ${candidate.role}.`);
@@ -347,7 +427,9 @@ function canonicalGhostRisks(
   }
   const risks = new Set<string>();
   const canonical = [...value].map((candidate) => {
-    if (!candidate || typeof candidate !== 'object' || candidate.schemaVersion !== 1 || !GHOST_RISK_SET.has(candidate.risk)) {
+    assertRecord(candidate, `Continent/ocean structural region ${regionId} ghost-risk candidate`);
+    assertExactKeys(candidate, GHOST_RISK_KEYS, `Continent/ocean structural region ${regionId} ghost-risk candidate`);
+    if (candidate.schemaVersion !== 1 || !GHOST_RISK_SET.has(candidate.risk)) {
       throw new Error(`Continent/ocean structural region ${regionId} contains an invalid ghost-risk candidate.`);
     }
     if (risks.has(candidate.risk)) throw new Error(`Continent/ocean structural region ${regionId} contains duplicate ghost risk ${candidate.risk}.`);
@@ -407,6 +489,16 @@ const SUPPRESSION_RECOMMENDATION_SET = new Set<string>([
   'DEFER_TO_STRUCTURE_MATERIAL_GENESIS',
   'NO_SUPPRESSION_RECOMMENDATION',
 ]);
+
+function assertRecord<T>(value: T, label: string): asserts value is T & Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object.`);
+}
+
+function assertExactKeys(value: Record<string, unknown>, allowedKeys: ReadonlySet<string>, label: string): void {
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) throw new Error(`${label} contains an unowned field: ${key}.`);
+  }
+}
 
 function isText(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
