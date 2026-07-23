@@ -1,0 +1,72 @@
+name: M1B Structure Material Research Package Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: m1b-structure-material-research-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  research-package:
+    name: Validate M1B rules fixtures and holdouts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run M1B research-package gates
+        run: |
+          mkdir -p artifacts/ci-logs artifacts/m1b-structure-material-research-package
+          set -o pipefail
+          npx vitest run test/causalStructureMaterialM1BResearchPackage.spec.ts test/causalStructureMaterialM1BArtifact.spec.ts 2>&1 | tee artifacts/ci-logs/m1b-structure-material-research-package.log
+          npm run build 2>&1 | tee artifacts/ci-logs/m1b-structure-material-build.log
+          cp src/core/causalGeology/research/structure-material-m1b-rules.json artifacts/m1b-structure-material-research-package/
+          cp src/core/causalGeology/research/structure-material-m1b-fixtures.json artifacts/m1b-structure-material-research-package/
+          cp src/core/causalGeology/research/structure-material-m1b-review-record.json artifacts/m1b-structure-material-research-package/
+          cp docs/implementation/phase-m/m1b-structure-material-research-package.json artifacts/m1b-structure-material-research-package/
+          cp docs/implementation/PHASE_M1B_STRUCTURE_MATERIAL_RESEARCH_PACKAGE_STATUS.md artifacts/m1b-structure-material-research-package/
+
+      - name: Summarize M1B gate
+        if: always()
+        run: |
+          {
+            echo "## M1B structure/material research package"
+            echo "- Province rules: \`9\`"
+            echo "- Fixed fixtures: \`18\`"
+            echo "- Positives / thresholds / negatives / exception / holdouts: \`6 / 6 / 3 / 1 / 2\`"
+            echo "- Research-required non-leading classes: \`EXHUMED_MANTLE_TRANSITION / MIXED_TRANSITIONAL_PROVINCE\`"
+            echo "- Resolver implementation: \`not present / not authorized\`"
+            echo "- Authority mode: \`CAUSAL_SHADOW\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+            echo "- Physical or visible output change: \`none\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload M1B artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m1b-structure-material-research-package
+          path: |
+            artifacts/m1b-structure-material-research-package/
+            artifacts/ci-logs/m1b-structure-material-research-package.log
+            artifacts/ci-logs/m1b-structure-material-build.log
+          if-no-files-found: warn
+          retention-days: 30

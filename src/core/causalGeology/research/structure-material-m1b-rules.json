@@ -1,0 +1,392 @@
+{
+  "schemaVersion": 1,
+  "ruleSetVersion": "M1B_STRUCTURE_MATERIAL_RULES_V1",
+  "rules": [
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.exhumed-mantle-transition-v1",
+      "provinceClass": "EXHUMED_MANTLE_TRANSITION",
+      "version": 1,
+      "researchStatus": "RESEARCH_REQUIRED",
+      "genericClaimRuleIds": [
+        "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+        "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1"
+      ],
+      "requiredStructuralRoles": [
+        "CONTINENTAL_MARGIN",
+        "CONTINENTAL_SLOPE",
+        "TRANSITIONAL_CRUST"
+      ],
+      "allowedFieldIds": [
+        "continentalKernelInfluence",
+        "oceanBasinInfluence",
+        "projectionConfidence",
+        "riftInfluence",
+        "transformInfluence"
+      ],
+      "requiredSourceFamilies": [
+        "CONTINENTAL_KERNEL",
+        "RIFT_SYSTEM"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "UNRESOLVED"
+      ],
+      "candidateTerrainTermPermissions": [
+        "LATER_EXTENSIONAL_RESPONSE_TERM_CANDIDATE",
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "evidenceStatus": "RESEARCH_REQUIRED",
+      "resolverDisposition": "AMBIGUITY_OR_UNRESOLVED_ONLY",
+      "exceptions": [
+        "Magma-rich and volcanic margins need not contain exhumed-mantle transition zones.",
+        "Radial fields cannot establish detachment geometry or a mantle-exhumation corridor."
+      ],
+      "limitations": [
+        "M1B preserves exhumed mantle only as a source-backed alternative and forbids it from leading before later geometry and material evidence exist."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.juvenile-continental-or-arc-crust-v1",
+      "provinceClass": "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+      "version": 1,
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "genericClaimRuleIds": [
+        "m1a.claim.arc-density-and-buoyancy-are-context-dependent-v1",
+        "m1a.claim.arc-juvenile-continental-affinity-v1"
+      ],
+      "requiredStructuralRoles": [
+        "CONTINENTAL_MARGIN",
+        "VOLCANIC_ARC_SYSTEM"
+      ],
+      "allowedFieldIds": [
+        "accretionInfluence",
+        "continentalKernelInfluence",
+        "convergenceInfluence",
+        "plumeInfluence",
+        "projectionConfidence"
+      ],
+      "requiredSourceFamilies": [
+        "ACCRETION_SYSTEM",
+        "CONVERGENCE_SYSTEM"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE"
+      ],
+      "candidateTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_MAGMATIC_CONSTRUCTION_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE",
+        "LATER_THICKENING_RESPONSE_TERM_CANDIDATE"
+      ],
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "resolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
+      "exceptions": [
+        "Dense lower-arc components can make buoyancy context dependent.",
+        "Not every volcanic arc generates or preserves juvenile continental-affinity crust."
+      ],
+      "limitations": [
+        "An arc-linked material candidate does not establish exposed composition, elevation, land, or preserved crustal thickness."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.magmatically-thickened-mafic-province-v1",
+      "provinceClass": "MAGMATICALLY_THICKENED_MAFIC_PROVINCE",
+      "version": 1,
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "genericClaimRuleIds": [
+        "m1a.claim.oceanic-plateaus-preserve-thick-oceanic-affinity-crust-v1",
+        "m1a.claim.volcanic-margins-can-build-thick-mafic-crust-v1"
+      ],
+      "requiredStructuralRoles": [
+        "DEEP_OCEAN_BASIN",
+        "OCEANIC_RIDGE_SYSTEM",
+        "TRANSITIONAL_CRUST"
+      ],
+      "allowedFieldIds": [
+        "oceanBasinInfluence",
+        "plumeInfluence",
+        "projectionConfidence",
+        "riftInfluence"
+      ],
+      "requiredSourceFamilies": [
+        "OCEAN_BASIN"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE"
+      ],
+      "candidateTerrainTermPermissions": [
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_MAGMATIC_CONSTRUCTION_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "resolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
+      "exceptions": [
+        "High melt production does not uniquely identify a plume origin.",
+        "Magma-poor rifts and normal oceanic spreading need not create thick mafic crust."
+      ],
+      "limitations": [
+        "The candidate describes deep mafic thickening only and cannot prescribe plateau shape, relief, depth, or water."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.mixed-transitional-province-v1",
+      "provinceClass": "MIXED_TRANSITIONAL_PROVINCE",
+      "version": 1,
+      "researchStatus": "RESEARCH_REQUIRED",
+      "genericClaimRuleIds": [
+        "m1a.claim.arc-juvenile-continental-affinity-v1",
+        "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+        "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1"
+      ],
+      "requiredStructuralRoles": [
+        "CONTINENTAL_MARGIN",
+        "DROWNED_CONTINENTAL_FRAGMENT",
+        "TRANSITIONAL_CRUST"
+      ],
+      "allowedFieldIds": [
+        "accretionInfluence",
+        "continentalKernelInfluence",
+        "convergenceInfluence",
+        "oceanBasinInfluence",
+        "plumeInfluence",
+        "projectionConfidence",
+        "riftInfluence",
+        "transformInfluence"
+      ],
+      "requiredSourceFamilies": [],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "UNRESOLVED"
+      ],
+      "candidateTerrainTermPermissions": [
+        "LATER_EXTENSIONAL_RESPONSE_TERM_CANDIDATE",
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE",
+        "NO_TERRAIN_TERM_CANDIDATE"
+      ],
+      "evidenceStatus": "RESEARCH_REQUIRED",
+      "resolverDisposition": "AMBIGUITY_OR_UNRESOLVED_ONLY",
+      "exceptions": [
+        "A single well-supported endmember should not be diluted by an automatic mixed classification.",
+        "Mixed transition cannot serve as an unbounded residual bucket."
+      ],
+      "limitations": [
+        "M1B permits this class only to preserve explicit multi-endmember uncertainty; it cannot lead before later evidence separates the alternatives."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.normal-oceanic-crust-v1",
+      "provinceClass": "NORMAL_OCEANIC_CRUST",
+      "version": 1,
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "genericClaimRuleIds": [
+        "m1a.claim.layered-lithosphere-is-laterally-heterogeneous-v1",
+        "m1a.claim.normal-oceanic-crust-is-relatively-thin-and-mafic-v1"
+      ],
+      "requiredStructuralRoles": [
+        "DEEP_OCEAN_BASIN",
+        "OCEANIC_RIDGE_SYSTEM"
+      ],
+      "allowedFieldIds": [
+        "formationAgeSummary",
+        "oceanBasinInfluence",
+        "persistenceSummary",
+        "projectionConfidence",
+        "riftInfluence"
+      ],
+      "requiredSourceFamilies": [
+        "OCEAN_BASIN"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE"
+      ],
+      "candidateTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_MAGMATIC_CONSTRUCTION_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "resolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
+      "exceptions": [
+        "Magma supply, spreading rate, thermal state, and mantle composition can create anomalously thick or thin oceanic crust."
+      ],
+      "limitations": [
+        "Oceanic substrate affinity never decides final water, bathymetry, depth, sea level, or exposed material."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.rift-thinned-continental-province-v1",
+      "provinceClass": "RIFT_THINNED_CONTINENTAL_PROVINCE",
+      "version": 1,
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "genericClaimRuleIds": [
+        "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+        "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1"
+      ],
+      "requiredStructuralRoles": [
+        "CONTINENTAL_MARGIN",
+        "CONTINENTAL_SHELF",
+        "CONTINENTAL_SLOPE",
+        "DROWNED_CONTINENTAL_FRAGMENT",
+        "TRANSITIONAL_CRUST"
+      ],
+      "allowedFieldIds": [
+        "continentalKernelInfluence",
+        "oceanBasinInfluence",
+        "projectionConfidence",
+        "riftInfluence",
+        "transformInfluence"
+      ],
+      "requiredSourceFamilies": [
+        "CONTINENTAL_KERNEL",
+        "RIFT_SYSTEM"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE"
+      ],
+      "candidateTerrainTermPermissions": [
+        "LATER_EXTENSIONAL_RESPONSE_TERM_CANDIDATE",
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "resolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
+      "exceptions": [
+        "Extreme magma-poor transitions can preserve exhumed mantle alternatives.",
+        "Volcanic margins can be dominated by magmatic addition rather than simple thinning."
+      ],
+      "limitations": [
+        "A rift-thinned candidate does not determine margin orientation, shoreline, exposure, or bathymetry."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.stable-continental-root-v1",
+      "provinceClass": "STABLE_CONTINENTAL_ROOT",
+      "version": 1,
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "genericClaimRuleIds": [
+        "m1a.claim.continental-crust-varies-with-tectonic-province-v1",
+        "m1a.claim.inherited-lithosphere-controls-strength-and-grain-v1"
+      ],
+      "requiredStructuralRoles": [
+        "CONTINENTAL_INTERIOR",
+        "DROWNED_CONTINENTAL_FRAGMENT"
+      ],
+      "allowedFieldIds": [
+        "continentalKernelInfluence",
+        "formationAgeSummary",
+        "persistenceSummary",
+        "preservationSummary",
+        "projectionConfidence"
+      ],
+      "requiredSourceFamilies": [
+        "CONTINENTAL_KERNEL"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE"
+      ],
+      "candidateTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "resolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
+      "exceptions": [
+        "Ancient continental provinces can be reworked, extended, thermally weakened, or submerged.",
+        "Continental affinity does not guarantee present-day strength, exposure, flatness, land, or high elevation."
+      ],
+      "limitations": [
+        "The rule identifies a deep long-lived continental candidate only and cannot infer surface state."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.structure-material-unresolved-v1",
+      "provinceClass": "STRUCTURE_MATERIAL_UNRESOLVED",
+      "version": 1,
+      "researchStatus": "UNRESOLVED",
+      "genericClaimRuleIds": [],
+      "requiredStructuralRoles": [
+        "STRUCTURALLY_UNRESOLVED"
+      ],
+      "allowedFieldIds": [
+        "projectionConfidence"
+      ],
+      "requiredSourceFamilies": [],
+      "allowedResolutionStatuses": [
+        "UNRESOLVED"
+      ],
+      "candidateTerrainTermPermissions": [
+        "NO_TERRAIN_TERM_CANDIDATE"
+      ],
+      "evidenceStatus": "FAIL_CLOSED",
+      "resolverDisposition": "FAIL_CLOSED_ONLY",
+      "exceptions": [],
+      "limitations": [
+        "Unresolved carries no positive scientific class evidence and grants no terrain-term permission beyond the explicit no-term state."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "m1b.rule.tectonically-thickened-crust-v1",
+      "provinceClass": "TECTONICALLY_THICKENED_CRUST",
+      "version": 1,
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "genericClaimRuleIds": [
+        "m1a.claim.layered-lithosphere-is-laterally-heterogeneous-v1",
+        "m1a.claim.tectonic-thickening-produces-thick-crustal-provinces-v1"
+      ],
+      "requiredStructuralRoles": [
+        "CONTINENTAL_INTERIOR",
+        "CONTINENTAL_MARGIN",
+        "VOLCANIC_ARC_SYSTEM"
+      ],
+      "allowedFieldIds": [
+        "accretionInfluence",
+        "continentalKernelInfluence",
+        "convergenceInfluence",
+        "persistenceSummary",
+        "projectionConfidence"
+      ],
+      "requiredSourceFamilies": [
+        "CONVERGENCE_SYSTEM"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE"
+      ],
+      "candidateTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE",
+        "LATER_THICKENING_RESPONSE_TERM_CANDIDATE"
+      ],
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "resolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
+      "exceptions": [
+        "Delamination, erosion, extension, and thermal weakening can modify thickened crust.",
+        "Thick crust does not independently imply mountains or plateau elevation."
+      ],
+      "limitations": [
+        "The rule permits a deep thickening candidate only; all landform and terrain consequences remain downstream and conditional."
+      ]
+    }
+  ]
+}

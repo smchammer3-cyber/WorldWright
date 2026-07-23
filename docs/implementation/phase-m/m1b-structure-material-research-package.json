@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "artifactVersion": "M1B_STRUCTURE_MATERIAL_RESEARCH_PACKAGE_V1",
+  "baseCommit": "01c91ffad8576087506913c3778e9cb0495deae0",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "scientificStatus": "PARTIAL",
+  "implementationStatus": "RESEARCH_PACKAGE_COMPLETE_PENDING_EXACT_HEAD_VALIDATION",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "scope": {
+    "allowed": [
+      "one source-linked research rule per M1A province class",
+      "fixed positive research fixtures",
+      "controlled boundary fixtures without universal calibration",
+      "negative and fail-closed fixtures",
+      "bounded exception fixtures",
+      "withheld holdouts excluded from calibration",
+      "future partial-candidate eligibility research",
+      "research package validation and CI gates"
+    ],
+    "forbidden": [
+      "structure-material resolver implementation",
+      "universal normalized thresholds",
+      "generated-world frequency tuning",
+      "base terrain or final terrain",
+      "bathymetry or sea level",
+      "surface material or exposed rock classification",
+      "land or water classification",
+      "ordinary Generate invocation",
+      "legacy solved morphology as causal input",
+      "surfaceExposureSummary as material evidence",
+      "renderer or presentation output",
+      "structureMaterialCause authority",
+      "landformPotentialAuthority",
+      "physical promotion or legacy retirement"
+    ]
+  },
+  "ruleCounts": {
+    "provinceRules": 9,
+    "reviewedForFuturePartialCandidate": 6,
+    "researchRequiredAmbiguityOnly": 2,
+    "failClosedUnresolved": 1,
+    "completeEligible": 0
+  },
+  "fixtureCounts": {
+    "total": 18,
+    "positive": 6,
+    "threshold": 6,
+    "negative": 3,
+    "exception": 1,
+    "holdout": 2,
+    "withheldFromCalibration": 2,
+    "provinceClassesRepresented": 9
+  },
+  "researchFoundation": {
+    "bundleVersion": "M1A_STRUCTURE_MATERIAL_RESEARCH_BUNDLE_V1",
+    "sources": 11,
+    "externalSources": 10,
+    "internalScopeSources": 1,
+    "genericClaimRules": 12,
+    "independentCorrelationGroups": 10,
+    "directInitialInputBypassAllowed": false,
+    "internalScopeControlMayEstablishScientificClass": false
+  },
+  "adversarialCoverage": [
+    "continental-like signal without continental-kernel source fails closed",
+    "oceanic-like signal without ocean-basin source fails closed",
+    "surface-only context cannot substitute for deep material evidence",
+    "artificial shell premise remains unresolved",
+    "stable root versus tectonically thickened crust remains explicit at the boundary",
+    "normal oceanic versus magmatically thickened mafic crust remains explicit at the boundary",
+    "juvenile arc versus tectonic thickening remains explicit at the boundary",
+    "rift-thinned versus exhumed-mantle versus mixed transition remains explicit at the boundary",
+    "research-required province classes are forbidden from leading",
+    "two holdouts remain withheld from calibration"
+  ],
+  "authorityBoundary": {
+    "diagnosticProcessId": "CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION",
+    "writes": [
+      "diagnostics"
+    ],
+    "structureMaterialCauseAuthority": false,
+    "landformPotentialAuthority": false,
+    "baseTerrainAuthority": false,
+    "surfaceMaterialAuthority": false,
+    "finalLandAuthority": false,
+    "finalWaterAuthority": false,
+    "bathymetryAuthority": false,
+    "terrainAuthority": false
+  },
+  "knownLimitations": [
+    "The fixed normalized fixture values are controlled research coordinates and are not universal geophysical thresholds.",
+    "M1B provides no scoring, ranking, candidate construction, or resolver algorithm.",
+    "Current radial process fields do not resolve oriented margin, ridge, arc, shear, detachment, or grain geometry.",
+    "Deep substrate candidates remain separate from exposed rock, sediment, regolith, ice, water, and weathering.",
+    "Exhumed mantle transition and mixed transitional province remain research-required and non-leading.",
+    "Future terrain-term permissions remain candidates only and cannot produce terrain."
+  ],
+  "nextPhaseBoundary": {
+    "m1cResolverImplementationAuthorizedByThisArtifact": false,
+    "separateExplicitAuthorizationRequired": true,
+    "exactHeadValidationRequired": true,
+    "thresholdCalibration": "FORBIDDEN",
+    "physicalPromotion": "FORBIDDEN",
+    "ordinaryGenerateInvocation": "FORBIDDEN",
+    "legacyRetirement": "FORBIDDEN"
+  },
+  "finalVerdict": {
+    "m1bResearchRules": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
+    "m1bFixedCorpus": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
+    "m1bHoldouts": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
+    "resolverImplementation": "NOT_IMPLEMENTED_AND_NOT_AUTHORIZED",
+    "physicalPromotion": "BLOCKED",
+    "nextAction": "VALIDATE_EXACT_M1B_HEAD_AND_REVIEW_BEFORE_M1C"
+  }
+}
