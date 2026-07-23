@@ -77,6 +77,7 @@ export const CAUSAL_SHADOW_PROCESS_ORDER = Object.freeze([
 export const CAUSAL_SHADOW_DIAGNOSTIC_PROCESS_ORDER = Object.freeze([
   'CAUSAL_PROCESS_FIELD_PROJECTION',
   'CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION',
+  'CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION',
   'CAUSAL_SHADOW_AUDIT',
 ] as const);
 
@@ -112,6 +113,7 @@ export const WORLD_AUTHORITY_PROCESSES: readonly AuthorityProcessDefinition[] = 
   process('CAUSAL_GEOLOGIC_SPINE', 'causal-resolution', ['causalRecord'], ['causalRecord'], { owner: 'CAUSAL_GEOLOGY_SHADOW', prerequisites: ['CAUSAL_REGIME_HISTORY'], modes: SHADOW_ONLY, invariants: ['Produces resolution-independent spherical graph records with age, persistence, exposure, and preservation; never terrain.'] }),
   process('CAUSAL_PROCESS_FIELD_PROJECTION', 'diagnostic', ['causalRecord'], ['diagnostics'], { owner: 'CAUSAL_PROCESS_FIELD_PROJECTION_DIAGNOSTIC', prerequisites: ['CAUSAL_GEOLOGIC_SPINE'], modes: SHADOW_ONLY, invariants: ['Produces a continuous queryable spherical kernel projection as a detached diagnostic stage artifact.', 'Never writes processFieldAuthority, terrain, land/water, renderer state, or canonical world state.', 'Reads only validated regime-history and geologic-spine records.', 'Uses no legacy morphology, renderer colors, UI labels, or debug identities as causal input.'] }),
   process('CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION', 'diagnostic', ['causalRecord', 'diagnostics'], ['diagnostics'], { owner: 'CAUSAL_CONTINENT_OCEAN_STRUCTURE_DIAGNOSTIC', prerequisites: ['CAUSAL_PROCESS_FIELD_PROJECTION'], modes: SHADOW_ONLY, invariants: ['Reads only validated premise, geologic-spine, and detached process-field projection artifacts.', 'Produces candidate continental, margin, shelf, slope, basin, ridge, arc, drowned-fragment, transition, and unresolved roles with explicit ambiguity.', 'Never reads shadow-audit comparison, legacy morphology, land/water masks, renderer colors, UI labels, province IDs, or debug identities.', 'Never writes structuralRoleAuthority, terrain, bathymetry, land/water, renderer state, or canonical world state.'] }),
+  process('CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION', 'diagnostic', ['causalRecord', 'diagnostics'], ['diagnostics'], { owner: 'CAUSAL_STRUCTURE_MATERIAL_DIAGNOSTIC', prerequisites: ['CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION'], modes: SHADOW_ONLY, invariants: ['M1A registers immutable contracts and research boundaries only; resolver implementation and threshold calibration are not authorized.', 'Separates deep substrate affinity, relative thickness, buoyancy, resistance, inherited grain, and future terrain-term permission candidates.', 'Never uses surfaceExposureSummary, exposed material, weathering, sediment cover, legacy solved morphology, renderer state, UI labels, or shadow-audit comparison as material evidence.', 'Never writes structureMaterialCause, landformPotentialAuthority, terrain, land/water, bathymetry, presentation, or canonical world state.'] }),
   process('CAUSAL_SHADOW_AUDIT', 'diagnostic', ['causalRecord'], ['diagnostics'], { owner: 'WORLD_DIAGNOSTICS', prerequisites: ['CAUSAL_GEOLOGIC_SPINE'], modes: SHADOW_ONLY, invariants: ['Causal modules export immutable records only.', 'An external read-only adapter may separately read legacy/reference data.', 'Comparison output cannot feed causal generation or mutate canonical state.'] }),
   process('CREATE_EDIT', 'edit', ['terrain', 'biomeDerived', 'worldbuilding'], ['terrain', 'biomeDerived', 'worldbuilding'], { owner: 'CREATE_MODE', modes: OPERABLE_MODES }),
   process('SIM_TICK', 'simulation', ['terrain', 'worldbuilding', 'causalRecord'], ['terrain', 'worldbuilding'], { owner: 'SIM_MODE', modes: OPERABLE_MODES }),
@@ -153,5 +155,7 @@ export function validateAuthorityProcessRegistry(): readonly string[] {
   if (projection.writes.includes('processFieldAuthority')) errors.push('CAUSAL_PROCESS_FIELD_PROJECTION: Phase D detached projections cannot write processFieldAuthority before A2');
   const structure = getAuthorityProcess('CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION');
   if (structure.writes.includes('structuralRoleAuthority')) errors.push('CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION: C1 detached interpretation cannot write structuralRoleAuthority before A2');
+  const material = getAuthorityProcess('CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION');
+  if (material.writes.includes('structureMaterialCause')) errors.push('CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION: M1A contracts cannot write structureMaterialCause before a separately approved authority phase');
   return Object.freeze(errors);
 }

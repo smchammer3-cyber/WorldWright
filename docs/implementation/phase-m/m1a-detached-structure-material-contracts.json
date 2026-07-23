@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "artifactVersion": "M1A_DETACHED_STRUCTURE_MATERIAL_CONTRACTS_V1",
+  "baseCommit": "e7fda4a079e0144de7a24d2b0883637203915bdd",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "stateMode": "DETACHED_DIAGNOSTIC",
+  "scientificStatus": "PARTIAL",
+  "implementationStatus": "CONTRACTS_AND_RESEARCH_COMPLETE_PENDING_EXACT_HEAD_VALIDATION",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "scope": {
+    "allowed": [
+      "immutable StructureMaterialStateV1 contracts",
+      "deep substrate-affinity candidates",
+      "relative thickness candidates",
+      "relative buoyancy candidates",
+      "mechanical resistance candidates",
+      "orientation-unresolved inherited grain candidates",
+      "future terrain-term permission candidates",
+      "source-linked research review",
+      "diagnostic authority registration"
+    ],
+    "forbidden": [
+      "base terrain or final terrain",
+      "bathymetry or sea level",
+      "exposed or weathered surface material",
+      "land or water classification",
+      "legacy solved morphology as causal input",
+      "ordinary Generate invocation",
+      "renderer or presentation output",
+      "resolver implementation",
+      "structureMaterialCause authority",
+      "surfaceExposureSummary as material evidence",
+      "threshold calibration"
+    ]
+  },
+  "contractCounts": {
+    "provinceDefinitions": 9,
+    "supportedCandidateClasses": 6,
+    "researchRequiredClasses": 2,
+    "unresolvedClasses": 1,
+    "deepMaterialDimensions": 5,
+    "terrainPermissionCandidateDimension": 1,
+    "allowedProcessFieldIds": 11
+  },
+  "researchCounts": {
+    "sources": 11,
+    "externalSources": 10,
+    "internalScopeSources": 1,
+    "genericClaimRules": 12,
+    "independentCorrelationGroups": 10,
+    "completeEligibleProvinceClasses": 0,
+    "researchRequiredProvinceClasses": 2,
+    "resolverImplementationAuthorized": false,
+    "thresholdCalibrationAuthorized": false
+  },
+  "requiredResearchBoundaries": [
+    "Every supported candidate class requires at least two claim rules and two independent external evidence groups.",
+    "Exhumed mantle and mixed transition remain research-required before any resolver implementation.",
+    "Internal scope controls cannot independently establish a scientific material class.",
+    "No claim rule bypasses upstream causal records with direct initial-input IDs.",
+    "No universal normalized thresholds, generated-world frequencies, or numerical material equations are authorized.",
+    "Unresolved is fail-closed and carries no positive generic-claim evidence."
+  ],
+  "authorityBoundary": {
+    "diagnosticProcessId": "CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION",
+    "owner": "CAUSAL_STRUCTURE_MATERIAL_DIAGNOSTIC",
+    "prerequisite": "CAUSAL_CONTINENT_OCEAN_STRUCTURE_INTERPRETATION",
+    "reads": [
+      "causalRecord",
+      "diagnostics"
+    ],
+    "writes": [
+      "diagnostics"
+    ],
+    "structureMaterialCauseAuthority": false,
+    "landformPotentialAuthority": false,
+    "baseTerrainAuthority": false,
+    "surfaceMaterialAuthority": false,
+    "finalLandAuthority": false,
+    "finalWaterAuthority": false,
+    "bathymetryAuthority": false,
+    "terrainAuthority": false
+  },
+  "knownLimitations": [
+    "Current radial process fields do not resolve oriented margin, ridge, arc, shear, or grain geometry.",
+    "Deep material affinity is not an exposed-rock, sediment, regolith, ice, water, or surface-material label.",
+    "Earth evidence supports relative candidate tendencies but not universal WorldWright calibration.",
+    "Mechanical resistance and buoyancy remain context dependent and are not complete constitutive laws.",
+    "M1A has no fixed material fixture corpus, negative suite, or withheld holdouts because no resolver is authorized yet.",
+    "Terrain-term permissions are future candidates only and cannot produce terrain."
+  ],
+  "m1bEntryBoundary": {
+    "allowedAfterExactHeadValidation": true,
+    "nextScope": "M1B source-backed resolver research package, fixed fixtures, negatives, exceptions, and withheld holdouts before any resolver code",
+    "resolverCodeInM1A": "FORBIDDEN",
+    "thresholdTuningInM1A": "FORBIDDEN",
+    "physicalPromotion": "FORBIDDEN",
+    "ordinaryGenerateInvocation": "FORBIDDEN",
+    "legacyRetirement": "FORBIDDEN"
+  },
+  "finalVerdict": {
+    "m1aContracts": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
+    "m1aResearch": "PARTIAL_AND_CONTRACT_ONLY",
+    "m1bResearchEntry": "ALLOWED_AFTER_EXACT_HEAD_GATE_PASS",
+    "resolverImplementation": "BLOCKED",
+    "physicalPromotion": "BLOCKED",
+    "nextAction": "BEGIN_M1B_RESEARCH_FIXTURES_AND_HOLDOUTS"
+  }
+}

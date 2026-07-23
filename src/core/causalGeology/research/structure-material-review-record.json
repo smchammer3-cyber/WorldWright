@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "reviewVersion": "M1A_STRUCTURE_MATERIAL_RESEARCH_REVIEW_V1",
+  "bundleVersion": "M1A_STRUCTURE_MATERIAL_RESEARCH_BUNDLE_V1",
+  "reviewStatus": "APPROVED_FOR_DETACHED_CONTRACTS_ONLY",
+  "reviewer": "WorldWright M1A research gate",
+  "reviewDate": "2026-07-22",
+  "definitionRecords": [
+    {
+      "schemaVersion": 1,
+      "provinceClass": "EXHUMED_MANTLE_TRANSITION",
+      "researchStatus": "RESEARCH_REQUIRED",
+      "disposition": "RESEARCH_REQUIRED_BEFORE_RESOLVER",
+      "genericClaimRuleIds": [
+        "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+        "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1"
+      ],
+      "independentCorrelationGroupIds": [
+        "m1a.magma-poor-transition",
+        "m1a.rift-inheritance"
+      ],
+      "limitations": [
+        "Current radial process fields do not resolve magma-poor margin architecture, detachment geometry, or mantle exhumation corridors.",
+        "The province may be considered only as an explicit research-required alternative."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "provinceClass": "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "disposition": "CONTRACT_CANDIDATE_ONLY",
+      "genericClaimRuleIds": [
+        "m1a.claim.arc-density-and-buoyancy-are-context-dependent-v1",
+        "m1a.claim.arc-juvenile-continental-affinity-v1"
+      ],
+      "independentCorrelationGroupIds": [
+        "m1a.arc-composition",
+        "m1a.arc-density-evolution"
+      ],
+      "limitations": [
+        "Arc affinity does not establish universal continental composition, positive buoyancy, exposure, or preserved crustal thickness."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "provinceClass": "MAGMATICALLY_THICKENED_MAFIC_PROVINCE",
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "disposition": "CONTRACT_CANDIDATE_ONLY",
+      "genericClaimRuleIds": [
+        "m1a.claim.oceanic-plateaus-preserve-thick-oceanic-affinity-crust-v1",
+        "m1a.claim.volcanic-margins-can-build-thick-mafic-crust-v1"
+      ],
+      "independentCorrelationGroupIds": [
+        "m1a.oceanic-plateau-thickening",
+        "m1a.volcanic-margin-magmatism"
+      ],
+      "limitations": [
+        "High melt production can have multiple causes; M1A does not require a deep mantle plume or prescribe relief."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "provinceClass": "MIXED_TRANSITIONAL_PROVINCE",
+      "researchStatus": "RESEARCH_REQUIRED",
+      "disposition": "RESEARCH_REQUIRED_BEFORE_RESOLVER",
+      "genericClaimRuleIds": [
+        "m1a.claim.arc-juvenile-continental-affinity-v1",
+        "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+        "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1"
+      ],
+      "independentCorrelationGroupIds": [
+        "m1a.arc-composition",
+        "m1a.magma-poor-transition",
+        "m1a.rift-inheritance"
+      ],
+      "limitations": [
+        "Mixed transition is an ambiguity-preserving alternative, not a residual bucket that may silently lead.",
+        "Oriented geometry, melt history, and additional material evidence are required before resolver implementation."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "provinceClass": "NORMAL_OCEANIC_CRUST",
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "disposition": "CONTRACT_CANDIDATE_ONLY",
+      "genericClaimRuleIds": [
+        "m1a.claim.layered-lithosphere-is-laterally-heterogeneous-v1",
+        "m1a.claim.normal-oceanic-crust-is-relatively-thin-and-mafic-v1"
+      ],
+      "independentCorrelationGroupIds": [
+        "m1a.lithosphere-heterogeneity",
+        "m1a.oceanic-crust-global"
+      ],
+      "limitations": [
+        "Oceanic crustal affinity does not determine water, depth, sea level, bathymetry, age, or spreading geometry."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "provinceClass": "RIFT_THINNED_CONTINENTAL_PROVINCE",
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "disposition": "CONTRACT_CANDIDATE_ONLY",
+      "genericClaimRuleIds": [
+        "m1a.claim.magma-poor-rifts-can-exhume-mantle-v1",
+        "m1a.claim.rift-extension-thins-and-inherits-continental-lithosphere-v1"
+      ],
+      "independentCorrelationGroupIds": [
+        "m1a.magma-poor-transition",
+        "m1a.rift-inheritance"
+      ],
+      "limitations": [
+        "Rift thinning and inherited weakness do not establish final margin width, orientation, shoreline, or bathymetry."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "provinceClass": "STABLE_CONTINENTAL_ROOT",
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "disposition": "CONTRACT_CANDIDATE_ONLY",
+      "genericClaimRuleIds": [
+        "m1a.claim.continental-crust-varies-with-tectonic-province-v1",
+        "m1a.claim.inherited-lithosphere-controls-strength-and-grain-v1"
+      ],
+      "independentCorrelationGroupIds": [
+        "m1a.continental-crust-global",
+        "m1a.lithosphere-heterogeneity"
+      ],
+      "limitations": [
+        "Stable continental affinity does not guarantee exposure, present-day rigidity, flatness, land, or high elevation."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "provinceClass": "STRUCTURE_MATERIAL_UNRESOLVED",
+      "researchStatus": "UNRESOLVED",
+      "disposition": "FAIL_CLOSED_UNRESOLVED",
+      "genericClaimRuleIds": [],
+      "independentCorrelationGroupIds": [],
+      "limitations": [
+        "Unresolved is a fail-closed software state and cannot claim positive scientific evidence or terrain permission."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "provinceClass": "TECTONICALLY_THICKENED_CRUST",
+      "researchStatus": "SUPPORTED_CANDIDATE_CLASS",
+      "disposition": "CONTRACT_CANDIDATE_ONLY",
+      "genericClaimRuleIds": [
+        "m1a.claim.layered-lithosphere-is-laterally-heterogeneous-v1",
+        "m1a.claim.tectonic-thickening-produces-thick-crustal-provinces-v1"
+      ],
+      "independentCorrelationGroupIds": [
+        "m1a.continental-crust-global",
+        "m1a.lithosphere-heterogeneity"
+      ],
+      "limitations": [
+        "Thickened crust does not independently authorize mountain height, plateau geometry, erosion state, or surface exposure."
+      ]
+    }
+  ],
+  "completeEligibleProvinceClasses": [],
+  "researchRequiredProvinceClasses": [
+    "EXHUMED_MANTLE_TRANSITION",
+    "MIXED_TRANSITIONAL_PROVINCE"
+  ],
+  "resolverImplementationAuthorized": false,
+  "thresholdCalibrationAuthorized": false,
+  "structureMaterialCauseAuthorityAuthorized": false,
+  "landformPotentialAuthorityAuthorized": false,
+  "physicalOutputAuthorized": false,
+  "ordinaryGenerateInvocationAuthorized": false,
+  "legacyMorphologyInputAuthorized": false,
+  "surfaceExposureInputAuthorized": false
+}
