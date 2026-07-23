@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "artifactVersion": "M1C_STRUCTURE_MATERIAL_RESOLVER_V1",
+  "baseCommit": "1754a105a417b322743ad9da481ee3062ff0ea83",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "scientificStatus": "PARTIAL",
+  "implementationStatus": "DETACHED_RESOLVER_IMPLEMENTED_PENDING_EXACT_HEAD_VALIDATION",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "scope": {
+    "allowed": [
+      "deterministic source-backed partial-candidate construction",
+      "complete fixed-corpus evaluation",
+      "explicit ambiguity and fail-closed unresolved output",
+      "research-required non-leading alternatives",
+      "exact upstream source-lineage validation",
+      "detached projection and structural-role integration",
+      "diagnostic support ranges and candidate terrain-term permissions",
+      "resolver validation and CI gates"
+    ],
+    "forbidden": [
+      "universal normalized threshold calibration",
+      "generated-world frequency tuning",
+      "base terrain or final terrain",
+      "bathymetry or sea level",
+      "surface material or exposed rock classification",
+      "land or water classification",
+      "ordinary Generate invocation",
+      "legacy solved morphology as causal input",
+      "surfaceExposureSummary as material evidence",
+      "direct initial-condition material shortcuts",
+      "renderer or presentation output",
+      "structureMaterialCause authority",
+      "landformPotentialAuthority",
+      "physical promotion or legacy retirement"
+    ]
+  },
+  "resolver": {
+    "implementationFile": "src/core/causalGeology/structureMaterialResolver.ts",
+    "authorizationFile": "src/core/causalGeology/research/structure-material-m1c-authorization.json",
+    "ruleSetVersion": "M1B_STRUCTURE_MATERIAL_RULES_V1",
+    "fixtureSetVersion": "M1B_STRUCTURE_MATERIAL_FIXTURES_V1",
+    "authorizationVersion": "M1C_STRUCTURE_MATERIAL_RESOLVER_AUTHORIZATION_V1",
+    "candidateConstruction": "ROLE_SOURCE_LINEAGE_AND_RELATIVE_FIELD_EVIDENCE",
+    "universalThresholds": false,
+    "researchRequiredMayLead": false,
+    "completeEligibleRuleCount": 0
+  },
+  "fixtureCounts": {
+    "total": 18,
+    "positive": 6,
+    "threshold": 6,
+    "negative": 3,
+    "exception": 1,
+    "holdout": 2,
+    "withheldFromCalibration": 2
+  },
+  "authorityBoundary": {
+    "diagnosticProcessId": "CAUSAL_STRUCTURE_MATERIAL_INTERPRETATION",
+    "writes": [
+      "diagnostics"
+    ],
+    "structureMaterialCauseAuthority": false,
+    "landformPotentialAuthority": false,
+    "baseTerrainAuthority": false,
+    "surfaceMaterialAuthority": false,
+    "finalLandAuthority": false,
+    "finalWaterAuthority": false,
+    "bathymetryAuthority": false,
+    "terrainAuthority": false
+  },
+  "adversarialCoverage": [
+    "continental-like signal without continental-kernel source fails closed",
+    "oceanic-like signal without ocean-basin source fails closed",
+    "surfaceExposureSummary is rejected as deep material evidence",
+    "legacy physical payload keys are rejected",
+    "mismatched projection and structural lineage is rejected",
+    "artificial shell premise remains unresolved",
+    "exhumed mantle transition is forbidden from leading",
+    "mixed transitional province is forbidden from leading",
+    "two holdouts remain withheld from calibration"
+  ],
+  "knownLimitations": [
+    "Candidate support ranges are diagnostic summaries, not calibrated probabilities or universal geophysical thresholds.",
+    "Current radial process fields do not resolve oriented margin, ridge, arc, shear, detachment, or structural-grain geometry.",
+    "Deep substrate candidates remain separate from exposed rock, sediment, regolith, ice, water, weathering, and terrain.",
+    "Ordinary Generate continues to use LEGACY physical authority.",
+    "The resolver does not increase causal structural coverage by itself; it interprets only source-backed structural regions supplied upstream."
+  ],
+  "nextPhaseBoundary": {
+    "separateExplicitAuthorizationRequired": true,
+    "exactHeadValidationRequired": true,
+    "mergeRequired": true,
+    "thresholdCalibration": "FORBIDDEN",
+    "physicalPromotion": "FORBIDDEN",
+    "ordinaryGenerateInvocation": "FORBIDDEN",
+    "legacyRetirement": "FORBIDDEN"
+  },
+  "finalVerdict": {
+    "detachedResolver": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
+    "fixedCorpus": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
+    "researchRequiredNonLeading": "REQUIRED",
+    "physicalPromotion": "BLOCKED",
+    "nextAction": "VALIDATE_EXACT_M1C_HEAD_AND_REVIEW_BEFORE_ANY_NEXT PHASE"
+  }
+}
