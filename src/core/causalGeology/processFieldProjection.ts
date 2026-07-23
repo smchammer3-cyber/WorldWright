@@ -96,6 +96,41 @@ export const CAUSAL_PROCESS_FIELD_PROJECTION_LIMITS_V1 = Object.freeze({
   maximumSerializedBytes: 4_194_304,
 });
 
+const PROJECTION_SET_KEYS = new Set([
+  'schemaVersion',
+  'projectionVersion',
+  'authorityMode',
+  'physicalGeneratorAuthority',
+  'projectionMode',
+  'scientificStatus',
+  'coordinateConvention',
+  'queryModel',
+  'randomStreamPolicy',
+  'sourceRegimeHistoryHash',
+  'sourceGeologicSpineHash',
+  'definitions',
+  'kernels',
+  'evidenceIds',
+  'contradictionIds',
+  'limitations',
+  'contentHash',
+]);
+
+const PROJECTION_KERNEL_KEYS = new Set([
+  'schemaVersion',
+  'kernelId',
+  'fieldId',
+  'sourceNodeId',
+  'sourceNodeFamily',
+  'anchor',
+  'angularRadiusDegrees',
+  'peakValue',
+  'temporalWeight',
+  'preservationWeight',
+  'falloff',
+  'evidenceIds',
+]);
+
 const ALL_NODE_FAMILIES: readonly GeologicSpineNodeFamily[] = Object.freeze([
   'ACCRETION_SYSTEM',
   'CONTINENTAL_KERNEL',
@@ -160,7 +195,8 @@ export function createCausalProcessFieldProjectionSet(
 export function validateCausalProcessFieldProjectionSet(
   value: unknown,
 ): asserts value is CausalProcessFieldProjectionSetV1 {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Detached process-field projection set must be an object.');
+  assertRecord(value, 'Detached process-field projection set');
+  assertExactKeys(value, PROJECTION_SET_KEYS, 'Detached process-field projection set');
   const projection = value as Partial<CausalProcessFieldProjectionSetV1>;
   if (
     projection.schemaVersion !== 1
@@ -193,7 +229,8 @@ export function validateCausalProcessFieldProjectionSet(
 export function validateCausalProcessFieldProjectionKernel(
   value: unknown,
 ): asserts value is CausalProcessFieldProjectionKernelV1 {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Process-field projection kernel must be an object.');
+  assertRecord(value, 'Process-field projection kernel');
+  assertExactKeys(value, PROJECTION_KERNEL_KEYS, 'Process-field projection kernel');
   const kernel = value as Partial<CausalProcessFieldProjectionKernelV1>;
   if (kernel.schemaVersion !== 1 || !isText(kernel.kernelId) || !isText(kernel.sourceNodeId)) throw new Error('Process-field projection kernel identity is invalid.');
   const definition = DEFINITION_BY_ID.get(kernel.fieldId as CausalProcessFieldProjectionIdV1);
@@ -267,6 +304,16 @@ function canonicalText(value: unknown, label: string, minimumLength = 0): readon
 
 function assertNormalized(value: unknown, label: string): asserts value is number {
   if (!Number.isFinite(value) || (value as number) < 0 || (value as number) > 1) throw new Error(`${label} must be within [0, 1].`);
+}
+
+function assertRecord(value: unknown, label: string): asserts value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object.`);
+}
+
+function assertExactKeys(value: Record<string, unknown>, allowedKeys: ReadonlySet<string>, label: string): void {
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) throw new Error(`${label} contains an unowned field: ${key}.`);
+  }
 }
 
 function isText(value: unknown): value is string {
