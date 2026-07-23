@@ -1,6 +1,19 @@
 import { cloneAndDeepFreeze } from './immutable';
 import type { SphericalAnchorV1, SphericalExtentV1 } from './types';
 
+const SPHERICAL_ANCHOR_KEYS = new Set([
+  'schemaVersion',
+  'latitudeDegrees',
+  'longitudeDegrees',
+]);
+
+const SPHERICAL_EXTENT_KEYS = new Set([
+  'schemaVersion',
+  'angularRadiusDegrees',
+  'axisBearingDegrees',
+  'elongation',
+]);
+
 export function createSphericalAnchor(latitudeDegrees: number, longitudeDegrees: number): SphericalAnchorV1 {
   const anchor: SphericalAnchorV1 = {
     schemaVersion: 1,
@@ -27,7 +40,8 @@ export function createSphericalExtent(
 }
 
 export function validateSphericalAnchor(value: unknown): asserts value is SphericalAnchorV1 {
-  if (!value || typeof value !== 'object') throw new Error('Spherical anchor must be an object.');
+  assertRecord(value, 'Spherical anchor');
+  assertExactKeys(value, SPHERICAL_ANCHOR_KEYS, 'Spherical anchor');
   const anchor = value as Partial<SphericalAnchorV1>;
   if (anchor.schemaVersion !== 1 || !Number.isFinite(anchor.latitudeDegrees) || !Number.isFinite(anchor.longitudeDegrees)) throw new Error('Spherical anchor values are invalid.');
   if ((anchor.latitudeDegrees as number) < -90 || (anchor.latitudeDegrees as number) > 90) throw new RangeError('Spherical latitude must be within [-90, 90].');
@@ -35,7 +49,8 @@ export function validateSphericalAnchor(value: unknown): asserts value is Spheri
 }
 
 export function validateSphericalExtent(value: unknown): asserts value is SphericalExtentV1 {
-  if (!value || typeof value !== 'object') throw new Error('Spherical extent must be an object.');
+  assertRecord(value, 'Spherical extent');
+  assertExactKeys(value, SPHERICAL_EXTENT_KEYS, 'Spherical extent');
   const extent = value as Partial<SphericalExtentV1>;
   if (extent.schemaVersion !== 1 || !Number.isFinite(extent.angularRadiusDegrees)) throw new Error('Spherical extent radius is invalid.');
   if ((extent.angularRadiusDegrees as number) <= 0 || (extent.angularRadiusDegrees as number) > 180) throw new RangeError('Spherical angular radius must be within (0, 180].');
@@ -57,4 +72,14 @@ export function normalizeBearingDegrees(bearingDegrees: number): number {
   if (!Number.isFinite(bearingDegrees)) throw new Error('Bearing must be finite.');
   const normalized = ((bearingDegrees % 360) + 360) % 360;
   return Object.is(normalized, -0) ? 0 : normalized;
+}
+
+function assertRecord(value: unknown, label: string): asserts value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object.`);
+}
+
+function assertExactKeys(value: Record<string, unknown>, allowedKeys: ReadonlySet<string>, label: string): void {
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) throw new Error(`${label} contains an unowned field: ${key}.`);
+  }
 }
