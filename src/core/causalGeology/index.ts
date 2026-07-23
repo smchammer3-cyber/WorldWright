@@ -33,6 +33,7 @@ export * from './continentOceanStructureResearchContracts';
 export * from './continentOceanStructureResolver';
 export * from './structureMaterial';
 export * from './structureMaterialResearchContracts';
+export * from './structureMaterialFixtureContracts';
 export * from './shadowAudit';
 export * from './shadowThresholdCoverage';
 export * from './shadowArchetypeCoverage';
