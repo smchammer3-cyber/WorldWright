@@ -791,7 +791,7 @@ function canonicalText(value: unknown, label: string, minimumLength = 0): readon
   return Object.freeze(canonical);
 }
 
-function assertExactKeys(value: unknown, keys: readonly string[], label: string): asserts value is Record<string, unknown> {
+function assertExactKeys<T>(value: T, keys: readonly string[], label: string): asserts value is T & Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object.`);
   const allowed = new Set(keys);
   for (const key of Object.keys(value)) if (!allowed.has(key)) throw new Error(`${label} contains an unowned field: ${key}.`);
