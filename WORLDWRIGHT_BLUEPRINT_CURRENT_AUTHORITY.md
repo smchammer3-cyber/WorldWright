@@ -100,9 +100,12 @@ Planet identity, display names, timestamps, storage IDs, and source revision IDs
 - C02 provides deterministic random streams, feature flags, provenance, and replay identity.
 - C03 provides process registration and fail-closed write-authority guards.
 - C04 provides evidence, confidence, weighted alternatives, and contradictions.
-- The merged Wave 1 plan defines shadow-only causal geology.
-- W1-01 exists as a separate audited draft implementation PR and is not merged.
-- No initial-condition resolver, premise algorithm, interior resolver, regime history, geologic-spine generator, process-field generator, causal terrain writer, or surface-evolution runner is active.
+- Detached Wave 1 causal records, Phase D process-field projections, Phase C structural interpretation, and Phase M structure/material interpretation exist in `CAUSAL_SHADOW`.
+- L1A provides immutable landform-potential, response-family, spatial-expression, and suppression contracts without a resolver.
+- The L1B scientific-source registry, reviewed research rules, suppression rules, fixed corpus, and frozen holdouts are validated and frozen on PR #164 pending merge.
+- L1B does not implement or evaluate a landform-potential resolver, calibrate thresholds, create geometry or terrain, invoke ordinary Generate, or promote authority.
+- `LEGACY` remains the sole physical generator. No causal terrain writer or surface-evolution runner is active.
+- No phase after L1B is authorized by the L1B checkpoint; any L1C resolver work requires separate explicit approval.
 
 ## Governing document set
 

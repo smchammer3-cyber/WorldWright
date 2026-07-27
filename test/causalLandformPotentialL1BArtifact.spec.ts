@@ -10,7 +10,7 @@ interface L1BArtifactV1 {
   readonly authorityMode: 'CAUSAL_SHADOW';
   readonly physicalGeneratorAuthority: 'LEGACY';
   readonly scientificStatus: 'PARTIAL';
-  readonly implementationStatus: 'RESEARCH_PACKAGE_COMPLETE_PENDING_EXACT_HEAD_VALIDATION';
+  readonly implementationStatus: 'RESEARCH_PACKAGE_VALIDATED_AND_FROZEN_PENDING_MERGE';
   readonly ordinaryGenerateChanged: false;
   readonly visiblePhysicalOutputChanged: false;
   readonly causalActive: 'UNIMPLEMENTED_AND_FORBIDDEN';
@@ -45,6 +45,20 @@ interface L1BArtifactV1 {
     readonly suppressionClassesRepresented: 6;
   };
   readonly frozenHoldouts: readonly string[];
+  readonly validationEvidence: {
+    readonly pullRequest: 164;
+    readonly validatedCheckpointCommit: string;
+    readonly pullRequestWorkflowsPassed: 18;
+    readonly dedicatedL1BGate: 'PASSED';
+    readonly fullVitestSuite: 'PASSED';
+    readonly typescriptAndViteBuild: 'PASSED';
+    readonly requiredGenerateDiagnostics: 'PASSED';
+    readonly causalSkeletonHarness: 'PASSED';
+    readonly snapshotCanary: 'PASSED';
+    readonly fullGlobeReview: 'PASSED';
+    readonly everyNewHeadRequiresRevalidation: true;
+    readonly mergeStillRequiresDirectApproval: true;
+  };
   readonly authorityBoundary: Readonly<Record<string, unknown>>;
   readonly nextPhaseBoundary: {
     readonly l1cResolverImplementationAuthorizedByThisArtifact: false;
@@ -58,15 +72,15 @@ interface L1BArtifactV1 {
     readonly legacyRetirement: 'FORBIDDEN';
   };
   readonly finalVerdict: {
-    readonly l1bResearchFoundation: 'COMPLETE_AFTER_EXACT_HEAD_GATE_PASS';
-    readonly l1bResearchRules: 'COMPLETE_AFTER_EXACT_HEAD_GATE_PASS';
-    readonly l1bSuppressionContracts: 'COMPLETE_AFTER_EXACT_HEAD_GATE_PASS';
-    readonly l1bFixedCorpus: 'COMPLETE_AFTER_EXACT_HEAD_GATE_PASS';
-    readonly l1bFrozenHoldouts: 'COMPLETE_AFTER_EXACT_HEAD_GATE_PASS';
+    readonly l1bResearchFoundation: 'VALIDATED_AND_FROZEN_PENDING_MERGE';
+    readonly l1bResearchRules: 'VALIDATED_AND_FROZEN_PENDING_MERGE';
+    readonly l1bSuppressionContracts: 'VALIDATED_AND_FROZEN_PENDING_MERGE';
+    readonly l1bFixedCorpus: 'VALIDATED_AND_FROZEN_PENDING_MERGE';
+    readonly l1bFrozenHoldouts: 'VALIDATED_AND_FROZEN_PENDING_MERGE';
     readonly resolverImplementation: 'NOT_IMPLEMENTED_AND_NOT_AUTHORIZED';
     readonly resolverEvaluation: 'NOT_AUTHORIZED';
     readonly physicalPromotion: 'BLOCKED';
-    readonly nextAction: 'VALIDATE_EXACT_L1B_HEAD_AND_STOP_PENDING_SEPARATE_AUTHORIZATION';
+    readonly nextAction: 'REVIEW_L1B_PR_AND_STOP_PENDING_SEPARATE_AUTHORIZATION';
   };
 }
 
@@ -106,7 +120,7 @@ describe('L1B landform-potential research-package artifact', () => {
       authorityMode: 'CAUSAL_SHADOW',
       physicalGeneratorAuthority: 'LEGACY',
       scientificStatus: 'PARTIAL',
-      implementationStatus: 'RESEARCH_PACKAGE_COMPLETE_PENDING_EXACT_HEAD_VALIDATION',
+      implementationStatus: 'RESEARCH_PACKAGE_VALIDATED_AND_FROZEN_PENDING_MERGE',
       ordinaryGenerateChanged: false,
       visiblePhysicalOutputChanged: false,
       causalActive: 'UNIMPLEMENTED_AND_FORBIDDEN',
@@ -146,6 +160,20 @@ describe('L1B landform-potential research-package artifact', () => {
       'holdout/mixed-rift-magmatic-transition-v1',
       'holdout/orogenic-strength-thickening-overlap-v1',
     ]);
+    expect(artifact.validationEvidence).toEqual({
+      pullRequest: 164,
+      validatedCheckpointCommit: '9d6ed3bc234d9b8977974d3fa2e0984a670d9741',
+      pullRequestWorkflowsPassed: 18,
+      dedicatedL1BGate: 'PASSED',
+      fullVitestSuite: 'PASSED',
+      typescriptAndViteBuild: 'PASSED',
+      requiredGenerateDiagnostics: 'PASSED',
+      causalSkeletonHarness: 'PASSED',
+      snapshotCanary: 'PASSED',
+      fullGlobeReview: 'PASSED',
+      everyNewHeadRequiresRevalidation: true,
+      mergeStillRequiresDirectApproval: true,
+    });
   });
 
   it('keeps L1B diagnostic-only and grants no downstream authorization', () => {
@@ -174,15 +202,15 @@ describe('L1B landform-potential research-package artifact', () => {
       legacyRetirement: 'FORBIDDEN',
     });
     expect(artifact.finalVerdict).toEqual({
-      l1bResearchFoundation: 'COMPLETE_AFTER_EXACT_HEAD_GATE_PASS',
-      l1bResearchRules: 'COMPLETE_AFTER_EXACT_HEAD_GATE_PASS',
-      l1bSuppressionContracts: 'COMPLETE_AFTER_EXACT_HEAD_GATE_PASS',
-      l1bFixedCorpus: 'COMPLETE_AFTER_EXACT_HEAD_GATE_PASS',
-      l1bFrozenHoldouts: 'COMPLETE_AFTER_EXACT_HEAD_GATE_PASS',
+      l1bResearchFoundation: 'VALIDATED_AND_FROZEN_PENDING_MERGE',
+      l1bResearchRules: 'VALIDATED_AND_FROZEN_PENDING_MERGE',
+      l1bSuppressionContracts: 'VALIDATED_AND_FROZEN_PENDING_MERGE',
+      l1bFixedCorpus: 'VALIDATED_AND_FROZEN_PENDING_MERGE',
+      l1bFrozenHoldouts: 'VALIDATED_AND_FROZEN_PENDING_MERGE',
       resolverImplementation: 'NOT_IMPLEMENTED_AND_NOT_AUTHORIZED',
       resolverEvaluation: 'NOT_AUTHORIZED',
       physicalPromotion: 'BLOCKED',
-      nextAction: 'VALIDATE_EXACT_L1B_HEAD_AND_STOP_PENDING_SEPARATE_AUTHORIZATION',
+      nextAction: 'REVIEW_L1B_PR_AND_STOP_PENDING_SEPARATE_AUTHORIZATION',
     });
   });
 

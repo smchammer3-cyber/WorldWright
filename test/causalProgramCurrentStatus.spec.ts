@@ -29,7 +29,7 @@ interface CausalProgramCurrentStatusV1 {
   readonly legacyRetirementAuthorized: false;
   readonly requiredRegressionGates: readonly string[];
   readonly openAuditBoundaries: readonly string[];
-  readonly nextAction: 'VALIDATE_EXACT_L1B_HEAD_AND_STOP_PENDING_SEPARATE_AUTHORIZATION';
+  readonly nextAction: 'REVIEW_L1B_PR_AND_STOP_PENDING_SEPARATE_AUTHORIZATION';
 }
 
 const status = JSON.parse(readFileSync(resolve(
@@ -86,7 +86,7 @@ describe('current causal-program direction after L1B research', () => {
       ordinaryGenerateIntegrationAuthorized: false,
       physicalPromotionAuthorized: false,
       legacyRetirementAuthorized: false,
-      nextAction: 'VALIDATE_EXACT_L1B_HEAD_AND_STOP_PENDING_SEPARATE_AUTHORIZATION',
+      nextAction: 'REVIEW_L1B_PR_AND_STOP_PENDING_SEPARATE_AUTHORIZATION',
     });
     expect(status.auditBaseCommit).toMatch(commitPattern);
     expect(status.completedSoftwareMilestones).toEqual(requiredMilestones);

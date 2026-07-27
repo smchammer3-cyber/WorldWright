@@ -5,7 +5,7 @@
   "authorityMode": "CAUSAL_SHADOW",
   "physicalGeneratorAuthority": "LEGACY",
   "scientificStatus": "PARTIAL",
-  "implementationStatus": "RESEARCH_PACKAGE_COMPLETE_PENDING_EXACT_HEAD_VALIDATION",
+  "implementationStatus": "RESEARCH_PACKAGE_VALIDATED_AND_FROZEN_PENDING_MERGE",
   "ordinaryGenerateChanged": false,
   "visiblePhysicalOutputChanged": false,
   "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
@@ -104,6 +104,20 @@
     "internal scope controls cannot establish an affirmative scientific potential",
     "direct initial-condition inputs, surface exposure, and physical payload keys fail validation"
   ],
+  "validationEvidence": {
+    "pullRequest": 164,
+    "validatedCheckpointCommit": "9d6ed3bc234d9b8977974d3fa2e0984a670d9741",
+    "pullRequestWorkflowsPassed": 18,
+    "dedicatedL1BGate": "PASSED",
+    "fullVitestSuite": "PASSED",
+    "typescriptAndViteBuild": "PASSED",
+    "requiredGenerateDiagnostics": "PASSED",
+    "causalSkeletonHarness": "PASSED",
+    "snapshotCanary": "PASSED",
+    "fullGlobeReview": "PASSED",
+    "everyNewHeadRequiresRevalidation": true,
+    "mergeStillRequiresDirectApproval": true
+  },
   "authorityBoundary": {
     "diagnosticProcessId": "CAUSAL_LANDFORM_POTENTIAL_INTERPRETATION",
     "writes": [
@@ -140,14 +154,14 @@
     "legacyRetirement": "FORBIDDEN"
   },
   "finalVerdict": {
-    "l1bResearchFoundation": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
-    "l1bResearchRules": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
-    "l1bSuppressionContracts": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
-    "l1bFixedCorpus": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
-    "l1bFrozenHoldouts": "COMPLETE_AFTER_EXACT_HEAD_GATE_PASS",
+    "l1bResearchFoundation": "VALIDATED_AND_FROZEN_PENDING_MERGE",
+    "l1bResearchRules": "VALIDATED_AND_FROZEN_PENDING_MERGE",
+    "l1bSuppressionContracts": "VALIDATED_AND_FROZEN_PENDING_MERGE",
+    "l1bFixedCorpus": "VALIDATED_AND_FROZEN_PENDING_MERGE",
+    "l1bFrozenHoldouts": "VALIDATED_AND_FROZEN_PENDING_MERGE",
     "resolverImplementation": "NOT_IMPLEMENTED_AND_NOT_AUTHORIZED",
     "resolverEvaluation": "NOT_AUTHORIZED",
     "physicalPromotion": "BLOCKED",
-    "nextAction": "VALIDATE_EXACT_L1B_HEAD_AND_STOP_PENDING_SEPARATE_AUTHORIZATION"
+    "nextAction": "REVIEW_L1B_PR_AND_STOP_PENDING_SEPARATE_AUTHORIZATION"
   }
 }

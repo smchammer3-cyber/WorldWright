@@ -147,19 +147,25 @@ full-globe review
 all inherited Wave 1, Phase D, Phase C, and Phase M gates
 ```
 
+## Validation evidence
+
+The research checkpoint at commit `9d6ed3bc234d9b8977974d3fa2e0984a670d9741` on draft PR #164 passed all 18 pull-request workflows. This includes the dedicated L1B gate, full tests, build, required diagnostics, the seven-seed causal skeleton harness, legacy physical-output isolation gates, the snapshot canary, and the 384×192 full-globe capture.
+
+Every later documentation or review commit on the PR must pass the same exact-head gates before merge. Passing these gates validates the checkpoint; it does not authorize L1C or make the branch part of `WorldWright-new` before merge.
+
 ## Current verdict
 
 ```text
-L1B scientific-source registry: complete pending exact-head validation
-L1B reviewed research rules: complete pending exact-head validation
-L1B suppression contracts: complete pending exact-head validation
-L1B fixed fixtures: complete pending exact-head validation
-L1B frozen holdouts: complete pending exact-head validation
+L1B scientific-source registry: validated and frozen pending merge
+L1B reviewed research rules: validated and frozen pending merge
+L1B suppression contracts: validated and frozen pending merge
+L1B fixed fixtures: validated and frozen pending merge
+L1B frozen holdouts: validated and frozen pending merge
 landform-potential resolver: not implemented and not authorized
 resolver evaluation: blocked
 threshold calibration: blocked
 geometry and terrain: blocked
 ordinary Generate integration: blocked
 authority promotion: blocked
-next action: validate exact L1B head, then stop pending separate explicit authorization
+next action: review L1B PR, then stop pending separate explicit authorization
 ```
