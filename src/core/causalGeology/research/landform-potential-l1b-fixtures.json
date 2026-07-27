@@ -1,0 +1,1172 @@
+{
+  "schemaVersion": 1,
+  "fixtureSetVersion": "L1B_LANDFORM_POTENTIAL_RESEARCH_FIXTURES_V1",
+  "fixtures": [
+    {
+      "schemaVersion": 1,
+      "fixtureId": "boundary/extensional-inheritance-overlap-v1",
+      "kind": "BOUNDARY",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "EXHUMED_MANTLE_TRANSITION",
+        "MIXED_TRANSITIONAL_PROVINCE",
+        "RIFT_THINNED_CONTINENTAL_PROVINCE"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_MARGIN",
+        "TRANSITIONAL_CRUST"
+      ],
+      "sourceFieldValues": {
+        "projectionConfidence": 0.58,
+        "riftInfluence": 0.54,
+        "transformInfluence": 0.51
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_EXTENSIONAL_RESPONSE_TERM_CANDIDATE",
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedPotentialCandidates": [
+          "EXTENSIONAL_RESPONSE_POTENTIAL",
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "LANDFORM_POTENTIAL_UNRESOLVED",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredResponseModes": [
+          "RESPONSE_UNRESOLVED"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "EXPRESSION_UNRESOLVED"
+        ],
+        "requiredSuppressionClasses": [
+          "SOURCE_EVIDENCE_INSUFFICIENT"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "The normalized overlap is a controlled scenario coordinate, not a universal threshold; inherited endmembers remain unresolved."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "boundary/grain-orientation-missing-v1",
+      "kind": "BOUNDARY",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "STABLE_CONTINENTAL_ROOT"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_INTERIOR"
+      ],
+      "sourceFieldValues": {
+        "persistenceSummary": 0.78,
+        "preservationSummary": 0.81,
+        "projectionConfidence": 0.88,
+        "transformInfluence": 0.72
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL"
+        ],
+        "allowedPotentialCandidates": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "LANDFORM_POTENTIAL_UNRESOLVED",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredResponseModes": [
+          "GRAIN_CONTROLLED_RESPONSE"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "BELT_OR_ZONE_FAMILY",
+          "LINEAR_GRAIN_CONTROLLED_FAMILY"
+        ],
+        "requiredSuppressionClasses": [
+          "SOURCE_EVIDENCE_INSUFFICIENT"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "High scalar inheritance context is not directional evidence; values are scenario coordinates and define no anisotropy threshold."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "boundary/isostatic-source-separation-v1",
+      "kind": "BOUNDARY",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "STABLE_CONTINENTAL_ROOT",
+        "TECTONICALLY_THICKENED_CRUST"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_INTERIOR"
+      ],
+      "sourceFieldValues": {
+        "continentalKernelInfluence": 0.66,
+        "persistenceSummary": 0.7,
+        "plumeInfluence": 0.51,
+        "projectionConfidence": 0.75
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE",
+        "LATER_THICKENING_RESPONSE_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL"
+        ],
+        "allowedPotentialCandidates": [
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+          "LANDFORM_POTENTIAL_UNRESOLVED",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL",
+          "THICKENING_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredResponseModes": [
+          "ISOSTATIC_RESPONSE"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "DISTRIBUTED_LOW_RELIEF_FAMILY",
+          "REGIONAL_SUPPORT_RESPONSE_FAMILY"
+        ],
+        "requiredSuppressionClasses": [
+          "COMPETING_POTENTIALS_UNRESOLVED"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "Crustal, flexural, and deeper support remain unseparated; the controlled values define no compensation threshold or elevation."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "boundary/magmatic-normal-ocean-overlap-v1",
+      "kind": "BOUNDARY",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "MAGMATICALLY_THICKENED_MAFIC_PROVINCE",
+        "NORMAL_OCEANIC_CRUST"
+      ],
+      "sourceStructuralRoles": [
+        "DEEP_OCEAN_BASIN",
+        "OCEANIC_RIDGE_SYSTEM"
+      ],
+      "sourceFieldValues": {
+        "oceanBasinInfluence": 0.82,
+        "plumeInfluence": 0.52,
+        "projectionConfidence": 0.74,
+        "riftInfluence": 0.65
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_MAGMATIC_CONSTRUCTION_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "MAGMATIC_CONSTRUCTION_POTENTIAL"
+        ],
+        "allowedPotentialCandidates": [
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+          "LANDFORM_POTENTIAL_UNRESOLVED",
+          "MAGMATIC_CONSTRUCTION_POTENTIAL",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredResponseModes": [
+          "MAGMATIC_CONSTRUCTION_RESPONSE"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "BELT_OR_ZONE_FAMILY",
+          "BROAD_SWELL_OR_PLATEAU_FAMILY"
+        ],
+        "requiredSuppressionClasses": [
+          "COMPETING_POTENTIALS_UNRESOLVED"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "Normal and anomalously thick oceanic-affinity candidates overlap here; values are not plume or construction thresholds."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "boundary/resistance-evidence-incomplete-v1",
+      "kind": "BOUNDARY",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "RIFT_THINNED_CONTINENTAL_PROVINCE",
+        "STABLE_CONTINENTAL_ROOT"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_INTERIOR",
+        "CONTINENTAL_MARGIN"
+      ],
+      "sourceFieldValues": {
+        "continentalKernelInfluence": 0.64,
+        "persistenceSummary": 0.5,
+        "preservationSummary": 0.51,
+        "projectionConfidence": 0.72,
+        "transformInfluence": 0.44
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL"
+        ],
+        "allowedPotentialCandidates": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+          "LANDFORM_POTENTIAL_UNRESOLVED",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "UNRESOLVED"
+        ],
+        "requiredResponseModes": [
+          "RESISTANCE_CONTRAST_RESPONSE"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "BELT_OR_ZONE_FAMILY",
+          "DISTRIBUTED_LOW_RELIEF_FAMILY"
+        ],
+        "requiredSuppressionClasses": [
+          "SOURCE_EVIDENCE_INSUFFICIENT"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "The controlled vector lacks full neighboring rheology and defines no mechanical-strength threshold."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "boundary/thickening-magmatic-arc-overlap-v1",
+      "kind": "BOUNDARY",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+        "TECTONICALLY_THICKENED_CRUST"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_MARGIN",
+        "VOLCANIC_ARC_SYSTEM"
+      ],
+      "sourceFieldValues": {
+        "accretionInfluence": 0.62,
+        "convergenceInfluence": 0.78,
+        "plumeInfluence": 0.61,
+        "projectionConfidence": 0.83
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_MAGMATIC_CONSTRUCTION_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE",
+        "LATER_THICKENING_RESPONSE_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "MAGMATIC_CONSTRUCTION_POTENTIAL",
+          "THICKENING_RESPONSE_POTENTIAL"
+        ],
+        "allowedPotentialCandidates": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+          "MAGMATIC_CONSTRUCTION_POTENTIAL",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL",
+          "THICKENING_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredResponseModes": [
+          "MAGMATIC_CONSTRUCTION_RESPONSE",
+          "THICKENING_RESPONSE"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "BELT_OR_ZONE_FAMILY",
+          "BROAD_SWELL_OR_PLATEAU_FAMILY",
+          "REGIONAL_SUPPORT_RESPONSE_FAMILY"
+        ],
+        "requiredSuppressionClasses": [
+          "COMPETING_POTENTIALS_UNRESOLVED"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "Arc magmatism and shortening overlap without a unique mechanism; values are scenario coordinates, not class thresholds."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "exception/material-permission-absent-v1",
+      "kind": "EXCEPTION",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "TECTONICALLY_THICKENED_CRUST"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_MARGIN"
+      ],
+      "sourceFieldValues": {
+        "convergenceInfluence": 0.91,
+        "projectionConfidence": 0.94
+      },
+      "sourceTerrainTermPermissions": [
+        "NO_TERRAIN_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedPotentialCandidates": [
+          "LANDFORM_POTENTIAL_UNRESOLVED",
+          "THICKENING_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "LANDFORM_POTENTIAL_UNRESOLVED",
+          "THICKENING_RESPONSE_POTENTIAL"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredResponseModes": [
+          "RESPONSE_UNRESOLVED"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "EXPRESSION_UNRESOLVED"
+        ],
+        "requiredSuppressionClasses": [
+          "MATERIAL_PERMISSION_ABSENT"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "Strong convergence context cannot bypass an absent upstream permission; this exception supplies no threshold."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "exception/structural-role-conflict-v1",
+      "kind": "EXCEPTION",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "TECTONICALLY_THICKENED_CRUST"
+      ],
+      "sourceStructuralRoles": [
+        "DEEP_OCEAN_BASIN"
+      ],
+      "sourceFieldValues": {
+        "convergenceInfluence": 0.86,
+        "projectionConfidence": 0.89
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_THICKENING_RESPONSE_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedPotentialCandidates": [
+          "LANDFORM_POTENTIAL_UNRESOLVED",
+          "THICKENING_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "LANDFORM_POTENTIAL_UNRESOLVED",
+          "THICKENING_RESPONSE_POTENTIAL"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredResponseModes": [
+          "RESPONSE_UNRESOLVED"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "EXPRESSION_UNRESOLVED"
+        ],
+        "requiredSuppressionClasses": [
+          "STRUCTURAL_ROLE_CONFLICT"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "L1B cannot rewrite an incompatible upstream role to rescue an affirmative candidate."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/mixed-rift-magmatic-transition-v1",
+      "kind": "HOLDOUT",
+      "withheldFromRuleDevelopment": true,
+      "sourceProvinceClasses": [
+        "MAGMATICALLY_THICKENED_MAFIC_PROVINCE",
+        "MIXED_TRANSITIONAL_PROVINCE",
+        "RIFT_THINNED_CONTINENTAL_PROVINCE"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_MARGIN",
+        "TRANSITIONAL_CRUST"
+      ],
+      "sourceFieldValues": {
+        "continentalKernelInfluence": 0.42,
+        "oceanBasinInfluence": 0.58,
+        "plumeInfluence": 0.69,
+        "projectionConfidence": 0.84,
+        "riftInfluence": 0.73,
+        "transformInfluence": 0.48
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_EXTENSIONAL_RESPONSE_TERM_CANDIDATE",
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_MAGMATIC_CONSTRUCTION_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "EXTENSIONAL_RESPONSE_POTENTIAL",
+          "MAGMATIC_CONSTRUCTION_POTENTIAL"
+        ],
+        "allowedPotentialCandidates": [
+          "EXTENSIONAL_RESPONSE_POTENTIAL",
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+          "MAGMATIC_CONSTRUCTION_POTENTIAL",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredResponseModes": [
+          "EXTENSIONAL_DEFORMATION_RESPONSE",
+          "MAGMATIC_CONSTRUCTION_RESPONSE"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "BASIN_AND_SHOULDER_FAMILY",
+          "BELT_OR_ZONE_FAMILY",
+          "BROAD_SWELL_OR_PLATEAU_FAMILY"
+        ],
+        "requiredSuppressionClasses": [
+          "COMPETING_POTENTIALS_UNRESOLVED"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "This rift-magmatic overlap is frozen before any resolver design and cannot be used for rule, weight, exception, or threshold tuning."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "holdout/orogenic-strength-thickening-overlap-v1",
+      "kind": "HOLDOUT",
+      "withheldFromRuleDevelopment": true,
+      "sourceProvinceClasses": [
+        "STABLE_CONTINENTAL_ROOT",
+        "TECTONICALLY_THICKENED_CRUST"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_INTERIOR",
+        "CONTINENTAL_MARGIN"
+      ],
+      "sourceFieldValues": {
+        "continentalKernelInfluence": 0.82,
+        "convergenceInfluence": 0.75,
+        "persistenceSummary": 0.86,
+        "preservationSummary": 0.8,
+        "projectionConfidence": 0.9
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE",
+        "LATER_THICKENING_RESPONSE_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL",
+          "THICKENING_RESPONSE_POTENTIAL"
+        ],
+        "allowedPotentialCandidates": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL",
+          "THICKENING_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredResponseModes": [
+          "RESISTANCE_CONTRAST_RESPONSE",
+          "THICKENING_RESPONSE"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "BELT_OR_ZONE_FAMILY",
+          "DISTRIBUTED_LOW_RELIEF_FAMILY",
+          "REGIONAL_SUPPORT_RESPONSE_FAMILY"
+        ],
+        "requiredSuppressionClasses": [
+          "COMPETING_POTENTIALS_UNRESOLVED"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "This strength-thickening overlap is frozen before any resolver design and cannot be used for rule, weight, exception, or threshold tuning."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "negative/permission-only-no-process-evidence-v1",
+      "kind": "NEGATIVE",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "RIFT_THINNED_CONTINENTAL_PROVINCE"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_MARGIN"
+      ],
+      "sourceFieldValues": {
+        "projectionConfidence": 0.92
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_EXTENSIONAL_RESPONSE_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedPotentialCandidates": [
+          "EXTENSIONAL_RESPONSE_POTENTIAL",
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "EXTENSIONAL_RESPONSE_POTENTIAL",
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredResponseModes": [
+          "RESPONSE_UNRESOLVED"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "EXPRESSION_UNRESOLVED"
+        ],
+        "requiredSuppressionClasses": [
+          "SOURCE_EVIDENCE_INSUFFICIENT"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "A permission label and coverage confidence cannot substitute for process-specific causal evidence."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "negative/radial-fields-cannot-orient-grain-v1",
+      "kind": "NEGATIVE",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "STABLE_CONTINENTAL_ROOT"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_INTERIOR"
+      ],
+      "sourceFieldValues": {
+        "persistenceSummary": 0.93,
+        "preservationSummary": 0.91,
+        "projectionConfidence": 0.95,
+        "transformInfluence": 0.84
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedPotentialCandidates": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredResponseModes": [
+          "RESPONSE_UNRESOLVED"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "EXPRESSION_UNRESOLVED"
+        ],
+        "requiredSuppressionClasses": [
+          "SOURCE_EVIDENCE_INSUFFICIENT"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "Even strong scalar fields cannot create an orientation, lineament, belt axis, or grain-controlled geometry."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "negative/sparse-upstream-coverage-v1",
+      "kind": "NEGATIVE",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "STRUCTURE_MATERIAL_UNRESOLVED"
+      ],
+      "sourceStructuralRoles": [
+        "STRUCTURALLY_UNRESOLVED"
+      ],
+      "sourceFieldValues": {
+        "projectionConfidence": 0.08
+      },
+      "sourceTerrainTermPermissions": [
+        "NO_TERRAIN_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedPotentialCandidates": [
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredResponseModes": [
+          "RESPONSE_UNRESOLVED"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "EXPRESSION_UNRESOLVED"
+        ],
+        "requiredSuppressionClasses": [
+          "SPATIAL_COVERAGE_UNRESOLVED"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "Sparse coverage remains explicit and cannot be filled by interpolation, visual continuity, legacy morphology, or neighboring terrain."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "negative/upstream-material-unresolved-v1",
+      "kind": "NEGATIVE",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "STRUCTURE_MATERIAL_UNRESOLVED"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_MARGIN"
+      ],
+      "sourceFieldValues": {
+        "convergenceInfluence": 0.88,
+        "projectionConfidence": 0.9
+      },
+      "sourceTerrainTermPermissions": [
+        "NO_TERRAIN_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedPotentialCandidates": [
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "LANDFORM_POTENTIAL_UNRESOLVED"
+        ],
+        "allowedResolutionStatuses": [
+          "UNRESOLVED"
+        ],
+        "requiredResponseModes": [
+          "RESPONSE_UNRESOLVED"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "EXPRESSION_UNRESOLVED"
+        ],
+        "requiredSuppressionClasses": [
+          "MATERIAL_PERMISSION_ABSENT",
+          "SOURCE_EVIDENCE_INSUFFICIENT"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "A resolved structural role and strong process field cannot bypass unresolved upstream material or an absent permission."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/extensional-rift-transition-v1",
+      "kind": "POSITIVE",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "RIFT_THINNED_CONTINENTAL_PROVINCE"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_MARGIN"
+      ],
+      "sourceFieldValues": {
+        "continentalKernelInfluence": 0.58,
+        "projectionConfidence": 0.91,
+        "riftInfluence": 0.87,
+        "transformInfluence": 0.22
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_EXTENSIONAL_RESPONSE_TERM_CANDIDATE",
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "EXTENSIONAL_RESPONSE_POTENTIAL"
+        ],
+        "allowedPotentialCandidates": [
+          "EXTENSIONAL_RESPONSE_POTENTIAL",
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "SINGLE_LEADING_CANDIDATE"
+        ],
+        "requiredResponseModes": [
+          "EXTENSIONAL_DEFORMATION_RESPONSE"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "BASIN_AND_SHOULDER_FAMILY",
+          "BELT_OR_ZONE_FAMILY"
+        ],
+        "requiredSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ],
+        "forbiddenSuppressionClasses": [
+          "COMPETING_POTENTIALS_UNRESOLVED",
+          "MATERIAL_PERMISSION_ABSENT",
+          "SOURCE_EVIDENCE_INSUFFICIENT",
+          "SPATIAL_COVERAGE_UNRESOLVED",
+          "STRUCTURAL_ROLE_CONFLICT"
+        ]
+      },
+      "limitations": [
+        "This is a controlled partial-candidate relation and does not prescribe a basin, shoulder, margin geometry, or terrain."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/grain-anisotropy-ambiguity-v1",
+      "kind": "POSITIVE",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "STABLE_CONTINENTAL_ROOT"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_INTERIOR"
+      ],
+      "sourceFieldValues": {
+        "persistenceSummary": 0.91,
+        "preservationSummary": 0.88,
+        "projectionConfidence": 0.93,
+        "transformInfluence": 0.68
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL"
+        ],
+        "allowedPotentialCandidates": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES"
+        ],
+        "requiredResponseModes": [
+          "GRAIN_CONTROLLED_RESPONSE"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "BELT_OR_ZONE_FAMILY",
+          "LINEAR_GRAIN_CONTROLLED_FAMILY"
+        ],
+        "requiredSuppressionClasses": [
+          "COMPETING_POTENTIALS_UNRESOLVED"
+        ],
+        "forbiddenSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ]
+      },
+      "limitations": [
+        "The fixture affirms scientific relevance but keeps grain non-leading until oriented upstream evidence exists."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/isostatic-stable-root-v1",
+      "kind": "POSITIVE",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "STABLE_CONTINENTAL_ROOT"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_INTERIOR"
+      ],
+      "sourceFieldValues": {
+        "continentalKernelInfluence": 0.9,
+        "formationAgeSummary": 0.84,
+        "persistenceSummary": 0.93,
+        "projectionConfidence": 0.94
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL"
+        ],
+        "allowedPotentialCandidates": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "SINGLE_LEADING_CANDIDATE"
+        ],
+        "requiredResponseModes": [
+          "ISOSTATIC_RESPONSE"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "DISTRIBUTED_LOW_RELIEF_FAMILY",
+          "REGIONAL_SUPPORT_RESPONSE_FAMILY"
+        ],
+        "requiredSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ],
+        "forbiddenSuppressionClasses": [
+          "COMPETING_POTENTIALS_UNRESOLVED",
+          "MATERIAL_PERMISSION_ABSENT",
+          "SOURCE_EVIDENCE_INSUFFICIENT",
+          "SPATIAL_COVERAGE_UNRESOLVED",
+          "STRUCTURAL_ROLE_CONFLICT"
+        ]
+      },
+      "limitations": [
+        "This is a regional support candidate only and does not compute compensation, elevation, land, or water."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/magmatic-oceanic-plateau-v1",
+      "kind": "POSITIVE",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "MAGMATICALLY_THICKENED_MAFIC_PROVINCE"
+      ],
+      "sourceStructuralRoles": [
+        "DEEP_OCEAN_BASIN"
+      ],
+      "sourceFieldValues": {
+        "oceanBasinInfluence": 0.86,
+        "plumeInfluence": 0.84,
+        "projectionConfidence": 0.92,
+        "riftInfluence": 0.47
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_MAGMATIC_CONSTRUCTION_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "MAGMATIC_CONSTRUCTION_POTENTIAL"
+        ],
+        "allowedPotentialCandidates": [
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+          "MAGMATIC_CONSTRUCTION_POTENTIAL",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "SINGLE_LEADING_CANDIDATE"
+        ],
+        "requiredResponseModes": [
+          "MAGMATIC_CONSTRUCTION_RESPONSE"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "BELT_OR_ZONE_FAMILY",
+          "BROAD_SWELL_OR_PLATEAU_FAMILY"
+        ],
+        "requiredSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ],
+        "forbiddenSuppressionClasses": [
+          "COMPETING_POTENTIALS_UNRESOLVED",
+          "MATERIAL_PERMISSION_ABSENT",
+          "SOURCE_EVIDENCE_INSUFFICIENT",
+          "SPATIAL_COVERAGE_UNRESOLVED",
+          "STRUCTURAL_ROLE_CONFLICT"
+        ]
+      },
+      "limitations": [
+        "Oceanic-affinity construction does not determine plume origin, plateau planform, water state, bathymetry, or relief."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/resistance-stable-frontier-v1",
+      "kind": "POSITIVE",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "STABLE_CONTINENTAL_ROOT",
+        "TECTONICALLY_THICKENED_CRUST"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_INTERIOR",
+        "CONTINENTAL_MARGIN"
+      ],
+      "sourceFieldValues": {
+        "continentalKernelInfluence": 0.83,
+        "persistenceSummary": 0.87,
+        "preservationSummary": 0.82,
+        "projectionConfidence": 0.91,
+        "transformInfluence": 0.39
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE",
+        "LATER_THICKENING_RESPONSE_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL"
+        ],
+        "allowedPotentialCandidates": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL",
+          "THICKENING_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "SINGLE_LEADING_CANDIDATE"
+        ],
+        "requiredResponseModes": [
+          "RESISTANCE_CONTRAST_RESPONSE"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "BELT_OR_ZONE_FAMILY",
+          "DISTRIBUTED_LOW_RELIEF_FAMILY"
+        ],
+        "requiredSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ],
+        "forbiddenSuppressionClasses": [
+          "COMPETING_POTENTIALS_UNRESOLVED",
+          "MATERIAL_PERMISSION_ABSENT",
+          "SOURCE_EVIDENCE_INSUFFICIENT",
+          "SPATIAL_COVERAGE_UNRESOLVED",
+          "STRUCTURAL_ROLE_CONFLICT"
+        ]
+      },
+      "limitations": [
+        "The fixture represents a reviewed mechanical contrast candidate and creates no relief, erosion pattern, or terrain boundary."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "fixtureId": "positive/thickening-convergent-margin-v1",
+      "kind": "POSITIVE",
+      "withheldFromRuleDevelopment": false,
+      "sourceProvinceClasses": [
+        "TECTONICALLY_THICKENED_CRUST"
+      ],
+      "sourceStructuralRoles": [
+        "CONTINENTAL_MARGIN"
+      ],
+      "sourceFieldValues": {
+        "accretionInfluence": 0.63,
+        "continentalKernelInfluence": 0.76,
+        "convergenceInfluence": 0.91,
+        "persistenceSummary": 0.79,
+        "projectionConfidence": 0.94
+      },
+      "sourceTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE",
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE",
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE",
+        "LATER_THICKENING_RESPONSE_TERM_CANDIDATE"
+      ],
+      "expected": {
+        "scientificStatus": "PARTIAL",
+        "requiredPotentialCandidates": [
+          "THICKENING_RESPONSE_POTENTIAL"
+        ],
+        "allowedPotentialCandidates": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+          "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+          "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL",
+          "THICKENING_RESPONSE_POTENTIAL"
+        ],
+        "forbiddenLeadingPotentialClasses": [
+          "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL"
+        ],
+        "allowedResolutionStatuses": [
+          "AMBIGUOUS_CANDIDATES",
+          "SINGLE_LEADING_CANDIDATE"
+        ],
+        "requiredResponseModes": [
+          "THICKENING_RESPONSE"
+        ],
+        "requiredSpatialExpressionCandidates": [
+          "BELT_OR_ZONE_FAMILY",
+          "REGIONAL_SUPPORT_RESPONSE_FAMILY"
+        ],
+        "requiredSuppressionClasses": [
+          "NO_SUPPRESSION_CLAIM"
+        ],
+        "forbiddenSuppressionClasses": [
+          "COMPETING_POTENTIALS_UNRESOLVED",
+          "MATERIAL_PERMISSION_ABSENT",
+          "SOURCE_EVIDENCE_INSUFFICIENT",
+          "SPATIAL_COVERAGE_UNRESOLVED",
+          "STRUCTURAL_ROLE_CONFLICT"
+        ]
+      },
+      "limitations": [
+        "The fixture supports only a thickening-response candidate and does not assert a mountain, plateau, geometry, height, or terrain."
+      ]
+    }
+  ]
+}

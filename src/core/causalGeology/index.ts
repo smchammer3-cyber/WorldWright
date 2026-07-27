@@ -36,6 +36,7 @@ export * from './structureMaterialResearchContracts';
 export * from './structureMaterialFixtureContracts';
 export * from './structureMaterialResolver';
 export * from './landformPotential';
+export * from './landformPotentialResearchContracts';
 export * from './shadowAudit';
 export * from './shadowThresholdCoverage';
 export * from './shadowArchetypeCoverage';

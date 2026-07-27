@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "reviewVersion": "L1B_LANDFORM_POTENTIAL_RESEARCH_REVIEW_V1",
+  "bundleVersion": "L1B_LANDFORM_POTENTIAL_RESEARCH_BUNDLE_V1",
+  "ruleSetVersion": "L1B_LANDFORM_POTENTIAL_RESEARCH_RULES_V1",
+  "fixtureSetVersion": "L1B_LANDFORM_POTENTIAL_RESEARCH_FIXTURES_V1",
+  "reviewStatus": "APPROVED_FOR_FIXED_RESEARCH_CORPUS_ONLY",
+  "reviewer": "WorldWright L1B landform-potential research gate",
+  "reviewDate": "2026-07-27",
+  "scope": "Source-backed scientific claims, conditional potential relations, suppression guards, fixed positives, negatives, boundaries, exceptions, and frozen holdouts only; no resolver, evaluation, calibration, geometry, terrain, Generate integration, or authority promotion.",
+  "completeEligiblePotentialRuleIds": [],
+  "partialCandidatePotentialRuleIds": [
+    "l1b.rule.extensional-response-v1",
+    "l1b.rule.isostatic-support-response-v1",
+    "l1b.rule.magmatic-construction-v1",
+    "l1b.rule.resistance-contrast-response-v1",
+    "l1b.rule.thickening-response-v1"
+  ],
+  "researchRequiredPotentialRuleIds": [
+    "l1b.rule.grain-anisotropy-response-v1"
+  ],
+  "failClosedPotentialRuleIds": [
+    "l1b.rule.landform-potential-unresolved-v1"
+  ],
+  "suppressionRuleIds": [
+    "l1b.suppression.competing-potentials-unresolved-v1",
+    "l1b.suppression.material-permission-absent-v1",
+    "l1b.suppression.no-suppression-claim-v1",
+    "l1b.suppression.source-evidence-insufficient-v1",
+    "l1b.suppression.spatial-coverage-unresolved-v1",
+    "l1b.suppression.structural-role-conflict-v1"
+  ],
+  "corpusResearchAuthorized": true,
+  "futureResolverEntryAuthorizedByThisReview": false,
+  "resolverImplementationAuthorized": false,
+  "resolverEvaluationAuthorized": false,
+  "thresholdCalibrationAuthorized": false,
+  "generatedWorldFrequencyFittingAuthorized": false,
+  "holdoutTuningAuthorized": false,
+  "causalActiveAuthorized": false,
+  "landformPotentialAuthorityAuthorized": false,
+  "baseTerrainAuthorityAuthorized": false,
+  "terrainAuthorityAuthorized": false,
+  "geometryOrElevationAuthorized": false,
+  "physicalOutputAuthorized": false,
+  "ordinaryGenerateInvocationAuthorized": false,
+  "legacyMorphologyInputAuthorized": false,
+  "legacyRetirementAuthorized": false,
+  "surfaceExposureInputAuthorized": false
+}
