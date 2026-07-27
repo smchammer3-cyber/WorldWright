@@ -1,0 +1,573 @@
+{
+  "schemaVersion": 1,
+  "ruleSetVersion": "L1B_LANDFORM_POTENTIAL_RESEARCH_RULES_V1",
+  "potentialRules": [
+    {
+      "schemaVersion": 1,
+      "ruleId": "l1b.rule.extensional-response-v1",
+      "potentialClass": "EXTENSIONAL_RESPONSE_POTENTIAL",
+      "version": 1,
+      "researchStatus": "RESEARCH_REQUIRED",
+      "genericClaimRuleIds": [
+        "l1b.claim.extensional-lithosphere-has-multiple-response-modes-v1",
+        "l1b.claim.rift-extension-is-conditionally-segmented-v1",
+        "l1b.claim.rift-unloading-can-produce-flexural-flank-response-v1"
+      ],
+      "compatibleProvinceClasses": [
+        "EXHUMED_MANTLE_TRANSITION",
+        "MIXED_TRANSITIONAL_PROVINCE",
+        "RIFT_THINNED_CONTINENTAL_PROVINCE"
+      ],
+      "compatibleStructuralRoles": [
+        "CONTINENTAL_MARGIN",
+        "CONTINENTAL_SLOPE",
+        "DROWNED_CONTINENTAL_FRAGMENT",
+        "OCEANIC_RIDGE_SYSTEM",
+        "TRANSITIONAL_CRUST"
+      ],
+      "allowedFieldIds": [
+        "continentalKernelInfluence",
+        "oceanBasinInfluence",
+        "projectionConfidence",
+        "riftInfluence",
+        "transformInfluence"
+      ],
+      "requiredTerrainTermPermissions": [
+        "LATER_EXTENSIONAL_RESPONSE_TERM_CANDIDATE"
+      ],
+      "allowedResponseModes": [
+        "EXTENSIONAL_DEFORMATION_RESPONSE"
+      ],
+      "allowedSpatialExpressions": [
+        "BASIN_AND_SHOULDER_FAMILY",
+        "BELT_OR_ZONE_FAMILY"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE",
+        "UNRESOLVED"
+      ],
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "futureResolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
+      "exceptions": [
+        "Extensional systems may be magma-rich, magma-poor, narrow, wide, diffuse, localized, inherited, segmented, or later overprinted.",
+        "Rift-flank flexure is conditional and cannot be converted into a mandatory shoulder."
+      ],
+      "limitations": [
+        "The reviewed relation permits only a future partial extensional candidate and supplies no rift geometry, basin depth, shoulder height, score, or threshold."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "l1b.rule.grain-anisotropy-response-v1",
+      "potentialClass": "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL",
+      "version": 1,
+      "researchStatus": "RESEARCH_REQUIRED",
+      "genericClaimRuleIds": [
+        "l1b.claim.inherited-mantle-structure-can-segment-rifts-v1",
+        "l1b.claim.penetrative-anisotropy-can-guide-fault-response-v1"
+      ],
+      "compatibleProvinceClasses": [
+        "EXHUMED_MANTLE_TRANSITION",
+        "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+        "MAGMATICALLY_THICKENED_MAFIC_PROVINCE",
+        "MIXED_TRANSITIONAL_PROVINCE",
+        "NORMAL_OCEANIC_CRUST",
+        "RIFT_THINNED_CONTINENTAL_PROVINCE",
+        "STABLE_CONTINENTAL_ROOT",
+        "TECTONICALLY_THICKENED_CRUST"
+      ],
+      "compatibleStructuralRoles": [
+        "CONTINENTAL_INTERIOR",
+        "CONTINENTAL_MARGIN",
+        "CONTINENTAL_SHELF",
+        "CONTINENTAL_SLOPE",
+        "DEEP_OCEAN_BASIN",
+        "DROWNED_CONTINENTAL_FRAGMENT",
+        "OCEANIC_RIDGE_SYSTEM",
+        "TRANSITIONAL_CRUST",
+        "VOLCANIC_ARC_SYSTEM"
+      ],
+      "allowedFieldIds": [
+        "convergenceInfluence",
+        "persistenceSummary",
+        "preservationSummary",
+        "projectionConfidence",
+        "riftInfluence",
+        "transformInfluence"
+      ],
+      "requiredTerrainTermPermissions": [
+        "LATER_GRAIN_ANISOTROPY_TERM_CANDIDATE"
+      ],
+      "allowedResponseModes": [
+        "GRAIN_CONTROLLED_RESPONSE"
+      ],
+      "allowedSpatialExpressions": [
+        "BELT_OR_ZONE_FAMILY",
+        "LINEAR_GRAIN_CONTROLLED_FAMILY"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "UNRESOLVED"
+      ],
+      "evidenceStatus": "RESEARCH_REQUIRED",
+      "futureResolverDisposition": "AMBIGUITY_OR_UNRESOLVED_ONLY",
+      "exceptions": [
+        "Inherited grain can be erased, rotated, crosscut, decoupled from cover, or dominated by later boundary conditions.",
+        "Scalar radial fields cannot establish anisotropy orientation or line geometry."
+      ],
+      "limitations": [
+        "The mechanism is scientifically supported, but current upstream representation lacks an oriented tensor or structural geometry, so the candidate cannot lead."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "l1b.rule.isostatic-support-response-v1",
+      "potentialClass": "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+      "version": 1,
+      "researchStatus": "RESEARCH_REQUIRED",
+      "genericClaimRuleIds": [
+        "l1b.claim.airy-isostasy-is-not-a-universal-support-model-v1",
+        "l1b.claim.isostatic-and-dynamic-support-must-remain-separated-v1",
+        "l1b.claim.variable-flexural-rigidity-changes-load-response-v1"
+      ],
+      "compatibleProvinceClasses": [
+        "EXHUMED_MANTLE_TRANSITION",
+        "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+        "MAGMATICALLY_THICKENED_MAFIC_PROVINCE",
+        "MIXED_TRANSITIONAL_PROVINCE",
+        "NORMAL_OCEANIC_CRUST",
+        "RIFT_THINNED_CONTINENTAL_PROVINCE",
+        "STABLE_CONTINENTAL_ROOT",
+        "TECTONICALLY_THICKENED_CRUST"
+      ],
+      "compatibleStructuralRoles": [
+        "CONTINENTAL_INTERIOR",
+        "CONTINENTAL_MARGIN",
+        "CONTINENTAL_SHELF",
+        "CONTINENTAL_SLOPE",
+        "DEEP_OCEAN_BASIN",
+        "DROWNED_CONTINENTAL_FRAGMENT",
+        "OCEANIC_RIDGE_SYSTEM",
+        "TRANSITIONAL_CRUST",
+        "VOLCANIC_ARC_SYSTEM"
+      ],
+      "allowedFieldIds": [
+        "continentalKernelInfluence",
+        "formationAgeSummary",
+        "oceanBasinInfluence",
+        "persistenceSummary",
+        "plumeInfluence",
+        "projectionConfidence"
+      ],
+      "requiredTerrainTermPermissions": [
+        "LATER_ISOSTATIC_SUPPORT_TERM_CANDIDATE"
+      ],
+      "allowedResponseModes": [
+        "ISOSTATIC_RESPONSE"
+      ],
+      "allowedSpatialExpressions": [
+        "DISTRIBUTED_LOW_RELIEF_FAMILY",
+        "REGIONAL_SUPPORT_RESPONSE_FAMILY"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE",
+        "UNRESOLVED"
+      ],
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "futureResolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
+      "exceptions": [
+        "Dynamic mantle support, loading history, phase changes, density heterogeneity, and lateral rigidity can dominate or alter simple compensation.",
+        "Relative buoyancy and thickness do not independently determine land, water, sea level, or elevation."
+      ],
+      "limitations": [
+        "The reviewed relation permits only a future partial support candidate and intentionally defines no Airy formula, flexure solver, height, or universal parameter."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "l1b.rule.landform-potential-unresolved-v1",
+      "potentialClass": "LANDFORM_POTENTIAL_UNRESOLVED",
+      "version": 1,
+      "researchStatus": "UNRESOLVED",
+      "genericClaimRuleIds": [],
+      "compatibleProvinceClasses": [
+        "EXHUMED_MANTLE_TRANSITION",
+        "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+        "MAGMATICALLY_THICKENED_MAFIC_PROVINCE",
+        "MIXED_TRANSITIONAL_PROVINCE",
+        "NORMAL_OCEANIC_CRUST",
+        "RIFT_THINNED_CONTINENTAL_PROVINCE",
+        "STABLE_CONTINENTAL_ROOT",
+        "STRUCTURE_MATERIAL_UNRESOLVED",
+        "TECTONICALLY_THICKENED_CRUST"
+      ],
+      "compatibleStructuralRoles": [
+        "CONTINENTAL_INTERIOR",
+        "CONTINENTAL_MARGIN",
+        "CONTINENTAL_SHELF",
+        "CONTINENTAL_SLOPE",
+        "DEEP_OCEAN_BASIN",
+        "DROWNED_CONTINENTAL_FRAGMENT",
+        "OCEANIC_RIDGE_SYSTEM",
+        "STRUCTURALLY_UNRESOLVED",
+        "TRANSITIONAL_CRUST",
+        "VOLCANIC_ARC_SYSTEM"
+      ],
+      "allowedFieldIds": [],
+      "requiredTerrainTermPermissions": [
+        "NO_TERRAIN_TERM_CANDIDATE"
+      ],
+      "allowedResponseModes": [
+        "RESPONSE_UNRESOLVED"
+      ],
+      "allowedSpatialExpressions": [
+        "EXPRESSION_UNRESOLVED"
+      ],
+      "allowedResolutionStatuses": [
+        "UNRESOLVED"
+      ],
+      "evidenceStatus": "FAIL_CLOSED",
+      "futureResolverDisposition": "FAIL_CLOSED_ONLY",
+      "exceptions": [],
+      "limitations": [
+        "This state carries no affirmative scientific class evidence and remains mandatory when source support is absent, incompatible, competing, or spatially unresolved."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "l1b.rule.magmatic-construction-v1",
+      "potentialClass": "MAGMATIC_CONSTRUCTION_POTENTIAL",
+      "version": 1,
+      "researchStatus": "RESEARCH_REQUIRED",
+      "genericClaimRuleIds": [
+        "l1b.claim.mafic-underplating-can-add-crustal-support-v1",
+        "l1b.claim.oceanic-plateaus-record-anomalous-magmatic-construction-v1",
+        "l1b.claim.volcanic-margin-magmatism-can-build-thick-crust-v1"
+      ],
+      "compatibleProvinceClasses": [
+        "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+        "MAGMATICALLY_THICKENED_MAFIC_PROVINCE",
+        "NORMAL_OCEANIC_CRUST"
+      ],
+      "compatibleStructuralRoles": [
+        "DEEP_OCEAN_BASIN",
+        "OCEANIC_RIDGE_SYSTEM",
+        "TRANSITIONAL_CRUST",
+        "VOLCANIC_ARC_SYSTEM"
+      ],
+      "allowedFieldIds": [
+        "accretionInfluence",
+        "convergenceInfluence",
+        "oceanBasinInfluence",
+        "plumeInfluence",
+        "projectionConfidence",
+        "riftInfluence"
+      ],
+      "requiredTerrainTermPermissions": [
+        "LATER_MAGMATIC_CONSTRUCTION_TERM_CANDIDATE"
+      ],
+      "allowedResponseModes": [
+        "MAGMATIC_CONSTRUCTION_RESPONSE"
+      ],
+      "allowedSpatialExpressions": [
+        "BELT_OR_ZONE_FAMILY",
+        "BROAD_SWELL_OR_PLATEAU_FAMILY"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE",
+        "UNRESOLVED"
+      ],
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "futureResolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
+      "exceptions": [
+        "High melt production does not uniquely identify plume, rift, arc, or underplating origin.",
+        "Normal spreading, magma-poor rifting, or an arc role does not guarantee anomalous magmatic construction."
+      ],
+      "limitations": [
+        "The reviewed relation permits only a future partial construction candidate and cannot assert a volcano, plateau, exposed lava, geometry, water state, or height."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "l1b.rule.resistance-contrast-response-v1",
+      "potentialClass": "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL",
+      "version": 1,
+      "researchStatus": "RESEARCH_REQUIRED",
+      "genericClaimRuleIds": [
+        "l1b.claim.lateral-lower-crustal-strength-controls-deformation-response-v1",
+        "l1b.claim.strength-heterogeneity-modifies-orogenic-response-v1"
+      ],
+      "compatibleProvinceClasses": [
+        "EXHUMED_MANTLE_TRANSITION",
+        "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+        "MAGMATICALLY_THICKENED_MAFIC_PROVINCE",
+        "MIXED_TRANSITIONAL_PROVINCE",
+        "NORMAL_OCEANIC_CRUST",
+        "RIFT_THINNED_CONTINENTAL_PROVINCE",
+        "STABLE_CONTINENTAL_ROOT",
+        "TECTONICALLY_THICKENED_CRUST"
+      ],
+      "compatibleStructuralRoles": [
+        "CONTINENTAL_INTERIOR",
+        "CONTINENTAL_MARGIN",
+        "CONTINENTAL_SHELF",
+        "CONTINENTAL_SLOPE",
+        "DEEP_OCEAN_BASIN",
+        "DROWNED_CONTINENTAL_FRAGMENT",
+        "OCEANIC_RIDGE_SYSTEM",
+        "TRANSITIONAL_CRUST",
+        "VOLCANIC_ARC_SYSTEM"
+      ],
+      "allowedFieldIds": [
+        "continentalKernelInfluence",
+        "formationAgeSummary",
+        "persistenceSummary",
+        "preservationSummary",
+        "projectionConfidence",
+        "transformInfluence"
+      ],
+      "requiredTerrainTermPermissions": [
+        "LATER_RESISTANCE_CONTRAST_TERM_CANDIDATE"
+      ],
+      "allowedResponseModes": [
+        "RESISTANCE_CONTRAST_RESPONSE"
+      ],
+      "allowedSpatialExpressions": [
+        "BELT_OR_ZONE_FAMILY",
+        "DISTRIBUTED_LOW_RELIEF_FAMILY"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE",
+        "UNRESOLVED"
+      ],
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "futureResolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
+      "exceptions": [
+        "Current scalar fields do not fully represent temperature, pressure, fluids, strain rate, damage, grain size, or neighboring rheology.",
+        "Resistance contrast can guide deformation without creating preserved relief or an erosion pattern."
+      ],
+      "limitations": [
+        "The reviewed relation permits only a future partial mechanical-response candidate and supplies no boundary geometry, relief, erosion, or terrain term."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "l1b.rule.thickening-response-v1",
+      "potentialClass": "THICKENING_RESPONSE_POTENTIAL",
+      "version": 1,
+      "researchStatus": "RESEARCH_REQUIRED",
+      "genericClaimRuleIds": [
+        "l1b.claim.collision-rheology-distributes-shortening-response-v1",
+        "l1b.claim.continental-shortening-can-support-thickening-response-v1"
+      ],
+      "compatibleProvinceClasses": [
+        "JUVENILE_CONTINENTAL_OR_ARC_CRUST",
+        "TECTONICALLY_THICKENED_CRUST"
+      ],
+      "compatibleStructuralRoles": [
+        "CONTINENTAL_INTERIOR",
+        "CONTINENTAL_MARGIN",
+        "TRANSITIONAL_CRUST",
+        "VOLCANIC_ARC_SYSTEM"
+      ],
+      "allowedFieldIds": [
+        "accretionInfluence",
+        "continentalKernelInfluence",
+        "convergenceInfluence",
+        "persistenceSummary",
+        "projectionConfidence"
+      ],
+      "requiredTerrainTermPermissions": [
+        "LATER_THICKENING_RESPONSE_TERM_CANDIDATE"
+      ],
+      "allowedResponseModes": [
+        "THICKENING_RESPONSE"
+      ],
+      "allowedSpatialExpressions": [
+        "BELT_OR_ZONE_FAMILY",
+        "REGIONAL_SUPPORT_RESPONSE_FAMILY"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE",
+        "UNRESOLVED"
+      ],
+      "evidenceStatus": "REVIEWED_FOR_PARTIAL_CANDIDATE",
+      "futureResolverDisposition": "FUTURE_PARTIAL_CANDIDATE_ONLY",
+      "exceptions": [
+        "Convergence and thick crust do not uniquely imply a mountain belt or plateau.",
+        "Crustal thickening may be modified by extension, erosion, lower-crustal flow, delamination, thermal weakening, or magmatism."
+      ],
+      "limitations": [
+        "The reviewed relation permits only a future partial thickening-response candidate and assigns no mountain, plateau, geometry, elevation, or terrain."
+      ]
+    }
+  ],
+  "suppressionRules": [
+    {
+      "schemaVersion": 1,
+      "ruleId": "l1b.suppression.competing-potentials-unresolved-v1",
+      "suppressionClass": "COMPETING_POTENTIALS_UNRESOLVED",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "l1b.claim.competing-deep-processes-prevent-unique-landform-inference-v1",
+        "l1b.claim.permissions-and-coverage-fail-closed-v1"
+      ],
+      "allowedFieldIds": [],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "UNRESOLVED"
+      ],
+      "evidenceStatus": "FAIL_CLOSED_GUARD",
+      "futureResolverDisposition": "FUTURE_SUPPRESSION_CANDIDATE_ONLY",
+      "triggeringConditions": [
+        "Independent source-backed mechanisms remain plausible and present evidence cannot separate them.",
+        "Two or more affirmative potential families have materially overlapping support without an independently justified leader."
+      ],
+      "exceptions": [
+        "A later phase may resolve the competition only with new, source-specific upstream evidence and separate review."
+      ],
+      "limitations": [
+        "This rule preserves ambiguity and defines no score difference or tie-breaking algorithm."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "l1b.suppression.material-permission-absent-v1",
+      "suppressionClass": "MATERIAL_PERMISSION_ABSENT",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "l1b.claim.permissions-and-coverage-fail-closed-v1"
+      ],
+      "allowedFieldIds": [],
+      "allowedResolutionStatuses": [
+        "UNRESOLVED"
+      ],
+      "evidenceStatus": "FAIL_CLOSED_GUARD",
+      "futureResolverDisposition": "FUTURE_SUPPRESSION_CANDIDATE_ONLY",
+      "triggeringConditions": [
+        "The required terrain-term permission is absent from the source structure-material candidate."
+      ],
+      "exceptions": [],
+      "limitations": [
+        "A strong scalar process field cannot bypass an absent material permission."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "l1b.suppression.no-suppression-claim-v1",
+      "suppressionClass": "NO_SUPPRESSION_CLAIM",
+      "version": 1,
+      "genericClaimRuleIds": [],
+      "allowedFieldIds": [],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "SINGLE_LEADING_CANDIDATE"
+      ],
+      "evidenceStatus": "ZERO_SUPPORT_SENTINEL",
+      "futureResolverDisposition": "ZERO_SUPPORT_SENTINEL_ONLY",
+      "triggeringConditions": [
+        "No fail-closed suppression condition is supported in the controlled research fixture."
+      ],
+      "exceptions": [
+        "The sentinel cannot be used when evidence, role, permission, competition, or coverage remains unresolved."
+      ],
+      "limitations": [
+        "This sentinel carries zero suppression support and is not affirmative scientific evidence."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "l1b.suppression.source-evidence-insufficient-v1",
+      "suppressionClass": "SOURCE_EVIDENCE_INSUFFICIENT",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "l1b.claim.permissions-and-coverage-fail-closed-v1",
+        "l1b.claim.upstream-causal-records-only-v1"
+      ],
+      "allowedFieldIds": [
+        "accretionInfluence",
+        "continentalKernelInfluence",
+        "convergenceInfluence",
+        "formationAgeSummary",
+        "oceanBasinInfluence",
+        "persistenceSummary",
+        "plumeInfluence",
+        "preservationSummary",
+        "projectionConfidence",
+        "riftInfluence",
+        "transformInfluence"
+      ],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "UNRESOLVED"
+      ],
+      "evidenceStatus": "FAIL_CLOSED_GUARD",
+      "futureResolverDisposition": "FUTURE_SUPPRESSION_CANDIDATE_ONLY",
+      "triggeringConditions": [
+        "Available upstream evidence is absent, contradictory, provenance-incomplete, or insufficient for an affirmative potential relation.",
+        "Only a permission label or one nonspecific scalar field is present."
+      ],
+      "exceptions": [
+        "A future phase may add independently reviewed upstream evidence but cannot substitute legacy morphology or surface state."
+      ],
+      "limitations": [
+        "L1B defines the failure condition qualitatively and does not establish a minimum numeric score."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "l1b.suppression.spatial-coverage-unresolved-v1",
+      "suppressionClass": "SPATIAL_COVERAGE_UNRESOLVED",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "l1b.claim.permissions-and-coverage-fail-closed-v1"
+      ],
+      "allowedFieldIds": [
+        "projectionConfidence"
+      ],
+      "allowedResolutionStatuses": [
+        "UNRESOLVED"
+      ],
+      "evidenceStatus": "FAIL_CLOSED_GUARD",
+      "futureResolverDisposition": "FUTURE_SUPPRESSION_CANDIDATE_ONLY",
+      "triggeringConditions": [
+        "Upstream structural or process-field coverage is too sparse to support a local candidate."
+      ],
+      "exceptions": [],
+      "limitations": [
+        "Sparse regions remain explicit and cannot be filled by arbitrary interpolation or visual convenience."
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "ruleId": "l1b.suppression.structural-role-conflict-v1",
+      "suppressionClass": "STRUCTURAL_ROLE_CONFLICT",
+      "version": 1,
+      "genericClaimRuleIds": [
+        "l1b.claim.permissions-and-coverage-fail-closed-v1",
+        "l1b.claim.upstream-causal-records-only-v1"
+      ],
+      "allowedFieldIds": [],
+      "allowedResolutionStatuses": [
+        "AMBIGUOUS_CANDIDATES",
+        "UNRESOLVED"
+      ],
+      "evidenceStatus": "FAIL_CLOSED_GUARD",
+      "futureResolverDisposition": "FUTURE_SUPPRESSION_CANDIDATE_ONLY",
+      "triggeringConditions": [
+        "The source structural role is incompatible with the affirmative potential's immutable L1A compatibility contract."
+      ],
+      "exceptions": [
+        "A separately reviewed upstream structural-role correction may remove the conflict; L1B cannot rewrite that role."
+      ],
+      "limitations": [
+        "The suppression preserves upstream ownership and cannot invent a replacement structural role."
+      ]
+    }
+  ]
+}

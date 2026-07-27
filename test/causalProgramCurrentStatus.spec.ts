@@ -9,7 +9,7 @@ import {
 
 interface CausalProgramCurrentStatusV1 {
   readonly schemaVersion: 1;
-  readonly statusVersion: 'CAUSAL_PROGRAM_CURRENT_STATUS_AFTER_M1A_V1';
+  readonly statusVersion: 'CAUSAL_PROGRAM_CURRENT_STATUS_AFTER_L1B_V1';
   readonly auditBaseCommit: string;
   readonly historicReadinessArtifactsAreImmutableSnapshots: true;
   readonly authorityMode: 'CAUSAL_SHADOW';
@@ -19,14 +19,17 @@ interface CausalProgramCurrentStatusV1 {
   readonly visiblePhysicalOutputChanged: false;
   readonly scientificStatus: 'PARTIAL';
   readonly completedSoftwareMilestones: readonly string[];
-  readonly currentAuthorizedScope: 'M1B_RESEARCH_FIXTURES_NEGATIVES_EXCEPTIONS_AND_HOLDOUTS_ONLY';
+  readonly currentAuthorizedScope: 'NONE_AFTER_L1B_RESEARCH_PENDING_SEPARATE_EXPLICIT_AUTHORIZATION';
   readonly resolverImplementationAuthorized: false;
+  readonly resolverEvaluationAuthorized: false;
   readonly thresholdCalibrationAuthorized: false;
+  readonly geometryOrElevationAuthorized: false;
+  readonly ordinaryGenerateIntegrationAuthorized: false;
   readonly physicalPromotionAuthorized: false;
   readonly legacyRetirementAuthorized: false;
   readonly requiredRegressionGates: readonly string[];
   readonly openAuditBoundaries: readonly string[];
-  readonly nextAction: 'BUILD_M1B_FIXED_RESEARCH_CORPUS_WITHOUT_RESOLVER_CODE';
+  readonly nextAction: 'REVIEW_L1B_PR_AND_STOP_PENDING_SEPARATE_AUTHORIZATION';
 }
 
 const status = JSON.parse(readFileSync(resolve(
@@ -40,7 +43,9 @@ const requiredMilestones = [
   'WAVE_1_DETACHED_CAUSAL_RECORDS',
   'PHASE_D_DETACHED_PROCESS_FIELD_PROJECTION',
   'PHASE_C_DETACHED_STRUCTURAL_INTERPRETATION',
-  'M1A_STRUCTURE_MATERIAL_CONTRACTS_AND_RESEARCH',
+  'PHASE_M_DETACHED_STRUCTURE_MATERIAL_INTERPRETATION',
+  'L1A_DETACHED_LANDFORM_POTENTIAL_CONTRACTS',
+  'L1B_LANDFORM_POTENTIAL_RESEARCH_PACKAGE',
 ] as const;
 
 const requiredGates = [
@@ -55,13 +60,17 @@ const requiredGates = [
   'C1_EXACT_OWNED_FIELD_FIREWALL',
   'C1_RESOLUTION_STATE_EXCLUSIVITY',
   'M1A_AUTHORITY_AND_RESEARCH_FIREWALL',
+  'M1B_RESEARCH_CORPUS_AND_HOLDOUT_FIREWALL',
+  'M1C_DETACHED_RESOLVER_AUTHORITY_FIREWALL',
+  'L1A_LANDFORM_POTENTIAL_CONTRACT_FIREWALL',
+  'L1B_RESEARCH_ONLY_AND_HOLDOUT_FIREWALL',
 ] as const;
 
-describe('current causal-program direction after M1A', () => {
+describe('current causal-program direction after L1B research', () => {
   it('distinguishes current direction from immutable historical readiness snapshots', () => {
     expect(status).toMatchObject({
       schemaVersion: 1,
-      statusVersion: 'CAUSAL_PROGRAM_CURRENT_STATUS_AFTER_M1A_V1',
+      statusVersion: 'CAUSAL_PROGRAM_CURRENT_STATUS_AFTER_L1B_V1',
       historicReadinessArtifactsAreImmutableSnapshots: true,
       authorityMode: 'CAUSAL_SHADOW',
       physicalGeneratorAuthority: 'LEGACY',
@@ -69,18 +78,24 @@ describe('current causal-program direction after M1A', () => {
       ordinaryGenerateChanged: false,
       visiblePhysicalOutputChanged: false,
       scientificStatus: 'PARTIAL',
-      currentAuthorizedScope: 'M1B_RESEARCH_FIXTURES_NEGATIVES_EXCEPTIONS_AND_HOLDOUTS_ONLY',
+      currentAuthorizedScope: 'NONE_AFTER_L1B_RESEARCH_PENDING_SEPARATE_EXPLICIT_AUTHORIZATION',
       resolverImplementationAuthorized: false,
+      resolverEvaluationAuthorized: false,
       thresholdCalibrationAuthorized: false,
+      geometryOrElevationAuthorized: false,
+      ordinaryGenerateIntegrationAuthorized: false,
       physicalPromotionAuthorized: false,
       legacyRetirementAuthorized: false,
-      nextAction: 'BUILD_M1B_FIXED_RESEARCH_CORPUS_WITHOUT_RESOLVER_CODE',
+      nextAction: 'REVIEW_L1B_PR_AND_STOP_PENDING_SEPARATE_AUTHORIZATION',
     });
     expect(status.auditBaseCommit).toMatch(commitPattern);
     expect(status.completedSoftwareMilestones).toEqual(requiredMilestones);
     expect(status.requiredRegressionGates).toEqual(requiredGates);
     expect(status.openAuditBoundaries).toContain(
-      'WAVE_1_CORE_RECORD_EXACT_KEY_REVIEW_REMAINS_SEPARATE_FROM_THIS_D1_C1_M1A_REGRESSION_AUDIT',
+      'FUTURE_LANDFORM_RESOLVER_PROTOCOL_REQUIRES_SEPARATE_EXPLICIT_AUTHORIZATION',
+    );
+    expect(status.openAuditBoundaries).toContain(
+      'GRAIN_ANISOTROPY_ORIENTATION_REPRESENTATION_REMAINS_OPEN',
     );
   });
 

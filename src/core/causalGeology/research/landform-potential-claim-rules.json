@@ -1,0 +1,361 @@
+[
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.airy-isostasy-is-not-a-universal-support-model-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.kirby-2019-airy-isostasy-limitations"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Simple Airy compensation assumptions can misrepresent support where density structure, loading, or lithospheric mechanics differ, so isostatic potential cannot be a direct elevation formula.",
+    "weightRationale": "The claim limits false certainty and contributes no numeric coefficient or threshold.",
+    "correlationGroupId": "l1b.airy-limitations",
+    "exceptions": [
+      "A locally appropriate Airy approximation can remain useful when its assumptions and uncertainty are independently established."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.collision-rheology-distributes-shortening-response-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.xie-et-al-2023-collision-shortening"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Contrasts in lithospheric strength can phase and redistribute collision-related shortening, supporting a conditional thickening response without fixing its geometry.",
+    "weightRationale": "The claim supplies an independent process relation for thickening research and no scoring weight.",
+    "correlationGroupId": "l1b.collision-rheology",
+    "exceptions": [
+      "Collision kinematics, inherited structure, lower-crustal flow, magmatism, and mantle processes can change the response."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.competing-deep-processes-prevent-unique-landform-inference-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.forte-rowley-2022-isostatic-dynamic-topography",
+      "l1b.source.xie-et-al-2024-mantle-delamination",
+      "l1b.source.zhou-et-al-2024-mafic-underplating"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Similar broad support or uplift contexts can involve crustal isostasy, deeper dynamic support, delamination, and magmatic addition, requiring competing candidates or an unresolved result.",
+    "weightRationale": "The claim establishes non-uniqueness as a suppression condition rather than a numeric penalty.",
+    "correlationGroupId": "l1b.competing-uplift-mechanisms",
+    "exceptions": [
+      "Independent source-specific evidence may separate mechanisms in a future, separately reviewed phase."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.continental-shortening-can-support-thickening-response-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.lease-et-al-2012-shortening-budget"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Documented crustal shortening across a convergent plateau margin supports a tectonic thickening-response candidate when upstream material and structural evidence agree.",
+    "weightRationale": "The observed shortening relation supports a candidate mechanism but does not set elevation, relief, or a normalized threshold.",
+    "correlationGroupId": "l1b.shortening-observations",
+    "exceptions": [
+      "Shortening may be partitioned, later extended, eroded, delaminated, or combined with lower-crustal flow and magmatism."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.extensional-lithosphere-has-multiple-response-modes-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.buck-1991-extensional-modes"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Continental lithosphere can accommodate extension through distinct rheology-dependent modes, so rift evidence permits an extensional response family without selecting one universal landform shape.",
+    "weightRationale": "The relation supports candidate eligibility only and supplies no frequency, geometry, score, or threshold.",
+    "correlationGroupId": "l1b.extensional-modes",
+    "exceptions": [
+      "Thermal state, composition, strain rate, inherited weakness, and magmatism can change the extensional mode."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.holdouts-remain-withheld-from-rule-development-v1",
+    "domain": "landform-potential-scope",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.worldwright-scope-control-v1"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Fixtures marked HOLDOUT remain unavailable for rule selection, threshold choice, weight fitting, or exception tuning.",
+    "weightRationale": "This is a research-integrity firewall and contributes no scientific support.",
+    "correlationGroupId": "l1b.internal-scope-control",
+    "exceptions": [],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright L1B landform-potential research gate",
+    "reviewDate": "2026-07-27"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.inherited-mantle-structure-can-segment-rifts-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.heron-et-al-2019-mantle-inheritance"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Inherited mantle-lithosphere structure and its obliquity can guide and segment later rifting, supporting an orientation-dependent response candidate.",
+    "weightRationale": "The claim supports anisotropy context while explicitly withholding orientation from radial fields.",
+    "correlationGroupId": "l1b.mantle-inheritance",
+    "exceptions": [
+      "Crustal inheritance, boundary conditions, and later rheological evolution may dominate or erase the inherited response."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.isostatic-and-dynamic-support-must-remain-separated-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.forte-rowley-2022-isostatic-dynamic-topography"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Crustal isostatic and deeper dynamic contributions are distinct support sources and cannot be collapsed into a single direct material-to-height relation.",
+    "weightRationale": "The claim preserves source separation and contributes no elevation equation.",
+    "correlationGroupId": "l1b.isostatic-source-separation",
+    "exceptions": [
+      "A future model may combine independently represented contributions while retaining separate provenance and uncertainty."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.landform-potential-cannot-create-geometry-or-elevation-v1",
+    "domain": "landform-potential-scope",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.worldwright-scope-control-v1"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "L1B response and spatial-expression labels cannot create coordinates, geometry, elevation, relief, slope, terrain, coastlines, land, water, or bathymetry.",
+    "weightRationale": "This is an authority firewall and contributes no scientific support.",
+    "correlationGroupId": "l1b.internal-scope-control",
+    "exceptions": [],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright L1B landform-potential research gate",
+    "reviewDate": "2026-07-27"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.lateral-lower-crustal-strength-controls-deformation-response-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.penney-copley-2021-lower-crustal-strength"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Lateral lower-crustal strength contrasts can control the spatial and temporal evolution of deformation, supporting a resistance-contrast response candidate.",
+    "weightRationale": "The relation supports a qualitative candidate and does not create final relief or erosion patterns.",
+    "correlationGroupId": "l1b.lower-crustal-strength",
+    "exceptions": [
+      "Boundary conditions, inherited structure, climate-driven erosion, and lower-crustal flow can modify observed morphology."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.mafic-underplating-can-add-crustal-support-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.zhou-et-al-2024-mafic-underplating"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Mafic underplating and associated melting can add crustal material and support a magmatic-construction response candidate at some convergent boundaries.",
+    "weightRationale": "The claim supports one conditional construction mechanism without a plateau, volcano, or elevation prescription.",
+    "correlationGroupId": "l1b.mafic-underplating",
+    "exceptions": [
+      "Underplating, crustal melting, shortening, delamination, and mantle support may overlap or be absent."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.oceanic-plateaus-record-anomalous-magmatic-construction-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.hussong-et-al-1979-oceanic-plateaus"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Some oceanic plateaus preserve substantially thickened oceanic-affinity crust, supporting a magmatic-construction candidate distinct from normal oceanic crust.",
+    "weightRationale": "The claim establishes a construction alternative but no mandatory origin, planform, relief, or water state.",
+    "correlationGroupId": "l1b.oceanic-plateau-structure",
+    "exceptions": [
+      "Oceanic plateaus vary in origin, composition, later deformation, and preservation."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.penetrative-anisotropy-can-guide-fault-response-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.samsu-et-al-2021-basement-anisotropy"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Penetrative basement anisotropy can guide extension-oblique fault response, making structural grain scientifically relevant when orientation is independently represented.",
+    "weightRationale": "The claim preserves a future grain response while preventing current radial values from fabricating direction.",
+    "correlationGroupId": "l1b.structural-anisotropy",
+    "exceptions": [
+      "Anisotropy orientation, strength, scale, cover coupling, and imposed extension direction jointly control the response."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.permissions-and-coverage-fail-closed-v1",
+    "domain": "landform-potential-scope",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.worldwright-scope-control-v1"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Absent terrain-term permission, incompatible structural role, insufficient evidence, competing candidates, or unresolved spatial coverage requires an explicit suppression or unresolved state.",
+    "weightRationale": "This is a fail-closed architecture rule and contributes no scientific support weight.",
+    "correlationGroupId": "l1b.internal-scope-control",
+    "exceptions": [],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright L1B landform-potential research gate",
+    "reviewDate": "2026-07-27"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.rift-extension-is-conditionally-segmented-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.gouiza-naliboff-2021-rift-inheritance"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Inherited variations in lithosphere thickness, composition, thermal state, and rheology can segment rift architecture and magmatic budget.",
+    "weightRationale": "The relation supports a conditional extensional response while preventing a one-shape or one-threshold rift rule.",
+    "correlationGroupId": "l1b.rift-inheritance",
+    "exceptions": [
+      "Extension rate, obliquity, multiphase history, fault interaction, and magma supply can alter segmentation."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.rift-unloading-can-produce-flexural-flank-response-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.weissel-karner-1989-rift-flexure"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Mechanical unloading during extension can produce a flexural rift-flank response under appropriate lithospheric conditions.",
+    "weightRationale": "The claim permits a basin-and-shoulder response family but never guarantees a shoulder or assigns dimensions.",
+    "correlationGroupId": "l1b.rift-flexure",
+    "exceptions": [
+      "Flexural rigidity, fault geometry, erosion, sediment loading, thermal evolution, and mantle dynamics can weaken or change flank response."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.spatial-expression-candidates-are-not-oriented-geometry-v1",
+    "domain": "landform-potential-scope",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.worldwright-scope-control-v1"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "A belt, zone, basin-and-shoulder, swell, plateau, regional-support, low-relief, or grain-controlled family is a categorical research candidate and not a generated feature.",
+    "weightRationale": "This is a representation firewall and contributes no scientific support.",
+    "correlationGroupId": "l1b.internal-scope-control",
+    "exceptions": [],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright L1B landform-potential research gate",
+    "reviewDate": "2026-07-27"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.strength-heterogeneity-modifies-orogenic-response-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.cook-royden-2008-crustal-strength"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Pre-existing lateral crustal strength variations can strongly modify the morphology and dynamics of an evolving orogenic response.",
+    "weightRationale": "The claim supports resistance-contrast eligibility while withholding geometry, amplitude, and final terrain.",
+    "correlationGroupId": "l1b.strength-heterogeneity",
+    "exceptions": [
+      "Model outcomes depend on rheology, boundary conditions, crustal layering, and regional history."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.upstream-causal-records-only-v1",
+    "domain": "landform-potential-scope",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.worldwright-scope-control-v1"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "L1B research fixtures and rules may reference only registered upstream structure-material provinces, structural roles, process fields, and terrain-term permissions.",
+    "weightRationale": "This prevents direct initial inputs, legacy solved morphology, surface exposure, and presentation state from bypassing causal provenance.",
+    "correlationGroupId": "l1b.internal-scope-control",
+    "exceptions": [],
+    "evidenceStatus": "REVIEWED",
+    "reviewer": "WorldWright L1B landform-potential research gate",
+    "reviewDate": "2026-07-27"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.variable-flexural-rigidity-changes-load-response-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.xu-et-al-2021-variable-flexure"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Spatially non-uniform flexural rigidity changes lithospheric deflection and limits any single local compensation assumption.",
+    "weightRationale": "The claim supports a conditional regional support candidate and explicitly withholds a universal flexure law.",
+    "correlationGroupId": "l1b.flexural-rigidity",
+    "exceptions": [
+      "Recovering variable rigidity is itself uncertain and depends on loading assumptions and observational coverage."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  },
+  {
+    "schemaVersion": 1,
+    "ruleId": "l1b.claim.volcanic-margin-magmatism-can-build-thick-crust-v1",
+    "domain": "landform-potential-research",
+    "version": 1,
+    "sourceIds": [
+      "l1b.source.kelemen-holbrook-1995-volcanic-margin"
+    ],
+    "applicableInputIds": [],
+    "expectedRelation": "Elevated melt production during rifting can construct thick mafic igneous crust at volcanic margins.",
+    "weightRationale": "The claim supports a magmatic-construction alternative without asserting a plume, volcano, plateau, or surface composition.",
+    "correlationGroupId": "l1b.volcanic-margin-magmatism",
+    "exceptions": [
+      "Magma-poor margins and normal spreading do not require thick volcanic-margin crust."
+    ],
+    "evidenceStatus": "PROVISIONAL"
+  }
+]

@@ -1,0 +1,292 @@
+[
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.buck-1991-extensional-modes",
+    "sourceType": "peer-reviewed numerical geodynamics article",
+    "citation": "Buck, W. R. (1991), Modes of continental lithospheric extension, Journal of Geophysical Research: Solid Earth, 96(B12), 20161-20178, doi:10.1029/91JB01485.",
+    "title": "Modes of continental lithospheric extension",
+    "authorsOrInstitution": "W. Roger Buck",
+    "publicationYear": 1991,
+    "domain": "continental extension modes and lithospheric rheology",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.extensional-modes",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "Idealized Earth rheologies establish multiple response modes but do not provide WorldWright geometry, frequencies, or normalized thresholds."
+    ],
+    "contentFingerprint": "doi:10.1029/91jb01485"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.cook-royden-2008-crustal-strength",
+    "sourceType": "peer-reviewed three-dimensional geodynamics article",
+    "citation": "Cook, K. L., and L. H. Royden (2008), The role of crustal strength variations in shaping orogenic plateaus, with application to Tibet, Journal of Geophysical Research: Solid Earth, 113, B08407, doi:10.1029/2007JB005457.",
+    "title": "The role of crustal strength variations in shaping orogenic plateaus, with application to Tibet",
+    "authorsOrInstitution": "Kristen L. Cook and Leigh H. Royden",
+    "publicationYear": 2008,
+    "domain": "lateral crustal strength variation and plateau deformation",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.strength-heterogeneity",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "Tibetan plateau models support conditional resistance effects but cannot prescribe universal plateau form or relief."
+    ],
+    "contentFingerprint": "doi:10.1029/2007jb005457"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.forte-rowley-2022-isostatic-dynamic-topography",
+    "sourceType": "peer-reviewed critical synthesis",
+    "citation": "Forte, A. M., and D. B. Rowley (2022), Earth's Isostatic and Dynamic Topography-A Critical Perspective, Geochemistry, Geophysics, Geosystems, 23, e2021GC009740, doi:10.1029/2021GC009740.",
+    "title": "Earth's Isostatic and Dynamic Topography-A Critical Perspective",
+    "authorsOrInstitution": "Alessandro M. Forte and David B. Rowley",
+    "publicationYear": 2022,
+    "domain": "crustal isostatic support, mantle dynamic support, and source separation",
+    "qualityClass": "REVIEW_OR_SYNTHESIS",
+    "correlationGroupId": "l1b.isostatic-source-separation",
+    "licenseOrUsageNote": "Open-access bibliographic metadata and paraphrased scientific claims only.",
+    "limitations": [
+      "Earth topography decomposition does not authorize direct elevation inference from WorldWright material labels."
+    ],
+    "contentFingerprint": "doi:10.1029/2021gc009740"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.gouiza-naliboff-2021-rift-inheritance",
+    "sourceType": "peer-reviewed three-dimensional numerical geodynamics article",
+    "citation": "Gouiza, M., and J. Naliboff (2021), Rheological inheritance controls the formation of segmented rifted margins in cratonic lithosphere, Nature Communications, 12, 4653, doi:10.1038/s41467-021-24945-5.",
+    "title": "Rheological inheritance controls the formation of segmented rifted margins in cratonic lithosphere",
+    "authorsOrInstitution": "M. Gouiza and J. Naliboff",
+    "publicationYear": 2021,
+    "domain": "rift segmentation, rheological inheritance, and crustal thinning",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.rift-inheritance",
+    "licenseOrUsageNote": "Open-access bibliographic metadata and paraphrased scientific claims only.",
+    "limitations": [
+      "The Labrador Sea model does not supply universal rift orientation, landform dimensions, or generated-world field thresholds."
+    ],
+    "contentFingerprint": "doi:10.1038/s41467-021-24945-5"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.heron-et-al-2019-mantle-inheritance",
+    "sourceType": "peer-reviewed three-dimensional numerical tectonics article",
+    "citation": "Heron, P. J., A. L. Peace, K. J. W. McCaffrey, J. K. Welford, R. Wilson, J. van Hunen, and R. N. Pysklywec (2019), Segmentation of Rifts Through Structural Inheritance: Creation of the Davis Strait, Tectonics, 38, 2411-2430, doi:10.1029/2019TC005578.",
+    "title": "Segmentation of Rifts Through Structural Inheritance: Creation of the Davis Strait",
+    "authorsOrInstitution": "Philip J. Heron and coauthors",
+    "publicationYear": 2019,
+    "domain": "mantle-lithosphere inheritance, obliquity, and rift segmentation",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.mantle-inheritance",
+    "licenseOrUsageNote": "Open-access bibliographic metadata and paraphrased scientific claims only.",
+    "limitations": [
+      "A regional inherited-suture model supports an anisotropy candidate but cannot orient WorldWright radial fields."
+    ],
+    "contentFingerprint": "doi:10.1029/2019tc005578"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.hussong-et-al-1979-oceanic-plateaus",
+    "sourceType": "peer-reviewed marine geophysics article",
+    "citation": "Hussong, D. M., L. K. Wipperman, and L. W. Kroenke (1979), The crustal structure of the Ontong Java and Manihiki oceanic plateaus, Journal of Geophysical Research, 84(B11), 6003-6010, doi:10.1029/JB084iB11p06003.",
+    "title": "The crustal structure of the Ontong Java and Manihiki oceanic plateaus",
+    "authorsOrInstitution": "D. M. Hussong, L. K. Wipperman, and L. W. Kroenke",
+    "publicationYear": 1979,
+    "domain": "oceanic plateau crustal structure and anomalous mafic thickness",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.oceanic-plateau-structure",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "Selected Earth oceanic plateaus do not establish a mandatory plume origin, plateau geometry, elevation, or water state."
+    ],
+    "contentFingerprint": "doi:10.1029/jb084ib11p06003"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.kelemen-holbrook-1995-volcanic-margin",
+    "sourceType": "peer-reviewed journal article",
+    "citation": "Kelemen, P. B., and W. S. Holbrook (1995), Origin of thick, high-velocity igneous crust along the U.S. East Coast Margin, Journal of Geophysical Research: Solid Earth, 100(B6), 10077-10094, doi:10.1029/95JB00924.",
+    "title": "Origin of thick, high-velocity igneous crust along the U.S. East Coast Margin",
+    "authorsOrInstitution": "Peter B. Kelemen and W. Steven Holbrook",
+    "publicationYear": 1995,
+    "domain": "magmatic crustal construction at volcanic rifted margins",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.volcanic-margin-magmatism",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "The U.S. East Coast example does not establish a universal plume cause, surface volcano, or construction amplitude."
+    ],
+    "contentFingerprint": "doi:10.1029/95jb00924"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.kirby-2019-airy-isostasy-limitations",
+    "sourceType": "peer-reviewed geophysical methods article",
+    "citation": "Kirby, J. F. (2019), On the pitfalls of Airy isostasy and the isostatic gravity anomaly in general, Geophysical Journal International, 216(1), 103-122, doi:10.1093/gji/ggy411.",
+    "title": "On the pitfalls of Airy isostasy and the isostatic gravity anomaly in general",
+    "authorsOrInstitution": "Jon F. Kirby",
+    "publicationYear": 2019,
+    "domain": "Airy isostasy assumptions, gravity interpretation, and model limitations",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.airy-limitations",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "The analysis constrains misuse of a simple isostatic model and does not define a WorldWright support equation."
+    ],
+    "contentFingerprint": "doi:10.1093/gji/ggy411"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.lease-et-al-2012-shortening-budget",
+    "sourceType": "peer-reviewed structural geology article",
+    "citation": "Lease, R. O., D. W. Burbank, H. Zhang, J. Liu, and D. Yuan (2012), Cenozoic shortening budget for the northeastern edge of the Tibetan Plateau: Is lower crustal flow necessary?, Tectonics, 31, TC3011, doi:10.1029/2011TC003066.",
+    "title": "Cenozoic shortening budget for the northeastern edge of the Tibetan Plateau: Is lower crustal flow necessary?",
+    "authorsOrInstitution": "Richard O. Lease and coauthors",
+    "publicationYear": 2012,
+    "domain": "observed crustal shortening and plateau-margin growth",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.shortening-observations",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "A regional balanced-section shortening budget does not provide a universal landform response or elevation rule."
+    ],
+    "contentFingerprint": "doi:10.1029/2011tc003066"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.penney-copley-2021-lower-crustal-strength",
+    "sourceType": "peer-reviewed numerical geodynamics article",
+    "citation": "Penney, C., and A. Copley (2021), Lateral Variations in Lower Crustal Strength Control the Temporal Evolution of Mountain Ranges: Examples From South-East Tibet, Geochemistry, Geophysics, Geosystems, 22, e2020GC009092, doi:10.1029/2020GC009092.",
+    "title": "Lateral Variations in Lower Crustal Strength Control the Temporal Evolution of Mountain Ranges: Examples From South-East Tibet",
+    "authorsOrInstitution": "Camilla Penney and Alex Copley",
+    "publicationYear": 2021,
+    "domain": "lower-crustal strength contrasts and deformation evolution",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.lower-crustal-strength",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "South-east Tibet examples support a conditional mechanical contrast response, not universal mountain geometry."
+    ],
+    "contentFingerprint": "doi:10.1029/2020gc009092"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.samsu-et-al-2021-basement-anisotropy",
+    "sourceType": "peer-reviewed analogue tectonics article",
+    "citation": "Samsu, A., A. R. Cruden, N. E. Molnar, and R. F. Weinberg (2021), Inheritance of Penetrative Basement Anisotropies by Extension-Oblique Faults: Insights From Analogue Experiments, Tectonics, 40, e2020TC006596, doi:10.1029/2020TC006596.",
+    "title": "Inheritance of Penetrative Basement Anisotropies by Extension-Oblique Faults: Insights From Analogue Experiments",
+    "authorsOrInstitution": "Anindita Samsu, Alexander R. Cruden, Nicolas E. Molnar, and Roberto F. Weinberg",
+    "publicationYear": 2021,
+    "domain": "basement anisotropy and extension-oblique fault response",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.structural-anisotropy",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "Analogue experiments demonstrate directional dependence but current WorldWright radial fields do not encode the required orientation."
+    ],
+    "contentFingerprint": "doi:10.1029/2020tc006596"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.weissel-karner-1989-rift-flexure",
+    "sourceType": "peer-reviewed geodynamic flexure article",
+    "citation": "Weissel, J. K., and G. D. Karner (1989), Flexural uplift of rift flanks due to mechanical unloading of the lithosphere during extension, Journal of Geophysical Research, 94(B10), 13919-13950, doi:10.1029/JB094iB10p13919.",
+    "title": "Flexural uplift of rift flanks due to mechanical unloading of the lithosphere during extension",
+    "authorsOrInstitution": "Jeffrey K. Weissel and Garry D. Karner",
+    "publicationYear": 1989,
+    "domain": "rift unloading, lithospheric flexure, and flank response",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.rift-flexure",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "A mechanical rift-flank mechanism does not imply a shoulder everywhere or prescribe its location, height, or width."
+    ],
+    "contentFingerprint": "doi:10.1029/jb094ib10p13919"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.worldwright-scope-control-v1",
+    "sourceType": "internal controlled architecture record",
+    "citation": "WorldWright L1B landform-potential research-only scope control, version 1.",
+    "title": "WorldWright L1B landform-potential research-only scope control",
+    "authorsOrInstitution": "WorldWright causal architecture",
+    "publicationYear": 2026,
+    "revisionOrAccessDate": "2026-07-27",
+    "domain": "authority, provenance, fixture isolation, and fail-closed scope",
+    "qualityClass": "INTERNAL_CONTROLLED_ARCHETYPE",
+    "correlationGroupId": "l1b.internal-scope-control",
+    "licenseOrUsageNote": "Internal project architecture record.",
+    "limitations": [
+      "Internal controls constrain software authority but cannot independently establish an affirmative scientific potential class."
+    ],
+    "contentFingerprint": "worldwright:l1b:landform-potential-scope-control:v1"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.xie-et-al-2023-collision-shortening",
+    "sourceType": "peer-reviewed numerical tectonics article",
+    "citation": "Xie, R., L. Chen, A. Yin, X. Xiong, Y. J. Chen, Z. Guo, and K. Wang (2023), Two Phases of Crustal Shortening in Northeastern Tibet as a Result of a Stronger Qaidam Lithosphere During the Cenozoic India-Asia Collision, Tectonics, 42, e2022TC007261, doi:10.1029/2022TC007261.",
+    "title": "Two Phases of Crustal Shortening in Northeastern Tibet as a Result of a Stronger Qaidam Lithosphere During the Cenozoic India-Asia Collision",
+    "authorsOrInstitution": "Renxian Xie and coauthors",
+    "publicationYear": 2023,
+    "domain": "collision, lithospheric strength, and phased crustal shortening",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.collision-rheology",
+    "licenseOrUsageNote": "Bibliographic metadata and paraphrased scientific claims only; no full-text redistribution.",
+    "limitations": [
+      "A Tibet-specific collision model supports conditional thickening response but not universal belt geometry or elevation."
+    ],
+    "contentFingerprint": "doi:10.1029/2022tc007261"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.xie-et-al-2024-mantle-delamination",
+    "sourceType": "peer-reviewed numerical geodynamics article",
+    "citation": "Xie, Y., A. Balazs, T. Gerya, and X. Xiong (2024), Uplift of the Tibetan Plateau driven by mantle delamination from the overriding plate, Nature Geoscience, 17, 683-688, doi:10.1038/s41561-024-01473-7.",
+    "title": "Uplift of the Tibetan Plateau driven by mantle delamination from the overriding plate",
+    "authorsOrInstitution": "Yuan Xie, Attila Balazs, Taras Gerya, and Xiong Xiong",
+    "publicationYear": 2024,
+    "domain": "mantle delamination, magmatism, and competing plateau-support mechanisms",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.competing-uplift-mechanisms",
+    "licenseOrUsageNote": "Open-access bibliographic metadata and paraphrased scientific claims only.",
+    "limitations": [
+      "A proposed Tibetan delamination model demonstrates non-uniqueness and is not a universal plateau explanation."
+    ],
+    "contentFingerprint": "doi:10.1038/s41561-024-01473-7"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.xu-et-al-2021-variable-flexure",
+    "sourceType": "peer-reviewed quantitative geophysics article",
+    "citation": "Xu, M.-J., Z.-C. Wu, F. Ji, A.-G. Ruan, C.-F. Li, and J.-Y. Gao (2021), Estimating the lithospheric flexure of a plate with non-uniform flexural rigidity: a quantitative modelling approach, Earth, Planets and Space, 73, 170, doi:10.1186/s40623-021-01497-y.",
+    "title": "Estimating the lithospheric flexure of a plate with non-uniform flexural rigidity: a quantitative modelling approach",
+    "authorsOrInstitution": "Ming-Ju Xu and coauthors",
+    "publicationYear": 2021,
+    "domain": "spatially variable lithospheric rigidity and flexural response",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.flexural-rigidity",
+    "licenseOrUsageNote": "Open-access bibliographic metadata and paraphrased scientific claims only.",
+    "limitations": [
+      "An Earth inversion method shows variable rigidity and unresolved recovery limits; it is not a WorldWright flexure solver."
+    ],
+    "contentFingerprint": "doi:10.1186/s40623-021-01497-y"
+  },
+  {
+    "schemaVersion": 1,
+    "sourceId": "l1b.source.zhou-et-al-2024-mafic-underplating",
+    "sourceType": "peer-reviewed geophysical and petrologic article",
+    "citation": "Zhou, Z., H. Thybo, I. M. Artemieva, T. Kusky, and C.-C. Tang (2024), Crustal melting and continent uplift by mafic underplating at convergent boundaries, Nature Communications, 15, 9039, doi:10.1038/s41467-024-53435-7.",
+    "title": "Crustal melting and continent uplift by mafic underplating at convergent boundaries",
+    "authorsOrInstitution": "Zhipeng Zhou, Hans Thybo, Irina M. Artemieva, Timothy Kusky, and Chi-Chia Tang",
+    "publicationYear": 2024,
+    "domain": "mafic underplating, crustal melting, and magmatic crustal addition",
+    "qualityClass": "PRIMARY_PEER_REVIEWED",
+    "correlationGroupId": "l1b.mafic-underplating",
+    "licenseOrUsageNote": "Open-access bibliographic metadata and paraphrased scientific claims only.",
+    "limitations": [
+      "Regional convergent-boundary interpretations support magmatic addition as one mechanism and do not prescribe plateau geometry or height."
+    ],
+    "contentFingerprint": "doi:10.1038/s41467-024-53435-7"
+  }
+]

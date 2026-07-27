@@ -1,0 +1,83 @@
+name: L1B Landform Potential Research Package Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: l1b-landform-potential-research-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  research-package:
+    name: Validate L1B sources rules fixtures and holdouts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run L1B research-package gates
+        run: |
+          mkdir -p artifacts/ci-logs artifacts/l1b-landform-potential-research-package
+          set -o pipefail
+          npx vitest run \
+            test/causalLandformPotentialL1AContracts.spec.ts \
+            test/causalLandformPotentialL1AArtifact.spec.ts \
+            test/causalLandformPotentialL1BResearchPackage.spec.ts \
+            test/causalLandformPotentialL1BArtifact.spec.ts \
+            test/causalProgramCurrentStatus.spec.ts \
+            2>&1 | tee artifacts/ci-logs/l1b-landform-potential-research-package.log
+          npm run build 2>&1 | tee artifacts/ci-logs/l1b-landform-potential-build.log
+          cp src/core/causalGeology/research/landform-potential-source-registry.json artifacts/l1b-landform-potential-research-package/
+          cp src/core/causalGeology/research/landform-potential-claim-rules.json artifacts/l1b-landform-potential-research-package/
+          cp src/core/causalGeology/research/landform-potential-correlation-groups.json artifacts/l1b-landform-potential-research-package/
+          cp src/core/causalGeology/research/landform-potential-known-limitations.json artifacts/l1b-landform-potential-research-package/
+          cp src/core/causalGeology/research/landform-potential-l1b-rules.json artifacts/l1b-landform-potential-research-package/
+          cp src/core/causalGeology/research/landform-potential-l1b-fixtures.json artifacts/l1b-landform-potential-research-package/
+          cp src/core/causalGeology/research/landform-potential-l1b-review-record.json artifacts/l1b-landform-potential-research-package/
+          cp docs/implementation/phase-l/l1b-landform-potential-research-package.json artifacts/l1b-landform-potential-research-package/
+          cp docs/implementation/PHASE_L1B_LANDFORM_POTENTIAL_RESEARCH_PACKAGE_STATUS.md artifacts/l1b-landform-potential-research-package/
+
+      - name: Summarize L1B gate
+        if: always()
+        run: |
+          {
+            echo "## L1B landform-potential research package"
+            echo "- External scientific sources: \`16\`"
+            echo "- Potential / suppression rules: \`7 / 6\`"
+            echo "- Fixed fixtures: \`20\`"
+            echo "- Positives / boundaries / negatives / exceptions / holdouts: \`6 / 6 / 4 / 2 / 2\`"
+            echo "- Grain anisotropy: \`ambiguity or unresolved only\`"
+            echo "- Resolver implementation and evaluation: \`not authorized\`"
+            echo "- Geometry, terrain, Generate integration, and authority promotion: \`none\`"
+            echo "- Authority mode: \`CAUSAL_SHADOW\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload L1B artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l1b-landform-potential-research-package
+          path: |
+            artifacts/l1b-landform-potential-research-package/
+            artifacts/ci-logs/l1b-landform-potential-research-package.log
+            artifacts/ci-logs/l1b-landform-potential-build.log
+          if-no-files-found: warn
+          retention-days: 30

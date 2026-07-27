@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "artifactVersion": "L1B_LANDFORM_POTENTIAL_RESEARCH_PACKAGE_V1",
+  "baseCommit": "c24233b16fdd1f9321328d9a2fe24814a8e15f43",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "scientificStatus": "PARTIAL",
+  "implementationStatus": "RESEARCH_PACKAGE_VALIDATED_AND_FROZEN_PENDING_MERGE",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "causalActive": "UNIMPLEMENTED_AND_FORBIDDEN",
+  "scope": {
+    "allowed": [
+      "scientific-source registry and correlation groups",
+      "reviewed conditional scientific claims",
+      "one research contract per L1A potential class",
+      "one research contract per L1A suppression class",
+      "fixed positive research fixtures",
+      "controlled boundary fixtures without universal calibration",
+      "negative and fail-closed fixtures",
+      "bounded exception fixtures",
+      "holdouts frozen before future resolver design",
+      "research package validation and CI gates"
+    ],
+    "forbidden": [
+      "landform-potential resolver implementation",
+      "resolver evaluation or output comparison",
+      "universal normalized thresholds",
+      "generated-world frequency fitting",
+      "holdout-based tuning",
+      "coordinates, geometry, height, elevation, slope, or relief",
+      "base terrain or final terrain",
+      "bathymetry, sea level, coastlines, land, or water",
+      "surface material or exposed rock classification",
+      "climate, hydrology, biome, or surface-process outcomes",
+      "ordinary Generate integration or invocation",
+      "legacy solved morphology as causal input",
+      "surfaceExposureSummary as landform evidence",
+      "renderer or presentation output",
+      "landformPotentialAuthority or terrain authority",
+      "physical promotion or legacy retirement"
+    ]
+  },
+  "researchFoundation": {
+    "bundleVersion": "L1B_LANDFORM_POTENTIAL_RESEARCH_BUNDLE_V1",
+    "sources": 17,
+    "externalSources": 16,
+    "primaryPeerReviewedSources": 15,
+    "reviewOrSynthesisSources": 1,
+    "internalScopeSources": 1,
+    "genericClaimRules": 21,
+    "independentCorrelationGroups": 17,
+    "directInitialInputBypassAllowed": false,
+    "internalScopeControlMayEstablishScientificPotential": false
+  },
+  "ruleCounts": {
+    "potentialRules": 7,
+    "reviewedForFuturePartialCandidate": 5,
+    "researchRequiredAmbiguityOnly": 1,
+    "failClosedUnresolved": 1,
+    "suppressionRules": 6,
+    "completeEligible": 0
+  },
+  "fixtureCounts": {
+    "total": 20,
+    "positive": 6,
+    "boundary": 6,
+    "negative": 4,
+    "exception": 2,
+    "holdout": 2,
+    "withheldFromRuleDevelopment": 2,
+    "potentialClassesRepresented": 7,
+    "suppressionClassesRepresented": 6
+  },
+  "scientificDisposition": {
+    "futurePartialCandidateResearchOnly": [
+      "EXTENSIONAL_RESPONSE_POTENTIAL",
+      "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+      "MAGMATIC_CONSTRUCTION_POTENTIAL",
+      "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL",
+      "THICKENING_RESPONSE_POTENTIAL"
+    ],
+    "ambiguityOrUnresolvedOnly": [
+      "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL"
+    ],
+    "failClosedOnly": [
+      "LANDFORM_POTENTIAL_UNRESOLVED"
+    ],
+    "l1aDefinitionResearchStatusesChanged": false
+  },
+  "frozenHoldouts": [
+    "holdout/mixed-rift-magmatic-transition-v1",
+    "holdout/orogenic-strength-thickening-overlap-v1"
+  ],
+  "adversarialCoverage": [
+    "permission alone cannot substitute for causal process evidence",
+    "strong scalar radial fields cannot invent grain orientation",
+    "sparse upstream coverage remains explicit and cannot be interpolated",
+    "unresolved upstream material cannot be bypassed by a strong process field",
+    "an absent material permission suppresses an otherwise plausible potential",
+    "an incompatible structural role cannot be rewritten inside L1B",
+    "rift and magmatic overlap remains ambiguous in a frozen holdout",
+    "resistance and thickening overlap remains ambiguous in a frozen holdout",
+    "internal scope controls cannot establish an affirmative scientific potential",
+    "direct initial-condition inputs, surface exposure, and physical payload keys fail validation"
+  ],
+  "validationEvidence": {
+    "pullRequest": 164,
+    "validatedCheckpointCommit": "9d6ed3bc234d9b8977974d3fa2e0984a670d9741",
+    "pullRequestWorkflowsPassed": 18,
+    "dedicatedL1BGate": "PASSED",
+    "fullVitestSuite": "PASSED",
+    "typescriptAndViteBuild": "PASSED",
+    "requiredGenerateDiagnostics": "PASSED",
+    "causalSkeletonHarness": "PASSED",
+    "snapshotCanary": "PASSED",
+    "fullGlobeReview": "PASSED",
+    "everyNewHeadRequiresRevalidation": true,
+    "mergeStillRequiresDirectApproval": true
+  },
+  "authorityBoundary": {
+    "diagnosticProcessId": "CAUSAL_LANDFORM_POTENTIAL_INTERPRETATION",
+    "writes": [
+      "diagnostics"
+    ],
+    "landformPotentialAuthority": false,
+    "baseTerrainAuthority": false,
+    "surfaceMaterialAuthority": false,
+    "finalLandAuthority": false,
+    "finalWaterAuthority": false,
+    "bathymetryAuthority": false,
+    "finalTerrainAuthority": false,
+    "terrainAuthority": false
+  },
+  "knownLimitations": [
+    "Five affirmative families are reviewed only for future partial-candidate research; none is COMPLETE-eligible.",
+    "Grain anisotropy remains non-leading because current radial fields contain no oriented tensor or structural geometry.",
+    "The fixed normalized fixture values are controlled scenario coordinates and are not universal thresholds.",
+    "L1B provides no scoring, ranking, candidate construction, resolver algorithm, or resolver evaluation.",
+    "Spatial-expression candidates are categorical families, not geometry, coordinates, dimensions, or terrain.",
+    "Isostatic, dynamic, magmatic, thickening, delamination, flow, and strength mechanisms can remain non-unique.",
+    "Suppression preserves unresolved permissions, evidence, roles, competition, and sparse spatial coverage.",
+    "No L1A definition or authority state is promoted by this research review."
+  ],
+  "nextPhaseBoundary": {
+    "l1cResolverImplementationAuthorizedByThisArtifact": false,
+    "resolverEvaluationAuthorizedByThisArtifact": false,
+    "separateExplicitAuthorizationRequired": true,
+    "exactHeadValidationRequired": true,
+    "thresholdCalibration": "FORBIDDEN",
+    "geometryOrTerrain": "FORBIDDEN",
+    "physicalPromotion": "FORBIDDEN",
+    "ordinaryGenerateIntegration": "FORBIDDEN",
+    "legacyRetirement": "FORBIDDEN"
+  },
+  "finalVerdict": {
+    "l1bResearchFoundation": "VALIDATED_AND_FROZEN_PENDING_MERGE",
+    "l1bResearchRules": "VALIDATED_AND_FROZEN_PENDING_MERGE",
+    "l1bSuppressionContracts": "VALIDATED_AND_FROZEN_PENDING_MERGE",
+    "l1bFixedCorpus": "VALIDATED_AND_FROZEN_PENDING_MERGE",
+    "l1bFrozenHoldouts": "VALIDATED_AND_FROZEN_PENDING_MERGE",
+    "resolverImplementation": "NOT_IMPLEMENTED_AND_NOT_AUTHORIZED",
+    "resolverEvaluation": "NOT_AUTHORIZED",
+    "physicalPromotion": "BLOCKED",
+    "nextAction": "REVIEW_L1B_PR_AND_STOP_PENDING_SEPARATE_AUTHORIZATION"
+  }
+}
