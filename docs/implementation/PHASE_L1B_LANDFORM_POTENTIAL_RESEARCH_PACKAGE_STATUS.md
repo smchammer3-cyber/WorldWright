@@ -153,19 +153,35 @@ The research checkpoint at commit `9d6ed3bc234d9b8977974d3fa2e0984a670d9741` on 
 
 Every later documentation or review commit on the PR must pass the same exact-head gates before merge. Passing these gates validates the checkpoint; it does not authorize L1C or make the branch part of `WorldWright-new` before merge.
 
+## Post-merge closure
+
+PR #164 merged the exact validated L1B tree into `WorldWright-new`.
+
+```text
+validated head: d54c1390781f816fa0a11176cc602edde82f2612
+validated tree: 2d24ba69aa4667f711d5775fd6888189a26c448f
+merge commit: d6d4685c3a64cc11da771f4e17fb3c0c154ce3be
+final state: merged, validated, and frozen
+```
+
+The historical L1B JSON artifact retains its validated pre-merge wording and fingerprint. `docs/implementation/phase-l/l1b-post-merge-closure.json` records the completed merge without rewriting that frozen checkpoint.
+
+The separately authorized L1C blueprint may specify requirements for a possible future resolver. Neither L1B nor the L1C blueprint grants permission to implement or evaluate one.
+
 ## Current verdict
 
 ```text
-L1B scientific-source registry: validated and frozen pending merge
-L1B reviewed research rules: validated and frozen pending merge
-L1B suppression contracts: validated and frozen pending merge
-L1B fixed fixtures: validated and frozen pending merge
-L1B frozen holdouts: validated and frozen pending merge
+L1B scientific-source registry: merged, validated, and frozen
+L1B reviewed research rules: merged, validated, and frozen
+L1B suppression contracts: merged, validated, and frozen
+L1B fixed fixtures: merged, validated, and frozen
+L1B frozen holdouts: merged, validated, and frozen
+L1C resolver blueprint: separately authorized for design only
 landform-potential resolver: not implemented and not authorized
 resolver evaluation: blocked
 threshold calibration: blocked
 geometry and terrain: blocked
 ordinary Generate integration: blocked
 authority promotion: blocked
-next action: review L1B PR, then stop pending separate explicit authorization
+next action: review L1C blueprint, then await separate explicit implementation authorization
 ```

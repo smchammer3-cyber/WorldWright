@@ -214,7 +214,7 @@ describe('L1B landform-potential research-package artifact', () => {
     });
   });
 
-  it('ships status and CI records but no resolver, terrain, Generate, or promotion path', () => {
+  it('remains a historical non-authorizing artifact after post-merge closure and L1C blueprint design', () => {
     expect(existsSync(statusPath)).toBe(true);
     expect(existsSync(workflowPath)).toBe(true);
     expect(existsSync(resolverPath)).toBe(false);
@@ -225,8 +225,9 @@ describe('L1B landform-potential research-package artifact', () => {
     expect(workflow).toContain('test/causalLandformPotentialL1BResearchPackage.spec.ts');
     expect(workflow).toContain('test/causalLandformPotentialL1BArtifact.spec.ts');
     expect(currentStatus).toContain(
-      '"currentAuthorizedScope": "NONE_AFTER_L1B_RESEARCH_PENDING_SEPARATE_EXPLICIT_AUTHORIZATION"',
+      '"currentAuthorizedScope": "NONE_AFTER_L1C_BLUEPRINT_PENDING_SEPARATE_EXPLICIT_IMPLEMENTATION_AUTHORIZATION"',
     );
+    expect(status).toContain('final state: merged, validated, and frozen');
     expect(currentStatus).toContain('"resolverImplementationAuthorized": false');
     expect(currentStatus).toContain('"ordinaryGenerateIntegrationAuthorized": false');
     expect(currentStatus).toContain('"physicalPromotionAuthorized": false');

@@ -102,10 +102,13 @@ Planet identity, display names, timestamps, storage IDs, and source revision IDs
 - C04 provides evidence, confidence, weighted alternatives, and contradictions.
 - Detached Wave 1 causal records, Phase D process-field projections, Phase C structural interpretation, and Phase M structure/material interpretation exist in `CAUSAL_SHADOW`.
 - L1A provides immutable landform-potential, response-family, spatial-expression, and suppression contracts without a resolver.
-- The L1B scientific-source registry, reviewed research rules, suppression rules, fixed corpus, and frozen holdouts are validated and frozen on PR #164 pending merge.
+- The L1B scientific-source registry, reviewed research rules, suppression rules, fixed corpus, and frozen holdouts were validated on exact head `d54c1390781f816fa0a11176cc602edde82f2612` and merged by PR #164 at `d6d4685c3a64cc11da771f4e17fb3c0c154ce3be`.
+- The L1B historical artifact remains frozen. Its separate post-merge closure record preserves the validated tree and immutable fingerprints.
+- The L1C blueprint defines the required fail-closed protocol, lineage rules, holdout discipline, deterministic limits, and implementation gates for a possible future detached resolver.
+- L1C blueprint completion does not authorize resolver code, resolver evaluation, relation evaluators, threshold calibration, or entry into Base Terrain Birth.
 - L1B does not implement or evaluate a landform-potential resolver, calibrate thresholds, create geometry or terrain, invoke ordinary Generate, or promote authority.
 - `LEGACY` remains the sole physical generator. No causal terrain writer or surface-evolution runner is active.
-- No phase after L1B is authorized by the L1B checkpoint; any L1C resolver work requires separate explicit approval.
+- No executable phase after L1B is authorized. Any L1C implementation requires a new, separate, explicit approval after all named pre-implementation decisions are reviewed.
 
 ## Governing document set
 
