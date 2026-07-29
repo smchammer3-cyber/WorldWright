@@ -78,11 +78,11 @@ Fixed architecture is separated from choices requiring evidence, prototypes, or 
 
 ## D9 — structural-stage decomposition
 
-**Fixed:** explicit roles, material state, and landform potential exist before height.
+**Fixed:** explicit roles, material state, and landform potential exist before height. L1A and L1B fix separate landform-potential contracts, research rules, fixtures, suppression, and holdout boundaries.
 
-**Open:** shared versus separate sampling graphs and exact record boundaries.
+**Open:** L1C evidence-relation contracts, support-range propagation, source-specific competition separation, fail-closed spatial-coverage behavior, and reconciliation of overlapping upstream regions.
 
-**Gate:** reconcile old Continent/Ocean, crust, and Landmass documents before code.
+**Gate:** approve the L1C blueprint and then separately approve versioned contracts for all five open implementation decisions before resolver code.
 
 ## D10 — numeric calibration
 

@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 1,
+  "blueprintVersion": "L1C_LANDFORM_POTENTIAL_RESOLVER_BLUEPRINT_V1",
+  "blueprintStatus": "READY_FOR_REVIEW_NO_IMPLEMENTATION_AUTHORITY",
+  "baseCommit": "d6d4685c3a64cc11da771f4e17fb3c0c154ce3be",
+  "authorityMode": "CAUSAL_SHADOW",
+  "physicalGeneratorAuthority": "LEGACY",
+  "scientificStatus": "PARTIAL",
+  "ordinaryGenerateChanged": false,
+  "visiblePhysicalOutputChanged": false,
+  "l1bClosureArtifact": "docs/implementation/phase-l/l1b-post-merge-closure.json",
+  "authorization": {
+    "blueprintDesignAuthorized": true,
+    "resolverImplementationAuthorized": false,
+    "resolverEvaluationAuthorized": false,
+    "relationEvaluatorImplementationAuthorized": false,
+    "thresholdCalibrationAuthorized": false,
+    "generatedWorldFrequencyFittingAuthorized": false,
+    "holdoutTuningAuthorized": false,
+    "geometryOrElevationAuthorized": false,
+    "baseTerrainAuthorized": false,
+    "ordinaryGenerateInvocationAuthorized": false,
+    "landformPotentialAuthorityAuthorized": false,
+    "physicalPromotionAuthorized": false,
+    "legacyRetirementAuthorized": false,
+    "causalActiveAuthorized": false
+  },
+  "immutableInputs": {
+    "stateContract": "LandformPotentialStateV1",
+    "definitionContract": "L1A_LANDFORM_POTENTIAL_DEFINITIONS_V1",
+    "definitionCount": 7,
+    "potentialRuleSetVersion": "L1B_LANDFORM_POTENTIAL_RESEARCH_RULES_V1",
+    "fixtureSetVersion": "L1B_LANDFORM_POTENTIAL_RESEARCH_FIXTURES_V1",
+    "researchReviewVersion": "L1B_LANDFORM_POTENTIAL_RESEARCH_REVIEW_V1",
+    "potentialRuleCount": 7,
+    "suppressionRuleCount": 6,
+    "fixtureCount": 20,
+    "exactLineageHashesRequired": [
+      "sourceContinentOceanStructureHash",
+      "sourceProcessFieldProjectionHash",
+      "sourceStructureMaterialStateHash"
+    ],
+    "l1aDefinitionResearchStatusesMutable": false,
+    "l1bRulesMutable": false,
+    "l1bFixturesMutable": false,
+    "l1bHoldoutsMutable": false
+  },
+  "futureResolverProtocol": {
+    "outputContract": "LandformPotentialStateV1",
+    "outputMode": "DETACHED_DIAGNOSTIC",
+    "randomness": "NONE",
+    "regionIdentityPolicy": "INHERIT_VALIDATED_UPSTREAM_REGION_IDENTITY_ANCHOR_AND_EXTENT",
+    "candidateConstructionPolicy": "EXACT_COMPATIBILITY_AND_REVIEWED_RELATION_CONTRACTS_ONLY",
+    "numericScoreRanking": false,
+    "probabilityModel": false,
+    "universalThresholds": false,
+    "implicitTieBreaking": false,
+    "interpolationToFillCoverage": false,
+    "orderedStages": [
+      "VALIDATE_SCHEMAS_LIMITS_IMMUTABILITY_AND_EXACT_LINEAGE",
+      "INHERIT_SOURCE_REGION_IDENTITY_ANCHOR_AND_EXTENT",
+      "EVALUATE_FAIL_CLOSED_PRECONDITIONS",
+      "BUILD_CATEGORICALLY_ELIGIBLE_POTENTIAL_CANDIDATES",
+      "ATTACH_SOURCE_CLAIMS_EVIDENCE_CONTRADICTIONS_AND_LIMITATIONS",
+      "BUILD_ALL_SUPPORTED_SUPPRESSION_CANDIDATES",
+      "RESOLVE_UNRESOLVED_AMBIGUOUS_OR_SINGLE_LEADING_STATUS",
+      "CANONICALIZE_FREEZE_HASH_AND_VALIDATE_DETACHED_STATE"
+    ],
+    "candidateEligibilityRequirements": [
+      "potential class exists in the immutable L1A definitions",
+      "province class and structural role satisfy the exact L1A and L1B compatibility intersection",
+      "required terrain-term permission is present upstream",
+      "only L1B-allowed process fields are referenced",
+      "every scientific claim and source exists in the frozen L1B bundle",
+      "internal scope controls contribute no affirmative scientific support",
+      "direct initial-condition inputs and downstream surface state contribute no evidence",
+      "a separately approved relation contract supports any interpretation of scalar field values"
+    ],
+    "supportRangePolicy": [
+      "support ranges remain diagnostic scientific ranges rather than probabilities",
+      "support aggregation requires a separately reviewed relation contract",
+      "missing or contradictory support cannot be replaced by a default midpoint",
+      "support ranges cannot encode elevation relief slope terrain frequency or visual preference"
+    ],
+    "suppressionResolutionPolicy": {
+      "hardUnresolvedGuards": [
+        "MATERIAL_PERMISSION_ABSENT",
+        "SOURCE_EVIDENCE_INSUFFICIENT",
+        "SPATIAL_COVERAGE_UNRESOLVED",
+        "STRUCTURAL_ROLE_CONFLICT"
+      ],
+      "competitionGuard": "COMPETING_POTENTIALS_UNRESOLVED",
+      "zeroSupportSentinel": "NO_SUPPRESSION_CLAIM",
+      "recordEverySupportedGuard": true,
+      "hardUnresolvedGuardWinsResolution": true,
+      "competitionMayProduceAmbiguityOnlyWhenCandidateEvidenceRemainsValid": true,
+      "zeroSupportSentinelExclusive": true,
+      "suppressionMayCreateAffirmativePotential": false
+    },
+    "resolutionRules": [
+      "zero scientifically eligible affirmative candidates resolves UNRESOLVED",
+      "any hard unresolved guard resolves UNRESOLVED while preserving every supported suppression",
+      "multiple viable candidates without an independently reviewed separator resolve AMBIGUOUS_CANDIDATES",
+      "SINGLE_LEADING_CANDIDATE requires one reviewed partial candidate and no hard or unresolved competition guard",
+      "a leading candidate remains PARTIAL and grants no landformPotentialAuthority",
+      "LANDFORM_POTENTIAL_UNRESOLVED carries no affirmative evidence",
+      "no resolution status may imply geometry elevation land water or terrain"
+    ]
+  },
+  "leadingCandidatePolicy": {
+    "completeEligibleRuleCount": 0,
+    "futurePartialCandidateOnly": [
+      "EXTENSIONAL_RESPONSE_POTENTIAL",
+      "ISOSTATIC_SUPPORT_RESPONSE_POTENTIAL",
+      "MAGMATIC_CONSTRUCTION_POTENTIAL",
+      "RESISTANCE_CONTRAST_RESPONSE_POTENTIAL",
+      "THICKENING_RESPONSE_POTENTIAL"
+    ],
+    "ambiguityOrUnresolvedOnly": [
+      "GRAIN_ANISOTROPY_RESPONSE_POTENTIAL"
+    ],
+    "failClosedOnly": [
+      "LANDFORM_POTENTIAL_UNRESOLVED"
+    ],
+    "grainOrientationRepresentationRequiredBeforeLeading": true,
+    "l1aResearchStatusPromotionAllowed": false
+  },
+  "holdoutProtocol": {
+    "frozenHoldouts": [
+      "holdout/mixed-rift-magmatic-transition-v1",
+      "holdout/orogenic-strength-thickening-overlap-v1"
+    ],
+    "availableForRuleSelection": false,
+    "availableForRelationDesign": false,
+    "availableForExceptionTuning": false,
+    "availableForThresholdChoice": false,
+    "availableForWeightFitting": false,
+    "availableForFrequencyFitting": false,
+    "evaluateOnlyAfterImplementationAndNonHoldoutTestsFreeze": true,
+    "postHoldoutTuningInvalidatesValidation": true,
+    "replacementHoldoutRequiresNewVersionAndExplicitReview": true
+  },
+  "determinismAndPerformance": {
+    "randomStream": "NONE",
+    "canonicalOrderingRequired": true,
+    "immutableOutputRequired": true,
+    "contentHashRequired": true,
+    "maximumRegions": 4096,
+    "maximumPotentialCandidatesPerRegion": 12,
+    "maximumSuppressionCandidatesPerRegion": 8,
+    "maximumSerializedBytes": 12582912,
+    "complexityCeiling": "O(REGIONS_TIMES_FIXED_RULE_COUNT)",
+    "unboundedSearchAllowed": false,
+    "allPairsRegionComparisonAllowed": false,
+    "executionOrderMayChangeOutput": false
+  },
+  "forbiddenInputs": [
+    "direct initial-condition inputs as landform evidence",
+    "legacy solved morphology",
+    "WorldBrain or legacy world snapshots",
+    "surfaceExposureSummary",
+    "height elevation slope relief or terrain",
+    "land water coastlines sea level or bathymetry",
+    "surface material exposed rock climate biome hydrology erosion sediment ice or wind",
+    "renderer presentation UI labels debug identities or comparison diagnostics",
+    "holdout expectations during rule relation or exception design"
+  ],
+  "forbiddenOutputs": [
+    "coordinates anchors extents or geometry not inherited from validated upstream regions",
+    "height elevation slope relief base terrain or final terrain",
+    "land water coastlines sea level or bathymetry",
+    "surface material climate hydrology biome or surface-process state",
+    "ordinary Generate output",
+    "landformPotentialAuthority or any physical authority",
+    "authority promotion or legacy retirement"
+  ],
+  "preImplementationDecisions": [
+    {
+      "decisionId": "L1C-D1-EVIDENCE-RELATION-CONTRACTS",
+      "status": "MUST_BE_SEPARATELY_REVIEWED",
+      "question": "What source-backed monotonic or categorical relations may interpret each allowed scalar field for the five future partial-candidate families?",
+      "implementationBlockedUntilResolved": true
+    },
+    {
+      "decisionId": "L1C-D2-SUPPORT-RANGE-PROPAGATION",
+      "status": "MUST_BE_SEPARATELY_REVIEWED",
+      "question": "How are independent evidence ranges propagated without treating them as probabilities scores or universal thresholds?",
+      "implementationBlockedUntilResolved": true
+    },
+    {
+      "decisionId": "L1C-D3-COMPETITION-SEPARATION",
+      "status": "MUST_BE_SEPARATELY_REVIEWED",
+      "question": "Which new source-specific evidence may separate competing candidates without an implicit tie breaker?",
+      "implementationBlockedUntilResolved": true
+    },
+    {
+      "decisionId": "L1C-D4-SPATIAL-COVERAGE",
+      "status": "MUST_BE_SEPARATELY_REVIEWED",
+      "question": "How may projection confidence and upstream coverage establish a fail-closed coverage relation without interpolation?",
+      "implementationBlockedUntilResolved": true
+    },
+    {
+      "decisionId": "L1C-D5-REGION-RECONCILIATION",
+      "status": "MUST_BE_SEPARATELY_REVIEWED",
+      "question": "How are overlapping structural and structure-material regions reconciled while preserving both source identities and exact lineage?",
+      "implementationBlockedUntilResolved": true
+    }
+  ],
+  "implementationAcceptanceGates": [
+    "separate explicit L1C implementation authorization",
+    "all five pre-implementation decisions resolved in reviewed versioned contracts",
+    "exact L1A and L1B schema and immutability regression",
+    "complete nonholdout corpus evaluation before holdout access",
+    "frozen holdouts evaluated without tuning",
+    "grain anisotropy forbidden from leading",
+    "hard suppressions fail closed and preserve all supported guards",
+    "missing permission role evidence lineage or coverage fails closed",
+    "direct input legacy surface geometry terrain and presentation payloads rejected",
+    "deterministic replay canonical ordering and schedule independence",
+    "resource ceilings and serialized payload budget",
+    "full Vitest build diagnostics causal skeleton legacy equivalence snapshot and globe gates",
+    "exact-head review before merge",
+    "no ordinary Generate integration or physical authority"
+  ],
+  "finalVerdict": {
+    "l1bPostMergeClosure": "RECORDED_AND_FROZEN",
+    "l1cBlueprint": "READY_FOR_REVIEW",
+    "resolverImplementation": "NOT_IMPLEMENTED_AND_NOT_AUTHORIZED",
+    "resolverEvaluation": "NOT_AUTHORIZED",
+    "thresholdCalibration": "FORBIDDEN",
+    "geometryOrTerrain": "FORBIDDEN",
+    "ordinaryGenerateIntegration": "FORBIDDEN",
+    "physicalPromotion": "BLOCKED",
+    "nextAction": "AWAIT_SEPARATE_EXPLICIT_L1C_IMPLEMENTATION_AUTHORIZATION"
+  }
+}

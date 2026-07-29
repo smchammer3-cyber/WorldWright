@@ -1,0 +1,80 @@
+name: L1C Landform Potential Resolver Blueprint Gate
+
+on:
+  pull_request:
+    branches:
+      - WorldWright-new
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: l1c-landform-potential-resolver-blueprint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  blueprint-only:
+    name: Validate L1B closure and L1C blueprint-only firewall
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run L1B closure and L1C blueprint gates
+        run: |
+          mkdir -p artifacts/ci-logs artifacts/l1c-landform-potential-resolver-blueprint
+          set -o pipefail
+          npx vitest run \
+            test/causalLandformPotentialL1AContracts.spec.ts \
+            test/causalLandformPotentialL1AArtifact.spec.ts \
+            test/causalLandformPotentialL1BResearchPackage.spec.ts \
+            test/causalLandformPotentialL1BArtifact.spec.ts \
+            test/causalLandformPotentialL1CBlueprint.spec.ts \
+            test/causalProgramCurrentStatus.spec.ts \
+            2>&1 | tee artifacts/ci-logs/l1c-landform-potential-resolver-blueprint.log
+          npm run build 2>&1 | tee artifacts/ci-logs/l1c-landform-potential-blueprint-build.log
+          cp docs/implementation/phase-l/l1b-post-merge-closure.json artifacts/l1c-landform-potential-resolver-blueprint/
+          cp docs/implementation/phase-l/l1c-landform-potential-resolver-blueprint.json artifacts/l1c-landform-potential-resolver-blueprint/
+          cp docs/implementation/PHASE_L1C_LANDFORM_POTENTIAL_RESOLVER_BLUEPRINT.md artifacts/l1c-landform-potential-resolver-blueprint/
+          cp docs/implementation/causal-program-current-status.json artifacts/l1c-landform-potential-resolver-blueprint/
+          cp WORLDWRIGHT_BLUEPRINT_CURRENT_AUTHORITY.md artifacts/l1c-landform-potential-resolver-blueprint/
+
+      - name: Summarize blueprint-only gate
+        if: always()
+        run: |
+          {
+            echo "## L1C landform-potential resolver blueprint"
+            echo "- L1B post-merge closure: \`recorded and fingerprinted\`"
+            echo "- L1C blueprint: \`design only\`"
+            echo "- Pre-implementation decisions: \`5 blocking\`"
+            echo "- Resolver implementation and evaluation: \`not authorized\`"
+            echo "- Thresholds, scoring, and probabilities: \`none\`"
+            echo "- Random stream: \`none\`"
+            echo "- Geometry, terrain, Generate integration, and authority promotion: \`none\`"
+            echo "- Authority mode: \`CAUSAL_SHADOW\`"
+            echo "- Physical generator authority: \`LEGACY\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload blueprint artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l1c-landform-potential-resolver-blueprint
+          path: |
+            artifacts/l1c-landform-potential-resolver-blueprint/
+            artifacts/ci-logs/l1c-landform-potential-resolver-blueprint.log
+            artifacts/ci-logs/l1c-landform-potential-blueprint-build.log
+          if-no-files-found: warn
+          retention-days: 30

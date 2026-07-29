@@ -68,6 +68,15 @@ Exit requires a clear boundary between deep geological material and later surfac
 
 Reconcile Landmass Genesis as causal landform potential and suppression.
 
+```text
+L1A: immutable detached state, candidate, response, spatial-expression, and suppression contracts
+L1B: source-backed research rules, fixed corpus, bounded exceptions, and frozen holdouts
+L1C blueprint: fail-closed resolver protocol, lineage, evidence, holdout, determinism, and resource gates
+future L1C implementation: separately authorized detached resolver only
+```
+
+The L1C blueprint itself grants no implementation or evaluation authority. Evidence-relation contracts, support-range propagation, competition separation, spatial-coverage behavior, and region reconciliation must be reviewed before executable work.
+
 Exit requires no final height or land mask, complete source traceability, and ocean/deep-basin authority able to suppress unsupported landforms.
 
 ## Phase B — base Terrain Birth

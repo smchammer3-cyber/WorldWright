@@ -164,14 +164,17 @@ phase: M
 ## 11. Landform potential and suppression
 
 ```text
-record: LandformPotentialStateV1 — planned successor to Landmass Genesis
-module: src/core/causalGeology/landformPotential.ts
-process ID: CAUSAL_LANDFORM_POTENTIAL
-reads: fields + roles + material state
-writes: landformPotentialAuthority
-random stream: causal.landform-potential
-owner: named terrain potentials and suppression
-phase: L
+record: LandformPotentialStateV1 — detached contract implemented
+contract module: src/core/causalGeology/landformPotential.ts
+research module: src/core/causalGeology/landformPotentialResearchContracts.ts
+future resolver module: src/core/causalGeology/landformPotentialResolver.ts — absent and not authorized
+process ID: CAUSAL_LANDFORM_POTENTIAL_INTERPRETATION
+reads: validated detached fields + structural roles + structure/material state with exact lineage
+writes now: diagnostics only
+target write after separate authority promotion: landformPotentialAuthority
+random stream: none; randomness may not create or select causal permission
+owner now: CAUSAL_LANDFORM_POTENTIAL_DIAGNOSTIC
+phase: L1A contracts + L1B research + L1C blueprint only
 ```
 
 ## 12. Base Terrain Birth

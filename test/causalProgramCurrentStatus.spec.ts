@@ -9,7 +9,7 @@ import {
 
 interface CausalProgramCurrentStatusV1 {
   readonly schemaVersion: 1;
-  readonly statusVersion: 'CAUSAL_PROGRAM_CURRENT_STATUS_AFTER_L1B_V1';
+  readonly statusVersion: 'CAUSAL_PROGRAM_CURRENT_STATUS_AFTER_L1C_BLUEPRINT_V1';
   readonly auditBaseCommit: string;
   readonly historicReadinessArtifactsAreImmutableSnapshots: true;
   readonly authorityMode: 'CAUSAL_SHADOW';
@@ -19,7 +19,10 @@ interface CausalProgramCurrentStatusV1 {
   readonly visiblePhysicalOutputChanged: false;
   readonly scientificStatus: 'PARTIAL';
   readonly completedSoftwareMilestones: readonly string[];
-  readonly currentAuthorizedScope: 'NONE_AFTER_L1B_RESEARCH_PENDING_SEPARATE_EXPLICIT_AUTHORIZATION';
+  readonly completedBlueprintMilestones: readonly string[];
+  readonly l1bPostMergeClosureRecorded: true;
+  readonly resolverBlueprintCompleted: true;
+  readonly currentAuthorizedScope: 'NONE_AFTER_L1C_BLUEPRINT_PENDING_SEPARATE_EXPLICIT_IMPLEMENTATION_AUTHORIZATION';
   readonly resolverImplementationAuthorized: false;
   readonly resolverEvaluationAuthorized: false;
   readonly thresholdCalibrationAuthorized: false;
@@ -29,7 +32,7 @@ interface CausalProgramCurrentStatusV1 {
   readonly legacyRetirementAuthorized: false;
   readonly requiredRegressionGates: readonly string[];
   readonly openAuditBoundaries: readonly string[];
-  readonly nextAction: 'REVIEW_L1B_PR_AND_STOP_PENDING_SEPARATE_AUTHORIZATION';
+  readonly nextAction: 'AWAIT_SEPARATE_EXPLICIT_L1C_IMPLEMENTATION_AUTHORIZATION';
 }
 
 const status = JSON.parse(readFileSync(resolve(
@@ -48,6 +51,11 @@ const requiredMilestones = [
   'L1B_LANDFORM_POTENTIAL_RESEARCH_PACKAGE',
 ] as const;
 
+const requiredBlueprintMilestones = [
+  'L1B_POST_MERGE_CLOSURE',
+  'L1C_LANDFORM_POTENTIAL_RESOLVER_BLUEPRINT_ONLY',
+] as const;
+
 const requiredGates = [
   'FULL_VITEST_SUITE',
   'TYPESCRIPT_BUILD',
@@ -64,13 +72,14 @@ const requiredGates = [
   'M1C_DETACHED_RESOLVER_AUTHORITY_FIREWALL',
   'L1A_LANDFORM_POTENTIAL_CONTRACT_FIREWALL',
   'L1B_RESEARCH_ONLY_AND_HOLDOUT_FIREWALL',
+  'L1C_BLUEPRINT_ONLY_NO_IMPLEMENTATION_FIREWALL',
 ] as const;
 
-describe('current causal-program direction after L1B research', () => {
+describe('current causal-program direction after the L1C blueprint-only checkpoint', () => {
   it('distinguishes current direction from immutable historical readiness snapshots', () => {
     expect(status).toMatchObject({
       schemaVersion: 1,
-      statusVersion: 'CAUSAL_PROGRAM_CURRENT_STATUS_AFTER_L1B_V1',
+      statusVersion: 'CAUSAL_PROGRAM_CURRENT_STATUS_AFTER_L1C_BLUEPRINT_V1',
       historicReadinessArtifactsAreImmutableSnapshots: true,
       authorityMode: 'CAUSAL_SHADOW',
       physicalGeneratorAuthority: 'LEGACY',
@@ -78,7 +87,9 @@ describe('current causal-program direction after L1B research', () => {
       ordinaryGenerateChanged: false,
       visiblePhysicalOutputChanged: false,
       scientificStatus: 'PARTIAL',
-      currentAuthorizedScope: 'NONE_AFTER_L1B_RESEARCH_PENDING_SEPARATE_EXPLICIT_AUTHORIZATION',
+      l1bPostMergeClosureRecorded: true,
+      resolverBlueprintCompleted: true,
+      currentAuthorizedScope: 'NONE_AFTER_L1C_BLUEPRINT_PENDING_SEPARATE_EXPLICIT_IMPLEMENTATION_AUTHORIZATION',
       resolverImplementationAuthorized: false,
       resolverEvaluationAuthorized: false,
       thresholdCalibrationAuthorized: false,
@@ -86,17 +97,25 @@ describe('current causal-program direction after L1B research', () => {
       ordinaryGenerateIntegrationAuthorized: false,
       physicalPromotionAuthorized: false,
       legacyRetirementAuthorized: false,
-      nextAction: 'REVIEW_L1B_PR_AND_STOP_PENDING_SEPARATE_AUTHORIZATION',
+      nextAction: 'AWAIT_SEPARATE_EXPLICIT_L1C_IMPLEMENTATION_AUTHORIZATION',
     });
     expect(status.auditBaseCommit).toMatch(commitPattern);
     expect(status.completedSoftwareMilestones).toEqual(requiredMilestones);
+    expect(status.completedBlueprintMilestones).toEqual(requiredBlueprintMilestones);
     expect(status.requiredRegressionGates).toEqual(requiredGates);
     expect(status.openAuditBoundaries).toContain(
-      'FUTURE_LANDFORM_RESOLVER_PROTOCOL_REQUIRES_SEPARATE_EXPLICIT_AUTHORIZATION',
+      'L1C_IMPLEMENTATION_REQUIRES_SEPARATE_EXPLICIT_AUTHORIZATION',
     );
     expect(status.openAuditBoundaries).toContain(
       'GRAIN_ANISOTROPY_ORIENTATION_REPRESENTATION_REMAINS_OPEN',
     );
+    expect(status.openAuditBoundaries).toEqual(expect.arrayContaining([
+      'L1C_EVIDENCE_RELATION_CONTRACTS_REQUIRE_SEPARATE_REVIEW',
+      'L1C_SUPPORT_RANGE_PROPAGATION_REQUIRES_SEPARATE_REVIEW',
+      'L1C_COMPETITION_SEPARATION_REQUIRES_SEPARATE_REVIEW',
+      'L1C_SPATIAL_COVERAGE_RELATION_REQUIRES_SEPARATE_REVIEW',
+      'L1C_REGION_RECONCILIATION_REQUIRES_SEPARATE_REVIEW',
+    ]));
   });
 
   it('keeps every detached downstream process diagnostic-only and nonphysical', () => {
