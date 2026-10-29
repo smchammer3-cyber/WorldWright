@@ -199,8 +199,14 @@ jobs:
 
       - name: Install Playwright
         run: |
-          npm install --no-save --no-package-lock playwright
-          npx playwright install --with-deps chromium
+          PLAYWRIGHT_DIR="$RUNNER_TEMP/playwright"
+          mkdir -p "$PLAYWRIGHT_DIR"
+          cd "$PLAYWRIGHT_DIR"
+          npm init -y
+          npm install playwright
+          cd "$GITHUB_WORKSPACE"
+          ln -s "$PLAYWRIGHT_DIR/node_modules/playwright" node_modules/playwright
+          "$PLAYWRIGHT_DIR/node_modules/.bin/playwright" install --with-deps chromium
 
       - name: Generate Jarvis snapshot canary
         timeout-minutes: 3
@@ -273,8 +279,14 @@ jobs:
 
       - name: Install Playwright
         run: |
-          npm install --no-save --no-package-lock playwright
-          npx playwright install --with-deps chromium
+          PLAYWRIGHT_DIR="$RUNNER_TEMP/playwright"
+          mkdir -p "$PLAYWRIGHT_DIR"
+          cd "$PLAYWRIGHT_DIR"
+          npm init -y
+          npm install playwright
+          cd "$GITHUB_WORKSPACE"
+          ln -s "$PLAYWRIGHT_DIR/node_modules/playwright" node_modules/playwright
+          "$PLAYWRIGHT_DIR/node_modules/.bin/playwright" install --with-deps chromium
 
       - name: Generate full-quality Jarvis globe review
         timeout-minutes: 9
