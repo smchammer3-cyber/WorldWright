@@ -43,13 +43,32 @@ export function rasterizeGlobeTextureFromPreview(preview: PlanetPreview): Uint8C
 }
 
 function samplePreviewNearest(preview: PlanetPreview, lat: number, lon: number): Rgba {
-  const width = Math.max(1, preview.width);
-  const height = Math.max(1, preview.height);
-  const x = ((normalizeLon(lon) + 180) / 360) * width;
-  const y = ((90 - clamp(lat, -90, 90)) / 180) * height;
-  const sx = wrap(Math.floor(x), width);
-  const sy = clampInt(Math.floor(y), 0, height - 1);
-  return preview.colorAt(sx, sy);
+  const width = Math.max(1, Math.floor(preview.width));
+  const height = Math.max(1, Math.floor(preview.height));
+
+  // Preview colors describe cells, so sample around cell centers and blend
+  // their colors. This avoids hard color steps across the globe mesh while
+  // preserving longitude wrap and clamping at the poles.
+  const x = ((normalizeLon(lon) + 180) / 360) * width - 0.5;
+  const y = ((90 - clamp(lat, -90, 90)) / 180) * height - 0.5;
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const tx = x - x0;
+  const ty = y - y0;
+  const x1 = x0 + 1;
+  const y1 = y0 + 1;
+
+  const top = mixRgba(
+    preview.colorAt(wrap(x0, width), clampInt(y0, 0, height - 1)),
+    preview.colorAt(wrap(x1, width), clampInt(y0, 0, height - 1)),
+    tx,
+  );
+  const bottom = mixRgba(
+    preview.colorAt(wrap(x0, width), clampInt(y1, 0, height - 1)),
+    preview.colorAt(wrap(x1, width), clampInt(y1, 0, height - 1)),
+    tx,
+  );
+  return mixRgba(top, bottom, ty);
 }
 
 function averageLocalLongitudeWindow(preview: PlanetPreview, lat: number, lon: number, radiusDegrees: number): Rgba {
