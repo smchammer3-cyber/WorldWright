@@ -13,7 +13,7 @@ type Rgba = [number, number, number, number];
  * water, biome, and depth shapes visible while softening thin radial artifacts.
  */
 export function sampleGlobePreviewAtLatLon(preview: PlanetPreview, lat: number, lon: number): Rgba {
-  const base = samplePreviewNearest(preview, lat, lon);
+  const base = samplePreviewBilinear(preview, lat, lon);
   const absLat = Math.abs(lat);
   const polarBlend = smoothstep(78, 89.5, absLat);
   if (polarBlend <= 0) return base;
@@ -42,7 +42,7 @@ export function rasterizeGlobeTextureFromPreview(preview: PlanetPreview): Uint8C
   return out;
 }
 
-function samplePreviewNearest(preview: PlanetPreview, lat: number, lon: number): Rgba {
+function samplePreviewBilinear(preview: PlanetPreview, lat: number, lon: number): Rgba {
   const width = Math.max(1, Math.floor(preview.width));
   const height = Math.max(1, Math.floor(preview.height));
 
@@ -82,7 +82,7 @@ function averageLocalLongitudeWindow(preview: PlanetPreview, lat: number, lon: n
 
   for (let i = 0; i < offsets.length; i++) {
     const weight = weights[i];
-    const color = samplePreviewNearest(preview, lat, lon + offsets[i] * radiusDegrees);
+    const color = samplePreviewBilinear(preview, lat, lon + offsets[i] * radiusDegrees);
     r += color[0] * weight;
     g += color[1] * weight;
     b += color[2] * weight;
