@@ -393,12 +393,32 @@ describe('W1-05B detached geologic-spine resolver', () => {
       '</svg>',
     ].join('');
     writeFileSync(resolve(directory, 'real-spine-convergence-vs-ablation.svg'), svg);
+    const linkedEdge = spine.edges.find((edge) =>
+      edge.kind === 'CONVERGES_WITH' && edge.fromNodeId === convergence.nodeId,
+    );
+    const target = spine.nodes.find((node) => node.nodeId === linkedEdge?.toNodeId);
+    const spatialSeparationDegrees = target ? Math.acos(Math.max(-1, Math.min(1,
+      Math.sin(convergence.anchor.latitudeDegrees * Math.PI / 180) * Math.sin(target.anchor.latitudeDegrees * Math.PI / 180) +
+      Math.cos(convergence.anchor.latitudeDegrees * Math.PI / 180) * Math.cos(target.anchor.latitudeDegrees * Math.PI / 180) *
+      Math.cos((convergence.anchor.longitudeDegrees - target.anchor.longitudeDegrees) * Math.PI / 180),
+    ))) * 180 / Math.PI : null;
+    const maxSupportRadiusDegrees = target
+      ? convergence.extent.angularRadiusDegrees + target.extent.angularRadiusDegrees
+      : null;
     writeFileSync(resolve(directory, 'source-and-ablation.json'), JSON.stringify({
       classification: positive.classification,
       sourceSpineHash: spine.contentHash,
       sourceNodeId: convergence.nodeId,
       sourceEventIds: convergence.formationEventIds,
       sourceRelatedEdges: spine.edges.filter((edge) => edge.fromNodeId === convergence.nodeId),
+      linkedTargetFamily: target?.family ?? null,
+      linkedTargetAnchor: target?.anchor ?? null,
+      linkedTargetExtent: target?.extent ?? null,
+      sourceToTargetSeparationDegrees: spatialSeparationDegrees,
+      nominalCombinedAngularSupportDegrees: maxSupportRadiusDegrees,
+      nominalAngularSupportOverlaps: spatialSeparationDegrees != null && maxSupportRadiusDegrees != null
+        ? spatialSeparationDegrees <= maxSupportRadiusDegrees : false,
+      physicalPlateContactVerified: false,
       sourceAnchor: convergence.anchor,
       sourceExtent: convergence.extent,
       peakWithSource: Math.max(...positive.values),
