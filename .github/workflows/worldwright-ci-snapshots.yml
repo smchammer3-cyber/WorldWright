@@ -56,6 +56,15 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Upload causal convergence geometry image and ablation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: causal-convergence-geometry-proof
+          path: artifacts/causal-convergence-geometry-proof/
+          if-no-files-found: warn
+          retention-days: 14
+
   build:
     name: Build
     runs-on: ubuntu-latest
