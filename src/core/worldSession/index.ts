@@ -1,7 +1,7 @@
 import type { WorldBrain } from '../worldSchema';
 import type { GeneratorParams } from '../worldGenerator';
 
-import { generateWorldFromParams } from '../worldGenerator';
+import { generateCompletePhysicalWorld, type PhysicalGenerationRoute } from '../worldPhysicalGeneration';
 import { applyWorldAction, WorldAction } from '../worldActions';
 import { recomputeWorld } from '../worldRecompute';
 import { validateWorld } from '../worldValidation';
@@ -14,7 +14,6 @@ import {
 import { createRandomIdentity, type EntropySource } from '../worldEntropy';
 import { ensureCrustFields } from '../worldCrust';
 import { ensureContinentSkeletonFields } from '../worldContinents';
-import { applyGeneratedGeographyPipeline } from '../worldGeographyPipeline';
 import { cloneStructuredValue, cloneWorldDocument } from '../worldCloning';
 import { migrateWorldDocument } from '../worldMigrations/migrateWorldDocument';
 import type { WorldMigrationReport } from '../worldMigrations/types';
@@ -141,12 +140,11 @@ export class WorldSession {
     this.simCurrentYear = 0;
   }
 
-  async createWorld(params: GeneratorParams): Promise<void> {
-    const prepared = this.prepareWorld(generateWorldFromParams(params));
+  async createWorld(params: GeneratorParams, route: PhysicalGenerationRoute = 'LEGACY'): Promise<void> {
+    // Dispatch before any world is created. One route must own ALL physical
+    // fields for this run; future CAUSAL worlds must never enter LEGACY passes.
+    const prepared = generateCompletePhysicalWorld(params, (raw) => this.prepareWorld(raw), route);
     const world = prepared.world;
-
-    recomputeWorld(world, ['GENERATED']);
-    applyGeneratedGeographyPipeline(world);
 
     const errors = validateWorld(world);
     if (errors.length > 0) console.warn('Validation warnings on generated world:', errors);
