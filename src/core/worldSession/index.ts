@@ -1,7 +1,7 @@
 import type { WorldBrain } from '../worldSchema';
 import type { GeneratorParams } from '../worldGenerator';
 
-import { generateCompletePhysicalWorld, type PhysicalGenerationRoute } from '../worldPhysicalGeneration';
+import { DEFAULT_PHYSICAL_GENERATION_ROUTE, generateCompletePhysicalWorld, type PhysicalGenerationRoute } from '../worldPhysicalGeneration';
 import { applyWorldAction, WorldAction } from '../worldActions';
 import { recomputeWorld } from '../worldRecompute';
 import { validateWorld } from '../worldValidation';
@@ -140,7 +140,7 @@ export class WorldSession {
     this.simCurrentYear = 0;
   }
 
-  async createWorld(params: GeneratorParams, route: PhysicalGenerationRoute = 'LEGACY'): Promise<void> {
+  async createWorld(params: GeneratorParams, route: PhysicalGenerationRoute = DEFAULT_PHYSICAL_GENERATION_ROUTE): Promise<void> {
     // Dispatch before any world is created. One route must own ALL physical
     // fields for this run; future CAUSAL worlds must never enter LEGACY passes.
     const prepared = generateCompletePhysicalWorld(params, (raw) => this.prepareWorld(raw), route);
