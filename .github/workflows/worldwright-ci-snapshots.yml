@@ -199,6 +199,11 @@ jobs:
 
       - name: Install Playwright
         run: |
+          # npm 10's Arborist can crash on Vitest's optional peer graph
+          # ("Cannot read properties of null (reading 'edgesOut')").
+          # Keep lockfile installs on npm ci; use fixed npm 11 for this
+          # transient Playwright dependency only.
+          npm install --global npm@11.6.0
           npm install --no-save --no-package-lock playwright
           npx playwright install --with-deps chromium
 
@@ -273,6 +278,11 @@ jobs:
 
       - name: Install Playwright
         run: |
+          # npm 10's Arborist can crash on Vitest's optional peer graph
+          # ("Cannot read properties of null (reading 'edgesOut')").
+          # Keep lockfile installs on npm ci; use fixed npm 11 for this
+          # transient Playwright dependency only.
+          npm install --global npm@11.6.0
           npm install --no-save --no-package-lock playwright
           npx playwright install --with-deps chromium
 
