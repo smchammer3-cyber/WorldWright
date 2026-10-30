@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -35,6 +35,7 @@ import {
 } from '../src/core/causalGeology';
 import { resolveWorldFeatureFlags } from '../src/core/worldFeatureFlags/resolve';
 import { getRandomStreamDefinition } from '../src/core/worldRandom/streamRegistry';
+import { generateConvergenceReliefDiagnostic } from '../src/core/causalTerrainCandidate/convergenceReliefDiagnostic';
 
 const researchRoot = resolve(process.cwd(), 'src/core/causalGeology/research');
 const historyReview = readJson<RegimeHistoryResearchReviewV1>('regime-history-review-record.json');
@@ -324,6 +325,89 @@ describe('W1-05B detached geologic-spine resolver', () => {
     const heapDelta = Math.max(0, process.memoryUsage().heapUsed - startHeap);
     expect(averageMilliseconds).toBeLessThan(GEOLOGIC_SPINE_RESOLVER_PERFORMANCE_BUDGET_V1.maxAverageResolutionMilliseconds);
     expect(heapDelta).toBeLessThan(GEOLOGIC_SPINE_RESOLVER_PERFORMANCE_BUDGET_V1.maxHeapDeltaBytes);
+  });
+
+  it('produces a real-source convergence-relief image and a zero-cause ablation, without legacy terrain', () => {
+    const { input, premise, interior, history } = upstream();
+    // This uses the actual causal geologic-spine resolver, not a fabricated
+    // standalone mountain drawn by a preview or legacy generator.
+    const resolution = resolveGeologicSpine(input, premise, interior, history, spineContext());
+    const spine = resolution.spine!;
+    expect(spine.status).toBe('PARTIAL');
+    const convergence = spine.nodes.find((node) =>
+      node.family === 'CONVERGENCE_SYSTEM' &&
+      spine.edges.some((edge) => edge.kind === 'CONVERGES_WITH' && edge.fromNodeId === node.nodeId),
+    );
+    expect(convergence).toBeDefined();
+    if (!convergence) throw new Error('Controlled causal Earthlike history contains no convergence source.');
+
+    const span = convergence.extent.angularRadiusDegrees * 4.4;
+    const options = {
+      width: 224,
+      height: 160,
+      viewportCenter: convergence.anchor,
+      latitudeSpanDegrees: Math.min(180, span),
+      longitudeSpanDegrees: Math.min(360, span),
+    };
+    const positive = generateConvergenceReliefDiagnostic(spine, options);
+    const ablated = generateConvergenceReliefDiagnostic(spine, {
+      ...options,
+      excludedNodeIds: spine.nodes
+        .filter((node) => node.family === 'CONVERGENCE_SYSTEM')
+        .map((node) => node.nodeId),
+    });
+    expect(positive.classification).toBe('DETACHED_UNCALIBRATED_CAUSE_TO_GEOMETRY_EXPERIMENT');
+    expect(positive.status).toBe('PARTIAL_DIAGNOSTIC');
+    expect(positive.sourceNodeIds).toContain(convergence.nodeId);
+    expect(positive.values.some((value) => value > 0.15)).toBe(true);
+    expect(positive.values.every((value) => Number.isFinite(value) && value >= 0 && value <= 1)).toBe(true);
+    expect(ablated.status).toBe('BLOCKED_NO_CONVERGENCE_SOURCE');
+    expect(ablated.values.every((value) => value === 0)).toBe(true);
+    expect(generateConvergenceReliefDiagnostic(spine, options).values).toEqual(positive.values);
+
+    // Export actual rasterized outputs from the same causal source for visual
+    // examination. The side-by-side image is not a validated physical planet.
+    const directory = resolve(process.cwd(), 'artifacts/causal-convergence-geometry-proof');
+    mkdirSync(directory, { recursive: true });
+    const pixels = (values: readonly number[], offsetX: number) => values.map((value, index) => {
+      const x = index % options.width;
+      const y = Math.floor(index / options.width);
+      const c = Math.max(0, Math.min(255, Math.round(value * 255)));
+      const red = Math.round(20 + c * 0.87);
+      const green = Math.round(28 + c * 0.74);
+      const blue = Math.round(42 + c * 0.46);
+      return `<rect x="${offsetX + x * 2}" y="${80 + y * 2}" width="2" height="2" fill="rgb(${red},${green},${blue})"/>`;
+    }).join('');
+    const width = options.width * 2;
+    const height = options.height * 2;
+    const svg = [
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width * 2 + 60} ${height + 146}">`,
+      '<rect width="100%" height="100%" fill="#111b28"/>',
+      '<text x="20" y="27" fill="#eaf2fa" font-size="17" font-family="sans-serif">WorldWright — source-attributed convergence relief experiment</text>',
+      '<text x="20" y="49" fill="#aac0d3" font-size="12" font-family="sans-serif">ACTUAL CAUSAL SPINE → UNIT-LESS GEOMETRY | NOT a proven collision, mountain height, or finished planet</text>',
+      pixels(positive.values, 20),
+      pixels(ablated.values, width + 40),
+      `<text x="20" y="${height + 105}" fill="#eaf2fa" font-size="14" font-family="sans-serif">WITH CAUSAL CONVERGENCE SOURCE</text>`,
+      `<text x="${width + 40}" y="${height + 105}" fill="#eaf2fa" font-size="14" font-family="sans-serif">WITHOUT CONVERGENCE CAUSE (ABLATION)</text>`,
+      `<text x="20" y="${height + 130}" fill="#a7bdd0" font-size="11" font-family="monospace">source: ${convergence.nodeId}</text>`,
+      '</svg>',
+    ].join('');
+    writeFileSync(resolve(directory, 'real-spine-convergence-vs-ablation.svg'), svg);
+    writeFileSync(resolve(directory, 'source-and-ablation.json'), JSON.stringify({
+      classification: positive.classification,
+      sourceSpineHash: spine.contentHash,
+      sourceNodeId: convergence.nodeId,
+      sourceEventIds: convergence.formationEventIds,
+      sourceRelatedEdges: spine.edges.filter((edge) => edge.fromNodeId === convergence.nodeId),
+      sourceAnchor: convergence.anchor,
+      sourceExtent: convergence.extent,
+      peakWithSource: Math.max(...positive.values),
+      peakWithoutAnyConvergenceSource: Math.max(...ablated.values),
+      nonzeroCellsWithSource: positive.values.filter((value) => value > 0).length,
+      nonzeroCellsWithoutSource: ablated.values.filter((value) => value > 0).length,
+      calibration: 'NONE',
+      limitations: positive.limitations,
+    }, null, 2));
   });
 
   it('keeps geologic-spine random authority active only in shadow mode', () => {
