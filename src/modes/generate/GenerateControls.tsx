@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { updateGenerateControl } from "./generateParameterAdapter";
 
 import { createDefaultGeneratorParams, type GeneratorParams } from "../../core/worldGenerator";
 import { createRandomNumericSeed } from "../../core/worldEntropy";
@@ -75,7 +76,7 @@ export default function GenerateControls({ onGenerate, onSave, saving, disabled 
   }, [params]);
 
   function set<K extends keyof GeneratorParams>(key: K, value: GeneratorParams[K]) {
-    setParams((p) => ({ ...p, [key]: value }));
+    setParams((p) => updateGenerateControl(p, key, value));
   }
 
   function setWidthAndDerivedHeight(widthValue: number) {

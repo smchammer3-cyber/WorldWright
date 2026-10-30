@@ -28,6 +28,10 @@ const seeds = String(args.seeds ?? DEFAULT_SEEDS.join(','))
   .map((seed) => seed.trim())
   .filter(Boolean);
 const width = Number(args.width ?? 384);
+const seaLevelOverride = args['sea-level'] === undefined ? null : Number(args['sea-level']);
+if (seaLevelOverride !== null && (!Number.isInteger(seaLevelOverride) || seaLevelOverride < 0 || seaLevelOverride > 100)) {
+  throw new Error('--sea-level must be an integer from 0 to 100.');
+}
 const worldResolution = normalizeWorldResolution(width);
 const globeImageSize = parseImageSize(args['globe-image-size'] ?? `${worldResolution.width}x${worldResolution.width}`);
 const viewport = parseViewport(args.viewport ?? '1440x1100');
@@ -45,6 +49,7 @@ const manifest = {
   baseUrl,
   seeds,
   width,
+  seaLevelOverride,
   worldResolution,
   globeImageSize,
   viewport,
@@ -89,6 +94,7 @@ try {
         captureSeed(page, {
           seed,
           width,
+          seaLevelOverride,
           outputDir,
           baseUrl,
           timeoutMs,
@@ -152,7 +158,7 @@ if (manifest.failures.length > 0) {
 
 process.exit(process.exitCode ?? 0);
 
-async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, downloadTimeoutMs, shouldExportReviewPack, globeImageSize, captureContext }) {
+async function captureSeed(page, { seed, width, seaLevelOverride, outputDir, baseUrl, timeoutMs, downloadTimeoutMs, shouldExportReviewPack, globeImageSize, captureContext }) {
   const stepLog = createStepLogger(`[${seed}]`, captureContext.timings);
   const paths = seedArtifactPaths(outputDir, seed);
   await mkdir(paths.seedDir, { recursive: true });
@@ -162,7 +168,7 @@ async function captureSeed(page, { seed, width, outputDir, baseUrl, timeoutMs, d
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
 
   stepLog('Driving Generate controls');
-  await driveGenerateControls(page, { seed, width, timeoutMs });
+  await driveGenerateControls(page, { seed, width, seaLevelOverride, timeoutMs });
 
   let exportButton = null;
   if (shouldExportReviewPack) {
@@ -291,13 +297,26 @@ async function saveCanvasPngAtSize(globeCanvas, filePath, imageSize) {
   await writeFile(filePath, Buffer.from(pngBase64, 'base64'));
 }
 
-async function driveGenerateControls(page, { seed, width, timeoutMs }) {
+async function driveGenerateControls(page, { seed, width, seaLevelOverride, timeoutMs }) {
   const numericInputs = page.locator('input[inputmode="numeric"]');
   await numericInputs.first().waitFor({ state: 'visible', timeout: timeoutMs });
   await numericInputs.first().fill(String(seed), { timeout: timeoutMs });
 
   if (Number.isFinite(width)) {
     await numericInputs.nth(1).fill(String(width), { timeout: timeoutMs });
+  }
+
+  if (seaLevelOverride !== null) {
+    const seaLevelControl = page.locator('input[type="range"]').first();
+    await seaLevelControl.evaluate((element, level) => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+      if (!setter) throw new Error('Sea Level slider value setter is unavailable.');
+      setter.call(element, String(level));
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+    }, seaLevelOverride);
+    // Check the visible React control updated, not merely the DOM input.
+    await page.getByText(`Sea Level (0–100): ${seaLevelOverride}`).waitFor({ timeout: timeoutMs });
   }
 
   await page.waitForTimeout(900);

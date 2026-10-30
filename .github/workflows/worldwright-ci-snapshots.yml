@@ -199,6 +199,11 @@ jobs:
 
       - name: Install Playwright
         run: |
+          # npm 10's Arborist can crash on Vitest's optional peer graph
+          # ("Cannot read properties of null (reading 'edgesOut')").
+          # Keep lockfile installs on npm ci; use fixed npm 11 for this
+          # transient Playwright dependency only.
+          npm install --global npm@11.6.0
           npm install --no-save --no-package-lock playwright
           npx playwright install --with-deps chromium
 
@@ -242,6 +247,33 @@ jobs:
 
           exit "$STATUS"
 
+      - name: Capture Sea Level contrast at a fixed seed
+        timeout-minutes: 3
+        run: |
+          # Two real UI-generated globe captures, not just numerical assertions.
+          # Same seed and settings; only the visible Sea Level control moves.
+          for LEVEL in 10 90; do
+            timeout --kill-after=15s 65s npm run snapshots:jarvis -- \
+              --out=artifacts/jarvis-sea-level-contrast/level-$LEVEL \
+              --seeds=32319885 \
+              --width=192 \
+              --sea-level=$LEVEL \
+              --globe-image-size=192x192 \
+              --viewport=1200x900 \
+              --timeout-ms=25000 \
+              --download-timeout-ms=25000 \
+              --per-seed-timeout-ms=45000
+          done
+
+      - name: Upload Sea Level contrast
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-sea-level-contrast
+          path: artifacts/jarvis-sea-level-contrast/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Upload Jarvis snapshot canary
         if: always()
         uses: actions/upload-artifact@v4
@@ -273,6 +305,11 @@ jobs:
 
       - name: Install Playwright
         run: |
+          # npm 10's Arborist can crash on Vitest's optional peer graph
+          # ("Cannot read properties of null (reading 'edgesOut')").
+          # Keep lockfile installs on npm ci; use fixed npm 11 for this
+          # transient Playwright dependency only.
+          npm install --global npm@11.6.0
           npm install --no-save --no-package-lock playwright
           npx playwright install --with-deps chromium
 
